@@ -30,12 +30,17 @@ export default function HomeBlinkCell() {
 
   return (
     <img
-      src={frame === "v1" ? "/blink-v1.png" : "/blink-v2.png"}
-      alt="Home cell"
-      width={260}
-      height={260}
-      draggable={false}
-      style={{ display: "block" }}
-    />
+  src={frame === "v1" ? "/blink-v1.png" : "/blink-v2.png"}
+  alt="Home cell"
+  draggable={false}
+  style={{
+    width: "100%",
+    height: "100%",
+    display: "block",
+    objectFit: "contain",
+  }}
+/>
+
+
   );
 }

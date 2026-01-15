@@ -23,8 +23,10 @@ export default async function WallOfShamePage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div className="min-h-screen bg-neutral-950 p-4 sm:p-6">
-      <h1 className="flex items-center justify-center gap-2 text-2xl sm:text-3xl font-bold mb-8 text-red-400">
+    <div className="min-h-screen bg-neutral-950 p-4 sm:p-6 text-white/85">
+  <h1 className="flex items-center justify-center gap-2 text-2xl sm:text-3xl mb-8 font-[Permanent_Marker] text-[var(--orange-dark)]">
+
+
         <AnimatedCellShame />
         <span>Wall of Shame</span>
       </h1>

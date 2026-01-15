@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
-import { Bangers } from "next/font/google";
+import { Bangers, Permanent_Marker } from "next/font/google";
 import "./globals.css";
 
+/* Fonts */
 const bangers = Bangers({
   weight: "400",
   subsets: ["latin"],
   variable: "--font-bangers",
+});
+
+const permanentMarker = Permanent_Marker({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-marker",
 });
 
 export const metadata: Metadata = {
@@ -19,8 +26,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${bangers.variable} antialiased bg-orange-background`}>
+    <html
+      lang="en"
+      className={`${bangers.variable} ${permanentMarker.variable}`}
+    >
+      <body className="antialiased bg-orange-background">
         {children}
       </body>
     </html>

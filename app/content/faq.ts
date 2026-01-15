@@ -1,74 +1,10 @@
-"use client";
-
-import { useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-
-/* ================= CONTENT ================= */
-
-const SECTIONS = [
-  {
-    title: "What is CancerCulture?",
-    button: "About",
-    text: `
-CancerCulture was born out of a simple but uncomfortable truth:
-The memecoin space sometimes feels like cancer.
-
-The idea behind it is simple.
-I wanted to create a community-driven charity coin,
-where the community itself shows how selfless it can be,
-especially when it comes to everybody’s own pocket.
-
-There is an ongoing competition, as long as this project exists.
-And it is up to the community, to keep it alive.
-
-50% of the Creator rewards will go to the Community
-across multiple rounds.
-
-And just to be absolutely clear:
-
-The name CancerCulture is not meant to make fun of sick people,
-and it has nothing to do with cancer as a disease.
-
-It refers only to a cancerous space,
-and to everyone’s personal cancer.
-`,
-  },
-  {
-    title: "The name is the narrative.",
-    button: "Narrative",
-    text: `
-Everyone is encouraged to upload a picture
-of their personal cancer.
-
-Your personal cancer does not mean an illness.
-It means something unhealthy, irrational,
-or unnecessary that you still keep doing,
-buying, or spending money on.
-
-This can be:
-
-- a bad habit
-- an addiction to something pointless
-- something you know is stupid,
-  but you do it anyway.
-
-Before you upload, keep this in mind:
-
-Step 1: Think.
-Step 2: Be creative.
-Step 3: Upload it.
-Step 4: Vote on other submissions.
-Step 5: Chill and shill.
-`,
-  },
-  {
+export const FAQ_CONTENT = {
+  left: {
     title: "FAQ & Info.",
-    button: "FAQ & Info.",
     text: `
--------------------------------------------------
+-----------------------------
 HOW IT WORKS:    
--------------------------------------------------
+-----------------------------
 
 CancerCulture runs as an ongoing competition in separate rounds.
 
@@ -80,9 +16,9 @@ In each round, everyone can:
 
 You are not allowed to vote for your own submission.
 
--------------------------------------------------
+-----------------------------
 UPLOADS, VOTING & VERIFICATION:
--------------------------------------------------
+-----------------------------
 To keep everything as fair and safe as possible,
 there is no wallet connection required at any point.
 
@@ -106,9 +42,9 @@ You can choose to:
 
 -or split the prize and decide what   \u00A0percentage should be donated
 
--------------------------------------------------
+-----------------------------
 PRIVACY & ANONYMITY:
--------------------------------------------------
+-----------------------------
 
 All personal information stays hidden during the active round
 and has no influence on voting.
@@ -129,9 +65,9 @@ used only to prevent double votes and double uploads.
 These hashes change between rounds
 and cannot be used to track users over time.
 
--------------------------------------------------
+-----------------------------
 ROUNDS, TIMING & REWARDS:
--------------------------------------------------
+-----------------------------
 There are no fixed round durations.
 
 Round length depends on:
@@ -158,9 +94,9 @@ This is intentional.
 
 We prioritize transparency over predictability.
 
--------------------------------------------------
+-----------------------------
 WINNERS, TIES & OUTCOMES:
--------------------------------------------------
+-----------------------------
 The submission with the most votes wins.
 
 If multiple submissions share the highest vote count,
@@ -191,9 +127,9 @@ It simply fits the CancerCulture narrative.
 Every decision is valid,
 and there is no reason to attack or harass anyone based on their choice.
 
--------------------------------------------------
+-----------------------------
 CHARITY SELECTION:
--------------------------------------------------
+-----------------------------
 
 For convenience, a small selection of well-known charity organizations
 is available in the dropdown menu during submission.
@@ -213,9 +149,9 @@ There is no restriction on which legitimate charity you choose,
 as long as it aligns with the platform rules
 and can technically receive the donation.
 
--------------------------------------------------
+-----------------------------
 ABOUT THE REMAINING 50% OF CREATOR REWARDS:
--------------------------------------------------
+-----------------------------
 
 A fair question.
 
@@ -230,15 +166,16 @@ Whatever the winning creator chooses, we mirror.
 -If the winner donates, we donate to the same organization.
 
 This applies per round, without exceptions.
+
 `,
   },
-  {
+
+  right: {
     title: "Rules and Guidelines.",
-    button: "Rules",
     text: `
--------------------------------------------------  
+-----------------------------
 CONTENT & SUBMISSIONS:
--------------------------------------------------
+-----------------------------
 
 All uploaded content must be original and created by the uploader.
 
@@ -253,9 +190,9 @@ This data is used only for abuse prevention
 and legal safety purposes,
 IPs are automatically deleted after 24 hours.
 
--------------------------------------------------
+-----------------------------
 SUPPORT, PAYOUT ISSUES & TIMING:
--------------------------------------------------
+-----------------------------
 
 If you experience any issues related to your submission or payout,
 for example:
@@ -268,7 +205,7 @@ you must submit a support request via the official
 “Wallet / Participation Issue” form on the CancerCulture website.
 
 You can access this form using the support button
-located on the bottom of the submission page.
+located at the bottom of the upload page.
 
 This is the only supported channel for payout-related issues.
 
@@ -315,9 +252,9 @@ CancerCulture processes payouts immediately once a round is closed.
 There is no waiting period after a round ends
 to validate or correct user information.
 
--------------------------------------------------
+-----------------------------
 BEHAVIOR & CONDUCT:
--------------------------------------------------
+-----------------------------
 
 Harassment, hate speech, threats, or targeted attacks are not tolerated.
 
@@ -329,9 +266,9 @@ Attacking or harassing a person because of their decision is not.
 CancerCulture is built around self-irony, creativity, and shared culture.
 Abuse of the narrative to harm others is not acceptable.
 
--------------------------------------------------
+-----------------------------
 PAYOUT & DECISIONS:
--------------------------------------------------
+-----------------------------
 
 All payout decisions are made by the winner.
 
@@ -342,9 +279,9 @@ CancerCulture does not guarantee prize size or round duration.
 Rewards depend entirely on the available creator rewards
 at the time a round ends.
 
--------------------------------------------------
+-----------------------------
 MODERATION & ENFORCEMENT:
--------------------------------------------------
+-----------------------------
 
 CancerCulture reserves the right to remove content or participants
 that violate these rules
@@ -356,9 +293,9 @@ from participation.
 Moderation actions are logged
 and can be reviewed internally if necessary.
 
--------------------------------------------------
+-----------------------------
 DISCLAIMER:
--------------------------------------------------
+-----------------------------
 
 CancerCulture is an experimental, community-driven project.
 
@@ -368,92 +305,11 @@ Nothing on this platform constitutes financial advice.
 
 There is no guarantee of profit, reward size, or outcome.
 
--------------------------------------------------
+-----------------------------
 
 If you made it this far,
 you already understand the culture.
 
-But just in case:
-
-The cell with the white clipboard
-at the bottom of the screen
-is the way in.
-
-Do with that what you want.
 `,
   },
-];
-
-/* ================= COMPONENT ================= */
-
-export default function MobileAbout() {
-  const [index, setIndex] = useState(0);
-
-  const prev = () => index > 0 && setIndex(index - 1);
-  const next = () => index < SECTIONS.length - 1 && setIndex(index + 1);
-
-  return (
-    <div className="relative w-screen h-screen bg-orange-background text-white flex flex-col">
-
-      {/* ===== TOP NAV ===== */}
-      <div className="flex items-center justify-between px-4 py-3 text-xs font-semibold">
-        <Link href="/wall/fame">Wall of Fame</Link>
-        <Link href="/vote">Vote</Link>
-        <Link href="/wall/shame">Wall of Shame</Link>
-      </div>
-
-      {/* ===== NAV BUTTONS ===== */}
-      <div className="flex items-center justify-between px-4 py-2 text-sm">
-        <button
-          onClick={prev}
-          disabled={index === 0}
-          className="px-3 py-1 rounded-full bg-black/30 disabled:opacity-30"
-        >
-          ←
-        </button>
-
-        <span className="text-xs opacity-80">
-          {SECTIONS[index].button}
-        </span>
-
-        <button
-          onClick={next}
-          disabled={index === SECTIONS.length - 1}
-          className="px-3 py-1 rounded-full bg-black/30 disabled:opacity-30"
-        >
-          →
-        </button>
-      </div>
-
-      {/* ===== CONTENT ===== */}
-      <div className="flex-1 overflow-hidden px-4 pb-28">
-        <div className="h-full overflow-y-auto rounded-2xl bg-yellow-star p-4">
-          <h2 className="text-lg font-bold mb-4 text-center">
-            {SECTIONS[index].title}
-          </h2>
-
-          <div className="whitespace-pre-line text-[15.5px] leading-relaxed text-black">
-  {SECTIONS[index].text}
-</div>
-        </div>
-      </div>
-
-      {/* ===== UPLOAD CTA ===== */}
-      <Link
-        href="/upload"
-        className="fixed bottom-4 right-4 z-50"
-      >
-        <Image
-          src="/upload-cell-v2.png"
-          alt="Upload your cancer"
-          width={64}
-          height={64}
-          className="
-            drop-shadow-[0_4px_0_rgba(0,0,0,0.35)]
-            active:scale-[0.95]
-          "
-        />
-      </Link>
-    </div>
-  );
-}
+};

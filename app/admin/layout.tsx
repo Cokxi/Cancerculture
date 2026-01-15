@@ -11,7 +11,6 @@ export default async function AdminLayout({
   let member;
 
   try {
-    // 🔐 Admin ODER Mod (Cookie + DB im Guard)
     member = await getTeamMember();
   } catch {
     redirect("/403");
@@ -20,103 +19,105 @@ export default async function AdminLayout({
   const isAdmin = member.role === "admin";
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
-      <nav
-        style={{
-          width: 220,
-          padding: 16,
-          borderRight: "1px solid #333",
-        }}
-      >
-        
+    <div className="min-h-screen flex bg-neutral-950 text-white/90">
+      {/* SIDEBAR */}
+      <nav className="w-[220px] shrink-0 border-r border-white/10 p-4 text-sm">
+        <Link
+          href="/"
+          className="inline-block mb-4 px-3 py-1 rounded-md text-white/80 hover:text-white hover:bg-white/10 transition"
+        >
+          ← Home
+        </Link>
 
-        <ul style={{ listStyle: "none", padding: 0 }}>
-          {/* 🔴 ADMIN ONLY */}
+        <ul className="space-y-2">
           {isAdmin && (
             <li>
-              <Link href="/admin/cycles">Cycles</Link>
+              <Link
+                href="/admin/cycles"
+                className="block px-2 py-1 rounded hover:bg-white/10"
+              >
+                Cycles
+              </Link>
             </li>
           )}
 
-          {/* 🟢 MOD + ADMIN */}
           <li>
-            <Link href="/admin/moderation/submissions">
+            <Link
+              href="/admin/moderation/submissions"
+              className="block px-2 py-1 rounded hover:bg-white/10"
+            >
               Moderation
             </Link>
           </li>
 
-          <li>
-            <strong>Logs</strong>
+          <li className="mt-4 text-white/50 uppercase text-xs">
+            Logs
           </li>
 
-          <li style={{ marginLeft: 12 }}>
-            <Link href="/admin/logs/cycles">
+          <li className="ml-3">
+            <Link
+              href="/admin/logs/cycles"
+              className="block px-2 py-1 rounded hover:bg-white/10"
+            >
               Cycle Logs
             </Link>
           </li>
 
-          <li style={{ marginLeft: 12 }}>
-            <Link href="/admin/logs/uploads">
+          <li className="ml-3">
+            <Link
+              href="/admin/logs/uploads"
+              className="block px-2 py-1 rounded hover:bg-white/10"
+            >
               Upload Logs
             </Link>
           </li>
 
-          <li style={{ marginLeft: 12 }}>
-            <Link href="/admin/logs/votes">
+          <li className="ml-3">
+            <Link
+              href="/admin/logs/votes"
+              className="block px-2 py-1 rounded hover:bg-white/10"
+            >
               Vote Logs
             </Link>
           </li>
 
-          <li style={{ marginLeft: 12 }}>
-            <Link href="/admin/logs/moderation">
+          <li className="ml-3">
+            <Link
+              href="/admin/logs/moderation"
+              className="block px-2 py-1 rounded hover:bg-white/10"
+            >
               Moderation Logs
             </Link>
           </li>
 
           {isAdmin && (
-  <li>
-    <Link href="/admin/invites">
-      📨 Invites
-    </Link>
-  </li>
-)}
-          {isAdmin && (
-            <li>
-  <Link href="/admin/mods">
-    🛡️ Mods
-  </Link>
-</li>
+            <>
+              <li className="mt-4">
+                <Link
+                  href="/admin/invites"
+                  className="block px-2 py-1 rounded hover:bg-white/10"
+                >
+                  📨 Invites
+                </Link>
+              </li>
 
+              <li>
+                <Link
+                  href="/admin/mods"
+                  className="block px-2 py-1 rounded hover:bg-white/10"
+                >
+                  🛡️ Mods
+                </Link>
+              </li>
+            </>
           )}
-          <Link
-  href="/"
-  style={{
-    display: "inline-block",
-    marginBottom: 16,
-    padding: "6px 10px",
-    borderRadius: 6,
-    background: "transparent",
-    color: "#fff",
-    fontSize: 13,
-    textDecoration: "none",
-  }}
->
-  ← Home
-</Link>
-
         </ul>
       </nav>
 
-      <main
-  style={{
-    flex: 1,
-    padding: 24,
-    overflowY: "auto",
-    maxHeight: "100vh",
-  }}
->
-  {children}
-</main>
+      {/* CONTENT */}
+      <main className="flex-1 p-6 overflow-y-auto">
+        {children}
+      </main>
     </div>
   );
 }

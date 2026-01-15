@@ -10,48 +10,42 @@ export default function DiscordCell() {
       rel="noopener noreferrer"
       className="relative cursor-pointer group"
     >
-      {/* CELL IMAGE */}
-      <Image
-        src="/cell-left-v2.png"
-        alt="Join our Discord"
-        width={600}
-        height={600}
-        className="
-          w-[clamp(180px,22vw,420px)]
-          h-auto
-          animate-float
-          transition-transform
-          hover:scale-[1.03]
-        "
-      />
-
-      {/* DISCORD ICON */}
-      <div
-        className="
-          absolute
-          -top-[clamp(55px,7vh,110px)]
-          left-1/2
-          -translate-x-1/2
-          pointer-events-none
-
-          opacity-100
-          md:opacity-0
-          md:group-hover:opacity-100
-          transition-opacity
-        "
-      >
+      {/* CELL */}
+      <div className="relative">
         <Image
-          src="/icons/x-v1.png"
-          alt="Discord"
-          width={48}
-          height={48}
+          src="/cell-left-v1.png"
+          alt="Join our Discord"
+          width={600}
+          height={600}
           className="
-            w-7 h-7
-            md:w-12 md:h-12
-            object-contain
-            drop-shadow-[0_4px_0_rgba(0,0,0,0.5)]
+            w-[clamp(140px,18vw,340px)]
+            h-auto
+            animate-float
+            transition-transform
+            hover:scale-[1.03]
           "
         />
+
+          {/* ICON – ALWAYS PRESENT, SOFT PULSE */}
+        <div
+          className="
+            absolute
+            top-3
+            left-1/2
+            -translate-x-1/2
+            -translate-y-[clamp(180%,20vh,240%)]
+
+            z-10
+            pointer-events-none
+            animate-soft-pulse
+          "
+        >
+          <img
+            src="/icons/x-v2.png"
+            alt="X"
+            className="w-6 h-6 md:w-10 md:h-10 drop-shadow-[0_4px_0_rgba(0,0,0,0.6)]"
+          />
+        </div>
       </div>
     </a>
   );

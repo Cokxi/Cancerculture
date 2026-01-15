@@ -23,8 +23,10 @@ export default async function WallOfFamePage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div className="min-h-screen bg-orange-background p-4 sm:p-6">
-      <h1 className="flex items-center justify-center gap-2 text-2xl sm:text-3xl font-bold mb-8">
+    <div className="min-h-screen bg-orange-background p-4 sm:p-6 text-white/90">
+  <h1 className="flex items-center justify-center gap-2 text-2xl sm:text-3xl mb-8 font-[Permanent_Marker] text-[var(--orange-dark)]">
+
+
         <AnimatedCell />
         <span>Wall of Fame</span>
       </h1>

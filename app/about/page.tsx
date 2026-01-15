@@ -1,26 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import DesktopAbout from "../components/about/DesktopAbout";
-import MobileAbout from "../components/about/MobileAbout";
-import AboutReading from "../components/about/AboutReading";
+import AboutLayout from "../components/AboutLayout";
+import Link from "next/link";
+import Image from "next/image";
 
 export default function AboutPage() {
-  const [width, setWidth] = useState(0);
-  const [height, setHeight] = useState(0);
+  return (
+    <div className="min-h-screen bg-orange-background">
 
-  useEffect(() => {
-    const update = () => {
-      setWidth(window.innerWidth);
-      setHeight(window.innerHeight);
-    };
+    
+      <AboutLayout />
 
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-
-  if (width < 768) return <MobileAbout />;
-  if (height < 1000) return <AboutReading />;
-  return <DesktopAbout />;
+    
+    </div>
+  );
 }

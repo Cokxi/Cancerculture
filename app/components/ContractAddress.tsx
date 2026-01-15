@@ -52,7 +52,7 @@ export default function ContractAddress({ address }: Props) {
           className="
             overflow-hidden
             max-w-0
-            group-hover:max-w-[520px]
+            group-hover:max-w-screen-sm
             transition-[max-width]
             duration-700
             ease-out

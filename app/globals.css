@@ -1,125 +1,335 @@
 @import "tailwindcss";
 
-
 /* Cartoon font variable */
 :root {
   --font-bangers: "Bangers";
 }
 
-/* Custom Colors from your banner */
+/* Custom brand colors */
 @layer base {
   :root {
     --orange-main: #ff5a1f;
     --orange-light: #ff7a32;
     --orange-dark: #d34117;
     --yellow-star: #ffd84a;
-    --sunburst-red: #ff2d2e;
-    --blue-cell: #6ec6df;
-    --brown-cell: #b48a6c;
   }
 }
 
-/* -------------------------------
-   CLEAN CancerCulture Background
-   (banner-like, comic rays + glow)
----------------------------------- */
+/* -------------------------------------------------
+   GLOBAL APP BACKGROUND
+   Dark, neutral, warm-feeling black
+-------------------------------------------------- */
 .bg-orange-background {
-  background-image: url("/banner-bg.png");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  background-color: #0b0b0b;
   position: relative;
-  ;
 }
 
-/* Noise / Stars overlay (optional but looks great) */
-.bg-orange-background::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
-  opacity: 0.12;
-  z-index: 0;
-}
-
-
-/* small helper: center container so hero content sits above the background */
-.page-hero {
-  position: relative;
-  z-index: 5; /* above the ::before layer */
-}
-
-/* cartoon title class */
+/* -------------------------------------------------
+   TYPOGRAPHY
+-------------------------------------------------- */
 .cartoon-title {
   font-family: var(--font-bangers), sans-serif;
   color: white;
-  text-shadow: 4px 4px 0px rgba(0,0,0,0.95);
   line-height: 1;
+  text-shadow: 4px 4px 0px rgba(0, 0, 0, 0.95);
 }
 
-/* subtle pulse animation for background */
-@keyframes bgPulse {
-  0% { filter: brightness(1); transform: scale(1); }
-  50% { filter: brightness(1.06); transform: scale(1.002); }
-  100% { filter: brightness(1); transform: scale(1); }
-}
-
-/* Small responsive adjustments for hero spacing (so content isn't flush to edges) */
-@media (min-width: 640px) {
-  .hero-padding {
-    padding-left: 2rem;
-    padding-right: 2rem;
+/* -------------------------------------------------
+   LOGO / HERO "BREATHING" ANIMATION
+-------------------------------------------------- */
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
   }
-}
-@media (min-width: 1024px) {
-  .hero-padding {
-    padding-left: 4rem;
-    padding-right: 4rem;
+  50% {
+    transform: scale(1.025);
   }
 }
 
-/* Utility: image smoothing off for pixel-art / comic crispness if needed */
+.animate-breathe {
+  animation: breathe 8s ease-in-out infinite;
+}
+
+/* -------------------------------------------------
+   IMAGE RENDERING (kept for logo crispness)
+-------------------------------------------------- */
 .img-crisp {
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
   -webkit-font-smoothing: antialiased;
 }
 
+/* -------------------------------------------------
+   OPTIONAL: FLOAT (kept, but not used by default)
+-------------------------------------------------- */
 @keyframes float {
-  0%   { transform: translateY(0px) rotate(0deg); }
-  50%  { transform: translateY(-12px) rotate(1deg); }
-  100% { transform: translateY(0px) rotate(0deg); }
+  0%   { transform: translateY(0px); }
+  50%  { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
 }
 
 .animate-float {
-  animation: float 4s ease-in-out infinite;
+  animation: float 6s ease-in-out infinite;
 }
 
 .animate-float-delayed {
-  animation: float 4s ease-in-out infinite;
-  animation-delay: 1.2s;
+  animation: float 6s ease-in-out infinite;
+  animation-delay: 1.5s;
 }
 
-@layer utilities {
-  @keyframes ca-pulse {
-    0%, 100% {
-      background-color: transparent;
-      color: white;
-      border-color: rgba(0,0,0,0.9);
-    }
-    50% {
-      background-color: white;
-      color: black;
-      border-color: white;
-    }
-  }
+/* -------------------------------------------------
+   LIVING GREEN ENERGY BACKGROUND
+   (soft motion + subtle breathing)
+-------------------------------------------------- */
 
-  .animate-ca-pulse {
-    animation: ca-pulse 9s ease-in-out infinite;
+.bg-orange-background::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  pointer-events: none;
+  z-index: 0;
+
+  background:
+    radial-gradient(
+      60% 40% at 20% 30%,
+      rgba(80, 255, 160, 0.06),
+      transparent 70%
+    ),
+    radial-gradient(
+      50% 50% at 80% 70%,
+      rgba(60, 220, 140, 0.05),
+      transparent 75%
+    ),
+    radial-gradient(
+      40% 60% at 50% 50%,
+      rgba(90, 255, 180, 0.04),
+      transparent 80%
+    );
+
+  animation: energy-flow 60s linear infinite;
+  filter: blur(40px);
+}
+
+
+@keyframes energy-flow {
+  0% {
+    transform: translate3d(0%, 0%, 0);
+  }
+  100% {
+    transform: translate3d(-6%, 4%, 0);
+  }
+}
+
+.ticker-wrapper {
+  width: 100%;
+  overflow: hidden;
+
+  /* leichter Abstand nach unten */
+  padding-top: 12px;
+
+  pointer-events: none;
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+
+  animation: ticker-move 30s linear infinite;
+  will-change: transform;
+}
+.ticker-track img {
+  height: 58px;        /* exakt wie dein PNG */
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+}
+@keyframes ticker-move {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.orange-info-box {
+  max-width: 900px;
+  min-height: 620px;
+  margin-left: auto;
+  margin-right: auto;
+
+  background: linear-gradient(
+    180deg,
+    rgba(255, 122, 50, 0.95),
+    rgba(211, 65, 23, 0.95)
+  );
+
+  border-radius: 14px;
+  padding: 2.5rem 2.75rem;
+  color: #1a0b05;
+  font-family: var(--font-marker), cursive;
+
+  box-shadow:
+    0 0 0 2px rgba(255, 220, 180, 0.65),
+    inset 0 2px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -6px 6px rgba(0, 0, 0, 0.25),
+    0 14px 30px rgba(0, 0, 0, 0.45);
+}
+
+/* ✅ WICHTIG: separat */
+.orange-info-box--compact {
+  min-height: unset;
+}
+
+
+.orange-box-title {
+  font-family: var(--font-marker), cursive;
+  font-size: 1.35rem;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  margin-bottom: 1.25rem;
+  color: #2a1006;
+}
+
+
+.orange-info-box p {
+  font-family: var(--font-marker), cursive;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin-bottom: 1rem;
+  opacity: 0.9;
+}
+
+
+.orange-box-link {
+  font-family: var(--font-marker), cursive;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+
+.orange-box-link:hover {
+  opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .link-bar {
+    flex-wrap: wrap;
+    gap: 0.6rem 1.4rem;
+    font-size: 0.9rem;
   }
 }
 
 
 
+@keyframes ticker-scroll {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: -100%;
+  }
+}
+
+.link-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  width: 100%;
+
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+
+  font-family: var(--font-marker), cursive;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+}
+
+
+.link-bar a {
+  color: var(--orange-main);
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.link-bar a:hover {
+  opacity: 1;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.link-container {
+  width: 100%;
+  max-width: 1100px; /* etwas breiter als Boxen */
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@keyframes soft-pulse {
+  0% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0.15;
+  }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 7.5s ease-in-out infinite;
+}
+
+.animate-soft-pulse-delayed {
+  animation: soft-pulse 7.5s ease-in-out infinite;
+  animation-delay: 2.2s;
+}
+
+@keyframes ca-pulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(255, 255, 255, 0.55),
+      0 0 0 0 rgba(255, 255, 255, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(255, 255, 255, 0.25),
+      0 0 10px 6px rgba(255, 255, 255, 0.15);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(255, 255, 255, 0.55),
+      0 0 0 0 rgba(255, 255, 255, 0.25);
+  }
+}
+
+.animate-ca-pulse {
+  animation: ca-pulse 3.8s ease-in-out infinite;
+}
+
+@keyframes soft-fade {
+  0% { opacity: 0.25; }
+  50% { opacity: 0.85; }
+  100% { opacity: 0.25; }
+}
+
+.animate-soft-hint {
+  animation: soft-fade 3.8s ease-in-out infinite;
+}
+
+.upload-hint {
+  font-family: var(--font-marker), cursive;
+  color: var(--orange-main);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.upload-hint-soft {
+  animation: soft-fade 3.8s ease-in-out infinite;
+}

@@ -12,7 +12,8 @@ export default async function VotePage() {
 
   if (!discordUserId) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-xl">
+      <div className="min-h-screen flex items-center justify-center text-xl text-[var(--orange-dark)] font-[Permanent_Marker]">
+
         Please verify with Discord to vote.
       </div>
     );
@@ -27,7 +28,8 @@ export default async function VotePage() {
 
   if (!cycle) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-xl">
+      <div className="min-h-screen flex items-center justify-center text-xl text-[var(--orange-dark)] font-[Permanent_Marker]">
+
         No active voting cycle
       </div>
     );

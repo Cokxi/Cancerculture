@@ -236,7 +236,7 @@ export default function MobileUpload({
       onChange={(e) => setSplitPercent(Number(e.target.value))}
     />
 
-    <div className="flex justify-between text-xs text-black/70 px-1">
+    <div className="flex justify-between text-xs text-[var(--orange-main)] px-1">
       <span>
         You: <strong>{splitPercent}%</strong>
       </span>
