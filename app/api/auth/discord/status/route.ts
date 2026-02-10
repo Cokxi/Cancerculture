@@ -1,11 +1,11 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/auth/requireSession";
 
 export async function GET() {
-  const cookieStore = await cookies(); // 👈 wichtig
-  const discordUserId = cookieStore.get("discord_user_id");
-
-  return NextResponse.json({
-    verified: Boolean(discordUserId),
-  });
+  try {
+    await requireSession();
+    return NextResponse.json({ verified: true });
+  } catch {
+    return NextResponse.json({ verified: false });
+  }
 }

@@ -1,0 +1,163 @@
+export const dynamic = "force-dynamic";
+
+import { redirect } from "next/navigation";
+import { supabaseAdmin } from "@/lib/db/admin";
+import { requireModOrAdmin } from "@/lib/auth/guards";
+import ReinstateButton from "./reinstate-button";
+
+type DisqualifiedSubmission = {
+  id: number;
+  cycle_id: number;
+  image_url: string;
+  is_disqualified: boolean;
+  disqualification_reason_code: string | null;
+  disqualification_reason_text: string | null;
+  disqualified_at: string | null;
+  disqualified_by_discord_username: string | null;
+  discord_user_id: string;
+};
+
+export default async function DisqualifiedSubmissionsPage() {
+  /* 🔐 Mod or Admin only */
+  try {
+    await requireModOrAdmin();
+  } catch {
+    redirect("/403");
+  }
+
+  // 1️⃣ Aktuellen Cycle bestimmen (nicht finalisiert)
+  const { data: currentCycle, error: cycleError } =
+    await supabaseAdmin
+      .from("voting_cycles")
+      .select("id")
+      .is("finalized_at", null)
+      .order("id", { ascending: false })
+      .limit(1)
+      .single();
+
+  if (cycleError || !currentCycle) {
+    return <div style={{ padding: 24 }}>No active cycle found.</div>;
+  }
+
+  // 2️⃣ Disqualified Submissions im aktuellen Cycle laden
+  const {
+    data: submissions,
+    error: submissionsError,
+  } = await supabaseAdmin
+    .from("submissions")
+    .select(`
+      id,
+      cycle_id,
+      image_url,
+      is_disqualified,
+      disqualification_reason_code,
+      disqualification_reason_text,
+      disqualified_at,
+      disqualified_by_discord_username,
+      discord_user_id
+    `)
+    .eq("cycle_id", currentCycle.id)
+    .eq("is_disqualified", true)
+    .order("disqualified_at", { ascending: false });
+
+  if (submissionsError) {
+    return (
+      <div style={{ padding: 24 }}>
+        Failed to load disqualified submissions.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 24 }}>
+      <h1>
+        Disqualified Submissions – Cycle #{currentCycle.id}
+      </h1>
+
+      {submissions.length === 0 && (
+        <div style={{ marginTop: 16, opacity: 0.7 }}>
+          No disqualified submissions in the current cycle.
+        </div>
+      )}
+
+      {submissions.map((sub) => (
+        <div
+          key={sub.id}
+          style={{
+            marginTop: 16,
+            padding: 12,
+            background: "#0b0b0b",
+            border: "1px solid #222",
+            borderRadius: 6,
+            display: "flex",
+            gap: 12,
+            alignItems: "flex-start",
+          }}
+        >
+          <img
+            src={sub.image_url}
+            alt=""
+            style={{
+              width: 96,
+              height: 96,
+              objectFit: "cover",
+              border: "1px solid #444",
+            }}
+          />
+
+          <div style={{ fontSize: 13 }}>
+            <div>
+              <strong>Disqualified</strong>
+            </div>
+
+            {sub.disqualification_reason_code && (
+              <div style={{ marginTop: 4 }}>
+                Reason:{" "}
+                <strong>
+                  {sub.disqualification_reason_code.replaceAll("_", " ")}
+                </strong>
+              </div>
+            )}
+
+            {sub.disqualification_reason_text && (
+              <div style={{ opacity: 0.8 }}>
+                {sub.disqualification_reason_text}
+              </div>
+            )}
+
+            {sub.disqualified_by_discord_username && (
+              <div style={{ marginTop: 4, opacity: 0.7 }}>
+                Disqualified by{" "}
+                <strong>
+                  {sub.disqualified_by_discord_username}
+                </strong>
+              </div>
+                          )}
+
+<div style={{ marginTop: 6, opacity: 0.75 }}>
+ Discord ID:
+  <div
+    style={{
+      fontFamily: "monospace",
+      fontSize: 12,
+      opacity: 0.9,
+    }}
+  >
+    {sub.discord_user_id}
+  </div>
+</div>
+
+
+            {sub.disqualified_at && (
+              <div style={{ opacity: 0.6 }}>
+                {new Date(sub.disqualified_at).toLocaleString()}
+              </div>
+            )}
+
+            <ReinstateButton submissionId={sub.id} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

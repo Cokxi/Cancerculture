@@ -11,7 +11,10 @@ export async function GET() {
 
     const { data, error } = await supabaseAdmin
       .from("vote_logs")
-      .select("*")
+      .select(
+  "id, created_at, cycle_id, submission_id, discord_user_id, status, reason"
+)
+
       .order("created_at", { ascending: false })
       .limit(300);
 

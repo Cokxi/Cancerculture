@@ -1,37 +1,15 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { requireAdmin } from "@/lib/auth/guards";
 
 export async function GET() {
   try {
-    // 🔐 Admin-Check
-    const cookieStore = await cookies();
-    const discordUserId =
-      cookieStore.get("discord_user_id")?.value;
+    /* 🔐 Admin-only */
+    await requireAdmin();
 
-    if (!discordUserId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const { data: member } = await supabaseAdmin
-      .from("team_members")
-      .select("role")
-      .eq("discord_user_id", discordUserId)
-      .single();
-
-    if (!member || member.role !== "admin") {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
-    }
-
-    // 📦 Invites + Nutzungen
+    /* 📦 Invites + Nutzungen */
     const { data, error } = await supabaseAdmin
       .from("admin_invites")
       .select(`
@@ -43,6 +21,9 @@ export async function GET() {
         created_at,
         invite_auth_logs (
           invited_discord_user_id,
+          discord_username,
+          discord_discriminator,
+          discord_avatar,
           created_at
         )
       `)
@@ -56,7 +37,17 @@ export async function GET() {
     }
 
     return NextResponse.json({ invites: data ?? [] });
-  } catch {
+  } catch (error: any) {
+    // 🔑 Auth-Fehler sauber zurückgeben
+    if (error?.status === 401 || error?.status === 403) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("INVITE LOGS ERROR", error);
+
     return NextResponse.json(
       { error: "Unauthorized" },
       { status: 403 }

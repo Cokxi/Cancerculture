@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
-import { supabase } from "@/lib/db/client";
+import { supabaseAdmin } from "@/lib/db/admin";
 import { logAdminAction } from "@/lib/audit/logAdminAction";
 
 export async function POST(req: Request) {
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     }
 
     // 🔁 Sicherheitscheck: nur ein aktiver Cycle
-    const { data: activeCycle } = await supabase
+    const { data: activeCycle } = await supabaseAdmin
       .from("voting_cycles")
       .select("id")
       .eq("status", "active")
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     }
 
     // 🗳️ Cycle anlegen
-    const { data: cycle, error } = await supabase
+    const { data: cycle, error } = await supabaseAdmin
       .from("voting_cycles")
       .insert({
         status: "active",

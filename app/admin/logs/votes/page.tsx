@@ -5,10 +5,10 @@ import { useEffect, useState } from "react";
 type VoteLog = {
   id: number;
   created_at: string;
-  cycle_id: number;
-  submission_id: number;
-  owner_hash: string;
-  status: "accepted" | "rejected";
+  cycle_id: number | null;
+  submission_id: number | null;
+  discord_user_id: string | null;
+  status: string;
   reason: string | null;
 };
 
@@ -22,13 +22,7 @@ export default function AdminVoteLogsPage() {
       try {
         setLoading(true);
         const res = await fetch("/api/admin/logs/votes");
-        const text = await res.text();
-
-        if (!text) {
-          throw new Error("Empty response from server");
-        }
-
-        const data = JSON.parse(text);
+        const data = await res.json();
 
         if (!res.ok) {
           throw new Error(
@@ -48,68 +42,117 @@ export default function AdminVoteLogsPage() {
   }, []);
 
   if (loading) return <p>Loading vote logs…</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  if (error)
+    return <p style={{ color: "red" }}>{error}</p>;
+
+  if (logs.length === 0) {
+    return (
+      <div style={{ padding: 24 }}>
+        <h1>Admin – Vote Logs</h1>
+        <p>No vote logs found.</p>
+      </div>
+    );
+  }
+
+  // 🔹 Logs nach Cycle gruppieren
+  const logsByCycle = logs.reduce<
+    Record<string, VoteLog[]>
+  >((acc, log) => {
+    const key = log.cycle_id
+      ? `Cycle ${log.cycle_id}`
+      : "No Cycle";
+
+    acc[key] ||= [];
+    acc[key].push(log);
+    return acc;
+  }, {});
 
   return (
     <div style={{ padding: 24 }}>
       <h1>Admin – Vote Logs</h1>
 
       <div style={{ marginTop: 24 }}>
-        {logs.length === 0 && (
-          <p>No vote logs found.</p>
-        )}
-
-        {logs.map((log) => (
-          <div
-            key={log.id}
-            style={{
-              padding: 12,
-              borderBottom: "1px solid #333",
-              fontSize: 13,
-            }}
-          >
-            <div
+        {Object.entries(logsByCycle).map(
+          ([cycleLabel, cycleLogs]) => (
+            <details
+              key={cycleLabel}
+              open
               style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
+                marginBottom: 24,
+                border: "1px solid #333",
+                borderRadius: 6,
+                padding: 12,
               }}
             >
-              <span
+              <summary
                 style={{
-                  padding: "2px 6px",
-                  borderRadius: 4,
-                  fontSize: 12,
+                  cursor: "pointer",
                   fontWeight: "bold",
-                  background:
-                    log.status === "accepted"
-                      ? "#0a0"
-                      : "#a00",
-                  color: "#fff",
+                  color: "#f97316",
+                  marginBottom: 8,
                 }}
               >
-                {log.status.toUpperCase()}
-              </span>
+                {cycleLabel} ({cycleLogs.length})
+              </summary>
 
-              <span>
-                Cycle #{log.cycle_id} – Submission #
-                {log.submission_id}
-              </span>
-            </div>
+              {cycleLogs.map((log) => (
+                <div
+                  key={log.id}
+                  style={{
+                    padding: 12,
+                    borderBottom: "1px solid #333",
+                    fontSize: 13,
+                  }}
+                >
+                  <div>
+                    <strong>
+                      {log.status.toUpperCase()}
+                    </strong>
+                    {log.submission_id && (
+                      <> – Submission #{log.submission_id}</>
+                    )}
+                  </div>
 
-            {log.reason && (
-              <div style={{ color: "#aaa" }}>
-                Reason: {log.reason}
-              </div>
-            )}
+                  {log.discord_user_id && (
+                    <div
+                      style={{
+                        color: "#f97316",
+                        marginTop: 4,
+                      }}
+                    >
+                      Discord ID:{" "}
+                      <code>
+                        {log.discord_user_id}
+                      </code>
+                    </div>
+                  )}
 
-            <div style={{ opacity: 0.6 }}>
-              {new Date(
-                log.created_at
-              ).toLocaleString()}
-            </div>
-          </div>
-        ))}
+                  {log.reason && (
+                    <div
+                      style={{
+                        color: "#aaa",
+                        marginTop: 4,
+                      }}
+                    >
+                      Reason: {log.reason}
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      opacity: 0.6,
+                      marginTop: 4,
+                    }}
+                  >
+                    {new Date(
+                      log.created_at
+                    ).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </details>
+          )
+        )}
       </div>
     </div>
   );

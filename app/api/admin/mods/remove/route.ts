@@ -1,64 +1,57 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { requireAdmin } from "@/lib/auth/guards";
 
 export async function POST(req: Request) {
-  // 🔐 Auth
-  const cookieStore = await cookies();
-  const actorId =
-    cookieStore.get("discord_user_id")?.value;
+  try {
+    /* 🔐 Admin-only */
+    const admin = await requireAdmin();
+    const actorId = admin.discord_user_id;
 
-  if (!actorId) {
+    /* 📥 Form-Daten lesen */
+    const formData = await req.formData();
+    const targetId = formData.get("discord_user_id");
+
+    if (typeof targetId !== "string" || !targetId) {
+      return NextResponse.json(
+        { error: "Missing user id" },
+        { status: 400 }
+      );
+    }
+
+    /* 🛑 Selbstschutz */
+    if (targetId === actorId) {
+      return NextResponse.json(
+        { error: "Cannot remove yourself" },
+        { status: 400 }
+      );
+    }
+
+    /* 🔴 Mod entfernen (Admin bleibt unberührt) */
+    await supabaseAdmin
+      .from("team_members")
+      .delete()
+      .eq("discord_user_id", targetId)
+      .eq("role", "mod");
+
+    /* 🔁 Zurück zur Mod-Liste */
+    return NextResponse.redirect(
+      new URL("/admin/mods", req.url)
+    );
+  } catch (error: any) {
+    // 🔑 Auth-Fehler sauber zurückgeben
+    if (error?.status === 401 || error?.status === 403) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("REMOVE MOD ERROR", error);
+
     return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
+      { error: "Failed to remove mod" },
+      { status: 500 }
     );
   }
-
-  // 🔐 Admin-Check
-  const { data: actor } = await supabaseAdmin
-    .from("team_members")
-    .select("role")
-    .eq("discord_user_id", actorId)
-    .single();
-
-  if (!actor || actor.role !== "admin") {
-    return NextResponse.json(
-      { error: "Forbidden" },
-      { status: 403 }
-    );
-  }
-
-  // 📥 Form-Daten lesen
-  const formData = await req.formData();
-  const targetId = formData.get(
-    "discord_user_id"
-  ) as string;
-
-  if (!targetId) {
-    return NextResponse.json(
-      { error: "Missing user id" },
-      { status: 400 }
-    );
-  }
-
-  // 🛑 Selbstschutz
-  if (targetId === actorId) {
-    return NextResponse.json(
-      { error: "Cannot remove yourself" },
-      { status: 400 }
-    );
-  }
-
-  // 🔴 Mod entfernen
-  await supabaseAdmin
-    .from("team_members")
-    .delete()
-    .eq("discord_user_id", targetId)
-    .eq("role", "mod");
-
-  // 🔁 Zurück zur Mod-Liste
-  return NextResponse.redirect(
-    new URL("/admin/mods", req.url)
-  );
 }

@@ -1,21 +1,32 @@
-import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { requireSession } from "@/lib/auth/requireSession";
 
 type TeamMember = {
   discord_user_id: string;
   role: "admin" | "mod";
 };
 
+class AuthError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 /**
  * Holt den eingeloggten Team-Member
- * oder wirft einen Fehler mit Statuscode.
+ * Session-basiert. Discord-only. Kein Fallback.
  */
 export async function getTeamMember(): Promise<TeamMember> {
-  const cookieStore = await cookies();
-  const discordUserId = cookieStore.get("discord_user_id")?.value;
+  let discordUserId: string;
 
-  if (!discordUserId) {
-    throw { status: 401, message: "Unauthorized" };
+  try {
+    const session = await requireSession();
+    discordUserId = session.discord_user_id;
+  } catch {
+    throw new AuthError(401, "Unauthorized");
   }
 
   const { data: member, error } = await supabaseAdmin
@@ -25,7 +36,7 @@ export async function getTeamMember(): Promise<TeamMember> {
     .single();
 
   if (error || !member) {
-    throw { status: 403, message: "Forbidden" };
+    throw new AuthError(403, "Forbidden");
   }
 
   return member;
@@ -38,7 +49,7 @@ export async function requireAdmin(): Promise<TeamMember> {
   const member = await getTeamMember();
 
   if (member.role !== "admin") {
-    throw { status: 403, message: "Admin only" };
+    throw new AuthError(403, "Admin only");
   }
 
   return member;
@@ -50,8 +61,8 @@ export async function requireAdmin(): Promise<TeamMember> {
 export async function requireModOrAdmin(): Promise<TeamMember> {
   const member = await getTeamMember();
 
-  if (!["admin", "mod"].includes(member.role)) {
-    throw { status: 403, message: "Forbidden" };
+  if (member.role !== "admin" && member.role !== "mod") {
+    throw new AuthError(403, "Forbidden");
   }
 
   return member;

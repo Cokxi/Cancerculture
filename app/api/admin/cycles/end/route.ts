@@ -7,7 +7,7 @@ import { logAdminAction } from "@/lib/audit/logAdminAction";
 
 export async function POST() {
   try {
-    // 🔐 ADMIN ONLY (Cookie + DB Check im Guard)
+    // 🔐 ADMIN ONLY
     const admin = await requireAdmin();
 
     // 🔍 Aktiven Cycle finden
@@ -24,7 +24,7 @@ export async function POST() {
       );
     }
 
-    // 🔒 Cycle sperren (Race-Condition-sicher)
+    // 🔒 Cycle sperren
     const { data: lockedCycle, error: lockError } =
       await supabase
         .from("voting_cycles")
@@ -41,90 +41,106 @@ export async function POST() {
       );
     }
 
-    // 📦 Submissions holen
-    const { data: submissions, error: submissionsError } =
+    // 🧮 Votes laden (SAUBER über View)
+    const { data: results, error: resultsError } =
       await supabase
-        .from("submissions")
-        .select("id")
+        .from("submissions_with_votes")
+        .select("id, vote_count")
         .eq("cycle_id", cycle.id)
         .eq("is_disqualified", false);
 
-    if (submissionsError || !submissions || submissions.length === 0) {
+    if (resultsError || !results || results.length === 0) {
       return NextResponse.json(
-        { error: "No valid submissions" },
+        { error: "No valid submissions with votes" },
         { status: 400 }
       );
     }
 
-    // 🧮 Votes zählen
-    const submissionIds = submissions.map((s) => s.id);
+    const maxVotes = Math.max(...results.map(r => r.vote_count));
 
-    const { data: voteCounts, error: votesError } =
-      await supabase
-        .from("votes")
-        .select("submission_id, count:id")
-        .eq("cycle_id", cycle.id)
-        .in("submission_id", submissionIds);
-
-    if (votesError) {
-      return NextResponse.json(
-        { error: "Failed to count votes" },
-        { status: 500 }
-      );
-    }
-
-    const results = submissions.map((s) => {
-      const match = voteCounts?.find(
-        (v) => v.submission_id === s.id
-      );
-      return {
-        submission_id: s.id,
-        vote_count: match ? match.count : 0,
-      };
-    });
-
-    const maxVotes = Math.max(
-      ...results.map((r) => r.vote_count)
-    );
-
-    const finalizedResults = results.map((r) => ({
+    const finalizedResults = results.map(r => ({
       cycle_id: cycle.id,
-      submission_id: r.submission_id,
+      submission_id: r.id,
       vote_count: r.vote_count,
       is_winner: r.vote_count === maxVotes,
       rank: r.vote_count === maxVotes ? 1 : null,
     }));
 
-    // 💾 Ergebnisse speichern
-    const { error: insertError } =
+    // 🧹 cycle_results idempotent
+    await supabase
+      .from("cycle_results")
+      .delete()
+      .eq("cycle_id", cycle.id);
+
+    const { error: insertResultsError } =
       await supabase
         .from("cycle_results")
         .insert(finalizedResults);
 
-    if (insertError) {
+    if (insertResultsError) {
       return NextResponse.json(
-        { error: "Failed to save results" },
+        { error: "Failed to save cycle results" },
         { status: 500 }
       );
     }
 
-    // ✅ Cycle final abschließen
-    const { error: finishError } =
+    // 🧹 winner_public_profiles idempotent
+    await supabase
+      .from("winner_public_profiles")
+      .delete()
+      .eq("cycle_id", cycle.id);
+
+    // 🏆 Gewinner veröffentlichen
+    const winners = finalizedResults.filter(r => r.is_winner);
+    const winShare = 1 / winners.length;
+
+    for (const winner of winners) {
+      const { data: submission } = await supabase
+        .from("submissions")
+        .select("image_url")
+        .eq("id", winner.submission_id)
+        .single();
+
+      const { data: privateData } = await supabase
+        .from("submission_private_data")
+        .select("*")
+        .eq("submission_id", winner.submission_id)
+        .single();
+
+      if (!submission || !privateData) continue;
+
+      const wall =
+        privateData.payout_choice === "keep"
+          ? "shame"
+          : "fame";
+
       await supabase
-        .from("voting_cycles")
-        .update({
-          status: "finished",
-          finalized_at: new Date().toISOString(),
-          ended_at: new Date().toISOString(),
-        })
-        .eq("id", cycle.id);
-
-    if (finishError) {
-      return NextResponse.json(
-        { error: "Failed to finalize cycle" },
-        { status: 500 }
-      );
+        .from("winner_public_profiles")
+        .insert({
+          cycle_id: cycle.id,
+          submission_id: winner.submission_id,
+          image_url: submission.image_url,
+          wall,
+          x_username: privateData.x_username,
+          wallet_address: privateData.wallet_address,
+          payout_choice: privateData.payout_choice,
+          split_percent: privateData.split_percent,
+          charity: privateData.charity,
+          win_share: winShare,
+          vote_count: winner.vote_count,
+        });
     }
+
+    // ✅ Cycle als published markieren
+    await supabase
+      .from("voting_cycles")
+      .update({
+        status: "finished",
+        winners_published: true,
+        finalized_at: new Date().toISOString(),
+        ended_at: new Date().toISOString(),
+      })
+      .eq("id", cycle.id);
 
     // 🧾 Admin-Log
     await logAdminAction({
@@ -135,7 +151,7 @@ export async function POST() {
       targetId: cycle.id,
       meta: {
         submissions: finalizedResults.length,
-        winners: finalizedResults.filter((r) => r.is_winner).length,
+        winners: winners.length,
         maxVotes,
       },
     });

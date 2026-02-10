@@ -5,6 +5,8 @@ import Link from "next/link";
 import DiscordCell from "./components/DiscordCell";
 import TelegramCell from "./components/TelegramCell";
 import { getContractAddress } from "@/lib/config/getContractAddress";
+import WalletAddressBox from "@/app/components/WalletAddressBox";
+
 
 export default async function Home() {
   let isTeamMember = false;
@@ -56,12 +58,14 @@ export default async function Home() {
   </span>
 
   {/* Mobile labels */}
-  <span className="flex sm:hidden gap-8">
+<span className="flex sm:hidden w-full justify-center mt-2">
+  <span className="flex gap-8">
     <a href="/faq">FAQ</a>
     <a href="/wall/fame">FAME</a>
     <a href="/wall/shame">SHAME</a>
-    
   </span>
+</span>
+
 </nav>
 
   </div>
@@ -204,6 +208,32 @@ In each round, participants can upload one image representing their personal “
   </section>
 
 </section>
+
+{/* WALLET ADDRESSES */}
+<div className="relative max-w-6xl mx-auto px-6 pt-16 pb-32">
+  <div
+    className="
+      grid
+      grid-cols-1
+      lg:grid-cols-[minmax(320px,380px)_220px_minmax(320px,380px)]
+      gap-20
+      items-start
+      justify-center
+    "
+  >
+    <WalletAddressBox
+      label="REWARD WALLET 80%"
+      address="HaHu8HiA7FZb7EaaFEop7FxJnSbS5BUq9Q54g7EKrRCt"
+    />
+
+    <div aria-hidden className="h-full" />
+
+    <WalletAddressBox
+      label="MARKETING WALLET 20%"
+      address="26univYjGYH6HRoRQnyTJj7X1wvCyVrFF1K9oHrGQGoE"
+    />
+  </div>
+</div>
 
     
 

@@ -1,100 +1,120 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";
-import { createOwnerHash } from "@/lib/security/ownerHash";
+import { requireSession } from "@/lib/auth/requireSession";
 import { logVote } from "@/lib/logging/logVote";
+import { touchUserLog } from "@/lib/logging/touchUserLog";
 
 export async function POST(req: Request) {
   try {
-    // 🔐 Auth via Discord Cookie
-    const cookieStore = await cookies();
-    const discordUserId = cookieStore.get("discord_user_id")?.value;
+    /* 1️⃣ Auth via Session → Discord-ID */
+    const { discord_user_id: discordUserId } = await requireSession();
 
-    if (!discordUserId) {
-      return NextResponse.json(
-        { error: "Not authenticated with Discord" },
-        { status: 401 }
-      );
-    }
+    /* 🚫 BAN CHECK (user_logs) */
+const { data: userLog } = await supabaseAdmin
+  .from("user_logs")
+  .select("is_banned")
+  .eq("discord_user_id", discordUserId)
+  .single();
 
-    // 📥 Input
-    const { submissionId } = await req.json();
-    if (!submissionId) {
+if (userLog?.is_banned) {
+  await logVote({
+    cycleId: null,
+    discordUserId,
+    status: "rejected",
+    reason: "banned",
+  });
+
+  return NextResponse.json(
+    { error: "BANNED" },
+    { status: 403 }
+  );
+}
+
+await touchUserLog({
+  discordUserId,
+  // optional: discordUsername
+});
+
+    /* 2️⃣ Input (HTML Form) */
+    const formData = await req.formData();
+    const submissionIdRaw = formData.get("submissionId");
+
+    if (typeof submissionIdRaw !== "string") {
       return NextResponse.json(
-        { error: "Missing submissionId" },
+        { error: "Invalid submissionId" },
         { status: 400 }
       );
     }
 
-    // 🔁 Aktiven Cycle holen
-    const { data: cycle, error: cycleError } =
-      await supabaseAdmin
-        .from("voting_cycles")
-        .select("id")
-        .eq("status", "active")
-        .single();
+    const submissionId = Number(submissionIdRaw);
 
-    if (cycleError || !cycle) {
+    if (!Number.isInteger(submissionId)) {
+      return NextResponse.json(
+        { error: "Invalid submissionId" },
+        { status: 400 }
+      );
+    }
+
+    /* 3️⃣ Aktiven Cycle holen */
+    const { data: cycle } = await supabaseAdmin
+      .from("voting_cycles")
+      .select("id")
+      .eq("status", "active")
+      .single();
+
+    if (!cycle) {
       return NextResponse.json(
         { error: "No active voting cycle" },
         { status: 400 }
       );
     }
 
-    // 🔑 Owner Hash
-    const ownerHash = createOwnerHash(
-      discordUserId,
-      cycle.id
-    );
+    /* 4️⃣ Submission laden (Self-Vote-Check) */
+    const { data: submission } = await supabaseAdmin
+      .from("submissions")
+      .select("id, discord_user_id")
+      .eq("id", submissionId)
+      .eq("cycle_id", cycle.id)
+      .single();
 
-    // 📦 Submission laden (für Self-Vote-Check)
-const { data: submission, error: submissionError } =
-  await supabaseAdmin
-    .from("submissions")
-    .select("id, owner_hash")
-    .eq("id", submissionId)
-    .eq("cycle_id", cycle.id)
-    .single();
+    if (!submission) {
+      return NextResponse.json(
+        { error: "Submission not found" },
+        { status: 404 }
+      );
+    }
 
-if (submissionError || !submission) {
-  return NextResponse.json(
-    { error: "Submission not found" },
-    { status: 404 }
-  );
-}
+    /* 🚫 Self-Vote verhindern */
+    if (submission.discord_user_id === discordUserId) {
+      await logVote({
+        cycleId: cycle.id,
+        submissionId,
+        discordUserId,
+        status: "rejected",
+        reason: "self_vote",
+      });
 
-// 🚫 Self-vote verhindern
-if (submission.owner_hash === ownerHash) {
-  await logVote({
-    cycleId: cycle.id,
-    submissionId,
-    ownerHash,
-    status: "rejected",
-    reason: "self_vote",
-  });
+      return NextResponse.json(
+        { error: "You can’t vote for your own submission" },
+        { status: 403 }
+      );
+    }
 
-  return NextResponse.json(
-    { error: "You can’t vote for your own submission" },
-    { status: 403 }
-  );
-}
-
-
-    // 🛑 Schon gevotet?
+    /* 🛑 Schon gevotet? (1 Vote pro Discord-ID pro Cycle) */
     const { data: existingVote } = await supabaseAdmin
       .from("votes")
       .select("id")
       .eq("cycle_id", cycle.id)
-      .eq("owner_hash", ownerHash)
+      .eq("discord_user_id", discordUserId)
       .maybeSingle();
 
     if (existingVote) {
       await logVote({
         cycleId: cycle.id,
         submissionId,
-        ownerHash,
+        discordUserId,
         status: "rejected",
         reason: "already_voted",
       });
@@ -105,30 +125,36 @@ if (submission.owner_hash === ownerHash) {
       );
     }
 
-    // 🗳️ Vote speichern
+    /* 🗳️ Vote speichern */
     const { error: insertError } = await supabaseAdmin
       .from("votes")
       .insert({
         cycle_id: cycle.id,
         submission_id: submissionId,
-        owner_hash: ownerHash,
+        discord_user_id: discordUserId,
       });
 
     if (insertError) {
       throw insertError;
     }
 
-    // 🧾 Log
+    /* 🧾 Log */
     await logVote({
       cycleId: cycle.id,
       submissionId,
-      ownerHash,
+      discordUserId,
       status: "accepted",
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("VOTE ERROR", error);
+
+    // requireSession wirft Response → direkt weiterreichen
+    if (error instanceof Response) {
+      throw error;
+    }
+
     return NextResponse.json(
       { error: "Voting failed" },
       { status: 500 }

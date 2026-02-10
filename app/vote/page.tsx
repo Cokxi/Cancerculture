@@ -1,67 +1,68 @@
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/db/server";
-import { createOwnerHash } from "@/lib/security/ownerHash";
-import VoteGrid from "./VoteGrid";
+import { requireSession } from "@/lib/auth/requireSession";
+import VoteClient from "./VoteClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function VotePage() {
-  // 🔐 Discord Auth via Cookie
-  const cookieStore = await cookies();
-  const discordUserId = cookieStore.get("discord_user_id")?.value;
+  let discordUserId: string;
 
-  if (!discordUserId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-xl text-[var(--orange-dark)] font-[Permanent_Marker]">
-
-        Please verify with Discord to vote.
-      </div>
-    );
+  // 🔐 Session-required Page
+  try {
+    const session = await requireSession();
+    discordUserId = session.discord_user_id;
+  } catch {
+    // ❗ KEIN Loop: nur EIN Redirect, dann OAuth
+    redirect("/api/auth/discord/login?state=/vote");
   }
 
-  // 🔁 Aktiven Cycle holen
+  const { data: userLog } = await supabaseServer
+  .from("user_logs")
+  .select("is_banned")
+  .eq("discord_user_id", discordUserId)
+  .maybeSingle();
+
+const isBanned = userLog?.is_banned === true;
+
+
   const { data: cycle } = await supabaseServer
     .from("voting_cycles")
-    .select("*")
+    .select("id")
     .eq("status", "active")
     .single();
 
   if (!cycle) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-xl text-[var(--orange-dark)] font-[Permanent_Marker]">
-
+      <div className="min-h-screen flex items-center justify-center text-xl">
         No active voting cycle
       </div>
     );
   }
 
-  // 🔑 Owner Hash (MUSS IDENTISCH zum Vote-API sein)
-  const ownerHash = createOwnerHash(discordUserId, cycle.id);
-
-  // 🛑 Schon gevotet?
   const { data: existingVote } = await supabaseServer
     .from("votes")
     .select("id")
     .eq("cycle_id", cycle.id)
-    .eq("owner_hash", ownerHash)
+    .eq("discord_user_id", discordUserId)
     .maybeSingle();
 
   const hasVoted = Boolean(existingVote);
 
-  // 🖼️ Submissions laden (inkl. owner_hash für UI-Logik)
   const { data: submissions } = await supabaseServer
-  .from("submissions_with_votes")
-  .select("id, image_url, owner_hash, vote_count")
-  .eq("cycle_id", cycle.id)
-  .eq("is_disqualified", false)
-  .order("id", { ascending: true });
-
+    .from("submissions_with_votes")
+    .select("id, image_url, vote_count, discord_user_id")
+    .eq("cycle_id", cycle.id)
+    .eq("is_disqualified", false)
+    .order("id", { ascending: true });
 
   return (
-    <VoteGrid
-      submissions={submissions ?? []}
-      hasVoted={hasVoted}
-      currentOwnerHash={ownerHash}
-    />
+    <VoteClient
+  submissions={submissions ?? []}
+  hasVoted={hasVoted}
+  discordUserId={discordUserId}
+  isBanned={isBanned}
+/>
+
   );
 }

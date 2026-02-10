@@ -1,35 +1,11 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";
-
-/**
- * 🔐 Admin / Mod Guard
- */
-async function requireAdminOrMod() {
-  const cookieStore = await cookies();
-  const discordUserId = cookieStore.get("discord_user_id")?.value;
-
-  if (!discordUserId) {
-    throw new Error("Unauthorized");
-  }
-
-  const { data: member, error } = await supabaseAdmin
-    .from("team_members")
-    .select("role")
-    .eq("discord_user_id", discordUserId)
-    .single();
-
-  if (error || !member || !["admin", "mod"].includes(member.role)) {
-    throw new Error("Forbidden");
-  }
-
-  return member;
-}
+import { requireModOrAdmin } from "@/lib/auth/guards";
 
 export async function GET(req: Request) {
   try {
-    // 🔐 Guard
-    await requireAdminOrMod();
+    /* 🔐 Admin oder Mod */
+    await requireModOrAdmin();
 
     const { searchParams } = new URL(req.url);
     const cycleId = searchParams.get("cycle_id");
@@ -43,6 +19,9 @@ export async function GET(req: Request) {
         cycle_id,
         image_url,
         is_disqualified,
+        disqualification_type,
+        disqualification_reason_code,
+        disqualification_reason_text,
         created_at,
         voting_cycles!inner(status)
         `
@@ -67,9 +46,19 @@ export async function GET(req: Request) {
     return NextResponse.json({
       submissions: data ?? [],
     });
-  } catch (err: any) {
+  } catch (error: any) {
+    // 🔑 konsistente Auth-Fehler
+    if (error?.status === 401 || error?.status === 403) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("ADMIN SUBMISSIONS ERROR", error);
+
     return NextResponse.json(
-      { error: err.message || "Unauthorized" },
+      { error: "Unauthorized" },
       { status: 403 }
     );
   }

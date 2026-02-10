@@ -49,9 +49,39 @@ export default async function AdminLayout({
               Moderation
             </Link>
           </li>
+          <li className="ml-3">
+  <Link
+    href="/admin/moderation/disqualified"
+    className="block px-2 py-1 rounded hover:bg-white/10 text-yellow-300"
+  >
+    ⚠️ Disqualified Submissions
+  </Link>
+</li>
 
           <li className="mt-4 text-white/50 uppercase text-xs">
             Logs
+          </li>
+
+          {isAdmin && (
+  <li className="ml-3">
+    <Link
+      href="/admin/flags"
+      className="block px-2 py-1 rounded hover:bg-white/10"
+    >
+      🚩 Flagged Users
+    </Link>
+  </li>
+)}
+
+
+          {/* 🆕 USER LOGS */}
+          <li className="ml-3">
+            <Link
+              href="/admin/users"
+              className="block px-2 py-1 rounded hover:bg-white/10"
+            >
+              User Logs
+            </Link>
           </li>
 
           <li className="ml-3">
@@ -81,17 +111,31 @@ export default async function AdminLayout({
             </Link>
           </li>
 
-          <li className="ml-3">
-            <Link
-              href="/admin/logs/moderation"
-              className="block px-2 py-1 rounded hover:bg-white/10"
-            >
-              Moderation Logs
-            </Link>
-          </li>
+          {isAdmin && (
+  <li className="ml-3">
+    <Link
+      href="/admin/logs/moderation"
+      className="block px-2 py-1 rounded hover:bg-white/10"
+    >
+      Moderation Logs
+    </Link>
+  </li>
+)}
+
 
           {isAdmin && (
             <>
+
+              <li>
+  <Link
+    href="/admin/bans"
+    className="block px-2 py-1 rounded hover:bg-white/10 text-red-400"
+  >
+    ⛔ Banned Users
+  </Link>
+</li>
+
+
               <li className="mt-4">
                 <Link
                   href="/admin/invites"

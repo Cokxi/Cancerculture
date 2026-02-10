@@ -1,174 +1,119 @@
-"use client";
+export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { redirect } from "next/navigation";
+import { supabaseAdmin } from "@/lib/db/admin";
+import { requireAdmin } from "@/lib/auth/guards";
+import ModerationLogList from "./moderation-log-list";
 
-type Filter = "all" | "disqualify" | "reinstate";
-
-type ModerationLog = {
-  id: number;
+type ModerationLogRow = {
+  id: string;
   created_at: string;
-
-  actor_role: "admin" | "mod" | "system";
+  actor_role: string;
   actor_id: string;
-
   action: string;
-
-  target_type: string;
   target_id: string;
-
-  reason_code: string;
+  reason_code: string | null;
   reason_text: string | null;
+  cycle_id: number;
+  evidence: any;
 };
 
-export default function AdminModerationLogsPage() {
-  const [logs, setLogs] = useState<ModerationLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type ActorUser = {
+  discord_user_id: string;
+  current_discord_username: string | null;
+};
 
-  // ✅ FILTER STATE MUSS HIER SEIN
-  const [filter, setFilter] = useState<Filter>("all");
+export default async function AdminModerationLogsPage() {
+  /* 🔐 Admin only */
+  try {
+    await requireAdmin();
+  } catch {
+    redirect("/403");
+  }
 
-  useEffect(() => {
-    async function loadLogs() {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/admin/logs/moderation");
-        const text = await res.text();
+  // 1️⃣ Logs laden
+  const { data: logs, error } = await supabaseAdmin
+    .from("moderation_action_logs")
+    .select(`
+      id,
+      created_at,
+      actor_role,
+      actor_id,
+      action,
+      target_id,
+      reason_code,
+      reason_text,
+      cycle_id,
+      evidence
+    `)
+    .in("action", ["disqualify_submission", "reinstate_submission"])
+    .not("cycle_id", "is", null)
+    .order("cycle_id", { ascending: false })
+    .order("created_at", { ascending: false });
 
-        if (!text) {
-          throw new Error("Empty response");
-        }
+  if (error || !logs) {
+    return <div style={{ padding: 24 }}>Failed to load logs</div>;
+  }
 
-        const data = JSON.parse(text);
+  // 2️⃣ Actor-Namen auflösen
+  const actorIds = Array.from(
+    new Set(logs.map((l) => l.actor_id).filter(Boolean))
+  );
 
-        if (!res.ok) {
-          throw new Error(
-            data.error || "Failed to load moderation logs"
-          );
-        }
+  const { data: actors } =
+    actorIds.length > 0
+      ? await supabaseAdmin
+          .from("user_logs")
+          .select("discord_user_id, current_discord_username")
+          .in("discord_user_id", actorIds)
+      : { data: [] };
 
-        setLogs(data.logs);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+  const actorMap = new Map<string, ActorUser>();
+  (actors ?? []).forEach((a) =>
+    actorMap.set(a.discord_user_id, a)
+  );
+
+  // 3️⃣ Submitter Discord IDs auflösen
+  const submissionIds = Array.from(
+    new Set(
+      logs
+        .map((l) => Number(l.target_id))
+        .filter((id) => !isNaN(id))
+    )
+  );
+
+  const { data: submissions } =
+    submissionIds.length > 0
+      ? await supabaseAdmin
+          .from("submissions")
+          .select("id, discord_user_id")
+          .in("id", submissionIds)
+      : { data: [] };
+
+  const submissionUserMap = new Map<number, string>();
+  (submissions ?? []).forEach((s) =>
+    submissionUserMap.set(s.id, s.discord_user_id)
+  );
+
+  // 4️⃣ Nach Cycle gruppieren
+  const byCycle = new Map<number, ModerationLogRow[]>();
+  logs.forEach((log) => {
+    if (!byCycle.has(log.cycle_id)) {
+      byCycle.set(log.cycle_id, []);
     }
-
-    loadLogs();
-  }, []);
-
-  if (loading) return <p>Loading moderation logs…</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
-
-  const filteredLogs = logs.filter((log) => {
-    if (filter === "all") return true;
-    if (filter === "disqualify")
-      return log.action.includes("disqualify");
-    if (filter === "reinstate")
-      return log.action.includes("reinstate");
-    return true;
+    byCycle.get(log.cycle_id)!.push(log);
   });
 
+  // ✅ HIER ENDET SERVER-LOGIK
   return (
     <div style={{ padding: 24 }}>
       <h1>Admin – Moderation Logs</h1>
 
-      {/* 🔽 FILTER BUTTONS */}
-      <div style={{ marginTop: 16 }}>
-        {(["all", "disqualify", "reinstate"] as Filter[]).map(
-          (f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              style={{
-                marginRight: 8,
-                padding: "6px 12px",
-                cursor: "pointer",
-                fontWeight: filter === f ? "bold" : "normal",
-              }}
-            >
-              {f.toUpperCase()}
-            </button>
-          )
-        )}
-      </div>
-
-      {filteredLogs.length === 0 && (
-        <p style={{ marginTop: 24 }}>
-          No moderation actions found.
-        </p>
-      )}
-
-      <div style={{ marginTop: 24 }}>
-        {filteredLogs.map((log) => (
-          <div
-            key={log.id}
-            style={{
-              borderBottom: "1px solid #333",
-              padding: "12px 0",
-              fontSize: 13,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-              }}
-            >
-              <span
-                style={{
-                  fontWeight: "bold",
-                  color:
-                    log.actor_role === "admin"
-                      ? "#0af"
-                      : "#fa0",
-                }}
-              >
-                {log.actor_role.toUpperCase()}
-              </span>
-
-              <span>{log.action}</span>
-
-              <span style={{ opacity: 0.7 }}>
-                {log.target_type} #{log.target_id}
-              </span>
-            </div>
-
-            <div style={{ marginTop: 4 }}>
-              Reason:{" "}
-              <strong>{log.reason_code}</strong>
-            </div>
-
-            {log.reason_text && (
-              <div style={{ opacity: 0.8 }}>
-                {log.reason_text}
-              </div>
-            )}
-
-            {/* 🔗 DIREKTLINK ZUR SUBMISSION */}
-            <div style={{ marginTop: 6 }}>
-              <a
-                href={`/admin/moderation/submissions?highlight=${log.target_id}`}
-                style={{
-                  fontSize: 12,
-                  color: "#0af",
-                  textDecoration: "underline",
-                }}
-              >
-                View submission
-              </a>
-            </div>
-
-            <div style={{ opacity: 0.5, marginTop: 4 }}>
-              {new Date(
-                log.created_at
-              ).toLocaleString()}
-            </div>
-          </div>
-        ))}
-      </div>
+      <ModerationLogList
+        byCycle={byCycle}
+        actorMap={actorMap}
+        submissionUserMap={submissionUserMap}
+      />
     </div>
   );
 }

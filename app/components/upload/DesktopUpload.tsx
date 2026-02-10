@@ -3,6 +3,7 @@
 import HomeBlinkCell from "@/app/components/HomeBlinkCell";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 /* ================= TYPES ================= */
 type ScannerState = "idle" | "uploading" | "done";
@@ -10,25 +11,34 @@ type PayoutChoice = "keep" | "donate" | "split";
 type SubmitState = "idle" | "partial" | "ready";
 
 const CHARITY_OPTIONS = [
-  { value: "save_the_children", label: "Save the Children" },
-  { value: "dogs_for_better_lives", label: "Dogs for Better Lives" },
-  { value: "love_justice_international", label: "Love Justice International" },
-  { value: "habitat_for_humanity", label: "Habitat for Humanity International" },
-  { value: "convoy_of_hope", label: "Convoy of Hope" },
-  { value: "sea_shepherd", label: "Sea Shepherd Conservation Society" },
-  { value: "animals_asia", label: "Animals Asia Foundation" },
-  { value: "all_gods_children", label: "All God's Children International" },
+  { value: "Animal Haven", label: "Animal Haven" },
+  { value: "Animal Rescue Corps, Inc.", label: "Animal Rescue Corps, Inc." },
+  { value: "Doctors Without Borders U.S.A., Inc.", label: "Doctors Without Borders U.S.A., Inc." },
+  { value: "Feeding Pets of the Homeless", label: "Feeding Pets of the Homeless" },
+  { value: "Institute for Justice", label: "Institute for Justice" },
+  { value: "No Kid Hungry", label: "No Kid Hungry" },
+  { value: "Save the Children", label: "Save the Children" },
+  { value: "Sea Shepherd Conservation Society", label: "Sea Shepherd Conservation Society" },
+  { value: "St. Jude Children's Research Hospital", label: "St. Jude Children's Research Hospital" },
+  { value: "Young Lives vs Cancer", label: "Young Lives vs Cancer" },
 ];
 
 /* ================= COMPONENT ================= */
 export default function DesktopUpload({
+
+  
   showSupportLink,
+  forceSuccessState = false,
 }: {
   showSupportLink: boolean;
+  forceSuccessState?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [scannerState, setScannerState] = useState<ScannerState>("idle");
+  const [uploadDone, setUploadDone] = useState(forceSuccessState);
+  const [scannerState, setScannerState] = useState<ScannerState>(
+    forceSuccessState ? "done" : "idle"
+  );
   const [blink, setBlink] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
@@ -42,7 +52,6 @@ export default function DesktopUpload({
   const [customCharity, setCustomCharity] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadDone, setUploadDone] = useState(false);
 
   /* ---------- BLINK ---------- */
   useEffect(() => {
@@ -95,22 +104,25 @@ export default function DesktopUpload({
     try {
       const formData = new FormData();
       formData.append("file", file!);
-      formData.append("xUsername", xUsername);
+      const normalizedX = xUsername.trim().replace(/^@+/, "");
+formData.append("xUsername", normalizedX);
       formData.append("walletAddress", walletAddress);
       formData.append("payoutChoice", payoutChoice!);
       formData.append("splitPercent", splitPercent.toString());
       if (charity === "other") formData.append("charity", customCharity);
       else if (charity) formData.append("charity", charity);
 
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-const data = await res.json();
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
 
-if (!res.ok) {
-  alert(data.error ?? "Upload not possible right now");
-  setScannerState("idle");
-  return;
-}
-
+      if (!res.ok) {
+        alert(data.error ?? "Upload not possible right now");
+        setScannerState("idle");
+        return;
+      }
 
       setUploadDone(true);
       setScannerState("done");
@@ -126,74 +138,103 @@ if (!res.ok) {
     <div className="min-h-screen bg-orange-background py-24">
       <div className="max-w-6xl mx-auto px-6 flex flex-col gap-14">
 
-        {/* ===== SCANNER + TITLE ===== */}
-        <div className="flex flex-col items-center gap-4">
-          <span className="upload-hint animate-soft-hint">
-            Choose your cancer
-          </span>
+        {/* ===== SCANNER + FORM BLOCK ===== */}
+        {!uploadDone && (
+          <>
+            {/* ===== SCANNER + TITLE ===== */}
+            <div className="flex flex-col items-center gap-4">
+              <span className="upload-hint animate-soft-hint">
+                Choose your cancer
+              </span>
+              
 
-          <div className="bg-yellow-star rounded-3xl p-10">
-            <div
-              onClick={handleScannerClick}
-              className="cursor-pointer active:scale-95 transition"
-            >
-              <Image
-                src={getScannerImage()}
-                alt="Upload scanner"
-                width={420}
-                height={420}
-                priority
-              />
+              <div className="bg-yellow-star rounded-3xl p-10">
+                <div
+                  onClick={handleScannerClick}
+                  className="cursor-pointer active:scale-95 transition"
+                >
+                  <Image
+                    src={getScannerImage()}
+                    alt="Upload scanner"
+                    width={420}
+                    height={420}
+                    priority
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+{/* ===== CHARITY INFO SLOT (absolute, no gap) ===== */}
+<div className="relative flex justify-center">
+  {(payoutChoice === "donate" || payoutChoice === "split") && (
+    <Link
+      href="/charities"
+      className="
+        absolute
+        -bottom-5
+        text-sm
+        text-[var(--orange-main)]
+        font-['Permanent_Marker']
+        opacity-80
+        hover:opacity-100
+        underline
+        underline-offset-4
+        transition
+        z-10
+      "
+    >
+      Not sure? Learn more about the charities
+    </Link>
+  )}
+</div>
 
-        {/* ===== PREVIEW ===== */}
-        {previewUrl && (
-          <div className="mx-auto bg-white rounded-xl p-2 shadow-xl">
-            <Image
-              src={previewUrl}
-              alt="Preview"
-              width={260}
-              height={260}
-              className="rounded-lg object-contain"
-            />
-          </div>
-        )}
+            {/* ===== PREVIEW ===== */}
+            {previewUrl && (
+              <div className="mx-auto bg-white rounded-xl p-2 shadow-xl">
+                <Image
+                  src={previewUrl}
+                  alt="Preview"
+                  width={260}
+                  height={260}
+                  className="rounded-lg object-contain"
+                />
+              </div>
+            )}
 
-        {/* ===== FORM ===== */}
-        <div className="mx-auto w-full max-w-xl bg-yellow-star rounded-3xl p-8 flex flex-col gap-5">
-          <input
-            placeholder="@username"
-            value={xUsername}
-            onChange={(e) => setXUsername(e.target.value)}
-            className="rounded-xl px-4 py-2 bg-white"
-          />
 
-          <input
-            placeholder="Wallet address"
-            value={walletAddress}
-            onChange={(e) => setWalletAddress(e.target.value)}
-            className="rounded-xl px-4 py-2 bg-white"
-          />
 
-          <div className="flex gap-3">
-            {["keep", "donate", "split"].map((o) => (
-              <button
-                key={o}
-                onClick={() => setPayoutChoice(o as PayoutChoice)}
-                className={`flex-1 py-2 rounded-xl ${
-                  payoutChoice === o
-                    ? "bg-black text-yellow-300"
-                    : "bg-white"
-                }`}
-              >
-                {o}
-              </button>
-            ))}
-          </div>
+            {/* ===== FORM ===== */}
+            <div className="mx-auto w-full max-w-xl bg-yellow-star rounded-3xl p-8 flex flex-col gap-5">
+              <input
+                placeholder="@username"
+                value={xUsername}
+                onChange={(e) => setXUsername(e.target.value)}
+                className="rounded-xl px-4 py-2 bg-white"
+              />
 
-          {payoutChoice === "split" && (
+              <input
+                placeholder="Wallet address"
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+                className="rounded-xl px-4 py-2 bg-white"
+              />
+
+              <div className="flex gap-3">
+                {["keep", "donate", "split"].map((o) => (
+                  <button
+                    key={o}
+                    onClick={() => setPayoutChoice(o as PayoutChoice)}
+                    className={`flex-1 py-2 rounded-xl cursor-pointer transition ${
+                      payoutChoice === o
+                        ? "bg-black text-yellow-300"
+                        : "bg-white"
+                    }`}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+
+              {payoutChoice === "split" && (
             <div className="flex flex-col gap-2">
               <input
                 type="range"
@@ -209,56 +250,74 @@ if (!res.ok) {
             </div>
           )}
 
-          {(payoutChoice === "donate" || payoutChoice === "split") && (
-            <>
-              <select
-                value={charity ?? ""}
-                onChange={(e) => setCharity(e.target.value)}
-                className="rounded-xl px-4 py-2 bg-white"
-              >
-                <option value="" disabled>
-                  Select charity
-                </option>
-                {CHARITY_OPTIONS.map((org) => (
-                  <option key={org.value} value={org.value}>
-                    {org.label}
-                  </option>
-                ))}
-                <option value="other">Other</option>
-              </select>
+              {(payoutChoice === "donate" || payoutChoice === "split") && (
+                <>
+                  <select
+                    value={charity ?? ""}
+                    onChange={(e) => setCharity(e.target.value)}
+                    className="rounded-xl px-4 py-2 bg-white"
+                  >
+                    <option value="" disabled>
+                      Select charity
+                    </option>
+                    {CHARITY_OPTIONS.map((org) => (
+                      <option key={org.value} value={org.value}>
+                        {org.label}
+                      </option>
+                    ))}
+                    <option value="other">Other</option>
+                  </select>
 
-              {charity === "other" && (
-                <input
-                  placeholder="Custom charity"
-                  value={customCharity}
-                  onChange={(e) => setCustomCharity(e.target.value)}
-                  className="rounded-xl px-4 py-2 bg-white"
-                />
+                  {charity === "other" && (
+                    <input
+                      placeholder="Custom charity"
+                      value={customCharity}
+                      onChange={(e) =>
+                        setCustomCharity(e.target.value)
+                      }
+                      className="rounded-xl px-4 py-2 bg-white"
+                    />
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
 
-        {/* ===== SUBMIT ===== */}
-        {!uploadDone && submitState === "ready" && (
-          <div className="text-center mt-4">
-            <span className="upload-hint animate-soft-hint">
-              Hit it
-            </span>
-          </div>
+            {/* ===== HIT IT ===== */}
+            {submitState === "ready" && (
+              <div className="text-center mt-4">
+                <span className="upload-hint animate-soft-hint">
+                  Hit it
+                </span>
+                <div className="upload-hint animate-soft-hint leading-none">
+      ↓
+    </div>
+              </div>
+            )}
+          </>
         )}
 
+        {/* ===== SUBMIT / HOME ===== */}
         {!uploadDone ? (
           <div
             onClick={handleSubmit}
             className={`mx-auto ${
-              submitState === "ready" ? "cursor-pointer" : "opacity-60"
+              submitState === "ready"
+                ? "cursor-pointer"
+                : "opacity-60"
             }`}
           >
-            <Image src={submitImage} alt="Submit" width={260} height={260} />
+            <Image
+              src={submitImage}
+              alt="Submit"
+              width={260}
+              height={260}
+            />
           </div>
         ) : (
-          <div className="mx-auto cursor-pointer" onClick={() => location.href = "/"}>
+          <div
+            className="mx-auto cursor-pointer"
+            onClick={() => (location.href = "/")}
+          >
             <HomeBlinkCell />
           </div>
         )}
@@ -269,7 +328,6 @@ if (!res.ok) {
             <span className="upload-hint animate-soft-hint text-xs">
               Problem?
             </span>
-
             <a
               href="https://tally.so/r/7RLXOZ"
               target="_blank"

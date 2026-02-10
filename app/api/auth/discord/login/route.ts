@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 
+function sanitizeState(state: string | null): string {
+  if (!state) return "/upload";
+  if (!state.startsWith("/")) return "/upload";
+  return state;
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
-  // 🔑 WICHTIG: state aus der Anfrage übernehmen
-  const state = searchParams.get("state") || "/upload";
+  // 🔑 Nur interne Redirects erlauben
+  const state = sanitizeState(
+    searchParams.get("state")
+  );
 
   const discordAuthUrl = new URL(
     "https://discord.com/api/oauth2/authorize"
@@ -21,8 +29,6 @@ export async function GET(req: Request) {
   );
   discordAuthUrl.searchParams.set("scope", "identify");
   discordAuthUrl.searchParams.set("prompt", "consent");
-
-  // 🔥 DAS HAT GEFEHLT
   discordAuthUrl.searchParams.set("state", state);
 
   return NextResponse.redirect(discordAuthUrl.toString());

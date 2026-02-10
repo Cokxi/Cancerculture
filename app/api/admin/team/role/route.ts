@@ -1,41 +1,18 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { requireAdmin } from "@/lib/auth/guards";
 import { logAdminAction } from "@/lib/audit/logAdminAction";
 
 export async function POST(req: Request) {
   try {
-    // 🔐 Auth
-    const cookieStore = await cookies();
-    const actorId =
-      cookieStore.get("discord_user_id")?.value;
+    /* 🔐 Admin-only */
+    const admin = await requireAdmin();
+    const actorId = admin.discord_user_id;
 
-    if (!actorId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // 🔐 Admin-Check
-    const { data: actor } = await supabaseAdmin
-      .from("team_members")
-      .select("role")
-      .eq("discord_user_id", actorId)
-      .single();
-
-    if (!actor || actor.role !== "admin") {
-      return NextResponse.json(
-        { error: "Forbidden" },
-        { status: 403 }
-      );
-    }
-
-    // 📥 Input
-    const { targetDiscordId, role } =
-      await req.json();
+    /* 📥 Input */
+    const { targetDiscordId, role } = await req.json();
 
     if (
       !targetDiscordId ||
@@ -48,33 +25,32 @@ export async function POST(req: Request) {
     }
 
     if (role === "mod") {
-  // 🔍 Username aus Invite-Logs holen (optional!)
-  const { data: inviteLog } =
-    await supabaseAdmin
-      .from("invite_auth_logs")
-      .select("discord_username")
-      .eq(
-        "invited_discord_user_id",
-        targetDiscordId
-      )
-      .order("created_at", {
-        ascending: false,
-      })
-      .limit(1)
-      .maybeSingle();
+      /* 🔍 Username aus Invite-Logs holen (optional) */
+      const { data: inviteLog } =
+        await supabaseAdmin
+          .from("invite_auth_logs")
+          .select("discord_username")
+          .eq(
+            "invited_discord_user_id",
+            targetDiscordId
+          )
+          .order("created_at", {
+            ascending: false,
+          })
+          .limit(1)
+          .maybeSingle();
 
-  const discordUsername: string | null =
-    inviteLog?.discord_username ?? null;
+      const discordUsername: string | null =
+        inviteLog?.discord_username ?? null;
 
-  // ➕ Make Mod
-  await supabaseAdmin
-    .from("team_members")
-    .upsert({
-      discord_user_id: targetDiscordId,
-      discord_username: discordUsername,
-      role: "mod",
-    });
-}
+      /* ➕ Make Mod */
+      await supabaseAdmin
+        .from("team_members")
+        .upsert({
+          discord_user_id: targetDiscordId,
+          discord_username: discordUsername,
+          role: "mod",
+        });
 
       await logAdminAction({
         actorType: "admin",
@@ -83,18 +59,15 @@ export async function POST(req: Request) {
         targetType: "user",
         targetId: targetDiscordId,
       });
-    
+    }
 
     if (role === "remove") {
-      // ➖ Remove Mod
+      /* ➖ Remove Mod (Admins geschützt) */
       await supabaseAdmin
         .from("team_members")
         .delete()
-        .eq(
-          "discord_user_id",
-          targetDiscordId
-        )
-        .neq("role", "admin"); // Admins schützen
+        .eq("discord_user_id", targetDiscordId)
+        .neq("role", "admin");
 
       await logAdminAction({
         actorType: "admin",
@@ -106,7 +79,16 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (err) {
+  } catch (error: any) {
+    if (error?.status === 401 || error?.status === 403) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("UPDATE TEAM ROLE ERROR", error);
+
     return NextResponse.json(
       { error: "Failed to update role" },
       { status: 500 }

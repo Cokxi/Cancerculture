@@ -1,8 +1,8 @@
-import CreateInviteButton from "./CreateInviteButton";
-
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { requireAdmin } from "@/lib/auth/guards";
+
+import CreateInviteButton from "./CreateInviteButton";
 import InviteUserRow from "./InviteUserRow";
 
 export const dynamic = "force-dynamic";
@@ -13,27 +13,20 @@ type TeamMember = {
 };
 
 export default async function AdminInvitesPage() {
-  // 🔐 Auth
-  const cookieStore = await cookies();
-  const discordUserId =
-    cookieStore.get("discord_user_id")?.value;
+  /* 🔐 Admin-only Page */
+  try {
+    await requireAdmin();
+  } catch (error: any) {
+    // nicht eingeloggt → Discord OAuth
+    if (error?.status === 401) {
+      redirect("/api/auth/discord/login?state=/admin/invites");
+    }
 
-  if (!discordUserId) {
+    // eingeloggt, aber kein Admin
     redirect("/403");
   }
 
-  // 🔐 Admin check
-  const { data: member } = await supabaseAdmin
-    .from("team_members")
-    .select("role")
-    .eq("discord_user_id", discordUserId)
-    .single();
-
-  if (!member || member.role !== "admin") {
-    redirect("/403");
-  }
-
-  // 📦 Team (für Rollenanzeige in Logs)
+  /* 📦 Team (für Rollenanzeige in Logs) */
   const { data: team } = await supabaseAdmin
     .from("team_members")
     .select("discord_user_id, role");
@@ -46,7 +39,7 @@ export default async function AdminInvitesPage() {
     )?.role;
   }
 
-  // 📦 Invites + Logs
+  /* 📦 Invites + Logs */
   const { data: invites, error } =
     await supabaseAdmin
       .from("admin_invites")
@@ -76,7 +69,7 @@ export default async function AdminInvitesPage() {
     <div style={{ padding: 24 }}>
       <h1>Admin – Invites</h1>
 
-      {/* ➕ Invite erstellen (Admin only, daher hier ok) */}
+      {/* ➕ Invite erstellen (Admin only) */}
       <div style={{ margin: "16px 0" }}>
         <CreateInviteButton />
       </div>

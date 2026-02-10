@@ -1,6 +1,6 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { requireAdmin } from "@/lib/auth/guards";
 
 export const dynamic = "force-dynamic";
 
@@ -11,27 +11,20 @@ type TeamMember = {
 };
 
 export default async function AdminModsPage() {
-  // 🔐 Auth
-  const cookieStore = await cookies();
-  const discordUserId =
-    cookieStore.get("discord_user_id")?.value;
+  /* 🔐 Admin-only Page */
+  try {
+    await requireAdmin();
+  } catch (error: any) {
+    // nicht eingeloggt → Discord OAuth
+    if (error?.status === 401) {
+      redirect("/api/auth/discord/login?state=/admin/mods");
+    }
 
-  if (!discordUserId) {
+    // eingeloggt, aber kein Admin
     redirect("/403");
   }
 
-  // 🔐 Admin-Check
-  const { data: me } = await supabaseAdmin
-    .from("team_members")
-    .select("role")
-    .eq("discord_user_id", discordUserId)
-    .single();
-
-  if (!me || me.role !== "admin") {
-    redirect("/403");
-  }
-
-  // 👥 Mods + Admins laden
+  /* 👥 Mods + Admins laden */
   const { data: members } = await supabaseAdmin
     .from("team_members")
     .select(
@@ -85,7 +78,7 @@ export default async function AdminModsPage() {
               <td>
                 {member.role === "mod" && (
                   <form
-                    action={`/api/admin/mods/remove`}
+                    action="/api/admin/mods/remove"
                     method="POST"
                   >
                     <input
@@ -96,18 +89,16 @@ export default async function AdminModsPage() {
                       }
                     />
                     <button
-  style={{
-    background: "transparent",
-    color: "#f8f8f8ff",
-    border: "none",
-    textDecoration: "underline",
-    cursor: "pointer",
-  }}
->
-  Disable Mod
-</button>
-
-
+                      style={{
+                        background: "transparent",
+                        color: "#f8f8f8ff",
+                        border: "none",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Disable Mod
+                    </button>
                   </form>
                 )}
               </td>

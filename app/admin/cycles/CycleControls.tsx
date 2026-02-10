@@ -59,38 +59,7 @@ export default function CycleControls() {
     }
   }
 
-  // 🆕 MANUELLER WORKER-TRIGGER
-  async function finalizeCyclesNow() {
-    setLoading(true);
-    setMessage(null);
-
-    try {
-      const res = await fetch(
-        "/api/admin/cycles/finalize",
-        {
-          method: "POST",
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Unknown error");
-      }
-
-      if (data.processed === 0) {
-        setMessage("ℹ️ No finished cycles to finalize");
-      } else {
-        setMessage(
-          `🏁 Finalize worker executed (${data.processed} cycle(s))`
-        );
-      }
-    } catch (err: any) {
-      setMessage("❌ " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+ 
 
   return (
     <div>
@@ -119,19 +88,7 @@ export default function CycleControls() {
         End Cycle
       </button>
 
-      {/* 🆕 FINALIZE BUTTON */}
-      <button
-        onClick={finalizeCyclesNow}
-        disabled={loading}
-        style={{
-          marginLeft: 12,
-          padding: "8px 16px",
-          fontSize: 16,
-          cursor: loading ? "not-allowed" : "pointer",
-        }}
-      >
-        Finalize Cycles (Worker)
-      </button>
+     
 
       {message && (
         <p style={{ marginTop: 16 }}>{message}</p>

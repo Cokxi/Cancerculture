@@ -10,7 +10,7 @@ CancerCulture was born out of a simple but uncomfortable truth:
 The memecoin space sometimes feels like cancer.
 
 The idea behind it is simple.
-I wanted to create a community-driven charity coin, where the community itself shows how selfless it can be, especially when it comes to everybody’s own pocket.
+I wanted to create a community-driven charity coin, where the community itself shows how selfless it can be, especially when it comes to everybody’s own wallet.
 
 There is an ongoing competition, as long as this project exists.
 And it is up to the community, to keep it alive.

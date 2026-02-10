@@ -333,3 +333,19 @@ html {
 .upload-hint-soft {
   animation: soft-fade 3.8s ease-in-out infinite;
 }
+
+@keyframes png-swap {
+  0%   { opacity: 1; }
+  49%  { opacity: 1; }
+  50%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.animate-png-1 {
+  animation: png-swap 2s steps(1, end) infinite;
+}
+
+.animate-png-2 {
+  animation: png-swap 2s steps(1, end) infinite;
+  animation-delay: 1s;
+}

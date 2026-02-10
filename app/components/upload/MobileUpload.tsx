@@ -3,6 +3,8 @@
 import HomeBlinkCell from "@/app/components/HomeBlinkCell";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+
 
 /* ================= TYPES ================= */
 type ScannerState = "idle" | "hover" | "uploading" | "done";
@@ -10,32 +12,35 @@ type PayoutChoice = "keep" | "donate" | "split";
 type SubmitState = "idle" | "partial" | "ready";
 
 const CHARITY_OPTIONS = [
-  { value: "save_the_children", label: "Save the Children" },
-  { value: "dogs_for_better_lives", label: "Dogs for Better Lives" },
-  { value: "love_justice_international", label: "Love Justice International" },
-  { value: "habitat_for_humanity", label: "Habitat for Humanity International" },
-  { value: "convoy_of_hope", label: "Convoy of Hope" },
-  { value: "sea_shepherd", label: "Sea Shepherd Conservation Society" },
-  { value: "animals_asia", label: "Animals Asia Foundation" },
-  { value: "all_gods_children", label: "All God's Children International" },
+  { value: "Animal Haven", label: "Animal Haven" },
+  { value: "Animal Rescue Corps, Inc.", label: "Animal Rescue Corps, Inc." },
+  { value: "Doctors Without Borders U.S.A., Inc.", label: "Doctors Without Borders U.S.A., Inc." },
+  { value: "Feeding Pets of the Homeless", label: "Feeding Pets of the Homeless" },
+  { value: "Institute for Justice", label: "Institute for Justice" },
+  { value: "No Kid Hungry", label: "No Kid Hungry" },
+  { value: "Save the Children", label: "Save the Children" },
+  { value: "Sea Shepherd Conservation Society", label: "Sea Shepherd Conservation Society" },
+  { value: "St. Jude Children's Research Hospital", label: "St. Jude Children's Research Hospital" },
+  { value: "Young Lives vs Cancer", label: "Young Lives vs Cancer" },
 ];
-
-
 
 /* ================= COMPONENT ================= */
 export default function MobileUpload({
   showSupportLink,
+  forceSuccessState = false,
 }: {
   showSupportLink: boolean;
+  forceSuccessState?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ---------- STATE ---------- */
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadDone, setUploadDone] = useState(false);
-
-  const [scannerState, setScannerState] = useState<ScannerState>("idle");
+  const [uploadDone, setUploadDone] = useState(forceSuccessState);
+  const [scannerState, setScannerState] = useState<ScannerState>(
+    forceSuccessState ? "done" : "idle"
+  );
   const [blink, setBlink] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -47,19 +52,13 @@ export default function MobileUpload({
   const [charity, setCharity] = useState<string | null>(null);
   const [customCharity, setCustomCharity] = useState("");
 
-
   /* ---------- BLINK ---------- */
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-
-    interval = setInterval(
+    const interval = setInterval(
       () => setBlink((b) => !b),
       scannerState === "uploading" ? 300 : 900
     );
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [scannerState]);
 
   /* ---------- SCANNER IMAGE ---------- */
@@ -71,7 +70,6 @@ export default function MobileUpload({
 
   /* ---------- SUBMIT STATE ---------- */
   const hasImage = !!file;
-
   const hasMeta =
     xUsername.trim().length > 0 &&
     walletAddress.trim().length > 0 &&
@@ -90,27 +88,17 @@ export default function MobileUpload({
       : "/submit-v2.png";
 
   /* ---------- EVENTS ---------- */
-  const handleScannerClick = () => fileInputRef.current?.click();
+  const handleScannerClick = () => {
+    if (!uploadDone) fileInputRef.current?.click();
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (!f) return;
-
-    if (!f.type.startsWith("image/")) {
-      alert("Only image files allowed");
-      return;
-    }
-
-    if (f.size > 10 * 1024 * 1024) {
-      alert("Max file size is 10MB");
-      return;
-    }
-
+    if (!f || !f.type.startsWith("image/")) return;
     setFile(f);
     setPreviewUrl(URL.createObjectURL(f));
   };
 
-  /* ---------- SUBMIT ---------- */
   const handleSubmit = async () => {
     if (submitState !== "ready" || isSubmitting) return;
 
@@ -120,16 +108,17 @@ export default function MobileUpload({
 
       const formData = new FormData();
       formData.append("file", file!);
-      formData.append("xUsername", xUsername);
+      const normalizedX = xUsername.trim().replace(/^@+/, "");
+formData.append("xUsername", normalizedX);
       formData.append("walletAddress", walletAddress);
       formData.append("payoutChoice", payoutChoice!);
       formData.append("splitPercent", splitPercent.toString());
-      if (charity === "other") {
-  formData.append("charity", customCharity);
-} else if (charity) {
-  formData.append("charity", charity);
-}
 
+      if (charity === "other") {
+        formData.append("charity", customCharity);
+      } else if (charity) {
+        formData.append("charity", charity);
+      }
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -139,11 +128,6 @@ export default function MobileUpload({
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 401) {
-          window.location.href = "/api/auth/discord/login";
-          return;
-        }
-
         alert(data.error || "Upload failed");
         setScannerState("idle");
         return;
@@ -151,9 +135,7 @@ export default function MobileUpload({
 
       setUploadDone(true);
       setScannerState("done");
-    } catch (err) {
-      console.error(err);
-      alert("Upload failed. Please try again.");
+    } catch {
       setScannerState("idle");
     } finally {
       setIsSubmitting(false);
@@ -165,68 +147,92 @@ export default function MobileUpload({
     <div className="w-full min-h-screen bg-orange-background relative">
       <div className="max-w-sm mx-auto px-4 py-6 flex flex-col gap-6">
 
-        {/* ===== SCANNER ===== */}
-        <div className="bg-yellow-star rounded-3xl p-6 flex justify-center">
-          <div
-            onClick={handleScannerClick}
-            className="cursor-pointer active:scale-95 transition"
-          >
-            <Image
-              src={getScannerImage()}
-              alt="Upload scanner"
-              width={260}
-              height={260}
-              priority
-            />
-          </div>
-                </div>
-
-        {/* ===== PREVIEW ===== */}
-        {previewUrl && (
-          <div className="mx-auto bg-white rounded-xl p-2 shadow-lg">
-            <Image
-              src={previewUrl}
-              alt="Preview"
-              width={220}
-              height={220}
-              className="rounded-lg object-contain"
-            />
-          </div>
-        )}
-
-        {/* ===== META PANEL ===== */}
-        <div className="bg-yellow-star rounded-3xl p-6 flex flex-col gap-4">
-          <input
-            placeholder="@username"
-            value={xUsername}
-            onChange={(e) => setXUsername(e.target.value)}
-            className="rounded-xl px-4 py-2 bg-white outline-none"
-          />
-
-          <input
-            placeholder="Wallet address"
-            value={walletAddress}
-            onChange={(e) => setWalletAddress(e.target.value)}
-            className="rounded-xl px-4 py-2 bg-white outline-none"
-          />
-
-          <div className="flex gap-2">
-            {["keep", "donate", "split"].map((o) => (
-              <button
-                key={o}
-                onClick={() => setPayoutChoice(o as PayoutChoice)}
-                className={`flex-1 py-2 rounded-xl transition ${
-                  payoutChoice === o
-                    ? "bg-black text-yellow-300"
-                    : "bg-white"
-                }`}
+        {/* ===== UPLOAD FLOW ===== */}
+        {!uploadDone && (
+          <>
+            {/* SCANNER */}
+            <div className="bg-yellow-star rounded-3xl p-6 flex justify-center">
+              <div
+                onClick={handleScannerClick}
+                className="cursor-pointer active:scale-95 transition"
               >
-                {o}
-              </button>
-            ))}
-          </div>
+                <Image
+                  src={getScannerImage()}
+                  alt="Upload scanner"
+                  width={260}
+                  height={260}
+                  priority
+                />
+              </div>
+            </div>
 
-          {payoutChoice === "split" && (
+            {/* PREVIEW */}
+            {previewUrl && (
+              <div className="mx-auto bg-white rounded-xl p-2 shadow-lg">
+                <Image
+                  src={previewUrl}
+                  alt="Preview"
+                  width={220}
+                  height={220}
+                  className="rounded-lg object-contain"
+                />
+              </div>
+            )}
+
+            {(payoutChoice === "donate" || payoutChoice === "split") && (
+  <div className="mx-auto -mt-1">
+    <Link
+      href="/charities"
+      className="
+        text-xs
+        text-[var(--orange-main)]
+        font-['Permanent_Marker']
+        opacity-80
+        hover:opacity-100
+        underline
+        underline-offset-4
+        transition
+      "
+    >
+      Not sure? Learn more about the charities
+    </Link>
+  </div>
+)}
+
+
+            {/* FORM */}
+            <div className="bg-yellow-star rounded-3xl p-6 flex flex-col gap-4">
+              <input
+                placeholder="@username"
+                value={xUsername}
+                onChange={(e) => setXUsername(e.target.value)}
+                className="rounded-xl px-4 py-2 bg-white outline-none"
+              />
+
+              <input
+                placeholder="Wallet address"
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+                className="rounded-xl px-4 py-2 bg-white outline-none"
+              />
+
+              <div className="flex gap-2">
+                {["keep", "donate", "split"].map((o) => (
+                  <button
+                    key={o}
+                    onClick={() => setPayoutChoice(o as PayoutChoice)}
+                    className={`flex-1 py-2 rounded-xl ${
+                      payoutChoice === o
+                        ? "bg-black text-yellow-300"
+                        : "bg-white"
+                    }`}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+
+              {payoutChoice === "split" && (
   <div className="flex flex-col gap-2">
     <input
       type="range"
@@ -248,78 +254,55 @@ export default function MobileUpload({
 )}
 
 
-          {(payoutChoice === "donate" || payoutChoice === "split") && (
-  <div className="flex flex-col gap-2">
-    <select
-      value={charity ?? ""}
-      onChange={(e) => {
-        setCharity(e.target.value);
-        if (e.target.value !== "other") {
-          setCustomCharity("");
-        }
-      }}
-      className="rounded-xl px-4 py-2 bg-white outline-none"
-    >
-      <option value="" disabled>
-        Select charity
-      </option>
+              {(payoutChoice === "donate" || payoutChoice === "split") && (
+                <>
+                  <select
+                    value={charity ?? ""}
+                    onChange={(e) => {
+                      setCharity(e.target.value);
+                      if (e.target.value !== "other") setCustomCharity("");
+                    }}
+                    className="rounded-xl px-4 py-2 bg-white outline-none"
+                  >
+                    <option value="" disabled>
+                      Select charity
+                    </option>
+                    {CHARITY_OPTIONS.map((org) => (
+                      <option key={org.value} value={org.value}>
+                        {org.label}
+                      </option>
+                    ))}
+                    <option value="other">Other</option>
+                  </select>
 
-      {CHARITY_OPTIONS.map((org) => (
-        <option key={org.value} value={org.value}>
-          {org.label}
-        </option>
-      ))}
-
-      <option value="other">Other</option>
-    </select>
-
-    {charity === "other" && (
-      <input
-        type="text"
-        placeholder="Enter charity / organization"
-        value={customCharity}
-        onChange={(e) => setCustomCharity(e.target.value)}
-        className="rounded-xl px-4 py-2 bg-white outline-none"
-      />
-    )}
-  </div>
-)}
-
-        </div>
-
-        {/* ===== SUCCESS MESSAGE ===== */}
-        {uploadDone && (
-          <div className="mx-auto bg-white/80 backdrop-blur rounded-xl px-5 py-6 shadow-lg text-center flex flex-col items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white text-xl font-bold">
-              ✓
+                  {charity === "other" && (
+                    <input
+                      placeholder="Enter charity"
+                      value={customCharity}
+                      onChange={(e) => setCustomCharity(e.target.value)}
+                      className="rounded-xl px-4 py-2 bg-white outline-none"
+                    />
+                  )}
+                </>
+              )}
             </div>
 
-            <p className="text-sm text-black/80">
-              <strong>Submission received!</strong>
-              <br />
-              We’re happy you shared your creativity with CancerCulture.
-            </p>
-          </div>
+            {/* SUBMIT */}
+            <div
+              onClick={handleSubmit}
+              className={`mx-auto ${
+                submitState === "ready"
+                  ? "cursor-pointer active:scale-95"
+                  : "opacity-60"
+              }`}
+            >
+              <Image src={submitImage} alt="Submit" width={220} height={220} />
+            </div>
+          </>
         )}
 
-        {/* ===== SUBMIT / HOME ===== */}
-        {!uploadDone ? (
-          <div
-            onClick={handleSubmit}
-            className={`mx-auto transition ${
-              submitState === "ready"
-                ? "cursor-pointer active:scale-95"
-                : "opacity-60"
-            }`}
-          >
-            <Image
-              src={submitImage}
-              alt="Submit"
-              width={220}
-              height={220}
-            />
-          </div>
-        ) : (
+        {/* ===== SUCCESS ===== */}
+        {uploadDone && (
           <div
             className="mx-auto cursor-pointer active:scale-95"
             onClick={() => (window.location.href = "/")}
@@ -328,38 +311,20 @@ export default function MobileUpload({
           </div>
         )}
 
-        {/* ===== SUPPORT LINK (BOTTOM, SCROLL END) ===== */}
-{showSupportLink && (
-  <div className="mx-auto mt-6">
-    <a
-      href="https://tally.so/r/7RLXOZ"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="
-        inline-block
-        px-4
-        py-2
-        rounded-full
+        {/* ===== SUPPORT ===== */}
+        {showSupportLink && (
+          <div className="mx-auto mt-6">
+            <a
+              href="https://tally.so/r/7RLXOZ"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-full bg-black/70 text-white text-xs"
+            >
+              Wallet / Participation Issue?
+            </a>
+          </div>
+        )}
 
-        bg-black/70
-        text-white
-        text-xs
-        font-medium
-
-        backdrop-blur
-        border
-        border-white/20
-
-        active:scale-95
-        transition
-      "
-    >
-      Wallet / Participation Issue?
-    </a>
-  </div>
-)}
-
-        {/* FILE INPUT */}
         <input
           ref={fileInputRef}
           type="file"
@@ -368,7 +333,6 @@ export default function MobileUpload({
           onChange={handleFileChange}
         />
       </div>
-      
     </div>
   );
 }
