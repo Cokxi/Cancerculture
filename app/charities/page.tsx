@@ -309,7 +309,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/justice.png"
+        src="/charities/justicia.png"
         alt="Institute for Justice"
         width={500}
         height={400}

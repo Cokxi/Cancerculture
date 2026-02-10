@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
 
+
 type UserLog = {
   discord_user_id: string;
   current_discord_username: string | null;
@@ -37,10 +38,13 @@ type UserLog = {
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ focus?: string }>;
+  searchParams: Promise<{ focus?: string; q?: string }>;
+
 }) {
-const { focus } = await searchParams;
+const { focus, q } = await searchParams;
 const focusUserId = focus ?? null;
+const query = q?.trim() ?? "";
+
 
 
 
@@ -72,6 +76,25 @@ const focusUserId = focus ?? null;
     .select("*")
     .order("last_seen_at", { ascending: false });
 
+    const filteredUsers =
+  query === ""
+    ? users
+    : (users ?? []).filter((user: UserLog) => {
+        const qLower = query.toLowerCase();
+
+        return (
+          user.discord_user_id.includes(query) ||
+          user.current_discord_username
+            ?.toLowerCase()
+            .includes(qLower) ||
+          (user.known_discord_usernames ?? [])
+            .join(" ")
+            .toLowerCase()
+            .includes(qLower)
+        );
+      });
+
+
   if (error) {
     console.error("USER LOG VIEW ERROR", error);
     return <div style={{ padding: 24 }}>Failed to load user logs</div>;
@@ -81,7 +104,36 @@ const focusUserId = focus ?? null;
     <div style={{ padding: 24 }}>
       <h1>Admin – User Logs</h1>
 
-      {!users || users.length === 0 ? (
+      <form method="get" style={{ marginTop: 12 }}>
+  <input
+    type="text"
+    name="q"
+    placeholder="Filter by Discord ID or username"
+    defaultValue={query}
+    style={{
+      padding: "4px 8px",
+      fontSize: 13,
+      width: 320,
+      background: "#0b0b0b",
+      border: "1px solid #333",
+      color: "white",
+    }}
+  />
+
+  {query && (
+    <button
+      type="submit"
+      style={{ marginLeft: 8, fontSize: 12 }}
+      name="q"
+      value=""
+    >
+      Clear
+    </button>
+  )}
+</form>
+
+
+      {!filteredUsers || filteredUsers.length === 0 ? (
         <p style={{ marginTop: 16, opacity: 0.7 }}>No users found.</p>
       ) : (
         <table
@@ -101,14 +153,31 @@ const focusUserId = focus ?? null;
           </thead>
 
           <tbody>
-            {users.map((user: UserLog) => (
-              <tr
-                key={user.discord_user_id}
-                style={{
-                  borderTop: "1px solid #333",
-                  verticalAlign: "top",
-                }}
-              >
+            {filteredUsers.map((user: UserLog) => {
+  const isMatch =
+    query !== "" &&
+    (
+      user.discord_user_id.includes(query) ||
+      user.current_discord_username
+        ?.toLowerCase()
+        .includes(query.toLowerCase()) ||
+      (user.known_discord_usernames ?? [])
+        .join(" ")
+        .toLowerCase()
+        .includes(query.toLowerCase())
+    );
+
+  return (
+    <tr
+      key={user.discord_user_id}
+      style={{
+        borderTop: "1px solid #333",
+        verticalAlign: "top",
+        background: isMatch ? "#141414" : undefined,
+      }}
+    >
+
+
                 {/* USER */}
                 <td style={{ padding: "8px 0" }}>
   <strong>
@@ -270,11 +339,14 @@ const focusUserId = focus ?? null;
                     {new Date(user.last_seen_at).toLocaleString()}
                   </div>
                 </td>
-              </tr>
-            ))}
+                           </tr>
+            );
+          })}
+
           </tbody>
         </table>
       )}
+      
     </div>
   );
 }
