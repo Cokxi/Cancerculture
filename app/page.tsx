@@ -82,8 +82,9 @@ export default async function Home() {
     flex
     flex-col
     items-center
-    justify-center
-    gap-3 sm:gap-6
+    justify-start sm:justify-center
+    pt-6 sm:pt-0
+    gap-6
     relative
   "
 >
