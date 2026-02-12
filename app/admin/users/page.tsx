@@ -39,11 +39,17 @@ export default async function AdminUsersPage({
   searchParams,
 }: {
   searchParams: Promise<{ focus?: string; q?: string }>;
-
 }) {
-const { focus, q } = await searchParams;
-const focusUserId = focus ?? null;
-const query = q?.trim() ?? "";
+
+const params = await searchParams;
+
+const focusUserId = params?.focus ?? null;
+const query =
+  typeof params?.q === "string"
+    ? params.q.trim()
+    : "";
+
+
 
 
 
@@ -120,16 +126,7 @@ const query = q?.trim() ?? "";
     }}
   />
 
-  {query && (
-    <button
-      type="submit"
-      style={{ marginLeft: 8, fontSize: 12 }}
-      name="q"
-      value=""
-    >
-      Clear
-    </button>
-  )}
+  
 </form>
 
 
