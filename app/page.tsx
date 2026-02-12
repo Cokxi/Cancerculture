@@ -106,7 +106,7 @@ export default async function Home() {
 
     </div>
 
-    <div className="scale-[0.38] sm:scale-[0.65] lg:scale-[0.75] overflow-visible -mr-20 sm:ml-0">
+    <div className="scale-[0.38] sm:scale-[0.65] lg:scale-[0.75] overflow-visible -ml-20 sm:ml-0">
       <TelegramCellAnimated />
     </div>
   </div>
