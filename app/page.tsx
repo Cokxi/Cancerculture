@@ -94,11 +94,12 @@ export default async function Home() {
   <div
   className="
     flex items-center justify-center
-    gap-2 sm:gap-6 lg:gap-14
+    gap-[-20px] sm:gap-6 lg:gap-14
     opacity-85
     mb-[-0.5rem] sm:mb-0
   "
 >
+
 
     <div className="scale-[0.38] sm:scale-[0.65] lg:scale-[0.75] overflow-visible">
       <DiscordCellAnimated />
