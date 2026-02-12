@@ -2,8 +2,8 @@ import ContractAddress from "./components/ContractAddress";
 import { getTeamMember } from "@/lib/auth/guards";
 import Image from "next/image";
 import Link from "next/link";
-import DiscordCell from "./components/DiscordCell";
-import TelegramCell from "./components/TelegramCell";
+import DiscordCellAnimated from "./components/DiscordCellAnimated";
+import TelegramCellAnimated from "./components/TelegramCellAnimated";
 import { getContractAddress } from "@/lib/config/getContractAddress";
 import WalletAddressBox from "@/app/components/WalletAddressBox";
 
@@ -101,11 +101,12 @@ export default async function Home() {
 >
 
     <div className="scale-[0.55] sm:scale-[0.65] lg:scale-[0.75] overflow-visible">
-      <DiscordCell />
+      <DiscordCellAnimated />
+
     </div>
 
     <div className="scale-[0.55] sm:scale-[0.65] lg:scale-[0.75] overflow-visible">
-      <TelegramCell />
+      <TelegramCellAnimated />
     </div>
   </div>
 
