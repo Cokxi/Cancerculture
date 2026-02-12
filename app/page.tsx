@@ -83,7 +83,7 @@ export default async function Home() {
     flex-col
     items-center
     justify-center
-    gap-6
+    gap-3 sm:gap-6
     relative
   "
 >
@@ -94,18 +94,18 @@ export default async function Home() {
   <div
   className="
     flex items-center justify-center
-    gap-10 sm:gap-6 lg:gap-14
+    gap-2 sm:gap-6 lg:gap-14
     opacity-85
     mb-[-0.5rem] sm:mb-0
   "
 >
 
-    <div className="scale-[0.55] sm:scale-[0.65] lg:scale-[0.75] overflow-visible">
+    <div className="scale-[0.38] sm:scale-[0.65] lg:scale-[0.75] overflow-visible">
       <DiscordCellAnimated />
 
     </div>
 
-    <div className="scale-[0.55] sm:scale-[0.65] lg:scale-[0.75] overflow-visible">
+    <div className="scale-[0.38] sm:scale-[0.65] lg:scale-[0.75] overflow-visible">
       <TelegramCellAnimated />
     </div>
   </div>
