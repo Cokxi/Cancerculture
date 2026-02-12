@@ -101,12 +101,12 @@ export default async function Home() {
 >
 
 
-    <div className="scale-[0.38] sm:scale-[0.65] lg:scale-[0.75] overflow-visible">
+    <div className="scale-[0.38] sm:scale-[0.65] lg:scale-[0.75] overflow-visible -mr-20 sm:mr-0">
       <DiscordCellAnimated />
 
     </div>
 
-    <div className="scale-[0.38] sm:scale-[0.65] lg:scale-[0.75] overflow-visible">
+    <div className="scale-[0.38] sm:scale-[0.65] lg:scale-[0.75] overflow-visible -mr-20 sm:mr-0">
       <TelegramCellAnimated />
     </div>
   </div>
