@@ -30,7 +30,7 @@ export default function RootLayout({
       lang="en"
       className={`${bangers.variable} ${permanentMarker.variable}`}
     >
-      <body className="antialiased bg-orange-background">
+      <body className="antialiased bg-orange-background overflow-x-hidden">
         {children}
       </body>
     </html>

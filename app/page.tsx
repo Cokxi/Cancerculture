@@ -84,7 +84,7 @@ export default async function Home() {
     items-center
     justify-start sm:justify-center
     pt-6 sm:pt-0
-    gap-6
+    gap-3 sm:gap-6
     relative
   "
 >
