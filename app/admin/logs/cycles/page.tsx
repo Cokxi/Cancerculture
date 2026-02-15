@@ -17,6 +17,8 @@ export default function AdminCycleLogsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+const [cycleThemes, setCycleThemes] = useState<Record<number, string | null>>({});  
+
   useEffect(() => {
     async function loadLogs() {
       try {
@@ -30,6 +32,20 @@ if (!text) {
 }
 
 const data = JSON.parse(text);
+
+// 🔥 Cycle IDs sammeln
+const cycleIds = Array.from(
+  new Set(data.logs.map((l: any) => l.target_id))
+);
+
+// 🔥 Themes laden
+const themeRes = await fetch(
+  "/api/admin/cycles/themes?ids=" + cycleIds.join(",")
+);
+const themeData = await themeRes.json();
+
+setCycleThemes(themeData.themes || {});
+
 
 
         if (!res.ok) {
@@ -75,8 +91,12 @@ const data = JSON.parse(text);
             </div>
 
             <div style={{ opacity: 0.7 }}>
-              Cycle #{log.target_id}
-            </div>
+  🔥 {log.target_id
+  ? cycleThemes[log.target_id] ?? "Open Round"
+  : "Open Round"} — Round {log.target_id ?? "?"}
+
+</div>
+
 
             <div style={{ opacity: 0.5 }}>
               {new Date(log.created_at).toLocaleString()}

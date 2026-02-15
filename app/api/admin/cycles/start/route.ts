@@ -12,14 +12,21 @@ export async function POST(req: Request) {
 
     // 📥 Input
     const body = await req.json();
-    const { endsAt } = body;
+    const { endsAt, theme } = body;
 
     if (!endsAt) {
+
       return NextResponse.json(
         { error: "endsAt is required" },
         { status: 400 }
       );
     }
+
+          // 🎨 Theme normalisieren ("" → null)
+const cleanTheme =
+  typeof theme === "string" && theme.trim().length > 0
+    ? theme.trim()
+    : null;
 
     // 🔁 Sicherheitscheck: nur ein aktiver Cycle
     const { data: activeCycle } = await supabaseAdmin
@@ -43,7 +50,9 @@ export async function POST(req: Request) {
         starts_at: new Date().toISOString(),
         ends_at: endsAt,
         created_by_discord_id: admin.discord_user_id,
+        theme: cleanTheme,
       })
+
       .select()
       .single();
 

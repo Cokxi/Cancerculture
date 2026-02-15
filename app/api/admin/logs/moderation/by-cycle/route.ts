@@ -12,7 +12,7 @@ export async function GET() {
     // 1️⃣ Alle Cycles laden (neueste zuerst)
     const { data: cycles, error: cyclesError } = await supabaseAdmin
       .from("voting_cycles")
-      .select("id, status, starts_at, ends_at")
+      .select("id, status, theme, starts_at, ends_at")
       .order("id", { ascending: false });
 
     if (cyclesError || !cycles) {

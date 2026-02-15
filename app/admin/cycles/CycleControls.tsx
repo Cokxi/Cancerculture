@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import CycleHudControls from "./CycleHudControls";
+
 
 export default function CycleControls() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [startTheme, setStartTheme] = useState("");
+
 
   async function startCycle() {
     setLoading(true);
@@ -18,6 +22,7 @@ export default function CycleControls() {
           endsAt: new Date(
             Date.now() + 7 * 24 * 60 * 60 * 1000
           ).toISOString(),
+          theme: startTheme,
         }),
       });
 
@@ -63,6 +68,17 @@ export default function CycleControls() {
 
   return (
     <div>
+      <input
+  value={startTheme}
+  onChange={(e) => setStartTheme(e.target.value)}
+  placeholder="Round theme (optional)"
+  style={{
+    marginRight: 12,
+    padding: "6px 10px",
+    fontSize: 14,
+  }}
+/>
+
       <button
         onClick={startCycle}
         disabled={loading}
@@ -89,6 +105,7 @@ export default function CycleControls() {
       </button>
 
      
+<CycleHudControls />
 
       {message && (
         <p style={{ marginTop: 16 }}>{message}</p>

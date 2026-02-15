@@ -141,6 +141,24 @@ export async function POST() {
         ended_at: new Date().toISOString(),
       })
       .eq("id", cycle.id);
+console.log("🔥 RESETTING NEXT THEME");
+
+      // 🧹 HUD Reset nach Cycle End
+const { data: resetData, error: resetError } = await supabase
+  .from("app_config")
+  .update({ value: null })
+  .eq("key", "next_cycle_theme")
+  .select();
+
+console.log("RESET RESULT:", resetData, resetError);
+
+
+await supabase
+  .from("app_config")
+  .update({ value: null })
+  .eq("key", "cycle_end_at");
+
+
 
     // 🧾 Admin-Log
     await logAdminAction({

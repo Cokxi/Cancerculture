@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+
+
 import ContractAddress from "./components/ContractAddress";
 import { getTeamMember } from "@/lib/auth/guards";
 import Image from "next/image";
@@ -6,6 +9,7 @@ import DiscordCellAnimated from "./components/DiscordCellAnimated";
 import TelegramCellAnimated from "./components/TelegramCellAnimated";
 import { getContractAddress } from "@/lib/config/getContractAddress";
 import WalletAddressBox from "@/app/components/WalletAddressBox";
+import CycleHud from "@/app/components/CycleHud";
 
 
 export default async function Home() {
@@ -98,8 +102,6 @@ export default async function Home() {
 >
 
 
-
-
   {/* CELLS (GIMMICK) */}
   <div
   className="
@@ -120,6 +122,7 @@ export default async function Home() {
       <TelegramCellAnimated />
     </div>
   </div>
+<CycleHud />
 
   {/* LOGO */}
   <Link
