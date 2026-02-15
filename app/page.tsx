@@ -105,6 +105,7 @@ export default async function Home() {
   {/* CELLS (GIMMICK) */}
   <div
   className="
+    relative z-10
     flex items-center justify-center
     gap-[-20px] sm:gap-6 lg:gap-14
     opacity-85

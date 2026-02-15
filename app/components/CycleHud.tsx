@@ -40,6 +40,7 @@ const isTimerActive =
     className="
       absolute
       top-[150px]
+      z-0
       left-0
       w-full
       flex
