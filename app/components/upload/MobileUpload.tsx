@@ -44,7 +44,7 @@ export default function MobileUpload({
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
+  const [successMode, setSuccessMode] = useState<"success" | "already">("success");
   const [xUsername, setXUsername] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
   const [payoutChoice, setPayoutChoice] = useState<PayoutChoice | null>(null);
@@ -60,6 +60,13 @@ export default function MobileUpload({
     );
     return () => clearInterval(interval);
   }, [scannerState]);
+
+  useEffect(() => {
+  if (forceSuccessState) {
+    setSuccessMode("already");
+  }
+}, [forceSuccessState]);
+
 
   /* ---------- SCANNER IMAGE ---------- */
   const getScannerImage = () => {
@@ -132,7 +139,8 @@ formData.append("xUsername", normalizedX);
         setScannerState("idle");
         return;
       }
-
+      
+      setSuccessMode("success");
       setUploadDone(true);
       setScannerState("done");
     } catch {
@@ -307,7 +315,8 @@ formData.append("xUsername", normalizedX);
             className="mx-auto cursor-pointer active:scale-95"
             onClick={() => (window.location.href = "/")}
           >
-            <HomeBlinkCell />
+            <HomeBlinkCell mode={successMode} />
+
           </div>
         )}
 

@@ -50,17 +50,26 @@ export default function DesktopUpload({
   const [splitPercent, setSplitPercent] = useState(50);
   const [charity, setCharity] = useState<string | null>(null);
   const [customCharity, setCustomCharity] = useState("");
-
+  const [successMode, setSuccessMode] = useState<"success" | "already">("success");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   /* ---------- BLINK ---------- */
-  useEffect(() => {
-    const interval = setInterval(
-      () => setBlink((b) => !b),
-      scannerState === "uploading" ? 300 : 900
-    );
-    return () => clearInterval(interval);
-  }, [scannerState]);
+  /* ---------- BLINK ---------- */
+useEffect(() => {
+  const interval = setInterval(
+    () => setBlink((b) => !b),
+    scannerState === "uploading" ? 300 : 900
+  );
+  return () => clearInterval(interval);
+}, [scannerState]);
+
+/* ---------- SUCCESS MODE SWITCH ---------- */
+useEffect(() => {
+  if (forceSuccessState) {
+    setSuccessMode("already");
+  }
+}, [forceSuccessState]);
+
 
   const getScannerImage = () => {
     if (scannerState === "done") return "/scanner-v4.png";
@@ -124,6 +133,7 @@ formData.append("xUsername", normalizedX);
         return;
       }
 
+      setSuccessMode("success");
       setUploadDone(true);
       setScannerState("done");
     } catch {
@@ -318,7 +328,8 @@ formData.append("xUsername", normalizedX);
             className="mx-auto cursor-pointer"
             onClick={() => (location.href = "/")}
           >
-            <HomeBlinkCell />
+            <HomeBlinkCell mode={successMode} />
+
           </div>
         )}
 
