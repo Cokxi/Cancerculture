@@ -104,11 +104,12 @@ export default function ShameGrid({ winners }: { winners: Winner[] }) {
       {/* MODAL */}
       {active && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/90 overflow-auto p-6"
           onClick={() => setActive(null)}
         >
           <div
-            className="relative bg-black max-w-4xl w-full rounded-xl p-4"
+            className="relative mx-auto bg-black max-w-5xl w-full rounded-xl p-4"
+
             onClick={(e) => e.stopPropagation()}
           >
             {/* CLOSE */}
@@ -138,7 +139,15 @@ export default function ShameGrid({ winners }: { winners: Winner[] }) {
               alt="Shame"
               width={1200}
               height={1200}
-              className="object-contain w-full h-[70vh] rounded-lg"
+              className="
+  object-contain
+  w-auto
+  h-auto
+  max-w-none
+  mx-auto
+  rounded-lg
+"
+
             />
 
             <div className="mt-4 text-white space-y-3">

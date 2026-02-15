@@ -90,11 +90,12 @@ export default function VoteClient({
       {/* MODAL */}
       {active && (
   <div
-    className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6"
+  className="fixed inset-0 z-50 bg-black/90 overflow-auto p-6"
     onClick={() => setActive(null)}
   >
     <div
-      className="relative max-w-3xl w-full bg-black rounded-lg overflow-hidden"
+  className="relative mx-auto max-w-5xl w-full bg-black rounded-lg"
+
       onClick={(e) => e.stopPropagation()}
     >
 
@@ -106,10 +107,17 @@ export default function VoteClient({
             </button>
 
             <img
-              src={active.image_url}
-              alt=""
-              className="w-full object-contain max-h-[80vh]"
-            />
+  src={active.image_url}
+  alt=""
+  className="
+    w-auto
+    h-auto
+    max-w-none
+    object-contain
+    mx-auto
+  "
+/>
+
 
             <div className="p-4 flex justify-between items-center text-white">
               <span>Votes: {localVotes[active.id]}</span>
