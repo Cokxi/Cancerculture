@@ -53,7 +53,7 @@ const isTimerActive =
       {/* 🔥 THEME */}
       <div
   className="
-    text-[1.1rem]
+    text-[1.4rem]
     text-[var(--orange-main)]
     font-['Permanent_Marker']
     pb-[2px]
