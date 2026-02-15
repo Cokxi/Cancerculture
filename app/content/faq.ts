@@ -6,48 +6,44 @@ export const FAQ_CONTENT = {
 HOW IT WORKS:    
 -----------------------------
 
-CancerCulture runs as an ongoing competition in separate rounds.
+CancerCulture runs as an ongoing community driven meme competition across separate rounds.
 
 In each round, everyone can:
 
--upload one picture of your personal \u00A0cancer
+upload one original meme
 
--take one vote
+cast one vote
 
-You are not allowed to vote for your own submission.
+Voting for your own submission is not allowed.
 
 -----------------------------
 UPLOADS, VOTING & VERIFICATION:
 -----------------------------
-To keep everything as fair and safe as possible,
-there is no wallet connection required at any point.
+To keep participation simple, no wallet connection is required at any point.
 
-However, to protect the platform from bot uploads and fake votes,
-you must verify yourself via Discord
-before you can upload a picture or take your vote.
+To reduce bot uploads and fake votes, users must verify via Discord before submitting or voting.
 
-If you submit a picture, you are asked to provide:
+During submission, participants provide:
 
--your X (Twitter) @username
+an X (Twitter) @username
 
--a wallet address where a potential prize \u00A0should be sent
+a wallet address for potential prize payouts
 
--a decision about what should happen if \u00A0you win
+a decision about what should happen if they win
 
-You can choose to:
+Winners can choose to:
 
--keep the full prize
+keep the full prize
 
--donate the full prize
+donate the full prize
 
--or split the prize and decide what   \u00A0percentage should be donated
+or split the prize and decide what percentage should be donated
 
 -----------------------------
 PRIVACY & ANONYMITY:
 -----------------------------
 
-All personal information stays hidden during the active round
-and has no influence on voting.
+All personal information remains hidden during active rounds and has no influence on voting.
 
 There are:
 
@@ -57,7 +53,7 @@ There are:
 
 -no visible identities during a round
 
-Uploads and votes are anonymous.
+Uploads and votes remain anonymous until results are revealed.
 
 -----------------------------
 ROUNDS, TIMING & REWARDS:

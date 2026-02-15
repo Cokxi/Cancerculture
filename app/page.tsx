@@ -36,10 +36,18 @@ export default async function Home() {
 {/* TICKER */}
 <div className="ticker-wrapper">
   <div className="ticker-track">
-    <img src="/TEST-v7.png" alt="" aria-hidden />
-    <img src="/TEST-v7.png" alt="" aria-hidden />
+    <div className="ticker-text">
+      CREATE MEMES - UPLOAD - VOTE - WIN - DONATE OR NOT - CHILL & SHILL - BE PART OF THE CULTURE - 
+      CREATE MEMES - UPLOAD - VOTE - WIN - DONATE OR NOT - CHILL & SHILL - BE PART OF THE CULTURE -
+              </div>
+
+    <div className="ticker-text" aria-hidden>
+      CREATE MEMES - UPLOAD - VOTE - WIN - DONATE OR NOT - CHILL & SHILL - BE PART OF THE CULTURE - 
+      CREATE MEMES - UPLOAD - VOTE - WIN - DONATE OR NOT - CHILL & SHILL - BE PART OF THE CULTURE -
+          </div>
   </div>
 </div>
+
 
 {/* LINK BAR */}
 <div className="w-full flex justify-center mt-4">
@@ -153,16 +161,17 @@ export default async function Home() {
         <h3 className="orange-box-title">ABOUT</h3>
 
       <p>
-        CancerCulture is a community-driven charity memecoin that highlights
-        the toxic nature of the memecoin space. The name does not refer to
-        cancer as a disease, but symbolically to unhealthy, irrational, or
-        unnecessary behaviors we knowingly keep.
+        CancerCulture is a community driven charity meme competition built around the chaotic nature of the memecoin space.
+        The name does not refer to cancer as a disease.
+        It symbolically describes the irrational, fast spreading culture of memes, trends, and narratives that define the space.
       </p>
 
       <p>
-        The project is powered by its community. An ongoing competition
-        distributes 50% of creator rewards back to the community across
-        multiple rounds, keeping the culture alive through participation.
+        Instead of fighting that chaos, CancerCulture turns it into a game:
+        create original memes, upload them, and let the community decide what survives.
+      </p>  
+      <p>  
+        An ongoing competition distributes 50% of creator rewards back to the community across multiple rounds, keeping the culture alive through participation.
       </p>
 
       <p>
@@ -184,24 +193,31 @@ export default async function Home() {
         <h3 className="orange-box-title">HOW IT WORKS</h3>
 
       <p>
-        CancerCulture runs as an ongoing competition across multiple rounds.
-In each round, participants can upload one image representing their personal “cancer” and cast one vote, voting for your own submission is not allowed.
+        CancerCulture runs as an ongoing meme competition across multiple rounds.
       </p>
 
       <p>
-        No wallet connection is required. To prevent bots and fake votes, users verify via Discord before uploading or voting. All uploads and votes are anonymous, with no accounts, profiles, or visible identities during a round.
+        In each round, participants can upload one original meme and cast one vote.
+        Voting for your own submission is not allowed.
       </p>
 
       <p>
-        When a round ends, 100% of that round’s rewards are claimed immediately, with 50% going to the winner.
+        No wallet connection is required.
+        To reduce bots and fake votes, users verify via Discord before uploading or voting.
+        All submissions and votes remain anonymous during an active round.
       </p>
 
       <p>
-        Winners choose whether to keep, donate, or split their prize. Those who donate at least 1% appear on the Wall of Fame; others on the Wall of Shame.
+        When a round ends, 100% of that round’s rewards are claimed immediately, with 50% going to the winning meme creator.
       </p>
 
       <p>
-        Whatever the winner decides, the creator mirror the exact same decision for their remaining 50%, including donation amount and charity.
+        Winners choose whether to keep, donate, or split their prize.
+        Those who donate at least 1% appear on the Wall of Fame; others on the Wall of Shame.
+      </p>
+
+      <p>
+        Whatever the winner decides, the creator mirrors the exact same decision for their remaining 50%, including donation amount and charity.
       </p>
 
       <a href="/faq" className="orange-box-link">

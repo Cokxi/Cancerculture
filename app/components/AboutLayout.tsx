@@ -6,46 +6,64 @@ import AboutCenterCell from "./AboutCenterCell";
 /* === ABOUT TEXT CONTENT (Slide 1) === */
 
 const LEFT_TEXT = `
-CancerCulture was born out of a simple but uncomfortable truth:
-The memecoin space sometimes feels like cancer.
+CancerCulture is a community driven charity meme competition inspired by the chaotic nature of the memecoin space.
 
-The idea behind it is simple.
-I wanted to create a community-driven charity coin, where the community itself shows how selfless it can be, especially when it comes to everybody’s own wallet.
+The name does not refer to cancer as a disease.
+It represents the fast spreading, irrational culture of memes, narratives, hype cycles, and degenerate humor that defines the ecosystem.
 
-There is an ongoing competition, as long as this project exists.
-And it is up to the community, to keep it alive.
-50% of the Creator rewards will go to the Community across multiple rounds.
+Instead of pretending to be serious, CancerCulture turns that chaos into a creative arena.
 
-And just to be absolutely clear:
+Memes are the language of this culture and here they compete!
 
-The name CancerCulture is not meant to make fun of sick people,
-and it has nothing to do with cancer as a disease.
+Participants create original memes that reflect the absurdity, creativity, and energy of memecoin culture itself. The community decides what survives through voting, shaping the narrative round by round.
 
-It refers only to a cancerous space,
-and to everyone’s personal cancer.
+50% of creator rewards are continuously redistributed back to the community across multiple rounds.
+The project only stays alive through participation, creativity is the fuel.
+
+CancerCulture isn’t trying to “fix” the space.
+It mirrors it, exaggerates it, and turns it into a game.
+
+Create. Upload. Vote. Chill + shill.
 `;
 
 const RIGHT_TEXT = `
-Everyone is encouraged to upload a picture of their personal cancer.
+How It Works:
 
-Your personal cancer does not mean an illness.
-It means something unhealthy, irrational, or unnecessary
-that you still keep doing, buying, or spending money on.
+CancerCulture runs as an ongoing meme competition across continuous rounds.
 
-This can be:
+Submissions:
 
-- a bad habit
-- an addiction to something pointless
-- or just something you know is stupid,
-  but you do it anyway.
+Each participant can upload one original meme per round.
+Submissions must be creative and made by the participant — reposted or stolen content may be disqualified.
 
-Before you upload, keep this in mind:
+Voting:
 
-Step 1: Think.
-Step 2: Be creative.
-Step 3: Upload it.
-Step 4: Vote on other submissions.
-Step 5: Chill and shill.
+Every participant receives one vote per round.
+Voting for your own submission is not allowed.
+
+All uploads and votes remain anonymous during an active round to reduce bias and encourage honest participation.
+
+Verification:
+
+No wallet connection is required.
+
+To reduce bots and fake votes, users verify through Discord before uploading or voting.
+Discord identity is used only for round limits, not for public profiles.
+
+Rewards:
+
+When a round ends, 100% of that round’s rewards are claimed immediately.
+
+50% goes to the winning meme creator.
+
+The remaining 50% belongs to the creator.
+
+Winners choose whether to keep, donate, or split their prize.
+
+Those who donate at least 1% appear on the Wall of Fame.
+Others appear on the Wall of Shame.
+
+Whatever the winner decides, the Dev mirrors the exact same decision for their remaining share, including donation percentage and charity.
 `;
 
 export default function AboutLayout() {
