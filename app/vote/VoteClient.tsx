@@ -66,25 +66,38 @@ export default function VoteClient({
       <div className="min-h-screen pt-20 px-6 pb-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
 
 
-        {submissions.map(s => (
-          <button
-            key={s.id}
-            onClick={() => setActive(s)}
-            className="group relative aspect-square overflow-hidden rounded-lg border"
-          >
-            <img
-              src={s.image_url}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
-            />
-            <div className="absolute bottom-0 w-full bg-black/60 text-white text-sm p-2">
-              Votes: {localVotes[s.id]}
-              {s.discord_user_id === discordUserId && (
-                <span className="ml-2 opacity-70">(you)</span>
-              )}
-            </div>
-          </button>
-        ))}
+        {submissions.map(s => {
+  const url = new URL(s.image_url);
+
+  const thumbSrc =
+    `${url.origin}/cdn-cgi/image/w=400,q=75${url.pathname}`;
+
+  return (
+    <button
+      key={s.id}
+      onClick={() => setActive(s)}
+      className="group relative aspect-square overflow-hidden rounded-lg border"
+    >
+      <img
+        src={thumbSrc}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        fetchPriority="low"
+        className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
+      />
+
+
+      <div className="absolute bottom-0 w-full bg-black/60 text-white text-sm p-2">
+        Votes: {localVotes[s.id]}
+        {s.discord_user_id === discordUserId && (
+          <span className="ml-2 opacity-70">(you)</span>
+        )}
+      </div>
+    </button>
+  );
+})}
+
       </div>
 
       {/* MODAL */}
