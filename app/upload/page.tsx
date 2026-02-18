@@ -61,6 +61,13 @@ export default async function UploadPage() {
     <div className="min-h-screen bg-orange-background">
       {alreadyUploaded ? (
         <>
+        <a
+  href="/"
+  className="fixed top-4 left-4 z-40 bg-black/70 text-orange-500 px-3 py-2 rounded-full text-sm font-[Permanent_Marker] hover:bg-black"
+>
+  ← Home
+</a>
+
           <div className="hidden md:block">
             <DesktopUpload
               showSupportLink={showSupportLink}

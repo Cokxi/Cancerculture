@@ -130,7 +130,7 @@ lastTapRef.current = now;
   onClick={() => setActive(null)}
   className="fixed top-4 right-4 z-[60] text-white text-2xl bg-black/60 rounded-full w-10 h-10 flex items-center justify-center hover:bg-black/80"
 >
-  X
+  x
 </button>
 
     <div

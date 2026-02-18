@@ -1,7 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 type Winner = {
   id: number;
@@ -18,6 +17,25 @@ type Winner = {
 
 export default function ShameGrid({ winners }: { winners: Winner[] }) {
   const [active, setActive] = useState<Winner | null>(null);
+  const [showOriginalSize, setShowOriginalSize] = useState(false);
+const lastTapRef = useRef(0);
+
+function handleToggleSize() {
+  setShowOriginalSize(prev => !prev);
+}
+
+function handleTouchStart() {
+  const now = Date.now();
+  if (now - lastTapRef.current < 300) {
+    handleToggleSize();
+  }
+  lastTapRef.current = now;
+}
+
+function getThumbUrl(imageUrl: string) {
+  const url = new URL(imageUrl);
+  return `${url.origin}/cdn-cgi/image/w=400,q=75${url.pathname}`;
+}
 
   // ESC schließt Modal
   useEffect(() => {
@@ -55,7 +73,11 @@ export default function ShameGrid({ winners }: { winners: Winner[] }) {
         {winners.map((w) => (
           <div
             key={w.id}
-            onClick={() => setActive(w)}
+            onClick={() => {
+  setShowOriginalSize(false);
+  setActive(w);
+}}
+
             className="group cursor-pointer"
           >
             <div
@@ -73,12 +95,15 @@ export default function ShameGrid({ winners }: { winners: Winner[] }) {
                 group-hover:shadow-xl
               "
             >
-              <Image
-                src={w.image_url}
-                alt="Shame image"
-                fill
-                className="object-cover"
-              />
+
+              <img
+  src={getThumbUrl(w.image_url)}
+  alt=""
+  loading="lazy"
+  decoding="async"
+  className="absolute inset-0 w-full h-full object-cover"
+/>
+
 
               {/* Date Overlay */}
               <div
@@ -104,51 +129,45 @@ export default function ShameGrid({ winners }: { winners: Winner[] }) {
       {/* MODAL */}
       {active && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 overflow-auto p-6"
+        className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain p-6"
+
           onClick={() => setActive(null)}
         >
+          <button
+  onClick={() => setActive(null)}
+  className="fixed top-4 right-4 z-[60] text-white text-2xl bg-black/60 rounded-full w-10 h-10 flex items-center justify-center hover:bg-black/80"
+>
+  ×
+</button>
+
           <div
-            className="relative mx-auto bg-black max-w-5xl w-full rounded-xl p-4"
+  className="relative mx-auto w-fit bg-black rounded-xl"
+
 
             onClick={(e) => e.stopPropagation()}
           >
-            {/* CLOSE */}
-            <button
-              onClick={() => setActive(null)}
-              className="
-                absolute
-                top-3
-                right-3
-                w-9
-                h-9
-                rounded-full
-                bg-black/60
-                hover:bg-black/80
-                text-white
-                text-xl
-                flex
-                items-center
-                justify-center
-              "
-            >
-              ×
-            </button>
+            
+            <img
+  src={active.image_url}
+  alt=""
+  onDoubleClick={handleToggleSize}
+  onTouchStart={handleTouchStart}
+  className={
+    showOriginalSize
+      ? "w-auto h-auto max-w-none mx-auto rounded-lg"
+      : "w-auto h-auto max-w-[75vw] max-h-[75vh] object-contain mx-auto rounded-lg"
+  }
+/>
+<div className="flex justify-center pb-2">
+  <button
+    onClick={handleToggleSize}
+    className="text-xs bg-black/50 text-white px-3 py-1 rounded-full hover:bg-black/70"
+  >
+    {showOriginalSize ? "Fit to Screen" : "Tap to Zoom"}
+  </button>
+</div>
 
-            <Image
-              src={active.image_url}
-              alt="Shame"
-              width={1200}
-              height={1200}
-              className="
-  object-contain
-  w-auto
-  h-auto
-  max-w-none
-  mx-auto
-  rounded-lg
-"
 
-            />
 
             <div className="mt-4 text-white space-y-3">
               <div className="text-lg font-semibold text-red-400">
