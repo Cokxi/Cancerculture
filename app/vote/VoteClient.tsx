@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 type Submission = {
   id: number;
@@ -22,7 +22,7 @@ export default function VoteClient({
 }) {
 
   const [showOriginalSize, setShowOriginalSize] = useState(false);
-let lastTap = 0;
+const lastTapRef = useRef(0);
 
 function handleToggleSize() {
   setShowOriginalSize(prev => !prev);
@@ -30,10 +30,11 @@ function handleToggleSize() {
 
 function handleTouchStart() {
   const now = Date.now();
-  if (now - lastTap < 300) {
-    handleToggleSize();
-  }
-  lastTap = now;
+  if (now - lastTapRef.current < 300) {
+  handleToggleSize();
+}
+lastTapRef.current = now;
+
 }
 
   const [active, setActive] = useState<Submission | null>(null);
@@ -89,10 +90,14 @@ function handleTouchStart() {
 
   return (
     <button
-      key={s.id}
-      onClick={() => setActive(s)}
-      className="group relative aspect-square overflow-hidden rounded-lg border"
-    >
+  key={s.id}
+  onClick={() => {
+    setShowOriginalSize(false);
+    setActive(s);
+  }}
+  className="group relative aspect-square overflow-hidden rounded-lg border"
+>
+
       <img
         src={thumbSrc}
         alt=""
@@ -118,7 +123,7 @@ function handleTouchStart() {
       {/* MODAL */}
       {active && (
   <div
-  className="fixed inset-0 z-50 bg-black/90 overflow-auto p-6"
+  className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain p-6"
     onClick={() => setActive(null)}
   >
     <button
@@ -129,10 +134,10 @@ function handleTouchStart() {
 </button>
 
     <div
-  className="relative mx-auto max-w-5xl w-full bg-black rounded-lg"
+  className="relative mx-auto w-fit bg-black rounded-lg"
+  onClick={(e) => e.stopPropagation()}
+>
 
-      onClick={(e) => e.stopPropagation()}
-    >
 
 
 
@@ -149,10 +154,21 @@ function handleTouchStart() {
   }
 />
 
+<div className="flex justify-center py-2">
+  <button
+    onClick={handleToggleSize}
+    className="text-xs bg-black/50 text-white px-3 py-1 rounded-full hover:bg-black/70"
+  >
+    {showOriginalSize ? "Fit to Screen" : "Tap to Zoom"}
+  </button>
+</div>
 
 
-            <div className="p-4 flex justify-between items-center text-white">
-              <span>Votes: {localVotes[active.id]}</span>
+            <div className="p-4 flex items-center text-white">
+  <span>Votes: {localVotes[active.id]}</span>
+
+  <div className="ml-auto flex items-center gap-3">
+
 
               {/* OWN SUBMISSION */}
 {active.discord_user_id === discordUserId && (
@@ -187,6 +203,7 @@ function handleTouchStart() {
 
             </div>
           </div>
+        </div>
         </div>
       )}
     </>
