@@ -21,6 +21,20 @@ export default function VoteClient({
   isBanned: boolean;
 }) {
 
+  const [showOriginalSize, setShowOriginalSize] = useState(false);
+let lastTap = 0;
+
+function handleToggleSize() {
+  setShowOriginalSize(prev => !prev);
+}
+
+function handleTouchStart() {
+  const now = Date.now();
+  if (now - lastTap < 300) {
+    handleToggleSize();
+  }
+  lastTap = now;
+}
 
   const [active, setActive] = useState<Submission | null>(null);
   const [voted, setVoted] = useState(hasVoted);
@@ -63,7 +77,8 @@ export default function VoteClient({
 </a>
 
       {/* GRID */}
-      <div className="min-h-screen pt-20 px-6 pb-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+      <div className="min-h-screen pt-20 px-6 pb-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 items-start">
+
 
 
         {submissions.map(s => {
@@ -106,30 +121,34 @@ export default function VoteClient({
   className="fixed inset-0 z-50 bg-black/90 overflow-auto p-6"
     onClick={() => setActive(null)}
   >
+    <button
+  onClick={() => setActive(null)}
+  className="fixed top-4 right-4 z-[60] text-white text-2xl bg-black/60 rounded-full w-10 h-10 flex items-center justify-center hover:bg-black/80"
+>
+  X
+</button>
+
     <div
   className="relative mx-auto max-w-5xl w-full bg-black rounded-lg"
 
       onClick={(e) => e.stopPropagation()}
     >
 
-            <button
-              onClick={() => setActive(null)}
-              className="absolute top-3 right-3 text-white text-xl"
-            >
-              ×
-            </button>
+
+
 
             <img
   src={active.image_url}
   alt=""
-  className="
-    w-auto
-    h-auto
-    max-w-none
-    object-contain
-    mx-auto
-  "
+  onDoubleClick={handleToggleSize}
+  onTouchStart={handleTouchStart}
+  className={
+    showOriginalSize
+      ? "w-auto h-auto max-w-none mx-auto"
+      : "w-auto h-auto max-w-[75vw] max-h-[75vh] object-contain mx-auto"
+  }
 />
+
 
 
             <div className="p-4 flex justify-between items-center text-white">
