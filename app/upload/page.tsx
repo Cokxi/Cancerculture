@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireSession } from "@/lib/auth/requireSession";
-
+import BackButton from "@/app/components/ui/BackButton";
 import DesktopUpload from "@/app/components/upload/DesktopUpload";
-import MobileUpload from "@/app/components/upload/MobileUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -59,40 +58,24 @@ export default async function UploadPage() {
 
   return (
     <div className="min-h-screen bg-orange-background">
-      {alreadyUploaded ? (
-        <>
-        <a
-  href="/"
-  className="fixed top-4 left-4 z-40 bg-black/70 text-orange-500 px-3 py-2 rounded-full text-sm font-[Permanent_Marker] hover:bg-black"
->
-  ← Home
-</a>
+      <BackButton />
+     {alreadyUploaded ? (
+  <>
+    <a
+      href="/"
+      className="fixed top-4 left-4 z-40 bg-black/70 text-orange-500 px-3 py-2 rounded-full text-sm font-[Permanent_Marker] hover:bg-black"
+    >
+      ← Home
+    </a>
 
-          <div className="hidden md:block">
-            <DesktopUpload
-              showSupportLink={showSupportLink}
-              forceSuccessState
-            />
-          </div>
-
-          <div className="block md:hidden">
-            <MobileUpload
-              showSupportLink={showSupportLink}
-              forceSuccessState
-            />
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="hidden md:block">
-            <DesktopUpload showSupportLink={showSupportLink} />
-          </div>
-
-          <div className="block md:hidden">
-            <MobileUpload showSupportLink={showSupportLink} />
-          </div>
-        </>
-      )}
+    <DesktopUpload
+      showSupportLink={showSupportLink}
+      forceSuccessState
+    />
+  </>
+) : (
+  <DesktopUpload showSupportLink={showSupportLink} />
+)}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import HomeBlinkCell from "@/app/components/HomeBlinkCell";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import ScannerDisplay from "@/app/components/upload/ScannerDisplay";
 
 /* ================= TYPES ================= */
 type ScannerState = "idle" | "uploading" | "done";
@@ -39,8 +40,7 @@ export default function DesktopUpload({
   const [scannerState, setScannerState] = useState<ScannerState>(
     forceSuccessState ? "done" : "idle"
   );
-  const [blink, setBlink] = useState(false);
-
+  
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -52,17 +52,9 @@ export default function DesktopUpload({
   const [customCharity, setCustomCharity] = useState("");
   const [successMode, setSuccessMode] = useState<"success" | "already">("success");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCharityOpen, setIsCharityOpen] = useState(false);
 
-  /* ---------- BLINK ---------- */
-  /* ---------- BLINK ---------- */
-useEffect(() => {
-  const interval = setInterval(
-    () => setBlink((b) => !b),
-    scannerState === "uploading" ? 300 : 900
-  );
-  return () => clearInterval(interval);
-}, [scannerState]);
-
+  
 /* ---------- SUCCESS MODE SWITCH ---------- */
 useEffect(() => {
   if (forceSuccessState) {
@@ -71,10 +63,6 @@ useEffect(() => {
 }, [forceSuccessState]);
 
 
-  const getScannerImage = () => {
-    if (scannerState === "done") return "/scanner-v4.png";
-    return blink ? "/scanner-v1.png" : "/scanner-v2.png";
-  };
 
   const hasImage = !!file;
   const hasMeta =
@@ -88,11 +76,11 @@ useEffect(() => {
     hasImage && hasMeta ? "ready" : hasImage || hasMeta ? "partial" : "idle";
 
   const submitImage =
-    submitState === "ready"
-      ? "/submit-v4.png"
-      : submitState === "partial"
-      ? "/submit-v3.png"
-      : "/submit-v2.png";
+  submitState === "ready"
+    ? "https://cdn.cancerculture.fun/webp/submit.confirm/sub3.webp"
+    : submitState === "partial"
+    ? "https://cdn.cancerculture.fun/webp/submit.confirm/sub2.webp"
+    : "https://cdn.cancerculture.fun/webp/submit.confirm/sub1.webp";
 
   /* ---------- EVENTS ---------- */
   const handleScannerClick = () => fileInputRef.current?.click();
@@ -154,48 +142,20 @@ formData.append("xUsername", normalizedX);
             {/* ===== SCANNER + TITLE ===== */}
             <div className="flex flex-col items-center gap-4">
               <span className="upload-hint animate-soft-hint">
-                Choose your cancer
+                Drop your meme
               </span>
-              
+              <div className="upload-hint animate-soft-hint leading-none">
+      ↓
+    </div>
 
               <div className="bg-yellow-star rounded-3xl p-10">
-                <div
-                  onClick={handleScannerClick}
-                  className="cursor-pointer active:scale-95 transition"
-                >
-                  <Image
-                    src={getScannerImage()}
-                    alt="Upload scanner"
-                    width={420}
-                    height={420}
-                    priority
-                  />
-                </div>
+                <ScannerDisplay
+  hasPreview={!!previewUrl}
+  onClick={handleScannerClick}
+/>
               </div>
             </div>
-{/* ===== CHARITY INFO SLOT (absolute, no gap) ===== */}
-<div className="relative flex justify-center">
-  {(payoutChoice === "donate" || payoutChoice === "split") && (
-    <Link
-      href="/charities"
-      className="
-        absolute
-        -bottom-5
-        text-sm
-        text-[var(--orange-main)]
-        font-['Permanent_Marker']
-        opacity-80
-        hover:opacity-100
-        underline
-        underline-offset-4
-        transition
-        z-10
-      "
-    >
-      Not sure? Learn more about the charities
-    </Link>
-  )}
-</div>
+
 
             {/* ===== PREVIEW ===== */}
             {previewUrl && (
@@ -288,6 +248,28 @@ formData.append("xUsername", normalizedX);
                       className="rounded-xl px-4 py-2 bg-white"
                     />
                   )}
+                  {/* ===== CHARITY INFO SLOT (absolute, no gap) ===== */}
+<div className="relative flex justify-center">
+  {(payoutChoice === "donate" || payoutChoice === "split") && (
+    <button
+  type="button"
+  onClick={() => setIsCharityOpen(true)}
+  className="
+    text-sm
+    text-[var(--orange-main)]
+    font-['Permanent_Marker']
+    opacity-80
+    hover:opacity-100
+    underline
+    underline-offset-4
+    transition
+    cursor-pointer
+  "
+>
+  Not sure? Learn more about the charities
+</button>
+  )}
+</div>
                 </>
               )}
             </div>
@@ -358,6 +340,48 @@ formData.append("xUsername", normalizedX);
           onChange={handleFileChange}
         />
       </div>
+      {/* ===== CHARITY MODAL ===== */}
+{isCharityOpen && (
+  <div
+    className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+    onClick={() => setIsCharityOpen(false)}
+  >
+    <div
+  className="relative w-full max-w-3xl h-[80vh] bg-[#0b0b0b] rounded-2xl overflow-hidden"
+  onClick={(e) => e.stopPropagation()}
+>
+  {/* ===== CLOSE BUTTON ===== */}
+  <button
+    onClick={() => setIsCharityOpen(false)}
+    className="
+      absolute
+      top-3
+      right-3
+      z-20
+      w-9
+      h-9
+      rounded-full
+      bg-black/70
+      text-white
+      text-lg
+      flex
+      items-center
+      justify-center
+      hover:scale-105
+      transition
+      cursor-pointer
+    "
+  >
+    ✕
+  </button>
+
+  <iframe
+    src="/charities"
+    className="w-full h-full border-0"
+  />
+</div>
+  </div>
+)}
     </div>
   );
 }

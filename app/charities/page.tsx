@@ -4,25 +4,7 @@ import Link from "next/link";
 export default function CharitiesPage() {
   return (
     <div className="min-h-screen bg-orange-background relative">
-      {/* ===== back BUTTON ===== */}
-      <Link
-        href="/upload"
-        className="
-          fixed
-          top-6
-          left-6
-          z-50
-          text-[var(--orange-main)]
-          font-['Permanent_Marker']
-          text-lg
-          opacity-80
-          hover:opacity-100
-          transition
-        "
-      >
-        ← back
-      </Link>
-
+     
       {/* ===== CONTENT ===== */}
       <div className="max-w-3xl mx-auto px-6 py-24 flex flex-col gap-8">
         <h1 className="text-center font-['Permanent_Marker'] text-5xl mb-12 text-[var(--orange-main)]">
@@ -53,8 +35,8 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/animal-heaven.png"
-        alt="animal-heaven"
+        src="https://cdn.cancerculture.fun/webp/charity/animal-heaven.webp"
+        alt="Animal Haven charity logo"
         width={500}
         height={400}
         className="object-contain"
@@ -117,7 +99,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/animal-rescue.png"
+        src="https://cdn.cancerculture.fun/webp/charity/animal-rescue.webp"
         alt="Animal Rescue Corps, Inc."
         width={500}
         height={400}
@@ -181,7 +163,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/doctor-boarder.png"
+        src="https://cdn.cancerculture.fun/webp/charity/doctor-boarder.webp"
         alt="Doctors Without Borders U.S.A., Inc."
         width={500}
         height={400}
@@ -245,7 +227,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/homeless-pets.png"
+        src="https://cdn.cancerculture.fun/webp/charity/homeless-pets.webp"
         alt="Feeding Pets of the Homeless"
         width={500}
         height={400}
@@ -309,7 +291,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/justicia.png"
+        src="https://cdn.cancerculture.fun/webp/charity/justicia.webp"
         alt="Institute for Justice"
         width={500}
         height={400}
@@ -373,7 +355,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/no-kid.png"
+        src="https://cdn.cancerculture.fun/webp/charity/no-kid.webp"
         alt="No Kid Hungry"
         width={500}
         height={400}
@@ -437,7 +419,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/save-children.png"
+        src="https://cdn.cancerculture.fun/webp/charity/save-children.webp"
         alt="Save the Children®"
         width={500}
         height={400}
@@ -501,7 +483,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/sea.png"
+        src="https://cdn.cancerculture.fun/webp/charity/sea.webp"
         alt="Sea Shepherd Conservation Society"
         width={500}
         height={400}
@@ -565,7 +547,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/st-jude.png"
+        src="https://cdn.cancerculture.fun/webp/charity/st-jude.webp"
         alt="St. Jude Children's Research Hospital"
         width={500}
         height={400}
@@ -629,7 +611,7 @@ export default function CharitiesPage() {
       bg-black
     ">
       <Image
-        src="/charities/young-lives.png"
+        src="https://cdn.cancerculture.fun/webp/charity/young-lives.webp"
         alt="Young Lives vs Cancer"
         width={500}
         height={400}

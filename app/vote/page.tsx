@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/db/server";
 import { requireSession } from "@/lib/auth/requireSession";
 import VoteClient from "./VoteClient";
+import BackButton from "@/app/components/ui/BackButton";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,15 @@ const isBanned = userLog?.is_banned === true;
     .single();
 
   if (!cycle) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-xl">
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <span className="font-['Permanent_Marker'] text-[var(--orange-main)] text-2xl tracking-wide">
         No active voting cycle
-      </div>
-    );
-  }
-
+      </span>
+    </div>
+  );
+}
+<BackButton />
   const { data: existingVote } = await supabaseServer
     .from("votes")
     .select("id")

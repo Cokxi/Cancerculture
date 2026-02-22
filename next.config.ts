@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
         hostname: "pub-b3364ce2f8ac4014af02207b9bfbd45d.r2.dev",
         pathname: "/**",
       },
+      {
+  protocol: "https",
+  hostname: "cdn.cancerculture.fun",
+  pathname: "/**",
+},
     ],
   },
 };
