@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireSession } from "@/lib/auth/requireSession";
-import BackButton from "@/app/components/ui/BackButton";
+import PageWrapper from "@/app/components/ui/PageWrapper";
 import DesktopUpload from "@/app/components/upload/DesktopUpload";
 
 export const dynamic = "force-dynamic";
@@ -57,16 +57,11 @@ export default async function UploadPage() {
   const showSupportLink = true;
 
   return (
-    <div className="min-h-screen bg-orange-background">
-      <BackButton />
-     {alreadyUploaded ? (
+    <PageWrapper>
+          {alreadyUploaded ? (
   <>
-    <a
-      href="/"
-      className="fixed top-4 left-4 z-40 bg-black/70 text-orange-500 px-3 py-2 rounded-full text-sm font-[Permanent_Marker] hover:bg-black"
-    >
-      ← Home
-    </a>
+     
+   
 
     <DesktopUpload
       showSupportLink={showSupportLink}
@@ -76,6 +71,6 @@ export default async function UploadPage() {
 ) : (
   <DesktopUpload showSupportLink={showSupportLink} />
 )}
-    </div>
+    </PageWrapper>
   );
 }

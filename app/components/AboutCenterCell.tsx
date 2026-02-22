@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import HomeBlinkCell from "@/app/components/HomeBlinkCell";
+import CenterAnimation from "@/app/components/CenterAnimation";
 
 export default function AboutCenterCell() {
   return (
@@ -19,29 +18,8 @@ export default function AboutCenterCell() {
         pointer-events-none
       "
     >
-      <div
-        className="
-          mb-1
-          text-orange-500
-          font-[Permanent_Marker]
-          text-sm
-          animate-[pulse_4s_ease-in-out_infinite]
-          pointer-events-auto
-        "
-      >
-        HOME
-      </div>
-
-      <Link
-        href="/"
-        className="
-          w-[clamp(120px,14vw,200px)]
-          aspect-square
-          pointer-events-auto
-        "
-      >
-        <HomeBlinkCell />
-      </Link>
+     
+        <CenterAnimation />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import BackButton from "@/app/components/ui/BackButton";
+
 
 type Submission = {
   id: number;
@@ -70,8 +70,7 @@ lastTapRef.current = now;
   return (
     <>
 
-    <BackButton />
-
+    
       {/* GRID */}
       <div className="min-h-screen pt-20 px-6 pb-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 content-start">
 

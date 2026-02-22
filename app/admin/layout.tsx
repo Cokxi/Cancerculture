@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getTeamMember } from "@/lib/auth/guards";
-import BackButton from "@/app/components/ui/BackButton";
+
 
 export default async function AdminLayout({
   children,
@@ -20,13 +20,23 @@ export default async function AdminLayout({
   const isAdmin = member.role === "admin";
 
   return (
+  
     <div className="min-h-screen flex bg-neutral-950 text-white/90">
+      
       {/* SIDEBAR */}
       <nav className="w-[220px] shrink-0 border-r border-white/10 p-4 text-sm">
-        <BackButton />
-
+        
         <ul className="space-y-2">
+          <li className="mb-4">
+  <Link
+    href="/"
+    className="block px-2 py-1 rounded text-orange-400 hover:bg-white/10"
+  >
+    ← Home
+  </Link>
+</li>
           {isAdmin && (
+            
             <li>
               <Link
                 href="/admin/cycles"

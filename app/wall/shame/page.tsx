@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/db/server";
 import ShameGrid from "./ShameGrid";
 import AnimatedCellShame from "./AnimatedCellShame";
-import BackButton from "@/app/components/ui/BackButton";
+import PageWrapper from "@/app/components/ui/PageWrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +24,10 @@ export default async function WallOfShamePage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div className="min-h-screen bg-neutral-950 p-4 sm:p-6 text-white/85">
+  <PageWrapper>
+    <div className="p-4 sm:p-6 text-white/85">
   <h1 className="flex items-center justify-center gap-2 text-2xl sm:text-3xl mb-8 font-[Permanent_Marker] text-[var(--orange-dark)]">
 
-<BackButton />
 
 
         <AnimatedCellShame />
@@ -36,5 +36,6 @@ export default async function WallOfShamePage() {
 
       <ShameGrid winners={winners ?? []} />
     </div>
+    </PageWrapper>
   );
 }

@@ -36,7 +36,7 @@ export default function TelegramCellAnimated() {
 
 
   >
-    <source src="/cell.right.v1.webm" type="video/webm" />
+    <source src="https://cdn.cancerculture.fun/webm/main.cells/cell.right.loop.webm" type="video/webm" />
   </video>
 
 
@@ -63,7 +63,7 @@ export default function TelegramCellAnimated() {
 >
 
           <img
-            src="/icons/telegram-v2.png"
+  src="https://cdn.cancerculture.fun/webp/icons/telegram-v2.webp"
             alt="X"
             className="w-6 h-6 md:w-10 md:h-10 drop-shadow-[0_4px_0_rgba(0,0,0,0.6)]"
           />

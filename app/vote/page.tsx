@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/db/server";
 import { requireSession } from "@/lib/auth/requireSession";
 import VoteClient from "./VoteClient";
-import BackButton from "@/app/components/ui/BackButton";
+import PageWrapper from "@/app/components/ui/PageWrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -35,14 +35,16 @@ const isBanned = userLog?.is_banned === true;
 
   if (!cycle) {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <span className="font-['Permanent_Marker'] text-[var(--orange-main)] text-2xl tracking-wide">
-        No active voting cycle
-      </span>
-    </div>
+    <PageWrapper>
+      <div className="flex items-center justify-center min-h-screen">
+        <span className="font-['Permanent_Marker'] text-[var(--orange-main)] text-2xl tracking-wide">
+          No active voting cycle
+        </span>
+      </div>
+    </PageWrapper>
   );
 }
-<BackButton />
+
   const { data: existingVote } = await supabaseServer
     .from("votes")
     .select("id")
@@ -60,12 +62,13 @@ const isBanned = userLog?.is_banned === true;
     .order("id", { ascending: true });
 
   return (
-    <VoteClient
+    <PageWrapper>
+        <VoteClient
   submissions={submissions ?? []}
   hasVoted={hasVoted}
   discordUserId={discordUserId}
   isBanned={isBanned}
 />
-
+</PageWrapper>
   );
 }

@@ -1,9 +1,9 @@
 import Image from "next/image";
-import Link from "next/link";
+import PageWrapper from "@/app/components/ui/PageWrapper";
 
 export default function CharitiesPage() {
   return (
-    <div className="min-h-screen bg-orange-background relative">
+    <PageWrapper>
      
       {/* ===== CONTENT ===== */}
       <div className="max-w-3xl mx-auto px-6 py-24 flex flex-col gap-8">
@@ -652,6 +652,7 @@ export default function CharitiesPage() {
 </div>
 {/* ===== END CHARITY ITEM ===== */}
       </div>
-    </div>
+    
+  </PageWrapper>
   );
 }

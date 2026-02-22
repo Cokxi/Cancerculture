@@ -137,7 +137,7 @@ export default async function Home() {
     "
   >
     <Image
-  src="/logo/cancerculture-logo-v2.png"
+  src="https://cdn.cancerculture.fun/webp/logo/logo.webp"
   alt="CancerCulture"
   width={900}
   height={260}

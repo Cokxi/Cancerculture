@@ -1,12 +1,12 @@
 "use client";
 
+import PageWrapper from "@/app/components/ui/PageWrapper";
 import TwoColumnInfoLayout from "@/app/components/shared/TwoColumnInfoLayout";
 import { FAQ_CONTENT } from "@/app/content/faq";
 
 export default function FAQPage() {
   return (
-    <div className="min-h-screen bg-orange-background overflow-x-hidden">
-      
+    <PageWrapper>
       <TwoColumnInfoLayout
         leftTitle={FAQ_CONTENT.left.title}
         leftText={FAQ_CONTENT.left.text}
@@ -14,6 +14,6 @@ export default function FAQPage() {
         rightText={FAQ_CONTENT.right.text}
         showCenterCell
       />
-    </div>
+    </PageWrapper>
   );
 }

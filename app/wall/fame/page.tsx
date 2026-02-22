@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/db/server";
 import FameGrid from "./FameGrid";
 import AnimatedCell from "./AnimatedCell";
-import BackButton from "@/app/components/ui/BackButton";
+import PageWrapper from "@/app/components/ui/PageWrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +24,9 @@ export default async function WallOfFamePage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div className="min-h-screen bg-orange-background p-4 sm:p-6 text-white/90">
+    <PageWrapper>
+    <div className="p-4 sm:p-6 text-white/90">
   <h1 className="flex items-center justify-center gap-2 text-2xl sm:text-3xl mb-8 font-[Permanent_Marker] text-[var(--orange-dark)]">
-
-<BackButton />
 
 
         <AnimatedCell />
@@ -36,5 +35,6 @@ export default async function WallOfFamePage() {
 
       <FameGrid winners={winners ?? []} />
     </div>
+    </PageWrapper>
   );
 }

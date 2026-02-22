@@ -1,13 +1,11 @@
 "use client";
 
 import HomeBlinkCell from "@/app/components/HomeBlinkCell";
+import ScannerDisplay from "@/app/components/upload/ScannerDisplay";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import ScannerDisplay from "@/app/components/upload/ScannerDisplay";
 
 /* ================= TYPES ================= */
-type ScannerState = "idle" | "uploading" | "done";
 type PayoutChoice = "keep" | "donate" | "split";
 type SubmitState = "idle" | "partial" | "ready";
 
@@ -37,9 +35,7 @@ export default function DesktopUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [uploadDone, setUploadDone] = useState(forceSuccessState);
-  const [scannerState, setScannerState] = useState<ScannerState>(
-    forceSuccessState ? "done" : "idle"
-  );
+ 
   
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -96,7 +92,7 @@ useEffect(() => {
     if (submitState !== "ready" || isSubmitting) return;
 
     setIsSubmitting(true);
-    setScannerState("uploading");
+   
 
     try {
       const formData = new FormData();
@@ -117,15 +113,13 @@ formData.append("xUsername", normalizedX);
 
       if (!res.ok) {
         alert(data.error ?? "Upload not possible right now");
-        setScannerState("idle");
+       
         return;
       }
 
       setSuccessMode("success");
       setUploadDone(true);
-      setScannerState("done");
-    } catch {
-      setScannerState("idle");
+      
     } finally {
       setIsSubmitting(false);
     }
@@ -133,7 +127,7 @@ formData.append("xUsername", normalizedX);
 
   /* ================= RENDER ================= */
   return (
-    <div className="min-h-screen bg-orange-background py-24">
+    <div className="py-24">
       <div className="max-w-6xl mx-auto px-6 flex flex-col gap-14">
 
         {/* ===== SCANNER + FORM BLOCK ===== */}
