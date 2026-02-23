@@ -89,7 +89,7 @@ export default async function Home() {
       {/* HERO */}
 <section
   className="
-    min-h-screen
+    min-h-[50vh] sm:min-h-screen
     max-h-[900px]
     flex
     flex-col
