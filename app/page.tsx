@@ -127,23 +127,24 @@ export default async function Home() {
 
   {/* LOGO */}
   <Link
-    href="/about"
-    className="
-      animate-breathe
-      hover:animate-none
-      hover:scale-[1.03]
-      active:scale-[0.98]
-      transition-transform
-    "
-  >
+  href="/about"
+  className="
+    animate-breathe
+    hover:animate-none
+    hover:scale-[1.03]
+    active:scale-[0.98]
+    transition-transform
+    -translate-y-2 sm:translate-y-0
+  "
+>
     <Image
   src="https://cdn.cancerculture.fun/webp/logo/logo.webp"
   alt="CancerCulture"
   width={900}
   height={260}
   className="
-    w-[min(900px,80vw)]
-    max-h-[22vh]
+    w-[min(900px,92vw)] sm:w-[min(900px,80vw)]
+    max-h-[32vh] sm:max-h-[22vh]
     h-auto
     object-contain
     transition-transform
