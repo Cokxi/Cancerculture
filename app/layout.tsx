@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bangers, Permanent_Marker } from "next/font/google";
 import "./globals.css";
+import { OverlayProvider } from "@/app/components/overlay/OverlayProvider";
 
 /* Fonts */
 const bangers = Bangers({
@@ -31,8 +32,10 @@ export default function RootLayout({
       className={`${bangers.variable} ${permanentMarker.variable}`}
     >
       <body className="antialiased bg-orange-background overflow-x-hidden">
-        {children}
-      </body>
+  <OverlayProvider>
+    {children}
+  </OverlayProvider>
+</body>
     </html>
   );
 }

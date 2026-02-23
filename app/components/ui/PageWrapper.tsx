@@ -9,7 +9,7 @@ export default function PageWrapper({
   showBackButton?: boolean;
 }) {
   return (
-    <div className="min-h-screen bg-orange-background relative">
+   <div className="min-h-screen bg-orange-background relative">
       {showBackButton && <BackButton />}
       {children}
     </div>

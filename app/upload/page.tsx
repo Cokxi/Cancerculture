@@ -39,9 +39,7 @@ export default async function UploadPage() {
     .eq("status", "active")
     .maybeSingle();
 
-  if (!activeCycle) {
-  redirect("/vote");
-}
+  
 
   /* 🔁 Check: schon hochgeladen? (Discord-only) */
   let alreadyUploaded = false;

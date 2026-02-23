@@ -4,6 +4,8 @@ import HomeBlinkCell from "@/app/components/HomeBlinkCell";
 import ScannerDisplay from "@/app/components/upload/ScannerDisplay";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { useOverlay } from "@/app/components/overlay/OverlayProvider";
+import CharitiesOverlay from "@/app/components/overlay/CharitiesOverlay";
 
 /* ================= TYPES ================= */
 type PayoutChoice = "keep" | "donate" | "split";
@@ -23,8 +25,7 @@ const CHARITY_OPTIONS = [
 ];
 
 /* ================= COMPONENT ================= */
-export default function DesktopUpload({
-
+export default function DesktopUpload({ 
   
   showSupportLink,
   forceSuccessState = false,
@@ -32,6 +33,8 @@ export default function DesktopUpload({
   showSupportLink: boolean;
   forceSuccessState?: boolean;
 }) {
+
+  const { openOverlay } = useOverlay();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [uploadDone, setUploadDone] = useState(forceSuccessState);
@@ -247,7 +250,7 @@ formData.append("xUsername", normalizedX);
   {(payoutChoice === "donate" || payoutChoice === "split") && (
     <button
   type="button"
-  onClick={() => setIsCharityOpen(true)}
+  onClick={() => openOverlay(<CharitiesOverlay />)}
   className="
     text-sm
     text-[var(--orange-main)]
@@ -334,48 +337,9 @@ formData.append("xUsername", normalizedX);
           onChange={handleFileChange}
         />
       </div>
-      {/* ===== CHARITY MODAL ===== */}
-{isCharityOpen && (
-  <div
-    className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-    onClick={() => setIsCharityOpen(false)}
-  >
-    <div
-  className="relative w-full max-w-3xl h-[80vh] bg-[#0b0b0b] rounded-2xl overflow-hidden"
-  onClick={(e) => e.stopPropagation()}
->
-  {/* ===== CLOSE BUTTON ===== */}
-  <button
-    onClick={() => setIsCharityOpen(false)}
-    className="
-      absolute
-      top-3
-      right-3
-      z-20
-      w-9
-      h-9
-      rounded-full
-      bg-black/70
-      text-white
-      text-lg
-      flex
-      items-center
-      justify-center
-      hover:scale-105
-      transition
-      cursor-pointer
-    "
-  >
-    ✕
-  </button>
+  
 
-  <iframe
-    src="/charities"
-    className="w-full h-full border-0"
-  />
-</div>
-  </div>
-)}
+    
     </div>
   );
 }
