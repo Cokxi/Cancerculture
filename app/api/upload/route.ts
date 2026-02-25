@@ -3,12 +3,15 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/requireSession";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-
+import sharp from "sharp";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { r2 } from "@/lib/r2";
 import { logUpload } from "@/lib/logging/logUpload";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
+import { logUploadFailAndCheckLimit } from "@/lib/logging/logUploadFailAndCheckLimit";
 
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /* ================= ENTRY ================= */
 
@@ -18,36 +21,97 @@ export async function POST(req: Request) {
     const { discord_user_id: discordUserId } = await requireSession();
 
     /* 🚫 BAN CHECK (user_logs) */
-const { data: userLog } = await supabaseAdmin
-  .from("user_logs")
-  .select("is_banned")
-  .eq("discord_user_id", discordUserId)
+    const { data: userLog } = await supabaseAdmin
+      .from("user_logs")
+      .select("is_banned")
+      .eq("discord_user_id", discordUserId)
+      .single();
+
+    if (userLog?.is_banned) {
+      await logUpload({
+        cycleId: null,
+        discordUserId,
+        status: "failed",
+        reason: "banned",
+      });
+
+      return new Response(JSON.stringify({ error: "BANNED" }), {
+        status: 403,
+      });
+    }
+
+
+    /* 🚫 FAIL RATE LIMIT CHECK */
+    const rateLimitBlocked = await logUploadFailAndCheckLimit({
+      discordUserId,
+      mode: "check",
+    });
+
+    if (rateLimitBlocked) {
+      return new Response(
+        JSON.stringify({ error: "TOO_MANY_FAILED_UPLOADS" }),
+        { status: 429 }
+      );
+    }
+
+    /* 🚫 ACTIVE CYCLE EARLY CHECK */
+const { data: cycle } = await supabaseAdmin
+  .from("voting_cycles")
+  .select("id")
+  .eq("status", "active")
   .single();
 
-if (userLog?.is_banned) {
-  await logUpload({
-    cycleId: null,
-    discordUserId,
-    status: "failed",
-    reason: "banned",
-  });
-
-  return new Response(
-    JSON.stringify({ error: "BANNED" }),
-    { status: 403 }
+if (!cycle) {
+  return NextResponse.json(
+    { error: "No active voting cycle" },
+    { status: 400 }
   );
 }
-await touchUserLog({
-  discordUserId,
-  // optional: falls du den Namen aus Session / OAuth hast
-  // discordUsername,
-});
 
+ /* 6️⃣ Duplicate Check (Discord-only) */
+    const { data: existing } = await supabaseAdmin
+      .from("submissions")
+      .select("id")
+      .eq("cycle_id", cycle.id)
+      .eq("discord_user_id", discordUserId)
+      .maybeSingle();
+
+    if (existing) {
+
+  await logUploadFailAndCheckLimit({
+    discordUserId,
+    mode: "fail",
+  });
+
+  await logUpload({
+    cycleId: cycle.id,
+    discordUserId,
+    status: "failed",
+    reason: "duplicate_submission",
+  });
+
+  return NextResponse.json(
+    { error: "You already uploaded for this cycle" },
+    { status: 400 }
+  );
+}
+
+
+await touchUserLog({
+      discordUserId,
+    });
+
+    
     /* 2️⃣ FormData + File */
     const formData = await req.formData();
-    const file = formData.get("file");
+    const fileEntry = formData.get("file");
 
-    if (!(file instanceof File)) {
+    if (!(fileEntry instanceof File)) {
+
+      await logUploadFailAndCheckLimit({
+  discordUserId,
+  mode: "fail",
+});
       await logUpload({
         cycleId: null,
         discordUserId,
@@ -57,6 +121,28 @@ await touchUserLog({
 
       return NextResponse.json(
         { error: "No file provided" },
+        { status: 400 }
+      );
+    }
+
+    const file = fileEntry;
+
+    /* 🚫 FILE SIZE LIMIT */
+    if (file.size > MAX_UPLOAD_SIZE) {
+      await logUploadFailAndCheckLimit({
+  discordUserId,
+  mode: "fail",
+});
+
+      await logUpload({
+        cycleId: null,
+        discordUserId,
+        status: "failed",
+        reason: "file_size",
+      });
+
+      return NextResponse.json(
+        { error: "File too large" },
         { status: 400 }
       );
     }
@@ -73,12 +159,17 @@ await touchUserLog({
       : null;
 
     if (!xUsername || !walletAddress || !payoutChoice) {
-      await logUpload({
-        cycleId: null,
-        discordUserId,
-        status: "failed",
-        reason: "validation_failed",
-      });
+      await logUploadFailAndCheckLimit({
+  discordUserId,
+  mode: "fail",
+});
+
+await logUpload({
+  cycleId: null,
+  discordUserId,
+  status: "failed",
+  reason: "validation_failed",
+});
 
       return NextResponse.json(
         { error: "Missing submission metadata" },
@@ -90,13 +181,17 @@ await touchUserLog({
       payoutChoice === "split" &&
       (!splitPercent || splitPercent <= 0 || splitPercent >= 100)
     ) {
-      await logUpload({
-        cycleId: null,
-        discordUserId,
-        status: "failed",
-        reason: "validation_failed",
-      });
+      await logUploadFailAndCheckLimit({
+  discordUserId,
+  mode: "fail",
+});
 
+await logUpload({
+  cycleId: null,
+  discordUserId,
+  status: "failed",
+  reason: "validation_failed",
+});
       return NextResponse.json(
         { error: "Invalid split percentage" },
         { status: 400 }
@@ -107,12 +202,17 @@ await touchUserLog({
       (payoutChoice === "donate" || payoutChoice === "split") &&
       !charity
     ) {
-      await logUpload({
-        cycleId: null,
-        discordUserId,
-        status: "failed",
-        reason: "validation_failed",
-      });
+      await logUploadFailAndCheckLimit({
+  discordUserId,
+  mode: "fail",
+});
+
+await logUpload({
+  cycleId: null,
+  discordUserId,
+  status: "failed",
+  reason: "validation_failed",
+});
 
       return NextResponse.json(
         { error: "Charity required" },
@@ -121,7 +221,12 @@ await touchUserLog({
     }
 
     /* 4️⃣ File-Type prüfen */
-    if (!file.type.startsWith("image/")) {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      await logUploadFailAndCheckLimit({
+        discordUserId,
+        mode: "fail",
+             });
+
       await logUpload({
         cycleId: null,
         discordUserId,
@@ -135,13 +240,7 @@ await touchUserLog({
       );
     }
 
-    /* 5️⃣ Aktiven Cycle holen */
-    const { data: cycle } = await supabaseAdmin
-      .from("voting_cycles")
-      .select("id")
-      .eq("status", "active")
-      .single();
-
+  
     if (!cycle) {
       await logUpload({
         cycleId: null,
@@ -156,43 +255,27 @@ await touchUserLog({
       );
     }
 
-    /* 6️⃣ Duplicate Check (Discord-only) */
-    const { data: existing } = await supabaseAdmin
-      .from("submissions")
-      .select("id")
-      .eq("cycle_id", cycle.id)
-      .eq("discord_user_id", discordUserId)
-      .maybeSingle();
+   
 
-    if (existing) {
-      await logUpload({
-        cycleId: cycle.id,
-        discordUserId,
-        status: "failed",
-        reason: "duplicate_submission",
-      });
+    /* 7️⃣ Upload zu R2 — Auto WebP Conversion */
+    const inputBuffer = Buffer.from(await file.arrayBuffer());
 
-      return NextResponse.json(
-        { error: "You already uploaded for this cycle" },
-        { status: 400 }
-      );
-    }
+    const webpBuffer = await sharp(inputBuffer)
+      .rotate()
+      .webp({ quality: 75 })
+      .toBuffer();
 
-    /* 7️⃣ Upload zu R2 */
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = file.name.split(".").pop() || "jpg";
-    const key = `cycle-${cycle.id}/${crypto.randomUUID()}.${ext}`;
+    const r2_key = `${cycle.id}/${crypto.randomUUID()}.webp`;
 
     await r2.send(
       new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME!,
-        Key: key,
-        Body: buffer,
-        ContentType: file.type,
+        Key: r2_key,
+        Body: webpBuffer,
+        ContentType: "image/webp",
       })
     );
 
-    const imageUrl = `${process.env.R2_PUBLIC_BASE_URL}/${key}`;
 
     /* 8️⃣ Submission speichern */
     const { data: submission, error: insertError } =
@@ -201,7 +284,7 @@ await touchUserLog({
         .insert({
           cycle_id: cycle.id,
           discord_user_id: discordUserId,
-          image_url: imageUrl,
+          r2_key: r2_key,
         })
         .select()
         .single();
@@ -218,17 +301,16 @@ await touchUserLog({
     }
 
     /* 9️⃣ Private Submission-Daten */
-    const { error: privateError } =
-      await supabaseAdmin
-        .from("submission_private_data")
-        .insert({
-          submission_id: submission.id,
-          x_username: xUsername,
-          wallet_address: walletAddress,
-          payout_choice: payoutChoice,
-          split_percent: splitPercent,
-          charity,
-        });
+    const { error: privateError } = await supabaseAdmin
+      .from("submission_private_data")
+      .insert({
+        submission_id: submission.id,
+        x_username: xUsername,
+        wallet_address: walletAddress,
+        payout_choice: payoutChoice,
+        split_percent: splitPercent,
+        charity,
+      });
 
     if (privateError) {
       await logUpload({
@@ -252,12 +334,10 @@ await touchUserLog({
 
     return NextResponse.json({
       success: true,
-      imageUrl,
-    });
+          });
   } catch (error) {
     console.error("UPLOAD ERROR", error);
 
-    // 🔑 Auth-Responses sauber durchreichen
     if (error instanceof Response) {
       throw error;
     }

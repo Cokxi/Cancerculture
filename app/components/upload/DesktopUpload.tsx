@@ -157,13 +157,11 @@ formData.append("xUsername", normalizedX);
             {/* ===== PREVIEW ===== */}
             {previewUrl && (
               <div className="mx-auto bg-white rounded-xl p-2 shadow-xl">
-                <Image
-                  src={previewUrl}
-                  alt="Preview"
-                  width={260}
-                  height={260}
-                  className="rounded-lg object-contain"
-                />
+                <img
+  src={previewUrl}
+  alt="Preview"
+  className="w-[260px] h-[260px] rounded-lg object-contain"
+/>
               </div>
             )}
 

@@ -64,6 +64,14 @@ const cleanTheme =
       );
     }
 
+    /* 🔄 RESET UPLOAD FAIL BLOCKS FOR NEW CYCLE */
+await supabaseAdmin
+  .from("user_logs")
+  .update({
+    upload_fail_count: 0,
+  })
+  .neq("upload_fail_count", 0);
+
     // 🧾 Audit-Log (ADMIN)
     await logAdminAction({
       actorType: "admin",
