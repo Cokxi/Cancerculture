@@ -97,7 +97,7 @@ export async function POST() {
     for (const winner of winners) {
       const { data: submission } = await supabase
         .from("submissions")
-        .select("image_url")
+        .select("r2_key")
         .eq("id", winner.submission_id)
         .single();
 
@@ -119,7 +119,7 @@ export async function POST() {
         .insert({
           cycle_id: cycle.id,
           submission_id: winner.submission_id,
-          image_url: submission.image_url,
+          r2_key: submission.r2_key,
           wall,
           x_username: privateData.x_username,
           wallet_address: privateData.wallet_address,
