@@ -11,7 +11,7 @@ import { logUpload } from "@/lib/logging/logUpload";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
 import { logUploadFailAndCheckLimit } from "@/lib/logging/logUploadFailAndCheckLimit";
 
-const MAX_UPLOAD_SIZE = 4.2 * 1024 * 1024; 
+const MAX_UPLOAD_SIZE = 4 * 1024 * 1024; 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /* ================= ENTRY ================= */
