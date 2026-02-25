@@ -120,6 +120,8 @@ export async function POST() {
           cycle_id: cycle.id,
           submission_id: winner.submission_id,
           r2_key: submission.r2_key,
+          image_url:
+  process.env.R2_PUBLIC_BASE_URL + "/" + submission.r2_key,
           wall,
           x_username: privateData.x_username,
           wallet_address: privateData.wallet_address,
