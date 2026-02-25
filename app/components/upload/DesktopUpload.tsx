@@ -108,6 +108,18 @@ formData.append("xUsername", normalizedX);
       if (charity === "other") formData.append("charity", customCharity);
       else if (charity) formData.append("charity", charity);
 
+      const MAX_UPLOAD_SIZE = 4 * 1024 * 1024;
+
+if (!file) {
+  alert("No file selected");
+  return;
+}
+
+if (file.size > MAX_UPLOAD_SIZE) {
+  alert("Max file size is 4 MB");
+  return;
+}
+
       const res = await fetch("/api/upload", {
         method: "POST",
         body: formData,
