@@ -1,5 +1,13 @@
 export const runtime = "nodejs";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "15mb",
+    },
+  },
+};
+
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/requireSession";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -10,7 +18,7 @@ import { logUpload } from "@/lib/logging/logUpload";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
 import { logUploadFailAndCheckLimit } from "@/lib/logging/logUploadFailAndCheckLimit";
 
-const MAX_UPLOAD_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /* ================= ENTRY ================= */
