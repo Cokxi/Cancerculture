@@ -79,7 +79,14 @@ export default async function AdminLayout({
   </li>
 )}
 
-
+<li className="ml-3">
+  <Link
+    href="/admin/logs/blocked"
+    className="block px-2 py-1 rounded hover:bg-white/10 text-orange-300"
+  >
+    🧱 Blocked Users
+  </Link>
+</li>
           {/* 🆕 USER LOGS */}
           <li className="ml-3">
             <Link

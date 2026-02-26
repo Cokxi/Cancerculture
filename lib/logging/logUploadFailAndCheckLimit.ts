@@ -30,18 +30,26 @@ export async function logUploadFailAndCheckLimit({
 
   const now = new Date();
 
-  /* 🔥 AUTO BAN AFTER 10 FAILS */
-  if (failCount >= 10) {
+  // 🔒 BLOCK EVENT wenn FailCount exakt 5 erreicht
+if (failCount === 5) {
+  // aktiven Cycle holen
+  const { data: activeCycle } = await supabaseAdmin
+    .from("voting_cycles")
+    .select("id")
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (activeCycle?.id) {
+    // silent insert – unique constraint verhindert doppelte Einträge
     await supabaseAdmin
-      .from("user_logs")
-      .update({
-        is_banned: true,
-        ban_reason: "auto_upload_abuse",
-        ban_source: "system",
-        banned_at: now.toISOString(),
-      })
-      .eq("discord_user_id", discordUserId);
+  .from("blocked_cycle_events")
+  .insert({
+    discord_user_id: discordUserId,
+    cycle_id: activeCycle.id,
+  });
   }
+}
+
 
   await supabaseAdmin
     .from("user_logs")
