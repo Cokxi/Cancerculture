@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { requireModOrAdmin, getTeamMember } from "@/lib/auth/guards";
 import BlockedCycleLogList from "./blocked-cycle-log-list";
 
