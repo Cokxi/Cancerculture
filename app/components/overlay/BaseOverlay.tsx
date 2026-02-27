@@ -5,26 +5,30 @@ import { ReactNode, useEffect, useState, useRef } from "react";
 export default function BaseOverlay({
   children,
   onClose,
+  size = "full",
+  blocking = false,
 }: {
   children: ReactNode;
   onClose: () => void;
+  size?: "full" | "compact";
+  blocking?: boolean;
 }) {
+
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
   const startX = useRef<number | null>(null);
   const [dragX, setDragX] = useState(0);
 
-  // OPEN animation
   useEffect(() => {
     requestAnimationFrame(() => {
       setIsVisible(true);
     });
 
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        handleClose();
-      }
+      if (!blocking && e.key === "Escape") {
+  handleClose();
+}
     };
 
     window.addEventListener("keydown", handleKey);
@@ -34,7 +38,6 @@ export default function BaseOverlay({
     };
   }, []);
 
-  // CLOSE animation
   const handleClose = () => {
     if (isClosing) return;
 
@@ -47,9 +50,9 @@ export default function BaseOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[999] overflow-x-hidden"
-      onClick={handleClose}
-    >
+  className="fixed inset-0 z-[999] overflow-x-hidden"
+  onClick={blocking ? undefined : handleClose}
+>
       {/* Backdrop */}
       <div
         className={`
@@ -65,21 +68,25 @@ export default function BaseOverlay({
         className={`
           relative
           w-[94%] md:w-[600px] xl:w-[700px]
-          h-[94vh] my-[3vh]
+          ${
+            size === "full"
+          ? "h-[94vh] my-[3vh]"
+          : "h-auto mt-[40vh] mb-[5vh] max-h-[55vh]"
+          }
           mx-auto
           bg-orange-background
-          shadow-2xl
+          shadow-[0_20px_60px_rgba(0,0,0,0.35)]
           rounded-2xl
-          overflow-y-auto overscroll-contain
+          ${blocking ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}
           overflow-x-hidden
           transition-transform duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)]
         `}
         style={{
-  transform:
-    isVisible && !isClosing
-      ? `translateX(${dragX}px)`
-      : `translateX(calc(100vw + 80px))`,
-}}
+          transform:
+            isVisible && !isClosing
+              ? `translateX(${dragX}px)`
+              : `translateX(calc(100vw + 80px))`,
+        }}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => {
           startX.current = e.touches[0].clientX;
@@ -94,9 +101,9 @@ export default function BaseOverlay({
           }
         }}
         onTouchEnd={() => {
-          if (dragX > 120) {
-            handleClose();
-          }
+          if (!blocking && dragX > 120) {
+  handleClose();
+}
           setDragX(0);
           startX.current = null;
         }}
@@ -106,6 +113,7 @@ export default function BaseOverlay({
           <div className="w-12 h-1.5 rounded-full bg-black/20" />
 
           {/* Close Button */}
+          {!blocking && (
           <button
             onClick={handleClose}
             aria-label="Close overlay"
@@ -124,8 +132,9 @@ export default function BaseOverlay({
           >
             <span className="block -translate-y-[1px]">×</span>
           </button>
+          )}
         </div>
-
+            
         {children}
       </div>
     </div>

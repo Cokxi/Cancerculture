@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useOverlay } from "@/app/components/overlay/OverlayProvider";
 import CharitiesOverlay from "@/app/components/overlay/CharitiesOverlay";
+import RulesOverlay from "@/app/components/overlay/RulesOverlay";
 
 /* ================= TYPES ================= */
 type PayoutChoice = "keep" | "donate" | "split";
@@ -36,13 +37,9 @@ export default function DesktopUpload({
 
   const { openOverlay } = useOverlay();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [uploadDone, setUploadDone] = useState(forceSuccessState);
- 
-  
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
   const [xUsername, setXUsername] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
   const [payoutChoice, setPayoutChoice] = useState<PayoutChoice | null>(null);
@@ -51,8 +48,9 @@ export default function DesktopUpload({
   const [customCharity, setCustomCharity] = useState("");
   const [successMode, setSuccessMode] = useState<"success" | "already">("success");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCharityOpen, setIsCharityOpen] = useState(false);
-
+  const [rulesStatus, setRulesStatus] = useState<
+  "unknown" | "checking" | "needsAccept" | "accepted"
+>("unknown");
   
 /* ---------- SUCCESS MODE SWITCH ---------- */
 useEffect(() => {
@@ -72,8 +70,47 @@ useEffect(() => {
     (payoutChoice === "keep" || charity);
 
   const submitState: SubmitState =
-    hasImage && hasMeta ? "ready" : hasImage || hasMeta ? "partial" : "idle";
+  hasImage && hasMeta ? "ready" : hasImage || hasMeta ? "partial" : "idle";
 
+useEffect(() => {
+  if (submitState !== "ready") return;
+  if (rulesStatus !== "unknown") return;
+
+  const checkRules = async () => {
+    setRulesStatus("checking");
+
+    const res = await fetch("/api/upload/check-rules");
+    const data = await res.json();
+
+    if (!res.ok) {
+      setRulesStatus("unknown");
+      return;
+    }
+
+    if (!data.needsAccept) {
+      setRulesStatus("accepted");
+    } else {
+      setRulesStatus("needsAccept");
+      openOverlay(
+  <RulesOverlay
+    isFirstAccept={data.isFirstAccept}
+    updatedAt={data.updatedAt}
+    onConfirm={async () => {
+      await fetch("/api/upload/confirm-rules", {
+        method: "POST",
+      });
+      setRulesStatus("accepted");
+    }}
+    onCancel={() => {
+      setRulesStatus("unknown");
+    }}
+  />
+);
+    }
+  };
+
+  checkRules();
+}, [submitState]);
   const submitImage =
   submitState === "ready"
     ? "https://cdn.cancerculture.fun/webp/submit.confirm/sub3.webp"
@@ -92,7 +129,11 @@ useEffect(() => {
   };
 
   const handleSubmit = async () => {
-    if (submitState !== "ready" || isSubmitting) return;
+  if (
+    submitState !== "ready" ||
+    isSubmitting ||
+    rulesStatus !== "accepted"
+  ) return;
 
     setIsSubmitting(true);
    
@@ -101,7 +142,7 @@ useEffect(() => {
       const formData = new FormData();
       formData.append("file", file!);
       const normalizedX = xUsername.trim().replace(/^@+/, "");
-formData.append("xUsername", normalizedX);
+      formData.append("xUsername", normalizedX);
       formData.append("walletAddress", walletAddress);
       formData.append("payoutChoice", payoutChoice!);
       formData.append("splitPercent", splitPercent.toString());
@@ -282,8 +323,8 @@ if (file.size > MAX_UPLOAD_SIZE) {
             </div>
 
             {/* ===== HIT IT ===== */}
-            {submitState === "ready" && (
-              <div className="text-center mt-4">
+{submitState === "ready" && rulesStatus === "accepted" && (
+  <div className="text-center mt-4">
                 <span className="upload-hint animate-soft-hint">
                   Hit it
                 </span>
@@ -298,13 +339,13 @@ if (file.size > MAX_UPLOAD_SIZE) {
         {/* ===== SUBMIT / HOME ===== */}
         {!uploadDone ? (
           <div
-            onClick={handleSubmit}
-            className={`mx-auto ${
-              submitState === "ready"
-                ? "cursor-pointer"
-                : "opacity-60"
-            }`}
-          >
+  onClick={handleSubmit}
+  className={`mx-auto ${
+    submitState === "ready" && rulesStatus === "accepted"
+      ? "cursor-pointer"
+      : "opacity-60"
+  }`}
+>
             <Image
               src={submitImage}
               alt="Submit"

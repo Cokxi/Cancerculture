@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getTeamMember } from "@/lib/auth/guards";
-
+import { updateRulesVersion } from "./actions/updateRulesVersion";
 
 export default async function AdminLayout({
   children,
@@ -166,6 +166,22 @@ export default async function AdminLayout({
                   🛡️ Mods
                 </Link>
               </li>
+              <li className="mt-6 pt-4 border-t border-white/10">
+  <form action={updateRulesVersion}>
+    <button
+      type="submit"
+      className="
+        w-full text-left
+        px-2 py-1 rounded
+        text-yellow-300
+        hover:bg-white/10
+        cursor-pointer
+      "
+    >
+      🔄 Update Rules
+    </button>
+  </form>
+</li>
             </>
           )}
         </ul>

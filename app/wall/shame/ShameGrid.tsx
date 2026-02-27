@@ -52,7 +52,7 @@ function getThumbUrl(imageUrl: string) {
   if (!winners || winners.length === 0) {
     return (
       <p className="text-center text-lg opacity-60">
-        No shame yet.
+        No winners yet.
       </p>
     );
   }

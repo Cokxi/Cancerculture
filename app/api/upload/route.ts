@@ -41,6 +41,28 @@ export async function POST(req: Request) {
       });
     }
 
+/* 🚫 RULES CHECK */
+const { data: userRules } = await supabaseAdmin
+  .from("user_logs")
+  .select("accepted_rules_version")
+  .eq("discord_user_id", discordUserId)
+  .single();
+
+const { data: currentRules } = await supabaseAdmin
+  .from("rules_meta")
+  .select("current_version")
+  .eq("id", 1)
+  .single();
+
+if (
+  !userRules ||
+  userRules.accepted_rules_version !== currentRules?.current_version
+) {
+  return NextResponse.json(
+    { error: "RULES_NOT_ACCEPTED" },
+    { status: 403 }
+  );
+}    
 
     /* 🚫 FAIL RATE LIMIT CHECK */
     const rateLimitBlocked = await logUploadFailAndCheckLimit({
