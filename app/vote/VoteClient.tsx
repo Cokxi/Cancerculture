@@ -113,7 +113,7 @@ lastTapRef.current = now;
     setPrivateData(null);
   }
 }}
-  className="group relative aspect-square overflow-hidden rounded-lg border"
+  className="group relative aspect-square overflow-hidden rounded-lg border cursor-pointer"
 >
 
       <img

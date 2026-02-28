@@ -21,7 +21,6 @@ const RULE_VIOLATION_REASONS = [
   "nudity",
   "hate",
   "harassment",
-  "misleading",
   "low_effort",
   "off_topic",
 ];
@@ -129,16 +128,24 @@ export default function ModerationGrid({
   }}
 >
 
-          <img
-  src={s.image_url}
-  alt=""
-  style={{
-    width: "100%",
-    height: 150,
-    objectFit: "cover",
-    marginBottom: 8,
-  }}
-/>
+          <a
+  href={s.image_url ?? undefined}
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{ display: "block" }}
+>
+  <img
+    src={s.image_url ?? undefined}
+    alt=""
+    style={{
+      width: "100%",
+      height: 150,
+      objectFit: "cover",
+      marginBottom: 8,
+      cursor: "pointer",
+    }}
+  />
+</a>
 
 {/* Discord-ID */}
 <div style={{ fontSize: 12 }}>

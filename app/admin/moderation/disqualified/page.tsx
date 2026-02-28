@@ -4,11 +4,13 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireModOrAdmin } from "@/lib/auth/guards";
 import ReinstateButton from "./reinstate-button";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 type DisqualifiedSubmission = {
   id: number;
   cycle_id: number;
-  image_url: string;
+  image_url?: string | null;
+  r2_key: string;
   is_disqualified: boolean;
   disqualification_reason_code: string | null;
   disqualification_reason_text: string | null;
@@ -48,7 +50,7 @@ export default async function DisqualifiedSubmissionsPage() {
     .select(`
       id,
       cycle_id,
-      image_url,
+      r2_key,
       is_disqualified,
       disqualification_reason_code,
       disqualification_reason_text,
@@ -59,6 +61,12 @@ export default async function DisqualifiedSubmissionsPage() {
     .eq("cycle_id", currentCycle.id)
     .eq("is_disqualified", true)
     .order("disqualified_at", { ascending: false });
+
+    const submissionsWithUrls =
+  submissions?.map((s) => ({
+    ...s,
+    image_url: getPublicImageUrl(s.r2_key),
+  })) ?? [];
 
   if (submissionsError) {
     return (
@@ -74,13 +82,13 @@ export default async function DisqualifiedSubmissionsPage() {
         Disqualified Submissions – Cycle #{currentCycle.id}
       </h1>
 
-      {submissions.length === 0 && (
+      {submissionsWithUrls.length === 0 && (
         <div style={{ marginTop: 16, opacity: 0.7 }}>
           No disqualified submissions in the current cycle.
         </div>
       )}
 
-      {submissions.map((sub) => (
+      {submissionsWithUrls.map((sub) => (
         <div
           key={sub.id}
           style={{
@@ -94,16 +102,23 @@ export default async function DisqualifiedSubmissionsPage() {
             alignItems: "flex-start",
           }}
         >
-          <img
-            src={sub.image_url}
-            alt=""
-            style={{
-              width: 96,
-              height: 96,
-              objectFit: "cover",
-              border: "1px solid #444",
-            }}
-          />
+          <a
+  href={sub.image_url ?? undefined}
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src={sub.image_url ?? undefined}
+    alt=""
+    style={{
+      width: 96,
+      height: 96,
+      objectFit: "cover",
+      border: "1px solid #444",
+      cursor: "pointer",
+    }}
+  />
+</a>
 
           <div style={{ fontSize: 13 }}>
             <div>

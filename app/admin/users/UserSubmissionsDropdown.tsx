@@ -1,6 +1,7 @@
 // app/admin/users/UserSubmissionsDropdown.tsx
 
 import { supabaseAdmin } from "@/lib/db/admin";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 type Props = {
   discordUserId: string;
@@ -17,7 +18,8 @@ type CycleResultRow = {
 
 type SubmissionRow = {
   id: number;
-  image_url: string | null;
+  r2_key: string;
+  image_url?: string;
   is_disqualified: boolean;
   disqualification_reason_code: string | null;
 };
@@ -62,14 +64,20 @@ export default async function UserSubmissionsDropdown({
   // 3️⃣ Submissions separat laden
   const { data: submissions } = await supabaseAdmin
     .from("submissions")
-    .select("id, image_url, is_disqualified, disqualification_reason_code")
+    .select("id, r2_key, is_disqualified, disqualification_reason_code")
     .in(
       "id",
       results.map((r) => r.submission_id)
     );
 
   const submissionMap = new Map<number, SubmissionRow>();
-  submissions?.forEach((s) => submissionMap.set(s.id, s));
+
+submissions?.forEach((s) => {
+  submissionMap.set(s.id, {
+    ...s,
+    image_url: getPublicImageUrl(s.r2_key),
+  });
+});
 
   // 4️⃣ Render
   return (
@@ -142,30 +150,38 @@ export default async function UserSubmissionsDropdown({
                 }}
               >
                 {submission.image_url ? (
-                  <img
-                    src={submission.image_url}
-                    alt={`Cycle ${row.cycle_id}`}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      opacity: 0.5,
-                    }}
-                  >
-                    No image
-                  </div>
-                )}
+  <a
+    href={submission.image_url}
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{ display: "block" }}
+  >
+    <img
+      src={submission.image_url}
+      alt={`Cycle ${row.cycle_id}`}
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        display: "block",
+        cursor: "pointer",
+      }}
+    />
+  </a>
+) : (
+  <div
+    style={{
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      opacity: 0.5,
+    }}
+  >
+    No image
+  </div>
+)}
               </div>
 
               {/* Caption */}

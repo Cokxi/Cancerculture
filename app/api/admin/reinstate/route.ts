@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireModOrAdmin } from "@/lib/auth/guards";
 import { logModerationAction } from "@/lib/logging/logModerationAction";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export async function POST(req: Request) {
   try {
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
 
     const { data: submission } = await supabaseAdmin
       .from("submissions")
-      .select("id, cycle_id, image_url")
+      .select("id, cycle_id, r2_key, discord_user_id")
       .eq("id", submissionId)
       .single();
 
@@ -50,8 +51,8 @@ export async function POST(req: Request) {
       cycleId: submission.cycle_id,
       reasonCode: "manual_review",
       evidence: {
-        submission_image_url: submission.image_url,
-      },
+  submission_image_url: getPublicImageUrl(submission.r2_key),
+},
     });
 
     return NextResponse.json({ success: true });

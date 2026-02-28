@@ -56,7 +56,7 @@ When a round ends, 100% of that round’s rewards are claimed immediately.
 
 50% goes to the winning meme creator.
 
-The remaining 50% belongs to the creator.
+The remaining 50% belongs to the Dev.
 
 Winners choose whether to keep, donate, or split their prize.
 
