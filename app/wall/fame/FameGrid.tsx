@@ -203,12 +203,17 @@ function handleTouchStart() {
                     </span>
                   )}
 
-                  {active.payout_choice === "split" && (
-                    <span>
-                      Split {active.split_percent}% /{" "}
-                      {active.charity}
-                    </span>
-                  )}
+                  {active.payout_choice === "split" &&
+  active.split_percent !== null && (
+    <div className="space-y-1">
+      <div>
+        @{active.x_username} receives {active.split_percent}%
+      </div>
+      <div>
+        {100 - active.split_percent}% goes to {active.charity}
+      </div>
+    </div>
+)}
                 </div>
               </div>
             </div>

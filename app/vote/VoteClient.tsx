@@ -2,6 +2,13 @@
 
 import { useState, useRef } from "react";
 
+type PrivateData = {
+  x_username: string;
+  wallet_address: string;
+  payout_choice: string;
+  split_percent: number | null;
+  charity: string | null;
+};
 
 type Submission = {
   id: number;
@@ -39,6 +46,8 @@ lastTapRef.current = now;
 }
 
   const [active, setActive] = useState<Submission | null>(null);
+  const [privateData, setPrivateData] = useState<PrivateData | null>(null);
+  const [loadingPrivate, setLoadingPrivate] = useState(false);
   const [voted, setVoted] = useState(hasVoted);
   const [localVotes, setLocalVotes] = useState(
     Object.fromEntries(submissions.map(s => [s.id, s.vote_count]))
@@ -85,10 +94,25 @@ lastTapRef.current = now;
   return (
     <button
   key={s.id}
-  onClick={() => {
-    setShowOriginalSize(false);
-    setActive(s);
-  }}
+  onClick={async () => {
+  setShowOriginalSize(false);
+  setActive(s);
+
+  if (s.discord_user_id === discordUserId) {
+    setLoadingPrivate(true);
+    const res = await fetch(
+  `/api/submissions/private?id=${s.id}`,
+  { credentials: "include" }
+);
+    if (res.ok) {
+      const data = await res.json();
+      setPrivateData(data);
+    }
+    setLoadingPrivate(false);
+  } else {
+    setPrivateData(null);
+  }
+}}
   className="group relative aspect-square overflow-hidden rounded-lg border"
 >
 
@@ -160,6 +184,35 @@ lastTapRef.current = now;
 
             <div className="p-4 flex items-center text-white">
   <span>Votes: {localVotes[active.id]}</span>
+
+  {active.discord_user_id === discordUserId && (
+  <div className="mt-4 text-sm text-white bg-white/5 p-3 rounded">
+    {loadingPrivate && <div>Loading your submission data...</div>}
+
+    {privateData && (
+      <div className="space-y-1">
+        <div><strong>X:</strong> {privateData.x_username}</div>
+        <div><strong>Wallet:</strong> {privateData.wallet_address}</div>
+        <div><strong>Payout:</strong> {privateData.payout_choice}</div>
+
+        {privateData.payout_choice === "split" && privateData.split_percent !== null && (
+  <div className="space-y-1">
+    <div>
+      <strong>You receive:</strong> {privateData.split_percent}%
+    </div>
+    <div>
+      <strong>Charity receives:</strong> {100 - privateData.split_percent}%
+    </div>
+  </div>
+)}
+
+        {privateData.charity && (
+          <div><strong>Charity:</strong> {privateData.charity}</div>
+        )}
+      </div>
+    )}
+  </div>
+)}
 
   <div className="ml-auto flex items-center gap-3">
 

@@ -192,7 +192,7 @@ function getThumbUrl(imageUrl: string) {
 
                 <div>
                   {active.payout_choice === "keep" && (
-                    <span>Kept the prize</span>
+                    <span>@{active.x_username} Chose to keep the prize</span>
                   )}
 
                   {active.payout_choice === "donate" && (
