@@ -163,7 +163,7 @@ function handleTouchStart() {
 <div className="flex justify-center pb-2">
   <button
     onClick={handleToggleSize}
-    className="text-xs bg-black/50 text-white px-3 py-1 rounded-full hover:bg-black/70"
+    className="text-xs bg-black/50 text-white px-3 py-1 rounded-full hover:bg-black/70 cursor-pointer"
   >
     {showOriginalSize ? "Fit to Screen" : "Tap to Zoom"}
   </button>
