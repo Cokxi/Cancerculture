@@ -19,7 +19,7 @@ type BannedUser = {
 };
 
 export default async function AdminBannedUsersPage() {
-  // 🔐 Admin only
+  
   try {
     await requireAdmin();
   } catch {
@@ -83,7 +83,7 @@ export default async function AdminBannedUsersPage() {
                   verticalAlign: "top",
                 }}
               >
-                {/* USER */}
+               
                 <td style={{ padding: "8px 0" }}>
                   <strong>
                     {user.current_discord_username ?? "Unknown"}
@@ -118,7 +118,7 @@ export default async function AdminBannedUsersPage() {
 )}
 
 
-                  {/* ACTIONS */}
+                  
                   <div style={{ marginTop: 6 }}>
                     <UserModerationActions
                       discordUserId={user.discord_user_id}
@@ -128,7 +128,7 @@ export default async function AdminBannedUsersPage() {
                     />
                   </div>
 
-                  {/* RECENT SUBMISSIONS */}
+                  
                   <div style={{ marginTop: 6 }}>
                     <UserSubmissionsDropdown
                       discordUserId={user.discord_user_id}
@@ -136,12 +136,12 @@ export default async function AdminBannedUsersPage() {
                   </div>
                 </td>
 
-                {/* REASON */}
+                
                 <td style={{ padding: "8px 0", fontSize: 12 }}>
                   {user.ban_reason ?? "—"}
                 </td>
 
-                {/* CONTEXT */}
+                
                 <td
                   style={{
                     padding: "8px 0",
@@ -162,7 +162,7 @@ export default async function AdminBannedUsersPage() {
                   </div>
                 </td>
 
-                {/* STATS */}
+                
                 <td style={{ padding: "8px 0", fontSize: 12 }}>
                   Submissions:{" "}
                   <strong>{user.submission_count}</strong>

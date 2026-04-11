@@ -1,5 +1,4 @@
-// UI-only Guards
-// KEINE cookies(), KEINE DB, KEINE Sessions
+
 
 export type TeamMemberUI = {
   role: "admin" | "mod";

@@ -18,7 +18,7 @@ export default function CycleHudControls() {
         CYCLE HUD
       </span>
 
-      {/* 🔮 NEXT THEME */}
+      
       <form action={updateNextTheme} className="flex flex-col gap-2">
         <input
           name="next_cycle_theme"
@@ -48,7 +48,7 @@ export default function CycleHudControls() {
         </button>
       </form>
 
-      {/* ⏱️ TIMER */}
+      
       <form action={updateCycleTimer} className="flex flex-col gap-2">
         <div className="flex gap-2">
           <input

@@ -9,7 +9,7 @@ function sanitizeState(state: string | null): string {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
-  // 🔑 Nur interne Redirects erlauben
+  
   const state = sanitizeState(
     searchParams.get("state")
   );

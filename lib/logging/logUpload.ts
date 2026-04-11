@@ -22,6 +22,6 @@ export async function logUpload({
       reason: reason ?? null,
     });
   } catch {
-    // Logs dürfen NIE crashen
+    
   }
 }

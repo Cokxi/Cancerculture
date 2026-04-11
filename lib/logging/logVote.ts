@@ -22,6 +22,6 @@ export async function logVote({
       reason: reason ?? null,
     });
   } catch {
-    // Logs dürfen niemals den Vote blockieren
+    
   }
 }

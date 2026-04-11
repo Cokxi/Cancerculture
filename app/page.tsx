@@ -25,7 +25,7 @@ export default async function Home() {
   return (
     <main className="relative w-full bg-orange-background text-white">
 
-      {/* 🛡️ TEAM BUTTON */}
+      
       {isTeamMember && (
         <div className="fixed top-20 left-6 z-30">
           <Link
@@ -37,7 +37,7 @@ export default async function Home() {
         </div>
       )}
 
-{/* TICKER */}
+
 <div className="ticker-wrapper">
   <div className="ticker-track">
     <div className="ticker-text">
@@ -53,7 +53,7 @@ export default async function Home() {
 </div>
 
 
-{/* LINK BAR */}
+
 <div className="w-full flex justify-center mt-4">
   <div className="link-container">
   <nav className="link-bar">
@@ -61,7 +61,7 @@ export default async function Home() {
   <a href="/upload">UPLOAD</a>
   <a href="/vote">VOTE</a>
 
-  {/* Desktop labels */}
+  
   <span className="hidden sm:flex gap-8">
     <a href="/faq">FAQ / RULES</a>
     <a href="/wall/fame">WALL OF FAME</a>
@@ -69,7 +69,7 @@ export default async function Home() {
     
   </span>
 
-  {/* Mobile labels */}
+  
 <span className="flex sm:hidden w-full justify-center mt-2">
   <span className="flex gap-8">
     <a href="/faq">FAQ</a>

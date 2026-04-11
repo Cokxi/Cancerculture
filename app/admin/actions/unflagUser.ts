@@ -13,11 +13,11 @@ export async function unflagUser(params: {
     throw new Error("Unflag reason is required");
   }
 
-  // 🔐 Auth: ADMIN ONLY
+  
   const admin = await requireAdmin();
   const adminDiscordId = admin.discord_user_id;
 
-  // 🧾 Username-Snapshot des Admins (optional)
+
   const { data: adminLog } = await supabaseAdmin
     .from("user_logs")
     .select("current_discord_username")
@@ -27,7 +27,7 @@ export async function unflagUser(params: {
   const adminUsername =
     adminLog?.current_discord_username ?? null;
 
-  // 🔄 Ziel-User laden
+  
   const { data: targetUser, error: fetchError } = await supabaseAdmin
     .from("user_logs")
     .select("flagged_for_review")
@@ -42,7 +42,7 @@ export async function unflagUser(params: {
     throw new Error("User is not flagged");
   }
 
-  // 🚩 Flag entfernen
+  
   const { error: updateError } = await supabaseAdmin
     .from("user_logs")
     .update({

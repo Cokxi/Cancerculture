@@ -13,20 +13,20 @@ type TeamMember = {
 };
 
 export default async function AdminInvitesPage() {
-  /* 🔐 Admin-only Page */
+  
   try {
     await requireAdmin();
   } catch (error: any) {
-    // nicht eingeloggt → Discord OAuth
+    
     if (error?.status === 401) {
       redirect("/api/auth/discord/login?state=/admin/invites");
     }
 
-    // eingeloggt, aber kein Admin
+    
     redirect("/403");
   }
 
-  /* 📦 Team (für Rollenanzeige in Logs) */
+  
   const { data: team } = await supabaseAdmin
     .from("team_members")
     .select("discord_user_id, role");
@@ -39,7 +39,7 @@ export default async function AdminInvitesPage() {
     )?.role;
   }
 
-  /* 📦 Invites + Logs */
+  
   const { data: invites, error } =
     await supabaseAdmin
       .from("admin_invites")
@@ -69,7 +69,7 @@ export default async function AdminInvitesPage() {
     <div style={{ padding: 24 }}>
       <h1>Admin – Invites</h1>
 
-      {/* ➕ Invite erstellen (Admin only) */}
+      
       <div style={{ margin: "16px 0" }}>
         <CreateInviteButton />
       </div>
@@ -88,7 +88,7 @@ export default async function AdminInvitesPage() {
             marginBottom: 16,
           }}
         >
-          {/* Header: Invite + Delete */}
+          
           <div
             style={{
               display: "flex",

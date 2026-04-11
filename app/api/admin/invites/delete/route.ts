@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 
 export async function POST(req: Request) {
   try {
-    /* 🔐 Admin-only */
+    
     await requireAdmin();
 
     const formData = await req.formData();
@@ -17,13 +17,13 @@ export async function POST(req: Request) {
       );
     }
 
-    /* 🧹 Logs löschen (optional, empfohlen) */
+    
     await supabaseAdmin
       .from("invite_auth_logs")
       .delete()
       .eq("invite_id", inviteId);
 
-    /* 🗑️ Invite löschen */
+    
     await supabaseAdmin
       .from("admin_invites")
       .delete()
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       new URL("/admin/invites", req.url)
     );
   } catch (error) {
-    // 🔑 Auth-Fehler sauber durchreichen
+    
     if (error instanceof Error && (error as any).status) {
       return NextResponse.json(
         { error: error.message },

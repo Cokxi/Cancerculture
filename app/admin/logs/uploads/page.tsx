@@ -54,7 +54,7 @@ export default function AdminUploadLogsPage() {
     );
   }
 
-  // 🔹 Logs nach Cycle gruppieren
+  
   const logsByCycle = logs.reduce<
     Record<string, UploadLog[]>
   >((acc, log) => {

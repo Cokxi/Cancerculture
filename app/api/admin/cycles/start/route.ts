@@ -7,10 +7,10 @@ import { logAdminAction } from "@/lib/audit/logAdminAction";
 
 export async function POST(req: Request) {
   try {
-    // 🔐 ADMIN ONLY
+    
     const admin = await requireAdmin();
 
-    // 📥 Input
+    
     const body = await req.json();
     const { endsAt, theme } = body;
 
@@ -22,13 +22,13 @@ export async function POST(req: Request) {
       );
     }
 
-          // 🎨 Theme normalisieren ("" → null)
+          
 const cleanTheme =
   typeof theme === "string" && theme.trim().length > 0
     ? theme.trim()
     : null;
 
-    // 🔁 Sicherheitscheck: nur ein aktiver Cycle
+    
     const { data: activeCycle } = await supabaseAdmin
       .from("voting_cycles")
       .select("id")
@@ -42,7 +42,7 @@ const cleanTheme =
       );
     }
 
-    // 🗳️ Cycle anlegen
+    
     const { data: cycle, error } = await supabaseAdmin
       .from("voting_cycles")
       .insert({
@@ -64,7 +64,7 @@ const cleanTheme =
       );
     }
 
-    /* 🔄 RESET UPLOAD FAIL BLOCKS FOR NEW CYCLE */
+    
 await supabaseAdmin
   .from("user_logs")
   .update({
@@ -72,7 +72,7 @@ await supabaseAdmin
   })
   .neq("upload_fail_count", 0);
 
-    // 🧾 Audit-Log (ADMIN)
+   
     await logAdminAction({
       actorType: "admin",
       actorId: admin.discord_user_id,

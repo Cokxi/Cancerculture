@@ -6,10 +6,10 @@ import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function GET() {
   try {
-    // 🔐 Guard
+    
     await requireModOrAdmin();
 
-    // 1️⃣ Alle Cycles laden (neueste zuerst)
+    
     const { data: cycles, error: cyclesError } = await supabaseAdmin
       .from("voting_cycles")
       .select("id, status, theme, starts_at, ends_at")
@@ -22,7 +22,7 @@ export async function GET() {
       );
     }
 
-    // 2️⃣ Moderation-Logs laden (nur Submissions)
+    
     const { data: logs, error: logsError } = await supabaseAdmin
       .from("moderation_action_logs")
       .select(
@@ -39,7 +39,7 @@ export async function GET() {
       );
     }
 
-    // 3️⃣ Submission-IDs aus Logs extrahieren
+    
     const submissionIds = Array.from(
       new Set(
         logs
@@ -48,7 +48,7 @@ export async function GET() {
       )
     );
 
-    // 4️⃣ Submissions laden (id → cycle_id)
+    
     const { data: submissions, error: submissionsError } =
       submissionIds.length > 0
         ? await supabaseAdmin
@@ -64,13 +64,13 @@ export async function GET() {
       );
     }
 
-    // 5️⃣ Submission-ID → Cycle-ID Map
+    
     const submissionToCycle: Record<number, number> = {};
     for (const sub of submissions ?? []) {
       submissionToCycle[sub.id] = sub.cycle_id;
     }
 
-    // 6️⃣ Actor-IDs sammeln (Mods/Admins)
+    
     const actorIds = Array.from(
       new Set(
         logs
@@ -79,7 +79,7 @@ export async function GET() {
       )
     );
 
-    // 7️⃣ Actor User Logs laden (Username-Snapshots)
+    
     const { data: actorUsers, error: actorUsersError } =
       actorIds.length > 0
         ? await supabaseAdmin
@@ -97,7 +97,7 @@ export async function GET() {
       );
     }
 
-    // 8️⃣ Actor-ID → Username Map
+    
     const actorMap: Record<
       string,
       {
@@ -113,7 +113,7 @@ export async function GET() {
       };
     }
 
-    // 9️⃣ Logs nach Cycle gruppieren (inkl. "unknown")
+    
     const logsByCycle: Partial<Record<number | "unknown", any[]>> = {};
 
 
@@ -150,7 +150,7 @@ export async function GET() {
       });
     }
 
-    // 🔟 Finales Response-Format (Cycles + optional Legacy)
+    
     const response = [
       ...cycles.map((cycle) => ({
         cycle,

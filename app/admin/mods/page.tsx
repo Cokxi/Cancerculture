@@ -11,20 +11,20 @@ type TeamMember = {
 };
 
 export default async function AdminModsPage() {
-  /* 🔐 Admin-only Page */
+  
   try {
     await requireAdmin();
   } catch (error: any) {
-    // nicht eingeloggt → Discord OAuth
+    
     if (error?.status === 401) {
       redirect("/api/auth/discord/login?state=/admin/mods");
     }
 
-    // eingeloggt, aber kein Admin
+    
     redirect("/403");
   }
 
-  /* 👥 Mods + Admins laden */
+  
   const { data: members } = await supabaseAdmin
     .from("team_members")
     .select(

@@ -20,14 +20,14 @@ type DisqualifiedSubmission = {
 };
 
 export default async function DisqualifiedSubmissionsPage() {
-  /* 🔐 Mod or Admin only */
+  
   try {
     await requireModOrAdmin();
   } catch {
     redirect("/403");
   }
 
-  // 1️⃣ Aktuellen Cycle bestimmen (nicht finalisiert)
+  
   const { data: currentCycle, error: cycleError } =
     await supabaseAdmin
       .from("voting_cycles")
@@ -41,7 +41,7 @@ export default async function DisqualifiedSubmissionsPage() {
     return <div style={{ padding: 24 }}>No active cycle found.</div>;
   }
 
-  // 2️⃣ Disqualified Submissions im aktuellen Cycle laden
+  
   const {
     data: submissions,
     error: submissionsError,

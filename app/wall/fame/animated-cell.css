@@ -11,8 +11,8 @@
 
 .animated-cell {
   position: relative;
-  width: 48px;   /* 👈 etwas größer */
-  height: 48px;  /* 👈 etwas größer */
+  width: 48px;   
+  height: 48px;  
 }
 
 .cell-frame {
@@ -20,12 +20,12 @@
   inset: 0;
   opacity: 0;
   animation-name: cellFrame;
-  animation-duration: 9s;          /* ruhig */
+  animation-duration: 9s;          
   animation-iteration-count: infinite;
   animation-timing-function: steps(1, end);
 }
 
-/* zeitversetzte Frames */
+
 .frame-1 {
   animation-delay: 0s;
 }

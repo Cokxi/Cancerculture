@@ -19,7 +19,7 @@ export async function requireSession() {
     throw new Response("Invalid session", { status: 401 });
   }
 
-  // last_seen_at aktualisieren
+  
   await supabaseServer
     .from("sessions")
     .update({ last_seen_at: new Date().toISOString() })

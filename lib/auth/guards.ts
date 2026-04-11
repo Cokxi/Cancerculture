@@ -15,10 +15,7 @@ class AuthError extends Error {
   }
 }
 
-/**
- * Holt den eingeloggten Team-Member
- * Session-basiert. Discord-only. Kein Fallback.
- */
+
 export async function getTeamMember(): Promise<TeamMember> {
   let discordUserId: string;
 
@@ -42,9 +39,7 @@ export async function getTeamMember(): Promise<TeamMember> {
   return member;
 }
 
-/**
- * ADMIN ONLY
- */
+
 export async function requireAdmin(): Promise<TeamMember> {
   const member = await getTeamMember();
 
@@ -55,9 +50,7 @@ export async function requireAdmin(): Promise<TeamMember> {
   return member;
 }
 
-/**
- * MOD oder ADMIN
- */
+
 export async function requireModOrAdmin(): Promise<TeamMember> {
   const member = await getTeamMember();
 

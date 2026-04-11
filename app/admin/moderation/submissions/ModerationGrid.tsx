@@ -147,7 +147,7 @@ export default function ModerationGrid({
   />
 </a>
 
-{/* Discord-ID */}
+
 <div style={{ fontSize: 12 }}>
   Cycle #{s.cycle_id}
 </div>
@@ -189,7 +189,7 @@ export default function ModerationGrid({
 
 
 
-          {/* ACTIONS */}
+          
           {!s.is_disqualified ? (
             <>
               <button

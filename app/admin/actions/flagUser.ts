@@ -14,11 +14,11 @@ export async function flagUser(params: {
     throw new Error("Flag reason is required");
   }
 
-  // 🔐 Auth
+  
   const moderator = await requireModOrAdmin();
   const moderatorDiscordId = moderator.discord_user_id;
 
-  // 🧾 Username-Snapshot des Mods (optional)
+  
   const { data: moderatorLog } = await supabaseAdmin
     .from("user_logs")
     .select("current_discord_username")
@@ -28,7 +28,7 @@ export async function flagUser(params: {
   const moderatorUsername =
     moderatorLog?.current_discord_username ?? null;
 
-  // 🧠 Sicherstellen, dass user_logs-Zeile existiert
+  
   await supabaseAdmin.from("user_logs").upsert(
     {
       discord_user_id: targetDiscordUserId,
@@ -38,7 +38,7 @@ export async function flagUser(params: {
     { onConflict: "discord_user_id" }
   );
 
-  // 🔄 Re-fetch des Ziel-Users
+  
   const { data: targetUser, error: fetchError } = await supabaseAdmin
     .from("user_logs")
     .select("flagged_for_review")
@@ -53,7 +53,7 @@ export async function flagUser(params: {
     throw new Error("User already flagged");
   }
 
-  // 🚩 Flag setzen
+  
   const { error: updateError } = await supabaseAdmin
     .from("user_logs")
     .update({

@@ -7,7 +7,7 @@ export async function updateCycleTimer(formData: FormData) {
   const minutes = Number(formData.get("timer_minutes") || 0);
 
   if (hours <= 0 && minutes <= 0) {
-    // Timer löschen
+    
     await supabaseAdmin
       .from("app_config")
       .upsert({

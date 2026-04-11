@@ -23,7 +23,7 @@ export default async function AdminLayout({
   
     <div className="min-h-screen flex bg-neutral-950 text-white/90">
       
-      {/* SIDEBAR */}
+      
       <nav className="w-[220px] shrink-0 border-r border-white/10 p-4 text-sm">
         
         <ul className="space-y-2">
@@ -87,7 +87,7 @@ export default async function AdminLayout({
     🧱 Blocked Users
   </Link>
 </li>
-          {/* 🆕 USER LOGS */}
+          
           <li className="ml-3">
             <Link
               href="/admin/users"
@@ -187,7 +187,7 @@ export default async function AdminLayout({
         </ul>
       </nav>
 
-      {/* CONTENT */}
+      
       <main className="flex-1 p-6 overflow-y-auto">
         {children}
       </main>

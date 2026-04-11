@@ -6,7 +6,7 @@ import { requireModOrAdmin } from "@/lib/auth/guards";
 
 export async function GET() {
   try {
-    // 🔐 Auth (Admin oder Mod)
+    
     await requireModOrAdmin();
 
     const { data, error } = await supabaseAdmin

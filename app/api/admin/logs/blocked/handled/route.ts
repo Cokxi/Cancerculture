@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // upsert → entweder erstellen oder handled setzen
+    
     const { error } = await supabaseAdmin
       .from("blocked_user_meta")
       .upsert({

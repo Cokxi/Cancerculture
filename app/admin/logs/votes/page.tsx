@@ -54,7 +54,7 @@ export default function AdminVoteLogsPage() {
     );
   }
 
-  // 🔹 Logs nach Cycle gruppieren
+  
   const logsByCycle = logs.reduce<
     Record<string, VoteLog[]>
   >((acc, log) => {

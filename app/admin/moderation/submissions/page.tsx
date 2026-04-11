@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminModerationSubmissionsPage() {
 
-    // 🔐 Session prüfen (UI-tauglich)
+    
   let discordUserId: string;
 
   try {
@@ -19,7 +19,7 @@ export default async function AdminModerationSubmissionsPage() {
     );
   }
 
-  // 🔐 Rolle prüfen (ohne API-Guard)
+  
   const { data: member } = await supabaseAdmin
     .from("team_members")
     .select("role")
@@ -31,7 +31,7 @@ export default async function AdminModerationSubmissionsPage() {
   }
 
 
-  /* 🔁 Aktiven Cycle holen */
+  
   const { data: activeCycle } = await supabaseAdmin
     .from("voting_cycles")
     .select("id")
@@ -47,7 +47,7 @@ export default async function AdminModerationSubmissionsPage() {
     );
   }
 
-  /* 🧾 Submissions + Votes laden */
+  
   const { data: submissions } = await supabaseAdmin
     .from("submissions_with_votes")
     .select(`

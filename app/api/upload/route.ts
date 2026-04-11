@@ -14,14 +14,14 @@ import { logUploadFailAndCheckLimit } from "@/lib/logging/logUploadFailAndCheckL
 const MAX_UPLOAD_SIZE = 4 * 1024 * 1024; 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
-/* ================= ENTRY ================= */
+
 
 export async function POST(req: Request) {
   try {
-    /* 1️⃣ Auth via Session → Discord-ID */
+    
     const { discord_user_id: discordUserId } = await requireSession();
 
-    /* 🚫 BAN CHECK (user_logs) */
+    
     const { data: userLog } = await supabaseAdmin
       .from("user_logs")
       .select("is_banned")
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       });
     }
 
-/* 🚫 RULES CHECK */
+
 const { data: userRules } = await supabaseAdmin
   .from("user_logs")
   .select("accepted_rules_version")
@@ -64,7 +64,7 @@ if (
   );
 }    
 
-    /* 🚫 FAIL RATE LIMIT CHECK */
+    
     const rateLimitBlocked = await logUploadFailAndCheckLimit({
       discordUserId,
       mode: "check",
@@ -77,7 +77,7 @@ if (
       );
     }
 
-    /* 🚫 ACTIVE CYCLE EARLY CHECK */
+    
 const { data: cycle } = await supabaseAdmin
   .from("voting_cycles")
   .select("id")
@@ -91,7 +91,7 @@ if (!cycle) {
   );
 }
 
- /* 6️⃣ Duplicate Check (Discord-only) */
+ 
     const { data: existing } = await supabaseAdmin
       .from("submissions")
       .select("id")
@@ -125,7 +125,7 @@ await touchUserLog({
     });
 
     
-    /* 2️⃣ FormData + File */
+    
     const formData = await req.formData();
     const fileEntry = formData.get("file");
 
@@ -150,7 +150,7 @@ await touchUserLog({
 
     const file = fileEntry;
 
-    /* 🚫 FILE SIZE LIMIT */
+    
     if (file.size > MAX_UPLOAD_SIZE) {
       await logUploadFailAndCheckLimit({
   discordUserId,
@@ -170,7 +170,7 @@ await touchUserLog({
       );
     }
 
-    /* 3️⃣ Metadaten */
+    
     const xUsername = formData.get("xUsername")?.toString() ?? "";
     const walletAddress = formData.get("walletAddress")?.toString() ?? "";
     const payoutChoice = formData.get("payoutChoice")?.toString() ?? null;
@@ -243,7 +243,7 @@ await logUpload({
       );
     }
 
-    /* 4️⃣ File-Type prüfen */
+    
     if (!ALLOWED_TYPES.includes(file.type)) {
       await logUploadFailAndCheckLimit({
         discordUserId,
@@ -280,7 +280,7 @@ await logUpload({
 
    
 
-    /* 7️⃣ Upload zu R2 — Auto WebP Conversion */
+    
     const inputBuffer = Buffer.from(await file.arrayBuffer());
 
     const webpBuffer = await sharp(inputBuffer)
@@ -300,7 +300,7 @@ await logUpload({
     );
 
 
-    /* 8️⃣ Submission speichern */
+    
     const { data: submission, error: insertError } =
       await supabaseAdmin
         .from("submissions")
@@ -323,7 +323,7 @@ await logUpload({
       throw insertError;
     }
 
-    /* 9️⃣ Private Submission-Daten */
+    
     const { error: privateError } = await supabaseAdmin
       .from("submission_private_data")
       .insert({
@@ -347,7 +347,7 @@ await logUpload({
       throw privateError;
     }
 
-    /* ✅ Erfolg */
+    
     await logUpload({
       cycleId: cycle.id,
       discordUserId,

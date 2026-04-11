@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
-/* Cartoon font variable */
+
 :root {
   --font-bangers: "Bangers";
 }
 
-/* Custom brand colors */
+
 @layer base {
   :root {
     --orange-main: #ff5a1f;
@@ -15,18 +15,13 @@
   }
 }
 
-/* -------------------------------------------------
-   GLOBAL APP BACKGROUND
-   Dark, neutral, warm-feeling black
--------------------------------------------------- */
+
 .bg-orange-background {
   background-color: #0b0b0b;
   position: relative;
 }
 
-/* -------------------------------------------------
-   TYPOGRAPHY
--------------------------------------------------- */
+
 .cartoon-title {
   font-family: var(--font-bangers), sans-serif;
   color: white;
@@ -34,9 +29,7 @@
   text-shadow: 4px 4px 0px rgba(0, 0, 0, 0.95);
 }
 
-/* -------------------------------------------------
-   LOGO / HERO "BREATHING" ANIMATION
--------------------------------------------------- */
+
 @keyframes breathe {
   0%, 100% {
     transform: scale(1);
@@ -50,18 +43,14 @@
   animation: breathe 8s ease-in-out infinite;
 }
 
-/* -------------------------------------------------
-   IMAGE RENDERING (kept for logo crispness)
--------------------------------------------------- */
+
 .img-crisp {
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
   -webkit-font-smoothing: antialiased;
 }
 
-/* -------------------------------------------------
-   OPTIONAL: FLOAT (kept, but not used by default)
--------------------------------------------------- */
+
 @keyframes float {
   0%   { transform: translateY(0px); }
   50%  { transform: translateY(-10px); }
@@ -77,10 +66,7 @@
   animation-delay: 1.5s;
 }
 
-/* -------------------------------------------------
-   LIVING GREEN ENERGY BACKGROUND
-   (soft motion + subtle breathing)
--------------------------------------------------- */
+
 
 .bg-orange-background::before {
   content: "";
@@ -153,7 +139,7 @@
   }
 }
 .ticker-track img {
-  height: 58px;        /* exakt wie dein PNG */
+  height: 58px;        
   width: auto;
   display: block;
   flex-shrink: 0;
@@ -279,7 +265,7 @@ html {
 
 .link-container {
   width: 100%;
-  max-width: 1100px; /* etwas breiter als Boxen */
+  max-width: 1100px; 
   padding-left: 1.5rem;
   padding-right: 1.5rem;
 }
@@ -371,10 +357,10 @@ html {
   align-items: center;
   font-family: var(--font-marker), cursive;
   line-height: 1;  
-  color: #0b0b0b;            /* dunkler Text auf Orange */
+  color: #0b0b0b;            
   font-size: 2.2rem;
   letter-spacing: 0.09em;
-  padding-right: 0.5rem;       /* Abstand zwischen den Loops */
+  padding-right: 0.5rem;       
 }
 
 html, body {

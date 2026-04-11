@@ -8,7 +8,7 @@ export async function getContractAddress() {
     .single();
 
   if (error || !data?.value) {
-    // Fallback (damit nix crasht)
+    
     return "TEST_CA_NOT_SET";
   }
 

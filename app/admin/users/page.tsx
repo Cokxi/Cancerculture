@@ -14,19 +14,19 @@ type UserLog = {
   username_change_count: number;
   submission_count: number;
 
-  // Active flag
+  
   flagged_for_review: boolean;
   flag_reason_code: string | null;
   flag_note: string | null;
   flagged_at: string | null;
   flagged_by_discord_username: string | null;
 
-  // Last review (unflag)
+  
   unflag_reason: string | null;
   unflagged_by_discord_username: string | null;
   unflagged_at: string | null;
 
-  // Ban state
+  
   is_banned: boolean;
   ban_reason: string | null;
   first_seen_at: string;
@@ -54,7 +54,7 @@ const query =
 
 
 
-    // 🔐 Session prüfen
+    
   let discordUserId: string;
 
   try {
@@ -64,7 +64,7 @@ const query =
     redirect("/403");
   }
 
-  // 🔐 Rolle prüfen
+  
   const { data: member } = await supabaseAdmin
     .from("team_members")
     .select("role")
@@ -76,7 +76,7 @@ const query =
   }
 
 
-  // 📦 DIREKT aus Supabase lesen (kein API-Fetch!)
+  
   const { data: users, error } = await supabaseAdmin
     .from("user_logs_with_stats")
     .select("*")
@@ -175,13 +175,13 @@ const query =
     >
 
 
-                {/* USER */}
+                
                 <td style={{ padding: "8px 0" }}>
   <strong>
     {user.current_discord_username ?? "Unknown"}
   </strong>
 
-  {/* ACTIVE FLAG */}
+  
   {user.flagged_for_review && (
     <div
       style={{
@@ -211,7 +211,7 @@ const query =
     </div>
   )}
 
-  {/* BANNED */}
+  
 {user.is_banned && user.ban_reason && (
   <div
     style={{
@@ -232,7 +232,7 @@ const query =
 )}
 
 
-  {/* REVIEWED (unflagged) */}
+  
   {!user.flagged_for_review && user.unflag_reason && (
     <div
       style={{
@@ -268,7 +268,7 @@ const query =
 </td>
 
 
-                {/* DISCORD ID */}
+                
                 <td
                   style={{
                     fontFamily: "monospace",
@@ -282,7 +282,7 @@ const query =
 
                   
 
-                {/* STATS */}
+                
                 <td style={{ padding: "8px 0" }}>
                   <div>
                     Submissions: <strong>{user.submission_count}</strong>
@@ -316,7 +316,7 @@ const query =
 
                 </td>
 
-                {/* ACTIVITY */}
+                
                 <td
                   style={{
                     padding: "8px 0",

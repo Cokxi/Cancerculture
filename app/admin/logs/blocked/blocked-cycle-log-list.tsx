@@ -40,7 +40,7 @@ export default function BlockedCycleLogList({
 
   return (
     <div className="space-y-2">
-      {/* 🔀 Sort Toggle */}
+      
       <div className="flex gap-2 mb-4">
         <button
   onClick={() => setSort("latest")}
@@ -57,7 +57,7 @@ export default function BlockedCycleLogList({
 </button>
       </div>
 
-      {/* 👤 Users */}
+      
       {users.map((u) => (
         <div
           key={u.discord_user_id}
@@ -65,10 +65,10 @@ export default function BlockedCycleLogList({
         >
           <div className="flex justify-between items-center">
 
-  {/* LEFT SIDE */}
+ 
   <div className="flex items-center gap-2">
 
-    {/* ▶ Toggle Arrow */}
+    
     <button
       onClick={() => toggle(u.discord_user_id)}
       className="cursor-pointer text-xs opacity-70 hover:opacity-100"
@@ -76,7 +76,7 @@ export default function BlockedCycleLogList({
       {open[u.discord_user_id] ? "▼" : "▶"}
     </button>
 
-    {/* 🔗 Discord ID → User Logs */}
+    
     <a
       href={`/admin/users?discord_user_id=${u.discord_user_id}`}
       target="_blank"

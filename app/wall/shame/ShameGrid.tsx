@@ -37,7 +37,7 @@ function getThumbUrl(imageUrl: string) {
   return `${url.origin}/cdn-cgi/image/w=400,q=75${url.pathname}`;
 }
 
-  // ESC schließt Modal
+  
   useEffect(() => {
     if (!active) return;
 
@@ -59,7 +59,7 @@ function getThumbUrl(imageUrl: string) {
 
   return (
     <>
-      {/* GRID */}
+      
       <div
         className="
           grid
@@ -105,7 +105,7 @@ function getThumbUrl(imageUrl: string) {
 />
 
 
-              {/* Date Overlay */}
+              
               <div
                 className="
                   absolute
@@ -126,7 +126,7 @@ function getThumbUrl(imageUrl: string) {
         ))}
       </div>
 
-      {/* MODAL */}
+      
       {active && (
         <div
         className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain p-6"

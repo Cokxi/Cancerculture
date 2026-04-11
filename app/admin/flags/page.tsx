@@ -23,7 +23,7 @@ type FlaggedUser = {
 };
 
 export default async function AdminFlaggedUsersPage() {
-  // 🔐 Admin only
+  
   try {
     await requireAdmin();
   } catch {
@@ -86,7 +86,7 @@ export default async function AdminFlaggedUsersPage() {
                   verticalAlign: "top",
                 }}
               >
-                {/* USER */}
+                
                 <td style={{ padding: "8px 0" }}>
                   <strong>
                     {user.current_discord_username ?? "Unknown"}
@@ -102,7 +102,7 @@ export default async function AdminFlaggedUsersPage() {
                     {user.discord_user_id}
                   </div>
 
-                  {/* ACTIONS */}
+                  
                   <div style={{ marginTop: 6 }}>
                     <UserModerationActions
                       discordUserId={user.discord_user_id}
@@ -112,7 +112,7 @@ export default async function AdminFlaggedUsersPage() {
                     />
                   </div>
 
-                  {/* RECENT SUBMISSIONS */}
+                  
                   <div style={{ marginTop: 6 }}>
                     <UserSubmissionsDropdown
                       discordUserId={user.discord_user_id}
@@ -120,7 +120,7 @@ export default async function AdminFlaggedUsersPage() {
                   </div>
                 </td>
 
-                {/* REASON */}
+                
 <td style={{ padding: "8px 0", fontSize: 12 }}>
   {user.flag_reason_code ? (
     <div>
@@ -140,7 +140,7 @@ export default async function AdminFlaggedUsersPage() {
 </td>
 
 
-                {/* CONTEXT */}
+                
                 <td
                   style={{
                     padding: "8px 0",
@@ -161,7 +161,7 @@ export default async function AdminFlaggedUsersPage() {
                   </div>
                 </td>
 
-                {/* STATS */}
+                
                 <td style={{ padding: "8px 0", fontSize: 12 }}>
                   Submissions:{" "}
                   <strong>{user.submission_count}</strong>

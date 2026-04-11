@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     );
   }
 
-  // 1️⃣ Code → Access Token
+  
   const tokenRes = await fetch(
     "https://discord.com/api/oauth2/token",
     {
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     );
   }
 
-  // 2️⃣ Discord User holen
+  
   const userRes = await fetch(
     "https://discord.com/api/users/@me",
     {
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
 });
 
 
-  // 🚫 BAN CHECK (user_logs)
+  
 const { data: userLog } = await supabaseAdmin
   .from("user_logs")
   .select("is_banned")
@@ -91,7 +91,7 @@ if (userLog?.is_banned) {
 }
 
 
-  // 🧠 INVITE-FLOW (bleibt unverändert)
+  
   if (redirectPath.startsWith("/invite/")) {
     const inviteSlug = redirectPath.split("/invite/")[1];
 
@@ -121,7 +121,7 @@ if (userLog?.is_banned) {
             discord_username: user.username,
             role: "mod",
           });
-            // ✅ HIER – Invite EINMALIG deaktivieren
+            
       await supabaseAdmin
         .from("admin_invites")
         .update({ is_active: false })
@@ -130,7 +130,7 @@ if (userLog?.is_banned) {
     }
   }
 
-  // 🆕 SESSION ANLEGEN
+  
   const sessionId = randomUUID();
 
   await supabaseAdmin
@@ -142,7 +142,7 @@ if (userLog?.is_banned) {
       last_seen_at: new Date().toISOString(),
     });
 
-  // 🔁 Redirect + Cookie setzen
+  
   const finalRedirect =
   redirectPath.startsWith("/invite/")
     ? "/"
@@ -155,7 +155,7 @@ const response = NextResponse.redirect(
 
   const isProd = process.env.NODE_ENV === "production";
 
-  // ❗ EINZIGER COOKIE
+  
   response.cookies.set("session_id", sessionId, {
     httpOnly: true,
     secure: isProd,
@@ -164,7 +164,7 @@ const response = NextResponse.redirect(
     maxAge: 60 * 60 * 24 * 30, // 30 Tage
   });
 
-  // 🧹 ALTEN COOKIE AKTIV LÖSCHEN (falls vorhanden)
+  
   response.cookies.delete("discord_user_id");
 
   return response;

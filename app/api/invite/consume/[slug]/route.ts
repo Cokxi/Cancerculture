@@ -11,7 +11,7 @@ export async function GET(
   const { slug: inviteSlug } = await params;
 
 
-  // 🔍 Invite prüfen
+  
   const { data: invite } = await supabaseAdmin
     .from("admin_invites")
     .select("id, invite_slug, is_active")
@@ -26,10 +26,10 @@ export async function GET(
     );
   }
 
-  // 🔥 Session IMMER löschen (hier ist es erlaubt)
+  
   (await cookies()).delete("session_id");
 
-  // 🔁 OAuth erzwingen, Rückkehr über Invite
+  
   return NextResponse.redirect(
     `${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/discord/login?state=/invite/${inviteSlug}`
   );

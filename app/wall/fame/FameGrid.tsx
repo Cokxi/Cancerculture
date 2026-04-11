@@ -37,7 +37,7 @@ function handleTouchStart() {
   return `${url.origin}/cdn-cgi/image/w=400,q=75${url.pathname}`;
 }
 
-  // ✅ ESC-Key schließt Modal
+
   useEffect(() => {
     if (!active) return;
 
@@ -61,7 +61,7 @@ function handleTouchStart() {
 
   return (
     <>
-      {/* GRID */}
+      
       <div
         className="
           grid
@@ -106,7 +106,7 @@ function handleTouchStart() {
 />
 
 
-              {/* Date Overlay */}
+              
               <div
                 className="
                   absolute
@@ -127,7 +127,7 @@ function handleTouchStart() {
         ))}
       </div>
 
-      {/* MODAL */}
+      
       {active && (
         <div
         className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain p-6"

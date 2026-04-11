@@ -4,7 +4,7 @@ import { requireModOrAdmin } from "@/lib/auth/guards";
 
 export async function GET(req: Request) {
   try {
-    /* 🔐 Admin oder Mod */
+    
     await requireModOrAdmin();
 
     const { searchParams } = new URL(req.url);
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
       submissions: data ?? [],
     });
   } catch (error: any) {
-    // 🔑 konsistente Auth-Fehler
+    
     if (error?.status === 401 || error?.status === 403) {
       return NextResponse.json(
         { error: error.message },

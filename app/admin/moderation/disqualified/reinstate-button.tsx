@@ -29,7 +29,7 @@ export default function ReinstateButton({
 
     if (res.ok) {
       setDone(true);
-      // einfacher, sicherer Refresh
+      
       window.location.reload();
     } else {
       alert("Failed to reinstate submission");

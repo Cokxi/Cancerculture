@@ -33,12 +33,12 @@ if (!text) {
 
 const data = JSON.parse(text);
 
-// 🔥 Cycle IDs sammeln
+
 const cycleIds = Array.from(
   new Set(data.logs.map((l: any) => l.target_id))
 );
 
-// 🔥 Themes laden
+
 const themeRes = await fetch(
   "/api/admin/cycles/themes?ids=" + cycleIds.join(",")
 );

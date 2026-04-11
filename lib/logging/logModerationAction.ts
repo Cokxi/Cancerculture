@@ -52,6 +52,6 @@ export async function logModerationAction({
         cycle_id: cycleId ?? null,
       });
   } catch {
-    // Logs dürfen niemals blockieren
+    
   }
 }

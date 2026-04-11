@@ -6,10 +6,10 @@ import { requireAdmin } from "@/lib/auth/guards";
 
 export async function GET() {
   try {
-    /* 🔐 Admin-only */
+    
     await requireAdmin();
 
-    /* 📦 Invites + Nutzungen */
+    
     const { data, error } = await supabaseAdmin
       .from("admin_invites")
       .select(`
@@ -38,7 +38,7 @@ export async function GET() {
 
     return NextResponse.json({ invites: data ?? [] });
   } catch (error: any) {
-    // 🔑 Auth-Fehler sauber zurückgeben
+    
     if (error?.status === 401 || error?.status === 403) {
       return NextResponse.json(
         { error: error.message },

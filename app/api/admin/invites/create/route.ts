@@ -4,18 +4,16 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 
-/**
- * 🔐 Admin-only: Invite erstellen
- */
+
 export async function POST(req: Request) {
   try {
-    // 🔐 Nur Admin
+   
     const admin = await requireAdmin();
 
     const body = await req.json().catch(() => ({}));
     const note: string | null = body?.note ?? null;
 
-    // 🔑 Invite-Slug generieren (kurz, URL-safe)
+    
     const inviteSlug = crypto.randomUUID().slice(0, 8);
 
     const { data: invite, error } = await supabaseAdmin

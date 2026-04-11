@@ -6,10 +6,10 @@ import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function GET(request: Request) {
   try {
-    // 🔐 MOD oder ADMIN
+    
     await requireModOrAdmin();
 
-    // 📥 Query-Parameter
+    
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type"); // cycle | upload | vote | null
 

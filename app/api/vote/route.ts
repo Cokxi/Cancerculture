@@ -8,10 +8,10 @@ import { touchUserLog } from "@/lib/logging/touchUserLog";
 
 export async function POST(req: Request) {
   try {
-    /* 1️⃣ Auth via Session → Discord-ID */
+    
     const { discord_user_id: discordUserId } = await requireSession();
 
-    /* 🚫 BAN CHECK (user_logs) */
+    
 const { data: userLog } = await supabaseAdmin
   .from("user_logs")
   .select("is_banned")
@@ -34,10 +34,10 @@ if (userLog?.is_banned) {
 
 await touchUserLog({
   discordUserId,
-  // optional: discordUsername
+  
 });
 
-    /* 2️⃣ Input (HTML Form) */
+    
     const formData = await req.formData();
     const submissionIdRaw = formData.get("submissionId");
 
@@ -57,7 +57,7 @@ await touchUserLog({
       );
     }
 
-    /* 3️⃣ Aktiven Cycle holen */
+    
     const { data: cycle } = await supabaseAdmin
       .from("voting_cycles")
       .select("id")
@@ -71,7 +71,7 @@ await touchUserLog({
       );
     }
 
-    /* 4️⃣ Submission laden (Self-Vote-Check) */
+    
     const { data: submission } = await supabaseAdmin
       .from("submissions")
       .select("id, discord_user_id")
@@ -86,7 +86,7 @@ await touchUserLog({
       );
     }
 
-    /* 🚫 Self-Vote verhindern */
+    
     if (submission.discord_user_id === discordUserId) {
       await logVote({
         cycleId: cycle.id,
@@ -102,7 +102,7 @@ await touchUserLog({
       );
     }
 
-    /* 🛑 Schon gevotet? (1 Vote pro Discord-ID pro Cycle) */
+    
     const { data: existingVote } = await supabaseAdmin
       .from("votes")
       .select("id")
@@ -125,7 +125,7 @@ await touchUserLog({
       );
     }
 
-    /* 🗳️ Vote speichern */
+    
     const { error: insertError } = await supabaseAdmin
       .from("votes")
       .insert({
@@ -138,7 +138,7 @@ await touchUserLog({
       throw insertError;
     }
 
-    /* 🧾 Log */
+    
     await logVote({
       cycleId: cycle.id,
       submissionId,
@@ -150,7 +150,7 @@ await touchUserLog({
   } catch (error) {
     console.error("VOTE ERROR", error);
 
-    // requireSession wirft Response → direkt weiterreichen
+    
     if (error instanceof Response) {
       throw error;
     }

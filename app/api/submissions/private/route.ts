@@ -27,7 +27,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // submission laden
+    
     const { data: submission } = await supabaseAdmin
       .from("submissions")
       .select("id, discord_user_id")
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // 🔐 Owner Check
+    
     if (submission.discord_user_id !== discord_user_id) {
       return NextResponse.json(
         { error: "Forbidden" },

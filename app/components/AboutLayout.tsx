@@ -13,6 +13,14 @@ It represents the fast spreading, irrational culture of memes, narratives, hype 
 
 Instead of pretending to be serious, CancerCulture turns that chaos into a creative arena.
 
+In a space flooded with new coins and “creator onboarding” projects, CancerCulture shifts the focus back where it belongs:
+to the community.
+
+Here, creativity decides.
+Here, the crowd decides.
+
+Be the reason to be bullish!
+
 Memes are the language of this culture and here they compete!
 
 Participants create original memes that reflect the absurdity, creativity, and energy of memecoin culture itself. The community decides what survives through voting, shaping the narrative round by round.

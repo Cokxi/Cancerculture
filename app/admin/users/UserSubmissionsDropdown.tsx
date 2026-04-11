@@ -1,4 +1,4 @@
-// app/admin/users/UserSubmissionsDropdown.tsx
+
 
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
@@ -20,7 +20,7 @@ export default async function UserSubmissionsDropdown({
   discordUserId,
   defaultOpen,
 }: Props) {
-  // 1️⃣ Letzte 6 Submissions direkt holen
+  
   const { data: submissions } = await supabaseAdmin
     .from("submissions")
     .select(`
@@ -44,7 +44,7 @@ export default async function UserSubmissionsDropdown({
 
   const typedSubmissions = submissions as SubmissionRow[];
 
-  // 2️⃣ Vote Count separat holen
+  
   const submissionIds = typedSubmissions.map((s) => s.id);
 
   const { data: votes } = await supabaseAdmin
@@ -61,14 +61,14 @@ export default async function UserSubmissionsDropdown({
     );
   });
 
-  // 3️⃣ Image URL bauen + Vote Count anhängen
+  
   const submissionsWithUrls = typedSubmissions.map((s) => ({
     ...s,
     image_url: getPublicImageUrl(s.r2_key),
     vote_count: voteCountMap.get(s.id) ?? 0,
   }));
 
-  // 4️⃣ Render
+  
   return (
     <details open={defaultOpen} style={{ marginTop: 8 }}>
       <summary

@@ -80,7 +80,7 @@ lastTapRef.current = now;
     <>
 
     
-      {/* GRID */}
+      
       <div className="min-h-screen pt-20 px-6 pb-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 content-start">
 
 
@@ -138,7 +138,7 @@ lastTapRef.current = now;
 
       </div>
 
-      {/* MODAL */}
+      
       {active && (
   <div
   className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain p-6"
@@ -217,21 +217,21 @@ lastTapRef.current = now;
   <div className="ml-auto flex items-center gap-3">
 
 
-              {/* OWN SUBMISSION */}
+              
 {active.discord_user_id === discordUserId && (
   <span className="opacity-70">
     You cannot vote for your own submission
   </span>
 )}
 
-{/* BANNED USER */}
+
 {active.discord_user_id !== discordUserId && isBanned && (
   <span className="opacity-70 text-red-400">
     You’re banned from voting
   </span>
 )}
 
-{/* NORMAL VOTE */}
+
 {active.discord_user_id !== discordUserId && !isBanned && !voted && (
   <button
     onClick={() => vote(active.id)}
@@ -242,7 +242,7 @@ lastTapRef.current = now;
   </button>
 )}
 
-{/* ALREADY VOTED */}
+
 {active.discord_user_id !== discordUserId && !isBanned && voted && (
   <span className="opacity-70">You already voted</span>
 )}

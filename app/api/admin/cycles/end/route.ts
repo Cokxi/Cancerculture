@@ -7,10 +7,10 @@ import { logAdminAction } from "@/lib/audit/logAdminAction";
 
 export async function POST() {
   try {
-    // 🔐 ADMIN ONLY
+    
     const admin = await requireAdmin();
 
-    // 🔍 Aktiven Cycle finden
+    
     const { data: cycle } = await supabase
       .from("voting_cycles")
       .select("*")
@@ -24,7 +24,7 @@ export async function POST() {
       );
     }
 
-    // 🔒 Cycle sperren
+    
     const { data: lockedCycle, error: lockError } =
       await supabase
         .from("voting_cycles")
@@ -41,7 +41,7 @@ export async function POST() {
       );
     }
 
-    // 🧮 Votes laden (SAUBER über View)
+    
     const { data: results, error: resultsError } =
       await supabase
         .from("submissions_with_votes")
@@ -66,7 +66,7 @@ export async function POST() {
       rank: r.vote_count === maxVotes ? 1 : null,
     }));
 
-    // 🧹 cycle_results idempotent
+    
     await supabase
       .from("cycle_results")
       .delete()
@@ -84,13 +84,13 @@ export async function POST() {
       );
     }
 
-    // 🧹 winner_public_profiles idempotent
+    
     await supabase
       .from("winner_public_profiles")
       .delete()
       .eq("cycle_id", cycle.id);
 
-    // 🏆 Gewinner veröffentlichen
+    
     const winners = finalizedResults.filter(r => r.is_winner);
     const winShare = 1 / winners.length;
 
@@ -133,7 +133,7 @@ export async function POST() {
         });
     }
 
-    // ✅ Cycle als published markieren
+    
     await supabase
       .from("voting_cycles")
       .update({
@@ -145,7 +145,7 @@ export async function POST() {
       .eq("id", cycle.id);
 console.log("🔥 RESETTING NEXT THEME");
 
-      // 🧹 HUD Reset nach Cycle End
+      
 const { data: resetData, error: resetError } = await supabase
   .from("app_config")
   .update({ value: null })
@@ -162,7 +162,7 @@ await supabase
 
 
 
-    // 🧾 Admin-Log
+    
     await logAdminAction({
       actorType: "admin",
       actorId: admin.discord_user_id,

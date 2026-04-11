@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function UploadPage() {
   let discordUserId: string;
 
-  /* 🔐 Session-required Page */
+  
   try {
     const session = await requireSession();
     discordUserId = session.discord_user_id;
@@ -17,7 +17,7 @@ export default async function UploadPage() {
     redirect("/api/auth/discord/login?state=/upload");
   }
 
-    /* 🚫 BAN CHECK */
+    
   const { data: userLog } = await supabaseAdmin
     .from("user_logs")
     .select("is_banned, ban_reason")
@@ -32,7 +32,7 @@ export default async function UploadPage() {
   }
 
 
-  /* 🔁 Aktiven Cycle holen */
+  
   const { data: activeCycle } = await supabaseAdmin
     .from("voting_cycles")
     .select("id")
@@ -41,7 +41,7 @@ export default async function UploadPage() {
 
   
 
-  /* 🔁 Check: schon hochgeladen? (Discord-only) */
+  
   let alreadyUploaded = false;
 
   if (activeCycle) {

@@ -15,7 +15,7 @@ export default function ModerationLogList({
 
   return (
     <>
-      {/* 🔍 Suche */}
+      
       <div style={{ marginTop: 12 }}>
         <input
           type="text"
@@ -43,7 +43,7 @@ export default function ModerationLogList({
         )}
       </div>
 
-      {/* 📜 Logs */}
+      
       {[...byCycle.entries()].map(
         ([cycleId, cycleLogs]) => {
           const filteredLogs =

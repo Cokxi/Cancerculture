@@ -3,7 +3,7 @@ import { Bangers, Permanent_Marker } from "next/font/google";
 import "./globals.css";
 import { OverlayProvider } from "@/app/components/overlay/OverlayProvider";
 
-/* Fonts */
+
 const bangers = Bangers({
   weight: "400",
   subsets: ["latin"],

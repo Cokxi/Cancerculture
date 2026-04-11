@@ -11,6 +11,6 @@ export default async function InviteConsumePage({
 }: InvitePageProps) {
   const { slug } = await params;
 
-  // 👉 ALLE Logik ist jetzt in der Route
+  
   redirect(`/api/invite/consume/${slug}`);
 }

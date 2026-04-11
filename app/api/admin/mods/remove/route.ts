@@ -4,11 +4,11 @@ import { requireAdmin } from "@/lib/auth/guards";
 
 export async function POST(req: Request) {
   try {
-    /* 🔐 Admin-only */
+    
     const admin = await requireAdmin();
     const actorId = admin.discord_user_id;
 
-    /* 📥 Form-Daten lesen */
+    
     const formData = await req.formData();
     const targetId = formData.get("discord_user_id");
 
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       );
     }
 
-    /* 🛑 Selbstschutz */
+    
     if (targetId === actorId) {
       return NextResponse.json(
         { error: "Cannot remove yourself" },
@@ -27,19 +27,19 @@ export async function POST(req: Request) {
       );
     }
 
-    /* 🔴 Mod entfernen (Admin bleibt unberührt) */
+    
     await supabaseAdmin
       .from("team_members")
       .delete()
       .eq("discord_user_id", targetId)
       .eq("role", "mod");
 
-    /* 🔁 Zurück zur Mod-Liste */
+    
     return NextResponse.redirect(
       new URL("/admin/mods", req.url)
     );
   } catch (error: any) {
-    // 🔑 Auth-Fehler sauber zurückgeben
+    
     if (error?.status === 401 || error?.status === 403) {
       return NextResponse.json(
         { error: error.message },

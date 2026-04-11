@@ -56,7 +56,7 @@ export default function UserModerationActions({
     location.reload();
   }
 
-  /* ---------------- BANNED STATE ---------------- */
+  
 
   if (isBanned) {
     if (role !== "admin") return null;
@@ -80,7 +80,7 @@ export default function UserModerationActions({
     );
   }
 
-  /* ---------------- NORMAL STATE ---------------- */
+  
 
   return (
     <div style={{ marginTop: 6 }}>

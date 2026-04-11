@@ -24,14 +24,14 @@ type ActorUser = {
 };
 
 export default async function AdminModerationLogsPage() {
-  /* 🔐 Admin only */
+  
   try {
     await requireAdmin();
   } catch {
     redirect("/403");
   }
 
-  // 1️⃣ Logs laden
+  
   const { data: logs, error } = await supabaseAdmin
     .from("moderation_action_logs")
     .select(`
@@ -55,7 +55,7 @@ export default async function AdminModerationLogsPage() {
     return <div style={{ padding: 24 }}>Failed to load logs</div>;
   }
 
-  // 2️⃣ Actor-Namen auflösen
+  
   const actorIds = Array.from(
     new Set(logs.map((l) => l.actor_id).filter(Boolean))
   );
@@ -73,7 +73,7 @@ export default async function AdminModerationLogsPage() {
     actorMap.set(a.discord_user_id, a)
   );
 
-  // 3️⃣ Submitter Discord IDs auflösen
+  
   const submissionIds = Array.from(
     new Set(
       logs
@@ -95,7 +95,7 @@ export default async function AdminModerationLogsPage() {
     submissionUserMap.set(s.id, s.discord_user_id)
   );
 
-  // 4️⃣ Nach Cycle gruppieren
+  
   const byCycle = new Map<number, ModerationLogRow[]>();
   logs.forEach((log) => {
     if (!byCycle.has(log.cycle_id)) {
@@ -104,7 +104,7 @@ export default async function AdminModerationLogsPage() {
     byCycle.get(log.cycle_id)!.push(log);
   });
 
-  // ✅ HIER ENDET SERVER-LOGIK
+  
   return (
     <div style={{ padding: 24 }}>
       <h1>Admin – Moderation Logs</h1>

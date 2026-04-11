@@ -19,20 +19,20 @@ export async function logUploadFailAndCheckLimit({
 
   let failCount = userLog?.upload_fail_count ?? 0;
 
-  /* 🚫 CHECK MODE */
+  
   if (mode === "check") {
     // 5 fails → cooldown
     return failCount >= 5;
   }
 
-  /* 🚫 FAIL MODE */
+  
   failCount++;
 
   const now = new Date();
 
-  // 🔒 BLOCK EVENT wenn FailCount exakt 5 erreicht
+  
 if (failCount === 5) {
-  // aktiven Cycle holen
+  
   const { data: activeCycle } = await supabaseAdmin
     .from("voting_cycles")
     .select("id")
@@ -40,7 +40,7 @@ if (failCount === 5) {
     .maybeSingle();
 
   if (activeCycle?.id) {
-    // silent insert – unique constraint verhindert doppelte Einträge
+    
     await supabaseAdmin
   .from("blocked_cycle_events")
   .insert({

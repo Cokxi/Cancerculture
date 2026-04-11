@@ -9,12 +9,12 @@ export const dynamic = "force-dynamic";
 export default async function VotePage() {
   let discordUserId: string;
 
-  // 🔐 Session-required Page
+  
   try {
     const session = await requireSession();
     discordUserId = session.discord_user_id;
   } catch {
-    // ❗ KEIN Loop: nur EIN Redirect, dann OAuth
+    
     redirect("/api/auth/discord/login?state=/vote");
   }
 

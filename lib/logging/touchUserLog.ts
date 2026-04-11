@@ -12,7 +12,7 @@ export async function touchUserLog({
   try {
     if (!discordUserId) return;
 
-    /* 🔍 Bestehenden User-Log laden */
+    
     const { data: existing, error: loadError } =
       await supabaseAdmin
         .from("user_logs")
@@ -37,7 +37,7 @@ export async function touchUserLog({
 
     const now = new Date().toISOString();
 
-    /* 🆕 Neuer User */
+    
     if (!existing) {
       const { error: insertError } =
         await supabaseAdmin
@@ -64,7 +64,7 @@ export async function touchUserLog({
       return;
     }
 
-    /* 🔁 Bestehender User → Update */
+    
     const updatePayload: any = {
       last_seen_at: now,
     };

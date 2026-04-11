@@ -7,11 +7,11 @@ import { logAdminAction } from "@/lib/audit/logAdminAction";
 
 export async function POST(req: Request) {
   try {
-    /* 🔐 Admin-only */
+    
     const admin = await requireAdmin();
     const actorId = admin.discord_user_id;
 
-    /* 📥 Input */
+    
     const { targetDiscordId, role } = await req.json();
 
     if (
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     }
 
     if (role === "mod") {
-      /* 🔍 Username aus Invite-Logs holen (optional) */
+      
       const { data: inviteLog } =
         await supabaseAdmin
           .from("invite_auth_logs")
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       const discordUsername: string | null =
         inviteLog?.discord_username ?? null;
 
-      /* ➕ Make Mod */
+      
       await supabaseAdmin
         .from("team_members")
         .upsert({
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     }
 
     if (role === "remove") {
-      /* ➖ Remove Mod (Admins geschützt) */
+      
       await supabaseAdmin
         .from("team_members")
         .delete()
