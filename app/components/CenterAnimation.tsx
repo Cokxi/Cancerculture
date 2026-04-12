@@ -1,12 +1,12 @@
 "use client";
 
-// 👉 HIER später einfach mehrere WebM/WebP Slideshows eintragen
+
 const CENTER_ANIMATIONS: string[] = [
   
 ];
 
 export default function CenterAnimation() {
-  // solange leer → nichts anzeigen
+  
   if (!CENTER_ANIMATIONS.length) return null;
 
   return (

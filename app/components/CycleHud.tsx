@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import CycleCountdown from "./CycleCountdown";
 
 export default async function CycleHud() {
-  // 🔥 aktiven Cycle holen
+ 
   const { data: cycle } = await supabaseAdmin
     .from("voting_cycles")
     .select("id,status,theme")
@@ -13,7 +13,7 @@ export default async function CycleHud() {
 .maybeSingle();
 
 
-  // 🔥 config holen
+ 
   const { data: configRows } = await supabaseAdmin
     .from("app_config")
     .select("key,value")
@@ -50,7 +50,7 @@ const isTimerActive =
   >
     <div className="inline-flex flex-col text-left gap-[2px] leading-tight">
       
-      {/* 🔥 THEME */}
+      
       <div
   className="
     text-[1.4rem] tracking-wide
@@ -66,13 +66,13 @@ const isTimerActive =
 </div>
 
 
-      {/* 🎮 CYCLE */}
+      
       <div className="font-['Permanent_Marker']">
         <span className="text-[var(--orange-main)]">Round: </span>
         <span className="text-green-400">{cycle.id}</span>
       </div>
 
-      {/* 🟢 STATUS */}
+     
       <div className="font-['Permanent_Marker']">
         <span className="text-[var(--orange-main)]">Status: </span>
         <span
@@ -88,7 +88,7 @@ const isTimerActive =
 
     
 
-      {/* 🔮 Timer */}
+     
       {isTimerActive && (
   <div className="font-['Permanent_Marker']">
     <span className="text-[var(--orange-main)]">
@@ -98,7 +98,7 @@ const isTimerActive =
   </div>
 )}
 
-{/* 🔮 NEXT THEME */}
+
 {config.next_cycle_theme && (
   <div className="font-['Permanent_Marker'] text-xs">
     <span className="text-[var(--orange-main)]">

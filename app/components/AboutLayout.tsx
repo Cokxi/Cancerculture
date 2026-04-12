@@ -3,7 +3,7 @@
 import AboutTextBox from "./AboutTextBox";
 import AboutCenterCell from "./AboutCenterCell";
 
-/* === ABOUT TEXT CONTENT (Slide 1) === */
+
 
 const LEFT_TEXT = `
 CancerCulture is a community driven charity meme competition inspired by the chaotic nature of the memecoin space.
@@ -78,7 +78,7 @@ export default function AboutLayout() {
   return (
     <div className="relative max-w-6xl mx-auto px-6 pt-24 pb-64">
       
-      {/* TEXT COLUMNS */}
+     
       <div
   className="
     grid
@@ -103,7 +103,7 @@ export default function AboutLayout() {
         />
       </div>
 
-      {/* CENTER CELL – overlay, not layout */}
+      
       <AboutCenterCell />
     </div>
   );

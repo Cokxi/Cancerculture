@@ -37,12 +37,12 @@ export default function RulesOverlay({
     <BaseOverlay onClose={handleClose} size="compact" blocking>
   <div className="flex flex-col gap-6 px-6 pb-10 pt-4 items-center text-center">
 
-        {/* TITLE */}
+        
         <h2 className="text-2xl font-['Permanent_Marker'] text-[var(--orange-main)] text-center">
           {isFirstAccept ? "Before submitting" : "⚠️ Rules updated"}
         </h2>
 
-        {/* TEXT */}
+        
         <div className="text-sm text-[var(--orange-main)] leading-relaxed font-['Permanent_Marker']">
           {isFirstAccept ? (
             <>
@@ -76,7 +76,7 @@ export default function RulesOverlay({
           )}
         </div>
 
-        {/* CHECKBOX */}
+        
 <label className="
   flex items-center justify-center
   gap-3
@@ -95,7 +95,7 @@ export default function RulesOverlay({
   <span>I have read and accept the Rules</span>
 </label>
 
-        {/* BUTTON */}
+        
         <button
           onClick={handleConfirm}
           disabled={!checked || isSaving}

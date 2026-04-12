@@ -8,7 +8,7 @@ export default function DiscordCellAnimated() {
       rel="noopener noreferrer"
       className="relative cursor-pointer group"
     >
-      {/* CELL */}
+      
 <div
   className="
     relative
@@ -41,7 +41,7 @@ export default function DiscordCellAnimated() {
 
 
 
-        {/* ICON */}
+        
         <div
   className="
     absolute

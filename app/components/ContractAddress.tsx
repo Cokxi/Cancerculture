@@ -17,9 +17,7 @@ export default function ContractAddress({ address }: Props) {
 
   return (
     <>
-      {/* =========================
-          DESKTOP VERSION (md+)
-         ========================= */}
+      
       <div
         className="
           group fixed bottom-4 left-4 z-50
@@ -31,7 +29,7 @@ export default function ContractAddress({ address }: Props) {
         onClick={handleCopy}
         title="Click to copy contract address"
       >
-        {/* CA BADGE */}
+        
         <span
           className="
             inline-flex items-center justify-center
@@ -47,7 +45,7 @@ export default function ContractAddress({ address }: Props) {
           CA
         </span>
 
-        {/* ROLLING CONTRACT ADDRESS */}
+        
         <span
           className="
             overflow-hidden
@@ -76,9 +74,7 @@ export default function ContractAddress({ address }: Props) {
         </span>
       </div>
 
-      {/* =========================
-    MOBILE VERSION (< md)
-   ========================= */}
+      
 <div
   className="
     fixed bottom-10 left-1/2 -translate-x-1/2 z-50
@@ -91,7 +87,7 @@ export default function ContractAddress({ address }: Props) {
   onClick={handleCopy}
   title="Tap to copy contract address"
 >
-  {/* Glow Button */}
+  
   <span
     className="
       px-4 py-2
@@ -108,7 +104,7 @@ export default function ContractAddress({ address }: Props) {
     {copied ? "copied" : "Contract Address"}
   </span>
 
-  {/* Visible shortened CA */}
+  
   <span
     className="
       text-[11px]

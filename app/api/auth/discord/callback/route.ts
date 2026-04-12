@@ -161,7 +161,7 @@ const response = NextResponse.redirect(
     secure: isProd,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30 Tage
+    maxAge: 60 * 60 * 24 * 30, 
   });
 
   

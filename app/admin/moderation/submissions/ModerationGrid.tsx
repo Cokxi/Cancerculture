@@ -72,7 +72,7 @@ export default function ModerationGrid({
       return;
     }
 
-    // Reset UI
+    
     setOpenFor(null);
     setReasonCode("");
     setReasonText("");

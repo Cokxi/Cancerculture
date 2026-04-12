@@ -7,8 +7,9 @@ import { useEffect, useRef, useState } from "react";
 import { useOverlay } from "@/app/components/overlay/OverlayProvider";
 import CharitiesOverlay from "@/app/components/overlay/CharitiesOverlay";
 import RulesOverlay from "@/app/components/overlay/RulesOverlay";
+import DiscordGateOverlay from "@/app/components/overlay/DiscordGateOverlay";
 
-/* ================= TYPES ================= */
+
 type PayoutChoice = "keep" | "donate" | "split";
 type SubmitState = "idle" | "partial" | "ready";
 
@@ -25,7 +26,7 @@ const CHARITY_OPTIONS = [
   { value: "Young Lives vs Cancer", label: "Young Lives vs Cancer" },
 ];
 
-/* ================= COMPONENT ================= */
+
 export default function DesktopUpload({ 
   
   showSupportLink,
@@ -52,7 +53,7 @@ export default function DesktopUpload({
   "unknown" | "checking" | "needsAccept" | "accepted"
 >("unknown");
   
-/* ---------- SUCCESS MODE SWITCH ---------- */
+
 useEffect(() => {
   if (forceSuccessState) {
     setSuccessMode("already");
@@ -118,7 +119,7 @@ useEffect(() => {
     ? "https://cdn.cancerculture.fun/webp/submit.confirm/sub2.webp"
     : "https://cdn.cancerculture.fun/webp/submit.confirm/sub1.webp";
 
-  /* ---------- EVENTS ---------- */
+
   const handleScannerClick = () => fileInputRef.current?.click();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,10 +169,19 @@ if (file.size > MAX_UPLOAD_SIZE) {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error ?? "Upload not possible right now");
-       
-        return;
-      }
+  if (data.error === "NOT_IN_DISCORD") {
+    openOverlay(<DiscordGateOverlay type="not_in_discord" />);
+    return;
+  }
+
+  if (data.error === "JOINED_TOO_RECENTLY") {
+    openOverlay(<DiscordGateOverlay type="cooldown" />);
+    return;
+  }
+
+  alert(data.error ?? "Upload not possible right now");
+  return;
+}
 
       setSuccessMode("success");
       setUploadDone(true);
@@ -181,15 +191,15 @@ if (file.size > MAX_UPLOAD_SIZE) {
     }
   };
 
-  /* ================= RENDER ================= */
+ 
   return (
     <div className="py-24">
       <div className="max-w-6xl mx-auto px-6 flex flex-col gap-14">
 
-        {/* ===== SCANNER + FORM BLOCK ===== */}
+        
         {!uploadDone && (
           <>
-            {/* ===== SCANNER + TITLE ===== */}
+            
             <div className="flex flex-col items-center gap-4">
               <span className="upload-hint animate-soft-hint">
                 Drop your meme
@@ -207,7 +217,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
             </div>
 
 
-            {/* ===== PREVIEW ===== */}
+            
             {previewUrl && (
               <div className="mx-auto bg-white rounded-xl p-2 shadow-xl">
                 <img
@@ -220,7 +230,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
 
 
 
-            {/* ===== FORM ===== */}
+            
             <div className="mx-auto w-full max-w-xl bg-yellow-star rounded-3xl p-8 flex flex-col gap-5">
               <input
                 placeholder="@username"
@@ -296,7 +306,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
                       className="rounded-xl px-4 py-2 bg-white"
                     />
                   )}
-                  {/* ===== CHARITY INFO SLOT (absolute, no gap) ===== */}
+                  
 <div className="relative flex justify-center">
   {(payoutChoice === "donate" || payoutChoice === "split") && (
     <button
@@ -322,7 +332,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
               )}
             </div>
 
-            {/* ===== HIT IT ===== */}
+            
 {submitState === "ready" && rulesStatus === "accepted" && (
   <div className="text-center mt-4">
                 <span className="upload-hint animate-soft-hint">
@@ -336,7 +346,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
           </>
         )}
 
-        {/* ===== SUBMIT / HOME ===== */}
+        
         {!uploadDone ? (
           <div
   onClick={handleSubmit}
@@ -363,7 +373,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
           </div>
         )}
 
-        {/* ===== SUPPORT ===== */}
+        
         {showSupportLink && (
           <div className="mt-10 flex flex-col items-center gap-1">
             <span className="upload-hint animate-soft-hint text-xs">

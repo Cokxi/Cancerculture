@@ -6,7 +6,7 @@ import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function GET() {
   try {
-    // 🔐 MOD oder ADMIN
+   
     await requireModOrAdmin();
 
     const { data, error } = await supabaseAdmin

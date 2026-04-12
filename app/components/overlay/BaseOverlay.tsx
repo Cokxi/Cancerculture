@@ -53,7 +53,7 @@ export default function BaseOverlay({
   className="fixed inset-0 z-[999] overflow-x-hidden"
   onClick={blocking ? undefined : handleClose}
 >
-      {/* Backdrop */}
+      
       <div
         className={`
           absolute inset-0
@@ -63,7 +63,7 @@ export default function BaseOverlay({
         `}
       />
 
-      {/* SIDE PANEL */}
+      
       <div
         className={`
           relative
@@ -108,11 +108,11 @@ export default function BaseOverlay({
           startX.current = null;
         }}
       >
-        {/* DRAG HANDLE */}
+        
         <div className="sticky top-0 z-10 flex justify-center py-3 relative">
           <div className="w-12 h-1.5 rounded-full bg-black/20" />
 
-          {/* Close Button */}
+          
           {!blocking && (
           <button
             onClick={handleClose}

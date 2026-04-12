@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 
-
+import { checkDiscordMembership } from "@/lib/discord";
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/requireSession";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
@@ -40,6 +40,49 @@ export async function POST(req: Request) {
         status: 403,
       });
     }
+    
+  
+const member = await checkDiscordMembership(discordUserId);
+
+if (!member.isMember) {
+  await logUpload({
+    cycleId: null,
+    discordUserId,
+    status: "failed",
+    reason: "not_in_discord",
+  });
+
+  return NextResponse.json(
+    {
+      error: "NOT_IN_DISCORD",
+    },
+    { status: 403 }
+  );
+}
+
+
+const joinedAt = new Date(member.joinedAt);
+const now = new Date();
+
+const diffMinutes =
+  (now.getTime() - joinedAt.getTime()) / 1000 / 60;
+
+if (diffMinutes < 10) {
+  await logUpload({
+    cycleId: null,
+    discordUserId,
+    status: "failed",
+    reason: "joined_too_recently",
+  });
+
+  return NextResponse.json(
+    {
+      error: "JOINED_TOO_RECENTLY",
+      joinedAt: member.joinedAt,
+    },
+    { status: 403 }
+  );
+}
 
 
 const { data: userRules } = await supabaseAdmin

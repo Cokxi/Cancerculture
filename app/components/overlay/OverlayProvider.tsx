@@ -35,7 +35,7 @@ export function OverlayProvider({
     >
       {children}
 
-      {/* GLOBAL OVERLAY ROOT */}
+      
       {overlay && (
         <div className="fixed inset-0 z-[999]">
           {overlay}

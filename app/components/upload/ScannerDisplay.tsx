@@ -23,7 +23,7 @@ export default function ScannerDisplay({
       className="cursor-pointer active:scale-95 transition"
     >
       <video
-        key={src} // wichtig: zwingt React zum reload beim Wechsel
+        key={src} 
         src={src}
         autoPlay
         loop

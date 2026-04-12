@@ -20,7 +20,7 @@ export default function WalletAddressBox({ label, address }: Props) {
     <div className="w-full max-w-[420px] mx-auto space-y-3">
 
 
-      {/* SMALL BLACK LABEL BOX */}
+      
       <div
         className="
           w-full
@@ -40,7 +40,7 @@ export default function WalletAddressBox({ label, address }: Props) {
         </span>
       </div>
 
-      {/* ORANGE ADDRESS BOX (UNCHANGED) */}
+      
       <button
         onClick={handleCopy}
         className="
