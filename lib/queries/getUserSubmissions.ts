@@ -8,13 +8,16 @@ export async function getUserSubmissions(discord_user_id: string) {
   const { data, error } = await supabase
     .from("submissions_with_votes")
     .select(`
-      id,
-      cycle_id,
-      r2_key,
-      is_disqualified,
-      vote_count,
-      rank
-    `)
+  id,
+  cycle_id,
+  r2_key,
+  is_disqualified,
+  disqualification_reason_code,
+  disqualification_reason_text,
+  disqualified_by_discord_username,
+  vote_count,
+  rank
+`)
     .eq("discord_user_id", discord_user_id)
     .order("cycle_id", { ascending: false });
 
@@ -59,6 +62,9 @@ export async function getUserSubmissions(discord_user_id: string) {
       cycle_id: item.cycle_id,
       image_url: getPublicImageUrl(item.r2_key) ?? "",
       is_disqualified: item.is_disqualified,
+      disqualification_reason_code: item.disqualification_reason_code ?? null,
+      disqualification_reason_text: item.disqualification_reason_text ?? null,
+      disqualified_by_discord_username: item.disqualified_by_discord_username ?? null,
       vote_count: item.vote_count ?? 0,
       rank: item.rank ?? null,
       total: count ?? 0,

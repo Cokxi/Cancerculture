@@ -10,6 +10,16 @@ import { logModerationAction } from "@/lib/logging/logModerationAction";
 export async function POST(req: Request) {
   try {
     const actor = await requireModOrAdmin();
+
+    const { data: actorLog } = await supabaseAdmin
+  .from("user_logs")
+  .select("current_discord_username")
+  .eq("discord_user_id", actor.discord_user_id)
+  .maybeSingle();
+
+const actorUsername =
+  actorLog?.current_discord_username ?? null;
+
     const { submissionId } = await req.json();
 
     if (!submissionId) {
@@ -45,6 +55,7 @@ export async function POST(req: Request) {
     await logModerationAction({
       actorRole: actor.role,
       actorId: actor.discord_user_id,
+      actorUsername: actorUsername,
       action: "reinstate_submission",
       targetType: "submission",
       targetId: submissionId,

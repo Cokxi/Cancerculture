@@ -27,9 +27,11 @@ export async function POST(req: Request) {
 
     const { data: submission } = await supabaseAdmin
       .from("submissions")
-      .select("id, cycle_id, r2_key, discord_user_id")
+      .select("*")
       .eq("id", submissionId)
       .single();
+
+console.log("SUBMISSION:", submission);
 
     if (!submission) {
       return NextResponse.json(
@@ -38,6 +40,15 @@ export async function POST(req: Request) {
       );
     }
 
+    const { data: actorLog } = await supabaseAdmin
+  .from("user_logs")
+  .select("current_discord_username")
+  .eq("discord_user_id", actor.discord_user_id)
+  .maybeSingle();
+
+const actorUsername =
+  actorLog?.current_discord_username ?? null;
+
     await supabaseAdmin
       .from("submissions")
       .update({
@@ -45,6 +56,9 @@ export async function POST(req: Request) {
         disqualification_type: disqualificationType,
         disqualification_reason_code: reasonCode,
         disqualification_reason_text: reasonText ?? null,
+        disqualified_at: new Date().toISOString(),
+        disqualified_by_discord_user_id: actor.discord_user_id,
+        disqualified_by_discord_username: actorUsername,
       })
       .eq("id", submissionId);
 
@@ -58,7 +72,7 @@ export async function POST(req: Request) {
       reasonCode,
       reasonText,
       evidence: {
-  r2_key: submission.r2_key,
+  r2_key: submission.r2_key ?? null,
 },
     });
 

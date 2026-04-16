@@ -95,6 +95,7 @@ export default function ModerationLogList({
                     Number(log.target_id)
                   );
 
+
                 return (
                   <div
                     key={log.id}
@@ -142,25 +143,19 @@ export default function ModerationLogList({
                         "unknown (deleted)"}
                     </div>
 
-                    {(log.evidence?.r2_key ||
-  log.evidence?.submission_image_url) && (
-  <img
-    src={
-      log.evidence?.r2_key
-        ? getPublicImageUrl(log.evidence.r2_key)
-        : log.evidence?.submission_image_url
-    }
-                        alt=""
-                        style={{
-                          width: 96,
-                          height: 96,
-                          objectFit: "cover",
-                          marginTop: 8,
-                          border:
-                            "1px solid #444",
-                        }}
-                      />
-                    )}
+                    
+{log.evidence?.disqualification_reason_code && (
+  <div style={{ marginTop: 8, fontWeight: 600 }}>
+    Reason: {log.evidence.disqualification_reason_code}
+  </div>
+)}
+
+
+{log.evidence?.disqualification_reason_text && (
+  <div style={{ marginTop: 4, color: "#aaa" }}>
+    {log.evidence.disqualification_reason_text}
+  </div>
+)}
                   </div>
                 );
               })}

@@ -5,6 +5,11 @@ import { supabaseServer } from "@/lib/db/server";
 import BackButton from "@/app/components/ui/BackButton";
 import AvatarUpload from "@/app/components/ui/AvatarUpload";
 
+const formatReason = (r: string) =>
+  r
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
 export default async function MyProfilePage() {
   const session = await requireSession();
   const discord_user_id = session.discord_user_id;
@@ -97,6 +102,40 @@ const avatarUrl =
       }`
     : "—"}
 </p>
+<div className="mt-2 text-xs">
+  {currentSubmission?.is_disqualified ? (
+    <div className="text-red-400">
+      🔴 Disqualified
+
+      {currentSubmission.disqualification_reason_code && (
+        <div className="text-red-300 text-[11px] mt-1">
+          {formatReason(
+            currentSubmission.disqualification_reason_code
+          )}
+        </div>
+      )}
+
+      {currentSubmission.disqualification_reason_text && (
+        <div className="text-red-300 text-[11px]">
+          {currentSubmission.disqualification_reason_text}
+        </div>
+      )}
+
+      {currentSubmission.disqualified_by_discord_username && (
+        <div className="text-red-300 text-[11px]">
+          by{" "}
+          {
+            currentSubmission.disqualified_by_discord_username
+          }
+        </div>
+      )}
+    </div>
+  ) : (
+    <div className="text-green-400">
+      🟢 Active
+    </div>
+  )}
+</div>
 </div>
       </div>
 

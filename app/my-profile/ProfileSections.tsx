@@ -64,6 +64,35 @@ export default function ProfileSections({ submissions }: any) {
     : "-"}
 </span>
 </p>
+<div className="mt-2 text-xs">
+  {s.is_disqualified ? (
+    <div className="text-red-400">
+      🔴 Disqualified
+
+      {s.disqualification_reason_code && (
+  <div className="text-red-300 text-[11px] mt-1">
+    {s.disqualification_reason_code.replace("_", " ")}
+  </div>
+)}
+      
+      {s.disqualification_reason_text && (
+        <div className="text-red-300 text-[11px] mt-1">
+          {s.disqualification_reason_text}
+        </div>
+      )}
+
+      {s.disqualified_by_discord_username && (
+        <div className="text-red-300 text-[11px]">
+          by {s.disqualified_by_discord_username}
+        </div>
+      )}
+    </div>
+  ) : (
+    <div className="text-green-400">
+      🟢 Active
+    </div>
+  )}
+</div>
             </div>
           ))}
         </div>
