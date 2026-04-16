@@ -3,11 +3,13 @@ import { supabaseAdmin } from "@/lib/db/admin";
 type TouchUserLogInput = {
   discordUserId: string;
   discordUsername?: string | null;
+  discordAvatar?: string | null;
 };
 
 export async function touchUserLog({
   discordUserId,
   discordUsername,
+  discordAvatar,
 }: TouchUserLogInput): Promise<void> {
   try {
     if (!discordUserId) return;
@@ -43,16 +45,17 @@ export async function touchUserLog({
         await supabaseAdmin
           .from("user_logs")
           .insert({
-            discord_user_id: discordUserId,
-            current_discord_username:
-              discordUsername ?? "unknown",
-            known_discord_usernames: discordUsername
-              ? [discordUsername]
-              : [],
-            username_change_count: 0,
-            first_seen_at: now,
-            last_seen_at: now,
-          });
+  discord_user_id: discordUserId,
+  current_discord_username:
+    discordUsername ?? "unknown",
+  known_discord_usernames: discordUsername
+    ? [discordUsername]
+    : [],
+  username_change_count: 0,
+  first_seen_at: now,
+  last_seen_at: now,
+  discord_avatar: discordAvatar ?? null,
+});
 
       if (insertError) {
         console.warn(
@@ -68,6 +71,10 @@ export async function touchUserLog({
     const updatePayload: any = {
       last_seen_at: now,
     };
+
+    if (discordAvatar) {
+  updatePayload.discord_avatar = discordAvatar;
+}
 
     if (discordUsername) {
       const currentName =

@@ -2,6 +2,7 @@ import { supabaseServer } from "@/lib/db/server";
 import ShameGrid from "./ShameGrid";
 import AnimatedCellShame from "./AnimatedCellShame";
 import PageWrapper from "@/app/components/ui/PageWrapper";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export default async function WallOfShamePage() {
     .from("winner_public_profiles")
     .select(`
       id,
-      image_url,
+      r2_key,
       cycle_id,
       x_username,
       wallet_address,
@@ -23,6 +24,12 @@ export default async function WallOfShamePage() {
     .eq("wall", "shame")
     .order("created_at", { ascending: false });
 
+const winnersWithUrls =
+  winners?.map((w) => ({
+    ...w,
+    image_url: getPublicImageUrl(w.r2_key) ?? "",
+  })) ?? [];
+
   return (
   <PageWrapper>
     <div className="p-4 sm:p-6 text-white/85">
@@ -34,7 +41,7 @@ export default async function WallOfShamePage() {
         <span>Wall of Shame</span>
       </h1>
 
-      <ShameGrid winners={winners ?? []} />
+      <ShameGrid winners={winnersWithUrls} />
     </div>
     </PageWrapper>
   );

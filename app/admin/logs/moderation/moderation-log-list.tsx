@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export default function ModerationLogList({
   byCycle,
@@ -141,13 +142,14 @@ export default function ModerationLogList({
                         "unknown (deleted)"}
                     </div>
 
-                    {log.evidence
-                      ?.submission_image_url && (
-                      <img
-                        src={
-                          log.evidence
-                            .submission_image_url
-                        }
+                    {(log.evidence?.r2_key ||
+  log.evidence?.submission_image_url) && (
+  <img
+    src={
+      log.evidence?.r2_key
+        ? getPublicImageUrl(log.evidence.r2_key)
+        : log.evidence?.submission_image_url
+    }
                         alt=""
                         style={{
                           width: 96,

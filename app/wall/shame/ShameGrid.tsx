@@ -118,7 +118,7 @@ function getThumbUrl(imageUrl: string) {
                 "
               >
                 <div className="text-[11px] text-red-200/70">
-                  {new Date(w.created_at).toLocaleDateString()}
+                  {new Date(w.created_at).toLocaleDateString("en-GB")}
                 </div>
               </div>
             </div>

@@ -119,7 +119,7 @@ function handleTouchStart() {
                 "
               >
                 <div className="text-[11px] text-white/80">
-                  {new Date(w.created_at).toLocaleDateString()}
+                  {new Date(w.created_at).toLocaleDateString("en-GB")}
                 </div>
               </div>
             </div>

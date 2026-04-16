@@ -21,7 +21,7 @@ export async function logUploadFailAndCheckLimit({
 
   
   if (mode === "check") {
-    // 5 fails → cooldown
+    
     return failCount >= 5;
   }
 

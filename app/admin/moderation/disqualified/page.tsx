@@ -9,7 +9,6 @@ import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 type DisqualifiedSubmission = {
   id: number;
   cycle_id: number;
-  image_url?: string | null;
   r2_key: string;
   is_disqualified: boolean;
   disqualification_reason_code: string | null;

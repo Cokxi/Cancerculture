@@ -10,7 +10,7 @@ import TelegramCellAnimated from "./components/TelegramCellAnimated";
 import { getContractAddress } from "@/lib/config/getContractAddress";
 import WalletAddressBox from "@/app/components/WalletAddressBox";
 import CycleHud from "@/app/components/CycleHud";
-
+import { requireSession } from "@/lib/auth/requireSession";
 
 export default async function Home() {
   let isTeamMember = false;
@@ -19,6 +19,13 @@ export default async function Home() {
     await getTeamMember();
     isTeamMember = true;
   } catch {}
+
+let isLoggedIn = false;
+
+try {
+  await requireSession();
+  isLoggedIn = true;
+} catch {}
 
   const contractAddress = await getContractAddress();
 
@@ -86,7 +93,7 @@ export default async function Home() {
 
 
 
-      {/* HERO */}
+      
 <section
   className="
     min-h-[70vh] sm:min-h-screen
@@ -102,7 +109,7 @@ export default async function Home() {
 >
 
 
-  {/* CELLS (GIMMICK) */}
+ 
   <div
   className="
     relative z-10
@@ -125,7 +132,7 @@ export default async function Home() {
   </div>
 <CycleHud />
 
-  {/* LOGO */}
+ 
   <Link
   href="/about"
   className="
@@ -155,10 +162,10 @@ export default async function Home() {
 
 </section>
 
-{/* ABOUT + HOW IT WORKS WRAPPER */}
+
 <section id="about" className="relative w-full">
 
-  {/* ABOUT BOX */}
+  
   <section className="relative w-full flex justify-center py-32">
     <div className="content-container">
       <div className="orange-info-box orange-info-box--compact max-w-[520px]">
@@ -190,7 +197,7 @@ export default async function Home() {
   </div>
 </section>
 
-{/* HOW IT WORKS BOX */}
+
   <section className="relative w-full flex justify-center py-24">
     <div className="content-container">
       <div className="orange-info-box orange-info-box--compact">
@@ -234,7 +241,7 @@ export default async function Home() {
 
 </section>
 
-{/* WALLET ADDRESSES */}
+
 <div className="relative max-w-6xl mx-auto px-6 pt-16 pb-32">
   <div
     className="
@@ -262,9 +269,32 @@ export default async function Home() {
 
     
 
-      {/* CONTRACT ADDRESS */}
+      
       <ContractAddress address={contractAddress} />
 
+{isLoggedIn && (
+  <Link
+    href="/my-profile"
+    className="
+      fixed
+      bottom-6 right-6
+      z-50
+      px-5 py-3
+      rounded-lg
+      bg-orange-500
+      text-black
+      font-[var(--font-marker)]
+      text-sm
+      shadow-lg shadow-orange-500/30
+      hover:bg-orange-400
+      hover:scale-105
+      active:scale-95
+      transition-all
+    "
+  >
+    👤 My Profile
+  </Link>
+)}
     </main>
   );
 }

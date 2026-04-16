@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireSession } from "@/lib/auth/requireSession";
 import ModerationGrid from "./ModerationGrid";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export default async function AdminModerationSubmissionsPage() {
     .select(`
       id,
       cycle_id,
-      image_url,
+      r2_key,
       is_disqualified,
       vote_count,
       discord_user_id
@@ -61,6 +62,12 @@ export default async function AdminModerationSubmissionsPage() {
     .eq("cycle_id", activeCycle.id)
     .order("id", { ascending: false })
     .limit(50);
+
+    const submissionsWithUrls =
+  submissions?.map((s) => ({
+    ...s,
+    image_url: getPublicImageUrl(s.r2_key) ?? "",
+  })) ?? [];
 
   return (
     <div style={{ padding: 24 }}>
@@ -71,7 +78,7 @@ export default async function AdminModerationSubmissionsPage() {
           No submissions found for the active cycle.
         </p>
       ) : (
-        <ModerationGrid submissions={submissions} />
+        <ModerationGrid submissions={submissionsWithUrls} />
       )}
     </div>
   );

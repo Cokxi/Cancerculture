@@ -64,7 +64,7 @@ export default async function UserSubmissionsDropdown({
   
   const submissionsWithUrls = typedSubmissions.map((s) => ({
     ...s,
-    image_url: getPublicImageUrl(s.r2_key),
+    image_url: getPublicImageUrl(s.r2_key) ?? "",
     vote_count: voteCountMap.get(s.id) ?? 0,
   }));
 

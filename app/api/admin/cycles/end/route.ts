@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin as supabase } from "@/lib/db/admin";
 import { logAdminAction } from "@/lib/audit/logAdminAction";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export async function POST() {
   try {
@@ -120,8 +121,7 @@ export async function POST() {
           cycle_id: cycle.id,
           submission_id: winner.submission_id,
           r2_key: submission.r2_key,
-          image_url:
-  process.env.R2_PUBLIC_BASE_URL + "/" + submission.r2_key,
+          image_url: getPublicImageUrl(submission.r2_key) ?? "",
           wall,
           x_username: privateData.x_username,
           wallet_address: privateData.wallet_address,

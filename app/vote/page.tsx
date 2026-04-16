@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/db/server";
 import { requireSession } from "@/lib/auth/requireSession";
 import VoteClient from "./VoteClient";
 import PageWrapper from "@/app/components/ui/PageWrapper";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -56,15 +57,21 @@ const isBanned = userLog?.is_banned === true;
 
   const { data: submissions } = await supabaseServer
     .from("submissions_with_votes")
-    .select("id, image_url, vote_count, discord_user_id")
+    .select("id, r2_key, vote_count, discord_user_id")
     .eq("cycle_id", cycle.id)
     .eq("is_disqualified", false)
     .order("id", { ascending: true });
 
+const submissionsWithUrls =
+  submissions?.map((s) => ({
+    ...s,
+    image_url: getPublicImageUrl(s.r2_key) ?? "",
+  })) ?? [];
+
   return (
     <PageWrapper>
         <VoteClient
-  submissions={submissions ?? []}
+  submissions={submissionsWithUrls}
   hasVoted={hasVoted}
   discordUserId={discordUserId}
   isBanned={isBanned}

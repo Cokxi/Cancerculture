@@ -23,7 +23,7 @@ export default function RulesOverlay({
   const [checked, setChecked] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const formattedDate = new Date(updatedAt).toLocaleDateString();
+  const formattedDate = new Date(updatedAt).toLocaleDateString("en-GB");
 
   const handleConfirm = async () => {
     if (!checked || isSaving) return;

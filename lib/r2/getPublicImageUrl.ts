@@ -10,5 +10,5 @@ export function getPublicImageUrl(
     return undefined;
   }
 
-  return `${base}/${r2_key}`;
+  return `${base.replace(/\/$/, "")}/${r2_key}`;
 }

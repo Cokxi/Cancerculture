@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireModOrAdmin } from "@/lib/auth/guards";
 import { logModerationAction } from "@/lib/logging/logModerationAction";
-import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+
 
 export async function POST(req: Request) {
   try {
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       cycleId: submission.cycle_id,
       reasonCode: "manual_review",
       evidence: {
-  submission_image_url: getPublicImageUrl(submission.r2_key),
+  r2_key: submission.r2_key,
 },
     });
 

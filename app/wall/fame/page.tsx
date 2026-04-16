@@ -2,6 +2,7 @@ import { supabaseServer } from "@/lib/db/server";
 import FameGrid from "./FameGrid";
 import AnimatedCell from "./AnimatedCell";
 import PageWrapper from "@/app/components/ui/PageWrapper";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export default async function WallOfFamePage() {
     .from("winner_public_profiles")
     .select(`
       id,
-      image_url,
+      r2_key,
       cycle_id,
       x_username,
       wallet_address,
@@ -23,6 +24,12 @@ export default async function WallOfFamePage() {
     .eq("wall", "fame")
     .order("created_at", { ascending: false });
 
+    const winnersWithUrls =
+  winners?.map((w) => ({
+    ...w,
+    image_url: getPublicImageUrl(w.r2_key) ?? "",
+  })) ?? [];
+
   return (
     <PageWrapper>
     <div className="p-4 sm:p-6 text-white/90">
@@ -33,7 +40,7 @@ export default async function WallOfFamePage() {
         <span>Wall of Fame</span>
       </h1>
 
-      <FameGrid winners={winners ?? []} />
+      <FameGrid winners={winnersWithUrls} />
     </div>
     </PageWrapper>
   );

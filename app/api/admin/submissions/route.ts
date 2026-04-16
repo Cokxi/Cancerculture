@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireModOrAdmin } from "@/lib/auth/guards";
+import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export async function GET(req: Request) {
   try {
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
         `
         id,
         cycle_id,
-        image_url,
+        r2_key,
         is_disqualified,
         disqualification_type,
         disqualification_reason_code,
@@ -36,6 +37,12 @@ export async function GET(req: Request) {
 
     const { data, error } = await query;
 
+    const submissionsWithUrls =
+  data?.map((s) => ({
+    ...s,
+    image_url: getPublicImageUrl(s.r2_key) ?? "",
+  })) ?? [];
+
     if (error) {
       return NextResponse.json(
         { error: "Failed to load submissions" },
@@ -44,8 +51,8 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({
-      submissions: data ?? [],
-    });
+  submissions: submissionsWithUrls,
+});
   } catch (error: any) {
     
     if (error?.status === 401 || error?.status === 403) {

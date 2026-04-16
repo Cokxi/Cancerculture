@@ -74,6 +74,7 @@ export async function GET(req: Request) {
   await touchUserLog({
   discordUserId: user.id,
   discordUsername: user.username,
+  discordAvatar: user.avatar,
 });
 
 

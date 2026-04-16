@@ -16,15 +16,15 @@ export default function CharitiesContent() {
   Charities
 </h1>
 
-        {/* ===== CHARITY ITEM ===== 1*/}
+        
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+          
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             Animal Heaven
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+            
             <div className="
               w-48
               aspect-[5/4]
@@ -47,7 +47,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+           
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://animalhaven.org/"
@@ -78,17 +78,17 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
         
-               {/* ===== CHARITY ITEM ===== 2*/}
+        
+               
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+          
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             Animal Rescue Corps, Inc.
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+            
             <div className="
               w-48
               aspect-[5/4]
@@ -111,7 +111,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+            
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://animalrescuecorps.org/"
@@ -142,17 +142,17 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
         
-        {/* ===== CHARITY ITEM ===== 3*/}
+        
+        
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+          
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             Doctors Without Borders U.S.A., Inc.
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+            
             <div className="
               w-48
               aspect-[5/4]
@@ -175,7 +175,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+            
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://www.doctorswithoutborders.org/"
@@ -206,17 +206,17 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
         
-               {/* ===== CHARITY ITEM ===== 4*/}
+        
+               
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+          
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             Feeding Pets of the Homeless
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+            
             <div className="
               w-48
               aspect-[5/4]
@@ -239,7 +239,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+            
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://petsofthehomeless.org/"
@@ -270,17 +270,17 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
         
-        {/* ===== CHARITY ITEM ===== 5*/}
+        
+       
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+          
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             Institute for Justice
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+            
             <div className="
               w-48
               aspect-[5/4]
@@ -303,7 +303,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+           
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://ij.org/"
@@ -334,17 +334,17 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
         
-               {/* ===== CHARITY ITEM ===== 6*/}
+        
+              
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+          
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             No Kid Hungry
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+            
             <div className="
               w-48
               aspect-[5/4]
@@ -367,7 +367,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+           
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://www.nokidhungry.org/"
@@ -398,17 +398,17 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
         
-        {/* ===== CHARITY ITEM ===== 7*/}
+        
+        
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+          
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             Save the Children®
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+            
             <div className="
               w-48
               aspect-[5/4]
@@ -431,7 +431,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+            
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://www.savethechildren.org/"
@@ -462,17 +462,17 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
         
-               {/* ===== CHARITY ITEM ===== 8*/}
+        
+               
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+         
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             Sea Shepherd Conservation Society
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+            
             <div className="
               w-48
               aspect-[5/4]
@@ -495,7 +495,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+            
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://seashepherd.org/"
@@ -526,17 +526,17 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
+       
         
-        {/* ===== CHARITY ITEM ===== 9*/}
+        
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+          
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             St. Jude Children's Research Hospital
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+           
             <div className="
               w-48
               aspect-[5/4]
@@ -559,7 +559,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+            
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://www.stjude.org/"
@@ -590,17 +590,17 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
         
-               {/* ===== CHARITY ITEM ===== 10*/}
+        
+              
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
-          {/* NAME */}
+         
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
             Young Lives vs Cancer
           </h2>
         
           <div className="flex gap-6 items-center">
-            {/* THUMBNAIL */}
+           
             <div className="
               w-48
               aspect-[5/4]
@@ -623,7 +623,7 @@ export default function CharitiesContent() {
               />
             </div>
         
-            {/* LINKS */}
+            
             <div className="flex flex-col gap-6 text-lg font-['Permanent_Marker']">
               <a
                 href="https://www.younglivesvscancer.org.uk/"
@@ -656,7 +656,7 @@ export default function CharitiesContent() {
             </div>
           </div>
         </div>
-        {/* ===== END CHARITY ITEM ===== */}
+        
 
             </div>
     
