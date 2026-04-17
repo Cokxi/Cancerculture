@@ -20,7 +20,7 @@ function Section({ title, children }: any) {
   );
 }
 
-export default function ProfileSections({ submissions }: any) {
+export default function ProfileSections({ submissions, votes, submissionMap }: any) {
   return (
     <div className="space-y-4">
       
@@ -100,10 +100,57 @@ export default function ProfileSections({ submissions }: any) {
 
     
       <Section title="My Votes">
-        <p className="text-sm text-gray-400">
-          Coming soon...
-        </p>
-      </Section>
+
+  {votes && votes.length > 0 ? (
+    <div className="space-y-3">
+      
+      {votes.map((vote: any) => {
+  const submission = submissionMap.get(String(vote.submission_id));
+
+  return (
+    <div
+      key={`${vote.cycle_id}-${vote.submission_id}`}
+      className="border border-[#222] bg-[#0b0b0b] p-3 rounded text-sm"
+    >
+      <div>
+        <strong>Cycle #{vote.cycle_id}</strong>
+      </div>
+
+     
+      {(() => {
+  const imageUrl =
+    submission?.image_url ||
+    (submission?.r2_key
+      ? `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${submission.r2_key}`
+      : null);
+
+  return imageUrl ? (
+    <img
+      src={imageUrl}
+      className="w-24 h-24 object-cover rounded border border-[#222] mt-2"
+    />
+  ) : (
+    <div className="w-24 h-24 bg-orange-200/20 flex items-center justify-center rounded mt-2">
+      🚫
+    </div>
+  );
+})()}
+
+      <div className="text-gray-500 text-xs mt-2">
+        {vote.created_at
+          ? new Date(vote.created_at).toLocaleString()
+          : ""}
+      </div>
+    </div>
+  );
+})}
+    </div>
+  ) : (
+    <div className="text-gray-500 text-sm">
+      No votes yet
+    </div>
+  )}
+</Section>
 
       
       <Section title="My Comments">

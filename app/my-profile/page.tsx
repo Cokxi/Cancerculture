@@ -32,9 +32,31 @@ const avatarUrl =
     : null;
 
   const submissions = await getUserSubmissions(discord_user_id);
-  const currentSubmission = submissions.find(
-  (s) => s.cycle_id === submissions[0]?.cycle_id
+  const { data: votes } = await supabaseServer
+  .from("votes")
+  .select("cycle_id, submission_id, created_at")
+  .eq("discord_user_id", discord_user_id)
+  .order("cycle_id", { ascending: false });
+
+  const submissionIds = votes?.map(v => v.submission_id) ?? [];
+
+const { data: voteSubmissions } = await supabaseServer
+  .from("submissions")
+  .select("id, image_url, r2_key")
+  .in("id", submissionIds);
+
+const submissionMap = new Map(
+  voteSubmissions?.map(s => [String(s.id), s]) ?? []
 );
+
+
+  const currentCycleId = submissions[0]?.cycle_id;
+
+const currentSubmission = currentCycleId
+  ? submissions.find((s: any) => s.cycle_id === currentCycleId)
+  : null;
+
+
 
   return (
   <>
@@ -140,7 +162,13 @@ const avatarUrl =
       </div>
 
     
-      <ProfileSections submissions={submissions} />
+      <ProfileSections
+  submissions={submissions}
+  votes={votes}
+  submissionMap={submissionMap}
+/>
+
+     
         </div>
   </>
   );
