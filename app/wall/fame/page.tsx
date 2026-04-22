@@ -27,7 +27,7 @@ export default async function WallOfFamePage() {
   const submissionIds =
     winners?.map((winner) => winner.submission_id) ?? [];
 
-  const { data: submissions } =
+  const submissionsResult =
     submissionIds.length > 0
       ? await supabaseServer
           .from("submissions")
@@ -35,26 +35,28 @@ export default async function WallOfFamePage() {
             "id, discord_username_at_upload, discord_user_id"
           )
           .in("id", submissionIds)
-      : { data: [], error: null };
+      : { data: [] };
+  const submissions = submissionsResult.data ?? [];
 
   const discordUserIds = Array.from(
     new Set(
-      (submissions ?? []).map(
+      submissions.map(
         (submission) => submission.discord_user_id
       )
     )
   );
 
-  const { data: userLogs } =
+  const userLogsResult =
     discordUserIds.length > 0
       ? await supabaseServer
           .from("user_logs")
           .select("discord_user_id, public_profile_id")
           .in("discord_user_id", discordUserIds)
-      : { data: [], error: null };
+      : { data: [] };
+  const userLogs = userLogsResult.data ?? [];
 
   const submissionMetaById = new Map(
-    (submissions ?? []).map((submission) => [
+    submissions.map((submission) => [
       submission.id,
       {
         discord_username:
@@ -65,7 +67,7 @@ export default async function WallOfFamePage() {
   );
 
   const profileIdByDiscordUserId = new Map(
-    (userLogs ?? []).map((userLog) => [
+    userLogs.map((userLog) => [
       userLog.discord_user_id,
       userLog.public_profile_id,
     ])
