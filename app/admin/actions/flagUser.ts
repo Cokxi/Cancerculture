@@ -1,7 +1,8 @@
 "use server";
 
-import { supabaseAdmin } from "@/lib/db/admin";
+import { getActorAuditInfo } from "@/lib/auth/getActorAuditInfo";
 import { requireModOrAdmin } from "@/lib/auth/guards";
+import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function flagUser(params: {
   targetDiscordUserId: string;
@@ -14,31 +15,23 @@ export async function flagUser(params: {
     throw new Error("Flag reason is required");
   }
 
-  
   const moderator = await requireModOrAdmin();
-  const moderatorDiscordId = moderator.discord_user_id;
+  const moderatorAudit = await getActorAuditInfo(
+    moderator.discord_user_id
+  );
 
-  
-  const { data: moderatorLog } = await supabaseAdmin
-    .from("user_logs")
-    .select("current_discord_username")
-    .eq("discord_user_id", moderatorDiscordId)
-    .single();
-
-  const moderatorUsername =
-    moderatorLog?.current_discord_username ?? null;
-
-  
   await supabaseAdmin.from("user_logs").upsert(
     {
       discord_user_id: targetDiscordUserId,
       first_seen_at: new Date().toISOString(),
       last_seen_at: new Date().toISOString(),
     },
-    { onConflict: "discord_user_id" }
+    {
+      onConflict: "discord_user_id",
+      ignoreDuplicates: true,
+    }
   );
 
-  
   const { data: targetUser, error: fetchError } = await supabaseAdmin
     .from("user_logs")
     .select("flagged_for_review")
@@ -53,7 +46,6 @@ export async function flagUser(params: {
     throw new Error("User already flagged");
   }
 
-  
   const { error: updateError } = await supabaseAdmin
     .from("user_logs")
     .update({
@@ -61,8 +53,8 @@ export async function flagUser(params: {
       flag_reason_code: reasonCode,
       flag_note: note ?? null,
       flagged_at: new Date().toISOString(),
-      flagged_by_discord_user_id: moderatorDiscordId,
-      flagged_by_discord_username: moderatorUsername,
+      flagged_by_discord_user_id: moderatorAudit.discordUserId,
+      flagged_by_discord_username: moderatorAudit.username,
     })
     .eq("discord_user_id", targetDiscordUserId);
 

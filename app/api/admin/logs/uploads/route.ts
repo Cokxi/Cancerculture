@@ -1,19 +1,15 @@
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { getUploadLogs } from "@/lib/admin/logs";
 import { requireModOrAdmin } from "@/lib/auth/guards";
-import { supabaseAdmin } from "@/lib/db/admin";
+import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    
     await requireModOrAdmin();
 
-    const { data, error } = await supabaseAdmin
-      .from("upload_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200);
+    const { data, error } = await getUploadLogs();
 
     if (error) {
       return NextResponse.json(
@@ -25,10 +21,7 @@ export async function GET() {
     return NextResponse.json({
       logs: data ?? [],
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message ?? "Forbidden" },
-      { status: err.status ?? 403 }
-    );
+  } catch (error) {
+    return getRouteErrorResponse(error);
   }
 }

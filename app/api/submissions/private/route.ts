@@ -1,8 +1,9 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/db/admin";
 import { requireSession } from "@/lib/auth/requireSession";
+import { supabaseAdmin } from "@/lib/db/admin";
+import { getSubmissionPrivateData } from "@/lib/submissions/getSubmissionPrivateData";
 
 export async function GET(req: Request) {
   try {
@@ -49,13 +50,9 @@ export async function GET(req: Request) {
       );
     }
 
-    const { data: privateData } = await supabaseAdmin
-      .from("submission_private_data")
-      .select(
-        "x_username, wallet_address, payout_choice, split_percent, charity"
-      )
-      .eq("submission_id", submissionId)
-      .single();
+    const privateData = await getSubmissionPrivateData(
+      submissionId
+    );
 
     return NextResponse.json(privateData);
   } catch (err) {

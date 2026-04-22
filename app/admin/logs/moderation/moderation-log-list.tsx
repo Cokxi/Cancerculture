@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import type {
+  ActorUser,
+  ModerationLogRow,
+} from "@/lib/admin/moderationLogs";
 
 export default function ModerationLogList({
   byCycle,
   actorMap,
   submissionUserMap,
 }: {
-  byCycle: Map<number, any[]>;
-  actorMap: Map<string, any>;
+  byCycle: Map<number, ModerationLogRow[]>;
+  actorMap: Map<string, ActorUser>;
   submissionUserMap: Map<number, string>;
 }) {
   const [discordIdFilter, setDiscordIdFilter] = useState("");
@@ -87,7 +90,7 @@ export default function ModerationLogList({
                 {filteredLogs.length} Logs)
               </summary>
 
-              {filteredLogs.map((log) => {
+            {filteredLogs.map((log) => {
                 const actor =
                   actorMap.get(log.actor_id);
                 const submitter =
@@ -142,18 +145,16 @@ export default function ModerationLogList({
                       {submitter ??
                         "unknown (deleted)"}
                     </div>
-
-                    
-{log.evidence?.disqualification_reason_code && (
+                    {log.reason_code && (
   <div style={{ marginTop: 8, fontWeight: 600 }}>
-    Reason: {log.evidence.disqualification_reason_code}
+    Reason: {log.reason_code}
   </div>
 )}
 
 
-{log.evidence?.disqualification_reason_text && (
+{log.reason_text && (
   <div style={{ marginTop: 4, color: "#aaa" }}>
-    {log.evidence.disqualification_reason_text}
+    {log.reason_text}
   </div>
 )}
                   </div>

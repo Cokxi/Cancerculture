@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireModOrAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 
 export async function GET() {
   try {
@@ -114,7 +115,24 @@ export async function GET() {
     }
 
     
-    const logsByCycle: Partial<Record<number | "unknown", any[]>> = {};
+    const logsByCycle: Partial<
+      Record<
+        number | "unknown",
+        Array<{
+          id: string;
+          created_at: string;
+          action: string;
+          submission_id: number;
+          reason_code: string | null;
+          reason_text: string | null;
+          actor: {
+            id: string;
+            role: string;
+            username: string | null;
+          } | null;
+        }>
+      >
+    > = {};
 
 
     for (const log of logs) {
@@ -170,10 +188,7 @@ export async function GET() {
     ].filter(Boolean);
 
     return NextResponse.json({ cycles: response });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message ?? "Forbidden" },
-      { status: err.status ?? 403 }
-    );
+  } catch (error) {
+    return getRouteErrorResponse(error);
   }
 }

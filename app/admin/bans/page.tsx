@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
+import { getBannedUsersWithStats } from "@/lib/admin/getUserLogsWithStats";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/guards";
-import { supabaseAdmin } from "@/lib/db/admin";
 import UserModerationActions from "../users/UserModerationActions";
 import UserSubmissionsDropdown from "../users/UserSubmissionsDropdown";
 
@@ -26,19 +26,7 @@ export default async function AdminBannedUsersPage() {
     redirect("/403");
   }
 
-  const { data: users, error } = await supabaseAdmin
-    .from("user_logs_with_stats")
-    .select(`
-      discord_user_id,
-      current_discord_username,
-      is_banned,
-      ban_reason,
-      banned_at,
-      banned_by_discord_username,
-      submission_count
-    `)
-    .eq("is_banned", true)
-    .order("banned_at", { ascending: false });
+  const { data: users, error } = await getBannedUsersWithStats();
 
   if (error) {
     console.error("BANNED USERS LOAD ERROR", error);

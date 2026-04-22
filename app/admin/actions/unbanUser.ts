@@ -1,7 +1,8 @@
 "use server";
 
-import { supabaseAdmin } from "@/lib/db/admin";
+import { getActorAuditInfo } from "@/lib/auth/getActorAuditInfo";
 import { requireAdmin } from "@/lib/auth/guards";
+import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function unbanUser(params: {
   targetDiscordUserId: string;
@@ -14,15 +15,7 @@ export async function unbanUser(params: {
   }
 
   const admin = await requireAdmin();
-  const adminDiscordId = admin.discord_user_id;
-
-  const { data: adminLog } = await supabaseAdmin
-    .from("user_logs")
-    .select("current_discord_username")
-    .eq("discord_user_id", adminDiscordId)
-    .single();
-
-  const adminUsername = adminLog?.current_discord_username ?? null;
+  const adminAudit = await getActorAuditInfo(admin.discord_user_id);
 
   const { data: targetUser } = await supabaseAdmin
     .from("user_logs")
@@ -43,11 +36,10 @@ export async function unbanUser(params: {
       banned_at: null,
       banned_by_discord_user_id: null,
       banned_by_discord_username: null,
-
       unban_reason: reason,
       unbanned_at: new Date().toISOString(),
-      unbanned_by_discord_user_id: adminDiscordId,
-      unbanned_by_discord_username: adminUsername,
+      unbanned_by_discord_user_id: adminAudit.discordUserId,
+      unbanned_by_discord_username: adminAudit.username,
     })
     .eq("discord_user_id", targetDiscordUserId);
 

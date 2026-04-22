@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/db/server";
 import { requireSession } from "@/lib/auth/requireSession";
 import VoteClient from "./VoteClient";
 import PageWrapper from "@/app/components/ui/PageWrapper";
+import { supabaseServer } from "@/lib/db/server";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getVoteEligibility } from "@/lib/vote/getVoteEligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -15,67 +16,44 @@ export default async function VotePage() {
     const session = await requireSession();
     discordUserId = session.discord_user_id;
   } catch {
-    
     redirect("/api/auth/discord/login?state=/vote");
   }
 
-  const { data: userLog } = await supabaseServer
-  .from("user_logs")
-  .select("is_banned")
-  .eq("discord_user_id", discordUserId)
-  .maybeSingle();
+  const voteEligibility = await getVoteEligibility(discordUserId);
 
-const isBanned = userLog?.is_banned === true;
-
-
-  const { data: cycle } = await supabaseServer
-    .from("voting_cycles")
-    .select("id")
-    .eq("status", "active")
-    .single();
-
-  if (!cycle) {
-  return (
-    <PageWrapper>
-      <div className="flex items-center justify-center min-h-screen">
-        <span className="font-['Permanent_Marker'] text-[var(--orange-main)] text-2xl tracking-wide">
-          No active voting cycle
-        </span>
-      </div>
-    </PageWrapper>
-  );
-}
-
-  const { data: existingVote } = await supabaseServer
-    .from("votes")
-    .select("id")
-    .eq("cycle_id", cycle.id)
-    .eq("discord_user_id", discordUserId)
-    .maybeSingle();
-
-  const hasVoted = Boolean(existingVote);
+  if (!voteEligibility.activeCycleId) {
+    return (
+      <PageWrapper>
+        <div className="flex items-center justify-center min-h-screen">
+          <span className="font-['Permanent_Marker'] text-[var(--orange-main)] text-2xl tracking-wide">
+            No active voting cycle
+          </span>
+        </div>
+      </PageWrapper>
+    );
+  }
 
   const { data: submissions } = await supabaseServer
     .from("submissions_with_votes")
     .select("id, r2_key, vote_count, discord_user_id")
-    .eq("cycle_id", cycle.id)
+    .eq("cycle_id", voteEligibility.activeCycleId)
     .eq("is_disqualified", false)
     .order("id", { ascending: true });
 
-const submissionsWithUrls =
-  submissions?.map((s) => ({
-    ...s,
-    image_url: getPublicImageUrl(s.r2_key) ?? "",
-  })) ?? [];
+  const submissionsWithUrls =
+    submissions?.map((s) => ({
+      ...s,
+      image_url: getPublicImageUrl(s.r2_key) ?? "",
+    })) ?? [];
 
   return (
     <PageWrapper>
-        <VoteClient
-  submissions={submissionsWithUrls}
-  hasVoted={hasVoted}
-  discordUserId={discordUserId}
-  isBanned={isBanned}
-/>
-</PageWrapper>
+      <VoteClient
+        submissions={submissionsWithUrls}
+        hasVoted={voteEligibility.hasVoted}
+        discordUserId={discordUserId}
+        isBanned={voteEligibility.isBanned}
+      />
+    </PageWrapper>
   );
 }

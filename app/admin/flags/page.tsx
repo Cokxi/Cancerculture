@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
+import { getFlaggedUsersWithStats } from "@/lib/admin/getUserLogsWithStats";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/guards";
-import { supabaseAdmin } from "@/lib/db/admin";
 
 import UserModerationActions from "../users/UserModerationActions";
 import UserSubmissionsDropdown from "../users/UserSubmissionsDropdown";
@@ -30,22 +30,7 @@ export default async function AdminFlaggedUsersPage() {
     redirect("/403");
   }
 
-  const { data: users, error } = await supabaseAdmin
-    .from("user_logs_with_stats")
-    .select(`
-      discord_user_id,
-      current_discord_username,
-      flagged_for_review,
-      is_banned,
-      flag_reason_code,
-      flag_note,
-      flagged_at,
-      flagged_by_discord_username,
-      submission_count
-    `)
-    .eq("flagged_for_review", true)
-    .eq("is_banned", false)
-    .order("flagged_at", { ascending: false });
+  const { data: users, error } = await getFlaggedUsersWithStats();
 
   if (error) {
     console.error("FLAGGED USERS VIEW ERROR", error);

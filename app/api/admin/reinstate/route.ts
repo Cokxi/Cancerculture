@@ -1,25 +1,27 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/db/admin";
 import { requireModOrAdmin } from "@/lib/auth/guards";
-import { logModerationAction } from "@/lib/logging/logModerationAction";
+import { setSubmissionDisqualification } from "@/lib/moderation/setSubmissionDisqualification";
+import { NextResponse } from "next/server";
 
+function getErrorResponse(error: unknown) {
+  const message =
+    error instanceof Error ? error.message : "Forbidden";
+  const status =
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof error.status === "number"
+      ? error.status
+      : 403;
+
+  return NextResponse.json({ error: message }, { status });
+}
 
 export async function POST(req: Request) {
   try {
     const actor = await requireModOrAdmin();
-
-    const { data: actorLog } = await supabaseAdmin
-  .from("user_logs")
-  .select("current_discord_username")
-  .eq("discord_user_id", actor.discord_user_id)
-  .maybeSingle();
-
-const actorUsername =
-  actorLog?.current_discord_username ?? null;
-
     const { submissionId } = await req.json();
 
     if (!submissionId) {
@@ -29,48 +31,14 @@ const actorUsername =
       );
     }
 
-    const { data: submission } = await supabaseAdmin
-      .from("submissions")
-      .select("id, cycle_id, r2_key, discord_user_id")
-      .eq("id", submissionId)
-      .single();
-
-    if (!submission) {
-      return NextResponse.json(
-        { error: "Submission not found" },
-        { status: 404 }
-      );
-    }
-
-    await supabaseAdmin
-      .from("submissions")
-      .update({
-        is_disqualified: false,
-        disqualification_type: null,
-        disqualification_reason_code: null,
-        disqualification_reason_text: null,
-      })
-      .eq("id", submissionId);
-
-    await logModerationAction({
-      actorRole: actor.role,
-      actorId: actor.discord_user_id,
-      actorUsername: actorUsername,
-      action: "reinstate_submission",
-      targetType: "submission",
-      targetId: submissionId,
-      cycleId: submission.cycle_id,
-      reasonCode: "manual_review",
-      evidence: {
-  r2_key: submission.r2_key,
-},
+    await setSubmissionDisqualification({
+      actor,
+      submissionId,
+      mode: "reinstate",
     });
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message ?? "Forbidden" },
-      { status: err.status ?? 403 }
-    );
+  } catch (error) {
+    return getErrorResponse(error);
   }
 }

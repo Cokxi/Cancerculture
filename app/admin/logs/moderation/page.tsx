@@ -3,25 +3,11 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireAdmin } from "@/lib/auth/guards";
+import type {
+  ActorUser,
+  ModerationLogRow,
+} from "@/lib/admin/moderationLogs";
 import ModerationLogList from "./moderation-log-list";
-
-type ModerationLogRow = {
-  id: string;
-  created_at: string;
-  actor_role: string;
-  actor_id: string;
-  action: string;
-  target_id: string;
-  reason_code: string | null;
-  reason_text: string | null;
-  cycle_id: number;
-  evidence: any;
-};
-
-type ActorUser = {
-  discord_user_id: string;
-  current_discord_username: string | null;
-};
 
 export default async function AdminModerationLogsPage() {
   
@@ -97,7 +83,7 @@ export default async function AdminModerationLogsPage() {
 
   
   const byCycle = new Map<number, ModerationLogRow[]>();
-  logs.forEach((log) => {
+  logs.forEach((log: ModerationLogRow) => {
     if (!byCycle.has(log.cycle_id)) {
       byCycle.set(log.cycle_id, []);
     }

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import { requireSession } from "@/lib/auth/requireSession";
+import { requireModOrAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
@@ -40,41 +40,20 @@ export default async function AdminUsersPage({
 }: {
   searchParams: Promise<{ focus?: string; q?: string }>;
 }) {
+  const params = await searchParams;
+  const focusUserId = params?.focus ?? null;
+  const query =
+    typeof params?.q === "string"
+      ? params.q.trim()
+      : "";
 
-const params = await searchParams;
-
-const focusUserId = params?.focus ?? null;
-const query =
-  typeof params?.q === "string"
-    ? params.q.trim()
-    : "";
-
-
-
-
-
-
-    
-  let discordUserId: string;
+  let member;
 
   try {
-    const session = await requireSession();
-    discordUserId = session.discord_user_id;
+    member = await requireModOrAdmin();
   } catch {
     redirect("/403");
   }
-
-  
-  const { data: member } = await supabaseAdmin
-    .from("team_members")
-    .select("role")
-    .eq("discord_user_id", discordUserId)
-    .single();
-
-  if (!member || (member.role !== "admin" && member.role !== "mod")) {
-    redirect("/403");
-  }
-
 
   
   const { data: users, error } = await supabaseAdmin

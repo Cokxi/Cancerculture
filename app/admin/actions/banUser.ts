@@ -1,7 +1,8 @@
 "use server";
 
-import { supabaseAdmin } from "@/lib/db/admin";
+import { getActorAuditInfo } from "@/lib/auth/getActorAuditInfo";
 import { requireAdmin } from "@/lib/auth/guards";
+import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function banUser(params: {
   targetDiscordUserId: string;
@@ -15,15 +16,7 @@ export async function banUser(params: {
   }
 
   const admin = await requireAdmin();
-  const adminDiscordId = admin.discord_user_id;
-
-  const { data: adminLog } = await supabaseAdmin
-    .from("user_logs")
-    .select("current_discord_username")
-    .eq("discord_user_id", adminDiscordId)
-    .single();
-
-  const adminUsername = adminLog?.current_discord_username ?? null;
+  const adminAudit = await getActorAuditInfo(admin.discord_user_id);
 
   const { data: targetUser } = await supabaseAdmin
     .from("user_logs")
@@ -42,8 +35,8 @@ export async function banUser(params: {
       ban_reason: reason,
       ban_source: source ?? "admin_manual",
       banned_at: new Date().toISOString(),
-      banned_by_discord_user_id: adminDiscordId,
-      banned_by_discord_username: adminUsername,
+      banned_by_discord_user_id: adminAudit.discordUserId,
+      banned_by_discord_username: adminAudit.username,
     })
     .eq("discord_user_id", targetDiscordUserId);
 

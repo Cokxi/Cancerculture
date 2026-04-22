@@ -64,9 +64,8 @@ useEffect(() => {
 
   const hasImage = !!file;
   const hasMeta =
-    xUsername.trim() &&
-    walletAddress.trim() &&
-    payoutChoice &&
+    !!walletAddress.trim() &&
+    !!payoutChoice &&
     (payoutChoice !== "split" || splitPercent > 0) &&
     (payoutChoice === "keep" || charity);
 
@@ -111,7 +110,7 @@ useEffect(() => {
   };
 
   checkRules();
-}, [submitState]);
+}, [openOverlay, rulesStatus, submitState]);
   const submitImage =
   submitState === "ready"
     ? "https://cdn.cancerculture.fun/webp/submit.confirm/sub3.webp"
@@ -233,7 +232,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
             
             <div className="mx-auto w-full max-w-xl bg-yellow-star rounded-3xl p-8 flex flex-col gap-5">
               <input
-                placeholder="@username"
+                placeholder="@username (optional)"
                 value={xUsername}
                 onChange={(e) => setXUsername(e.target.value)}
                 className="rounded-xl px-4 py-2 bg-white"

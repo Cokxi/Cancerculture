@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdminPage } from "@/lib/auth/pageAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -11,18 +10,7 @@ type TeamMember = {
 };
 
 export default async function AdminModsPage() {
-  
-  try {
-    await requireAdmin();
-  } catch (error: any) {
-    
-    if (error?.status === 401) {
-      redirect("/api/auth/discord/login?state=/admin/mods");
-    }
-
-    
-    redirect("/403");
-  }
+  await requireAdminPage("/admin/mods");
 
   
   const { data: members } = await supabaseAdmin

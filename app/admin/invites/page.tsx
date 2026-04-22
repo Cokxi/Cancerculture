@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdminPage } from "@/lib/auth/pageAccess";
 
 import CreateInviteButton from "./CreateInviteButton";
 import InviteUserRow from "./InviteUserRow";
@@ -13,18 +12,7 @@ type TeamMember = {
 };
 
 export default async function AdminInvitesPage() {
-  
-  try {
-    await requireAdmin();
-  } catch (error: any) {
-    
-    if (error?.status === 401) {
-      redirect("/api/auth/discord/login?state=/admin/invites");
-    }
-
-    
-    redirect("/403");
-  }
+  await requireAdminPage("/admin/invites");
 
   
   const { data: team } = await supabaseAdmin
@@ -78,7 +66,7 @@ export default async function AdminInvitesPage() {
         <p>No invites created yet.</p>
       )}
 
-      {invites.map((invite: any) => (
+      {invites.map((invite) => (
         <div
           key={invite.id}
           style={{
@@ -142,7 +130,7 @@ export default async function AdminInvitesPage() {
           {invite.invite_auth_logs.length > 0 && (
             <ul style={{ marginTop: 8 }}>
               {invite.invite_auth_logs.map(
-                (log: any, i: number) => (
+                (log, i: number) => (
                   <InviteUserRow
                     key={i}
                     discordUserId={

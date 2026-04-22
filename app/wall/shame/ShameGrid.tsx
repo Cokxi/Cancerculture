@@ -1,13 +1,16 @@
 "use client";
 
+import ProfileLinkButton from "@/app/components/profile/ProfileLinkButton";
 import { useEffect, useState, useRef } from "react";
 
 type Winner = {
   id: number;
+  submission_id: number;
   image_url: string;
   cycle_id: number;
   created_at: string;
-  x_username: string;
+  discord_username: string;
+  public_profile_id: string | null;
   wallet_address: string;
   payout_choice: string;
   split_percent: number | null;
@@ -180,11 +183,13 @@ function getThumbUrl(imageUrl: string) {
 </div>
 
               <div className="text-sm opacity-80 space-y-2">
-                {active.x_username && (
-                  <div>
-                    <strong>X:</strong> @{active.x_username}
-                  </div>
-                )}
+                <div>
+                  <strong>User:</strong>{" "}
+                  <ProfileLinkButton
+                    currentUsername={active.discord_username}
+                    profileId={active.public_profile_id}
+                  />
+                </div>
 
                 <div className="text-xs opacity-70 break-all">
                   {active.wallet_address}
@@ -192,14 +197,15 @@ function getThumbUrl(imageUrl: string) {
 
                 <div>
                   {active.payout_choice === "keep" && (
-                    <span>@{active.x_username} Chose to keep the prize</span>
+                    <span>{active.discord_username} chose to keep the prize</span>
                   )}
 
                   {active.payout_choice === "donate" && (
                     <span>Still donated 100%</span>
                   )}
 
-                  {active.payout_choice === "split" && (
+                  {active.payout_choice === "split" &&
+                    active.split_percent !== null && (
                     <span>
                       Split {active.split_percent}% /{" "}
                       {active.charity}

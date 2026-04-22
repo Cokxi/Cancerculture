@@ -21,7 +21,7 @@ export async function logUpload({
       status,
       reason: reason ?? null,
     });
-  } catch {
-    
+  } catch (error) {
+    console.error("[UPLOAD LOG]", error);
   }
 }

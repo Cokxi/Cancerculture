@@ -1,42 +1,19 @@
 export const dynamic = "force-dynamic";
 
-import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
+import { requireModOrAdminPage } from "@/lib/auth/pageAccess";
 import ReinstateButton from "./reinstate-button";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
-type DisqualifiedSubmission = {
-  id: number;
-  cycle_id: number;
-  r2_key: string;
-  is_disqualified: boolean;
-  disqualification_reason_code: string | null;
-  disqualification_reason_text: string | null;
-  disqualified_at: string | null;
-  disqualified_by_discord_username: string | null;
-  discord_user_id: string;
-};
-
 export default async function DisqualifiedSubmissionsPage() {
-  
-  try {
-    await requireModOrAdmin();
-  } catch {
-    redirect("/403");
-  }
+  await requireModOrAdminPage(
+    "/admin/moderation/disqualified"
+  );
 
-  
-  const { data: currentCycle, error: cycleError } =
-    await supabaseAdmin
-      .from("voting_cycles")
-      .select("id")
-      .is("finalized_at", null)
-      .order("id", { ascending: false })
-      .limit(1)
-      .single();
+  const currentCycle = await getActiveCycle();
 
-  if (cycleError || !currentCycle) {
+  if (!currentCycle) {
     return <div style={{ padding: 24 }}>No active cycle found.</div>;
   }
 
@@ -61,11 +38,11 @@ export default async function DisqualifiedSubmissionsPage() {
     .eq("is_disqualified", true)
     .order("disqualified_at", { ascending: false });
 
-    const submissionsWithUrls =
-  submissions?.map((s) => ({
-    ...s,
-    image_url: getPublicImageUrl(s.r2_key),
-  })) ?? [];
+  const submissionsWithUrls =
+    submissions?.map((s) => ({
+      ...s,
+      image_url: getPublicImageUrl(s.r2_key),
+    })) ?? [];
 
   if (submissionsError) {
     return (

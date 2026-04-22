@@ -5,37 +5,30 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import { requireSession } from "@/lib/auth/requireSession";
 import { logVote } from "@/lib/logging/logVote";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
+import { getVoteEligibility } from "@/lib/vote/getVoteEligibility";
 
 export async function POST(req: Request) {
   try {
-    
     const { discord_user_id: discordUserId } = await requireSession();
+    const voteEligibility = await getVoteEligibility(discordUserId);
 
-    
-const { data: userLog } = await supabaseAdmin
-  .from("user_logs")
-  .select("is_banned")
-  .eq("discord_user_id", discordUserId)
-  .single();
+    if (voteEligibility.isBanned) {
+      await logVote({
+        cycleId: null,
+        discordUserId,
+        status: "rejected",
+        reason: "banned",
+      });
 
-if (userLog?.is_banned) {
-  await logVote({
-    cycleId: null,
-    discordUserId,
-    status: "rejected",
-    reason: "banned",
-  });
+      return NextResponse.json(
+        { error: "BANNED" },
+        { status: 403 }
+      );
+    }
 
-  return NextResponse.json(
-    { error: "BANNED" },
-    { status: 403 }
-  );
-}
-
-await touchUserLog({
-  discordUserId,
-  
-});
+    await touchUserLog({
+      discordUserId,
+    });
 
     
     const formData = await req.formData();
@@ -57,14 +50,7 @@ await touchUserLog({
       );
     }
 
-    
-    const { data: cycle } = await supabaseAdmin
-      .from("voting_cycles")
-      .select("id")
-      .eq("status", "active")
-      .single();
-
-    if (!cycle) {
+    if (!voteEligibility.activeCycleId) {
       return NextResponse.json(
         { error: "No active voting cycle" },
         { status: 400 }
@@ -76,7 +62,7 @@ await touchUserLog({
       .from("submissions")
       .select("id, discord_user_id")
       .eq("id", submissionId)
-      .eq("cycle_id", cycle.id)
+      .eq("cycle_id", voteEligibility.activeCycleId)
       .single();
 
     if (!submission) {
@@ -89,7 +75,7 @@ await touchUserLog({
     
     if (submission.discord_user_id === discordUserId) {
       await logVote({
-        cycleId: cycle.id,
+        cycleId: voteEligibility.activeCycleId,
         submissionId,
         discordUserId,
         status: "rejected",
@@ -102,17 +88,9 @@ await touchUserLog({
       );
     }
 
-    
-    const { data: existingVote } = await supabaseAdmin
-      .from("votes")
-      .select("id")
-      .eq("cycle_id", cycle.id)
-      .eq("discord_user_id", discordUserId)
-      .maybeSingle();
-
-    if (existingVote) {
+    if (voteEligibility.hasVoted) {
       await logVote({
-        cycleId: cycle.id,
+        cycleId: voteEligibility.activeCycleId,
         submissionId,
         discordUserId,
         status: "rejected",
@@ -129,7 +107,7 @@ await touchUserLog({
     const { error: insertError } = await supabaseAdmin
       .from("votes")
       .insert({
-        cycle_id: cycle.id,
+        cycle_id: voteEligibility.activeCycleId,
         submission_id: submissionId,
         discord_user_id: discordUserId,
       });
@@ -140,7 +118,7 @@ await touchUserLog({
 
     
     await logVote({
-      cycleId: cycle.id,
+      cycleId: voteEligibility.activeCycleId,
       submissionId,
       discordUserId,
       status: "accepted",

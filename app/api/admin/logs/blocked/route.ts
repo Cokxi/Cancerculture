@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requireModOrAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 
 export async function GET(req: Request) {
   try {
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
     }
 
     
-    let result = Object.values(users);
+    const result = Object.values(users);
 
     
     if (sortMode === "general") {
@@ -89,10 +90,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ users: result });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message ?? "Forbidden" },
-      { status: err.status ?? 403 }
-    );
+  } catch (error) {
+    return getRouteErrorResponse(error);
   }
 }

@@ -1,11 +1,17 @@
 export const dynamic = "force-dynamic";
 
-import { requireModOrAdmin, getTeamMember } from "@/lib/auth/guards";
+import { getTeamMember } from "@/lib/auth/guards";
+import { redirect } from "next/navigation";
 import BlockedCycleLogList from "./blocked-cycle-log-list";
 
 export default async function BlockedLogsPage() {
-  await requireModOrAdmin();
-  const member = await getTeamMember();
+  let member;
+
+  try {
+    member = await getTeamMember();
+  } catch {
+    redirect("/403");
+  }
 
   return (
     <div>

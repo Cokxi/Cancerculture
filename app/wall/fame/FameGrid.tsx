@@ -1,13 +1,16 @@
 "use client";
 
+import ProfileLinkButton from "@/app/components/profile/ProfileLinkButton";
 import { useEffect, useState, useRef } from "react";
 
 type Winner = {
   id: number;
+  submission_id: number;
   image_url: string;
   cycle_id: number;
   created_at: string;
-  x_username: string;
+  discord_username: string;
+  public_profile_id: string | null;
   wallet_address: string;
   payout_choice: string;
   split_percent: number | null;
@@ -89,8 +92,8 @@ function handleTouchStart() {
                 overflow-hidden
                 rounded-xl
                 border-2
-                border-white/20
-                bg-neutral-900
+                border-[var(--orange-dark)]/30
+                bg-neutral-950
                 transition
                 duration-200
                 group-hover:scale-[1.02]
@@ -182,11 +185,13 @@ function handleTouchStart() {
 </div>
 
               <div className="text-sm opacity-80 space-y-2">
-                {active.x_username && (
-                  <div>
-                    <strong>X:</strong> @{active.x_username}
-                  </div>
-                )}
+                <div>
+                  <strong>User:</strong>{" "}
+                  <ProfileLinkButton
+                    currentUsername={active.discord_username}
+                    profileId={active.public_profile_id}
+                  />
+                </div>
 
                 <div className="text-xs opacity-70 break-all">
                   {active.wallet_address}
@@ -207,7 +212,7 @@ function handleTouchStart() {
   active.split_percent !== null && (
     <div className="space-y-1">
       <div>
-        @{active.x_username} receives {active.split_percent}%
+        {active.discord_username} receives {active.split_percent}%
       </div>
       <div>
         {100 - active.split_percent}% goes to {active.charity}

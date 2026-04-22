@@ -1,6 +1,27 @@
 import { supabaseServer } from "@/lib/db/server";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
+type UserSubmissionRow = {
+  id: number;
+  cycle_id: number;
+  r2_key: string | null;
+  is_disqualified: boolean;
+  disqualification_reason_code: string | null;
+  disqualification_reason_text: string | null;
+  disqualified_by_discord_username: string | null;
+  vote_count: number | null;
+  rank: number | null;
+};
+
+type CycleVoteRow = {
+  cycle_id: number;
+  vote_count: number | null;
+};
+
+type CycleCountRow = {
+  cycle_id: number;
+};
+
 export async function getUserSubmissions(discord_user_id: string) {
   const supabase = supabaseServer;
 
@@ -26,35 +47,41 @@ export async function getUserSubmissions(discord_user_id: string) {
     return [];
   }
 
-  
   if (!data || data.length === 0) return [];
 
-  const cycleId = data[0].cycle_id;
+  const submissions = data as UserSubmissionRow[];
+  const cycleIds = Array.from(
+    new Set(submissions.map((item) => item.cycle_id))
+  );
 
-  
   const { data: allCycleSubmissions } = await supabase
     .from("submissions_with_votes")
     .select("cycle_id, vote_count")
-    .eq("cycle_id", cycleId)
+    .in("cycle_id", cycleIds)
     .eq("is_disqualified", false);
 
-  
-  const { count } = await supabase
+  const { data: cycleCounts } = await supabase
     .from("submissions")
-    .select("*", { count: "exact", head: true })
-    .eq("cycle_id", cycleId)
+    .select("cycle_id")
+    .in("cycle_id", cycleIds)
     .eq("is_disqualified", false);
 
-  
   const tieMap = new Map<string, number>();
+  const totalByCycle = new Map<number, number>();
 
-  allCycleSubmissions?.forEach((item: any) => {
+  (allCycleSubmissions as CycleVoteRow[] | null)?.forEach((item) => {
     const key = `${item.cycle_id}-${item.vote_count}`;
     tieMap.set(key, (tieMap.get(key) ?? 0) + 1);
   });
 
-  
-  return data.map((item: any) => {
+  (cycleCounts as CycleCountRow[] | null)?.forEach((item) => {
+    totalByCycle.set(
+      item.cycle_id,
+      (totalByCycle.get(item.cycle_id) ?? 0) + 1
+    );
+  });
+
+  return submissions.map((item) => {
     const tieKey = `${item.cycle_id}-${item.vote_count}`;
 
     return {
@@ -67,7 +94,7 @@ export async function getUserSubmissions(discord_user_id: string) {
       disqualified_by_discord_username: item.disqualified_by_discord_username ?? null,
       vote_count: item.vote_count ?? 0,
       rank: item.rank ?? null,
-      total: count ?? 0,
+      total: totalByCycle.get(item.cycle_id) ?? 0,
       tie_count: tieMap.get(tieKey) ?? 1,
     };
   });

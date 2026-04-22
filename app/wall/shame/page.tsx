@@ -11,9 +11,9 @@ export default async function WallOfShamePage() {
     .from("winner_public_profiles")
     .select(`
       id,
+      submission_id,
       r2_key,
       cycle_id,
-      x_username,
       wallet_address,
       payout_choice,
       split_percent,
@@ -24,9 +24,64 @@ export default async function WallOfShamePage() {
     .eq("wall", "shame")
     .order("created_at", { ascending: false });
 
+  const submissionIds =
+    winners?.map((winner) => winner.submission_id) ?? [];
+
+  const { data: submissions } =
+    submissionIds.length > 0
+      ? await supabaseServer
+          .from("submissions")
+          .select(
+            "id, discord_username_at_upload, discord_user_id"
+          )
+          .in("id", submissionIds)
+      : { data: [], error: null };
+
+  const discordUserIds = Array.from(
+    new Set(
+      (submissions ?? []).map(
+        (submission) => submission.discord_user_id
+      )
+    )
+  );
+
+  const { data: userLogs } =
+    discordUserIds.length > 0
+      ? await supabaseServer
+          .from("user_logs")
+          .select("discord_user_id, public_profile_id")
+          .in("discord_user_id", discordUserIds)
+      : { data: [], error: null };
+
+  const submissionMetaById = new Map(
+    (submissions ?? []).map((submission) => [
+      submission.id,
+      {
+        discord_username:
+          submission.discord_username_at_upload ?? "unknown",
+        discord_user_id: submission.discord_user_id,
+      },
+    ])
+  );
+
+  const profileIdByDiscordUserId = new Map(
+    (userLogs ?? []).map((userLog) => [
+      userLog.discord_user_id,
+      userLog.public_profile_id,
+    ])
+  );
+
 const winnersWithUrls =
   winners?.map((w) => ({
     ...w,
+    discord_username:
+      submissionMetaById.get(w.submission_id)
+        ?.discord_username ?? "unknown",
+    public_profile_id:
+      profileIdByDiscordUserId.get(
+        submissionMetaById.get(w.submission_id)
+          ?.discord_user_id ?? ""
+      ) ?? null,
     image_url: getPublicImageUrl(w.r2_key) ?? "",
   })) ?? [];
 

@@ -1,17 +1,29 @@
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/audit/logAdminAction";
 import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin as supabase } from "@/lib/db/admin";
-import { logAdminAction } from "@/lib/audit/logAdminAction";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { NextResponse } from "next/server";
+
+function getErrorResponse(error: unknown) {
+  const message =
+    error instanceof Error ? error.message : "Forbidden";
+  const status =
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof error.status === "number"
+      ? error.status
+      : 403;
+
+  return NextResponse.json({ error: message }, { status });
+}
 
 export async function POST() {
   try {
-    
     const admin = await requireAdmin();
 
-    
     const { data: cycle } = await supabase
       .from("voting_cycles")
       .select("*")
@@ -25,15 +37,13 @@ export async function POST() {
       );
     }
 
-    
-    const { data: lockedCycle, error: lockError } =
-      await supabase
-        .from("voting_cycles")
-        .update({ status: "finalizing" })
-        .eq("id", cycle.id)
-        .eq("status", "active")
-        .select()
-        .single();
+    const { data: lockedCycle, error: lockError } = await supabase
+      .from("voting_cycles")
+      .update({ status: "finalizing" })
+      .eq("id", cycle.id)
+      .eq("status", "active")
+      .select()
+      .single();
 
     if (lockError || !lockedCycle) {
       return NextResponse.json(
@@ -42,13 +52,11 @@ export async function POST() {
       );
     }
 
-    
-    const { data: results, error: resultsError } =
-      await supabase
-        .from("submissions_with_votes")
-        .select("id, vote_count")
-        .eq("cycle_id", cycle.id)
-        .eq("is_disqualified", false);
+    const { data: results, error: resultsError } = await supabase
+      .from("submissions_with_votes")
+      .select("id, vote_count")
+      .eq("cycle_id", cycle.id)
+      .eq("is_disqualified", false);
 
     if (resultsError || !results || results.length === 0) {
       return NextResponse.json(
@@ -57,9 +65,9 @@ export async function POST() {
       );
     }
 
-    const maxVotes = Math.max(...results.map(r => r.vote_count));
+    const maxVotes = Math.max(...results.map((r) => r.vote_count));
 
-    const finalizedResults = results.map(r => ({
+    const finalizedResults = results.map((r) => ({
       cycle_id: cycle.id,
       submission_id: r.id,
       vote_count: r.vote_count,
@@ -67,16 +75,14 @@ export async function POST() {
       rank: r.vote_count === maxVotes ? 1 : null,
     }));
 
-    
     await supabase
       .from("cycle_results")
       .delete()
       .eq("cycle_id", cycle.id);
 
-    const { error: insertResultsError } =
-      await supabase
-        .from("cycle_results")
-        .insert(finalizedResults);
+    const { error: insertResultsError } = await supabase
+      .from("cycle_results")
+      .insert(finalizedResults);
 
     if (insertResultsError) {
       return NextResponse.json(
@@ -85,37 +91,53 @@ export async function POST() {
       );
     }
 
-    
     await supabase
       .from("winner_public_profiles")
       .delete()
       .eq("cycle_id", cycle.id);
 
-    
-    const winners = finalizedResults.filter(r => r.is_winner);
+    const winners = finalizedResults.filter((r) => r.is_winner);
     const winShare = 1 / winners.length;
 
     for (const winner of winners) {
-      const { data: submission } = await supabase
+      const {
+        data: submission,
+        error: submissionError,
+      } = await supabase
         .from("submissions")
-        .select("r2_key")
+        .select("r2_key, discord_username_at_upload")
         .eq("id", winner.submission_id)
         .single();
 
-      const { data: privateData } = await supabase
+      const {
+        data: privateData,
+        error: privateDataError,
+      } = await supabase
         .from("submission_private_data")
         .select("*")
         .eq("submission_id", winner.submission_id)
         .single();
 
-      if (!submission || !privateData) continue;
+      if (submissionError || !submission) {
+        throw new Error(
+          `Failed to load submission ${winner.submission_id}`
+        );
+      }
+
+      if (privateDataError || !privateData) {
+        throw new Error(
+          `Failed to load private data for submission ${winner.submission_id}`
+        );
+      }
 
       const wall =
         privateData.payout_choice === "keep"
           ? "shame"
           : "fame";
 
-      await supabase
+      const {
+        error: winnerProfileInsertError,
+      } = await supabase
         .from("winner_public_profiles")
         .insert({
           cycle_id: cycle.id,
@@ -123,7 +145,11 @@ export async function POST() {
           r2_key: submission.r2_key,
           image_url: getPublicImageUrl(submission.r2_key) ?? "",
           wall,
-          x_username: privateData.x_username,
+          // Compatibility fallback for legacy schemas that still require x_username.
+          x_username:
+            privateData.x_username ??
+            submission.discord_username_at_upload ??
+            "unknown",
           wallet_address: privateData.wallet_address,
           payout_choice: privateData.payout_choice,
           split_percent: privateData.split_percent,
@@ -131,9 +157,14 @@ export async function POST() {
           win_share: winShare,
           vote_count: winner.vote_count,
         });
+
+      if (winnerProfileInsertError) {
+        throw new Error(
+          `Failed to insert winner profile for submission ${winner.submission_id}: ${winnerProfileInsertError.message}`
+        );
+      }
     }
 
-    
     await supabase
       .from("voting_cycles")
       .update({
@@ -143,26 +174,12 @@ export async function POST() {
         ended_at: new Date().toISOString(),
       })
       .eq("id", cycle.id);
-console.log("🔥 RESETTING NEXT THEME");
 
-      
-const { data: resetData, error: resetError } = await supabase
-  .from("app_config")
-  .update({ value: null })
-  .eq("key", "next_cycle_theme")
-  .select();
+    await supabase
+      .from("app_config")
+      .update({ value: null })
+      .eq("key", "cycle_end_at");
 
-console.log("RESET RESULT:", resetData, resetError);
-
-
-await supabase
-  .from("app_config")
-  .update({ value: null })
-  .eq("key", "cycle_end_at");
-
-
-
-    
     await logAdminAction({
       actorType: "admin",
       actorId: admin.discord_user_id,
@@ -181,10 +198,7 @@ await supabase
       cycleId: cycle.id,
       finalized: true,
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message ?? "Forbidden" },
-      { status: err.status ?? 403 }
-    );
+  } catch (error) {
+    return getErrorResponse(error);
   }
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 export default function AvatarUpload() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleChange(
     e: React.ChangeEvent<HTMLInputElement>
@@ -12,21 +13,30 @@ export default function AvatarUpload() {
     if (!file) return;
 
     setLoading(true);
+    setError(null);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      await fetch("/api/upload-avatar", {
+      const response = await fetch("/api/upload-avatar", {
         method: "POST",
         body: formData,
       });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed");
+      }
 
       window.location.reload();
     } catch (err) {
-      console.error("Upload failed", err);
+      setError(
+        err instanceof Error ? err.message : "Upload failed"
+      );
     } finally {
       setLoading(false);
+      e.target.value = "";
     }
   }
 
@@ -59,6 +69,12 @@ export default function AvatarUpload() {
 >
   {loading ? "Uploading..." : "Change Avatar"}
 </label>
+
+      {error && (
+        <p className="mt-2 text-center text-xs text-red-300">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
