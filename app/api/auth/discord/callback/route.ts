@@ -1,21 +1,52 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
+
+function sanitizeRedirectPath(path: string | undefined) {
+  if (!path) return "/upload";
+  if (!path.startsWith("/")) return "/upload";
+  return path;
+}
 
 export async function GET(req: Request) {
   console.log("DISCORD CALLBACK HIT");
 
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
-
-  const redirectPath = searchParams.get("state") || "/upload";
+  const returnedState = searchParams.get("state");
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!;
+  const cookieStore = await cookies();
+  const expectedState =
+    cookieStore.get("oauth_state")?.value ?? null;
+  const redirectPath = sanitizeRedirectPath(
+    cookieStore.get("oauth_redirect_path")?.value
+  );
+
+  const invalidStateResponse = NextResponse.redirect(
+    new URL(`/upload?error=oauth_state`, baseUrl)
+  );
+  invalidStateResponse.cookies.delete("oauth_state");
+  invalidStateResponse.cookies.delete(
+    "oauth_redirect_path"
+  );
+
+  if (
+    !returnedState ||
+    !expectedState ||
+    returnedState !== expectedState
+  ) {
+    return invalidStateResponse;
+  }
 
   if (!code) {
-    return NextResponse.redirect(
+    const response = NextResponse.redirect(
       new URL(`${redirectPath}?error=discord`, baseUrl)
     );
+    response.cookies.delete("oauth_state");
+    response.cookies.delete("oauth_redirect_path");
+    return response;
   }
 
   
@@ -40,17 +71,23 @@ export async function GET(req: Request) {
     const text = await tokenRes.text();
     console.error("DISCORD TOKEN ERROR:", text);
 
-    return NextResponse.redirect(
+    const response = NextResponse.redirect(
       new URL(`${redirectPath}?error=discord_token`, baseUrl)
     );
+    response.cookies.delete("oauth_state");
+    response.cookies.delete("oauth_redirect_path");
+    return response;
   }
 
   const tokenData = await tokenRes.json();
 
   if (!tokenData.access_token) {
-    return NextResponse.redirect(
+    const response = NextResponse.redirect(
       new URL(`${redirectPath}?error=discord`, baseUrl)
     );
+    response.cookies.delete("oauth_state");
+    response.cookies.delete("oauth_redirect_path");
+    return response;
   }
 
   
@@ -66,9 +103,12 @@ export async function GET(req: Request) {
   const user = await userRes.json();
 
   if (!user?.id) {
-    return NextResponse.redirect(
+    const response = NextResponse.redirect(
       new URL(`${redirectPath}?error=discord`, baseUrl)
     );
+    response.cookies.delete("oauth_state");
+    response.cookies.delete("oauth_redirect_path");
+    return response;
   }
 
   await touchUserLog({
@@ -86,50 +126,13 @@ const { data: userLog } = await supabaseAdmin
   .single();
 
 if (userLog?.is_banned) {
-  return NextResponse.redirect(
+  const response = NextResponse.redirect(
     new URL(`/banned`, baseUrl)
   );
+  response.cookies.delete("oauth_state");
+  response.cookies.delete("oauth_redirect_path");
+  return response;
 }
-
-
-  
-  if (redirectPath.startsWith("/invite/")) {
-    const inviteSlug = redirectPath.split("/invite/")[1];
-
-    if (inviteSlug) {
-      const { data: invite } = await supabaseAdmin
-        .from("admin_invites")
-        .select("id, invite_slug, is_active")
-        .eq("invite_slug", inviteSlug)
-        .single();
-
-      if (invite && invite.is_active) {
-        await supabaseAdmin
-          .from("invite_auth_logs")
-          .insert({
-            invite_id: invite.id,
-            invite_slug: invite.invite_slug,
-            invited_discord_user_id: user.id,
-            discord_username: user.username,
-            discord_discriminator: user.discriminator,
-            discord_avatar: user.avatar,
-          });
-
-        await supabaseAdmin
-          .from("team_members")
-          .upsert({
-            discord_user_id: user.id,
-            discord_username: user.username,
-            role: "mod",
-          });
-            
-      await supabaseAdmin
-        .from("admin_invites")
-        .update({ is_active: false })
-        .eq("id", invite.id);
-      }
-    }
-  }
 
   
   const sessionId = randomUUID();
@@ -144,13 +147,8 @@ if (userLog?.is_banned) {
     });
 
   
-  const finalRedirect =
-  redirectPath.startsWith("/invite/")
-    ? "/"
-    : redirectPath;
-
 const response = NextResponse.redirect(
-  new URL(finalRedirect, baseUrl)
+  new URL(redirectPath, baseUrl)
 );
 
 
@@ -167,6 +165,8 @@ const response = NextResponse.redirect(
 
   
   response.cookies.delete("discord_user_id");
+  response.cookies.delete("oauth_state");
+  response.cookies.delete("oauth_redirect_path");
 
   return response;
 }

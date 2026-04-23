@@ -17,6 +17,7 @@ type GroupedLogPageProps<TLog extends BaseLog> = {
   endpoint: string;
   getGroupKey?: (log: TLog) => string;
   loadingMessage: string;
+  prioritizeStatuses?: string[];
   renderGroupTitle?: (groupKey: string, logs: TLog[]) => string;
   title: string;
   renderTitle?: (log: TLog) => string;
@@ -27,6 +28,7 @@ export default function GroupedLogPage<TLog extends BaseLog>({
   endpoint,
   getGroupKey,
   loadingMessage,
+  prioritizeStatuses,
   renderGroupTitle,
   title,
   renderTitle,
@@ -85,6 +87,46 @@ export default function GroupedLogPage<TLog extends BaseLog>({
     return acc;
   }, {});
 
+  function getStatusSections(groupLogs: TLog[]) {
+    const logsByStatus = groupLogs.reduce<Record<string, TLog[]>>(
+      (acc, log) => {
+        const statusKey = log.status?.trim() || "unknown";
+        acc[statusKey] ||= [];
+        acc[statusKey].push(log);
+        return acc;
+      },
+      {}
+    );
+
+    const preferredStatuses =
+      prioritizeStatuses?.map((status) => status.toLowerCase()) ??
+      ["failed", "success"];
+
+    const orderedStatuses = Object.keys(logsByStatus).sort(
+      (left, right) => {
+        const leftIndex = preferredStatuses.indexOf(
+          left.toLowerCase()
+        );
+        const rightIndex = preferredStatuses.indexOf(
+          right.toLowerCase()
+        );
+
+        if (leftIndex !== -1 || rightIndex !== -1) {
+          if (leftIndex === -1) return 1;
+          if (rightIndex === -1) return -1;
+          return leftIndex - rightIndex;
+        }
+
+        return left.localeCompare(right);
+      }
+    );
+
+    return orderedStatuses.map((status) => ({
+      status,
+      logs: logsByStatus[status],
+    }));
+  }
+
   return (
     <div style={{ padding: 24 }}>
       <h1>{title}</h1>
@@ -114,51 +156,96 @@ export default function GroupedLogPage<TLog extends BaseLog>({
                 : `${groupKey} (${groupLogs.length})`}
             </summary>
 
-            {groupLogs.map((log) => (
-              <div
-                key={log.id}
-                style={{
-                  padding: 12,
-                  borderBottom: "1px solid #333",
-                  fontSize: 13,
-                }}
-              >
-                <div>
-                  <strong>{renderTitle ? renderTitle(log) : log.status.toUpperCase()}</strong>
-                </div>
-
-                {log.discord_user_id && (
-                  <div
+            <div style={{ marginTop: 12 }}>
+              {getStatusSections(groupLogs).map(
+                ({ status, logs: statusLogs }) => (
+                  <details
+                    key={`${groupKey}-${status}`}
+                    open={status.toLowerCase() === "failed"}
                     style={{
-                      color: "#f97316",
-                      marginTop: 4,
+                      marginBottom: 16,
+                      border: "1px solid #2d2d2d",
+                      borderRadius: 6,
+                      padding: 10,
+                      background:
+                        status.toLowerCase() === "failed"
+                          ? "#140f0f"
+                          : "#101010",
                     }}
                   >
-                    Discord ID: <code>{log.discord_user_id}</code>
-                  </div>
-                )}
+                    <summary
+                      style={{
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                        color:
+                          status.toLowerCase() === "failed"
+                            ? "#fca5a5"
+                            : status.toLowerCase() === "success"
+                              ? "#86efac"
+                              : "#facc15",
+                      }}
+                    >
+                      {status.toUpperCase()} ({statusLogs.length})
+                    </summary>
 
-                {log.reason && (
-                  <div
-                    style={{
-                      color: "#aaa",
-                      marginTop: 4,
-                    }}
-                  >
-                    Reason: {log.reason}
-                  </div>
-                )}
+                    <div style={{ marginTop: 10 }}>
+                      {statusLogs.map((log) => (
+                        <div
+                          key={log.id}
+                          style={{
+                            padding: 12,
+                            borderBottom: "1px solid #333",
+                            fontSize: 13,
+                          }}
+                        >
+                          <div>
+                            <strong>
+                              {renderTitle
+                                ? renderTitle(log)
+                                : log.status.toUpperCase()}
+                            </strong>
+                          </div>
 
-                <div
-                  style={{
-                    opacity: 0.6,
-                    marginTop: 4,
-                  }}
-                >
-                  {new Date(log.created_at).toLocaleString()}
-                </div>
-              </div>
-            ))}
+                          {log.discord_user_id && (
+                            <div
+                              style={{
+                                color: "#f97316",
+                                marginTop: 4,
+                              }}
+                            >
+                              Discord ID:{" "}
+                              <code>{log.discord_user_id}</code>
+                            </div>
+                          )}
+
+                          {log.reason && (
+                            <div
+                              style={{
+                                color: "#aaa",
+                                marginTop: 4,
+                              }}
+                            >
+                              Reason: {log.reason}
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              opacity: 0.6,
+                              marginTop: 4,
+                            }}
+                          >
+                            {new Date(
+                              log.created_at
+                            ).toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )
+              )}
+            </div>
           </details>
         ))}
       </div>

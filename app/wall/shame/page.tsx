@@ -1,8 +1,15 @@
 import { supabaseServer } from "@/lib/db/server";
+import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
+import {
+  isSubmissionListedPublicly,
+  normalizeSubmissionPublicVisibilityStatus,
+  showsSubmissionImagePublicly,
+} from "@/lib/moderation/submissionPublicVisibility";
 import ShameGrid from "./ShameGrid";
 import AnimatedCellShame from "./AnimatedCellShame";
 import PageWrapper from "@/app/components/ui/PageWrapper";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getSubmissionSocialLinksBySubmissionIds } from "@/lib/socials/getSubmissionSocialLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +39,7 @@ export default async function WallOfShamePage() {
       ? await supabaseServer
           .from("submissions")
           .select(
-            "id, discord_username_at_upload, discord_user_id"
+            "id, discord_username_at_upload, discord_user_id, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text"
           )
           .in("id", submissionIds)
       : { data: [] };
@@ -73,33 +80,89 @@ export default async function WallOfShamePage() {
     ])
   );
 
-const winnersWithUrls =
-  winners?.map((w) => ({
-    ...w,
-    discord_username:
-      submissionMetaById.get(w.submission_id)
-        ?.discord_username ?? "unknown",
-    public_profile_id:
-      profileIdByDiscordUserId.get(
-        submissionMetaById.get(w.submission_id)
-          ?.discord_user_id ?? ""
-      ) ?? null,
-    image_url: getPublicImageUrl(w.r2_key) ?? "",
-  })) ?? [];
+  const winnersWithUrls =
+    await (async () => {
+      const socialLinksBySubmissionId =
+        await getSubmissionSocialLinksBySubmissionIds(
+          submissionIds
+        );
+
+      return (
+    winners
+      ?.map((winner) => {
+        const submission = submissions.find(
+          (entry) => entry.id === winner.submission_id
+        );
+        const publicVisibilityStatus =
+          normalizeSubmissionPublicVisibilityStatus(
+            submission?.public_visibility_status
+          );
+
+        if (
+          !isSubmissionListedPublicly(
+            publicVisibilityStatus
+          )
+        ) {
+          return null;
+        }
+
+        return {
+          ...winner,
+          discord_username:
+            submissionMetaById.get(winner.submission_id)
+              ?.discord_username ?? "unknown",
+          public_profile_id:
+            profileIdByDiscordUserId.get(
+              submissionMetaById.get(winner.submission_id)
+                ?.discord_user_id ?? ""
+            ) ?? null,
+          image_url: showsSubmissionImagePublicly(
+            publicVisibilityStatus
+          )
+            ? getPublicImageUrl(winner.r2_key) ?? ""
+            : null,
+          public_visibility_status:
+            publicVisibilityStatus,
+          public_visibility_reason_code:
+            submission?.public_visibility_reason_code ??
+            null,
+          public_visibility_reason_text:
+            submission?.public_visibility_reason_text ??
+            null,
+          social_links:
+            socialLinksBySubmissionId.get(winner.submission_id) ?? [],
+        };
+      })
+      .filter((winner): winner is NonNullable<typeof winner> => winner !== null) ?? []
+      );
+    })();
+  const sponsoredMetaEntries = await Promise.all(
+    Array.from(
+      new Set(
+        winnersWithUrls.map((winner) => winner.cycle_id)
+      )
+    ).map(async (cycleId) => [
+      cycleId,
+      await getCycleSponsoredMeta(cycleId),
+    ])
+  );
+  const sponsoredMetaByCycleId = Object.fromEntries(
+    sponsoredMetaEntries
+  );
 
   return (
-  <PageWrapper>
-    <div className="p-4 sm:p-6 text-white/85">
-  <h1 className="flex items-center justify-center gap-2 text-2xl sm:text-3xl mb-8 font-[Permanent_Marker] text-[var(--orange-dark)]">
+    <PageWrapper>
+      <div className="p-4 text-white/90 sm:p-6">
+        <h1 className="mb-8 flex items-center justify-center gap-2 text-2xl font-[Permanent_Marker] text-[var(--orange-dark)] sm:text-3xl">
+          <AnimatedCellShame />
+          <span>Wall of Shame</span>
+        </h1>
 
-
-
-        <AnimatedCellShame />
-        <span>Wall of Shame</span>
-      </h1>
-
-      <ShameGrid winners={winnersWithUrls} />
-    </div>
+        <ShameGrid
+          winners={winnersWithUrls}
+          sponsoredMetaByCycleId={sponsoredMetaByCycleId}
+        />
+      </div>
     </PageWrapper>
   );
 }

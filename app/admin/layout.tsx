@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getTeamMember } from "@/lib/auth/guards";
+import { supabaseAdmin } from "@/lib/db/admin";
 import { updateRulesVersion } from "./actions/updateRulesVersion";
 
 export default async function AdminLayout({
@@ -18,6 +19,14 @@ export default async function AdminLayout({
   }
 
   const isAdmin = member.role === "admin";
+  const legalReviewCount = isAdmin
+    ? (
+        await supabaseAdmin
+          .from("submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("public_visibility_status", "legal_review")
+      ).count ?? 0
+    : 0;
 
   return (
     <div className="min-h-screen flex bg-neutral-950 text-white/90">
@@ -48,7 +57,7 @@ export default async function AdminLayout({
               href="/admin/moderation/submissions"
               className="block rounded px-2 py-1 hover:bg-white/10"
             >
-              Moderation
+              <span>Moderation</span>
             </Link>
           </li>
 
@@ -60,6 +69,22 @@ export default async function AdminLayout({
               Disqualified Submissions
             </Link>
           </li>
+
+          {isAdmin && (
+            <li className="ml-3">
+              <Link
+                href="/admin/moderation/legal-review"
+                className="flex items-center justify-between rounded px-2 py-1 text-yellow-200 hover:bg-white/10"
+              >
+                <span>Legal Review</span>
+                {legalReviewCount > 0 ? (
+                  <span className="rounded-full bg-yellow-500 px-2 py-0.5 text-[11px] font-semibold text-black">
+                    {legalReviewCount}
+                  </span>
+                ) : null}
+              </Link>
+            </li>
+          )}
 
           <li className="mt-4 text-xs uppercase text-white/50">
             Logs
@@ -130,13 +155,22 @@ export default async function AdminLayout({
             </Link>
           </li>
 
+          <li className="ml-3">
+            <Link
+              href="/admin/logs/socials"
+              className="block rounded px-2 py-1 hover:bg-white/10"
+            >
+              Social Logs
+            </Link>
+          </li>
+
           {isAdmin && (
             <li className="ml-3">
               <Link
                 href="/admin/logs/moderation"
                 className="block rounded px-2 py-1 hover:bg-white/10"
               >
-                Moderation Logs
+                <span>Moderation Logs</span>
               </Link>
             </li>
           )}
@@ -149,15 +183,6 @@ export default async function AdminLayout({
                   className="block rounded px-2 py-1 text-red-400 hover:bg-white/10"
                 >
                   Banned Users
-                </Link>
-              </li>
-
-              <li className="mt-4">
-                <Link
-                  href="/admin/invites"
-                  className="block rounded px-2 py-1 hover:bg-white/10"
-                >
-                  Invites
                 </Link>
               </li>
 

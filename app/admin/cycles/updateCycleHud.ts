@@ -14,13 +14,23 @@ export async function updateCycleHud(formData: FormData) {
 
   await supabaseAdmin
     .from("app_config")
-    .update({ value: theme })
-    .eq("key", "cycle_theme");
+    .upsert(
+      {
+        key: "cycle_theme",
+        value: theme || null,
+      },
+      { onConflict: "key" }
+    );
 
   await supabaseAdmin
     .from("app_config")
-    .update({ value: nextTheme })
-    .eq("key", "next_cycle_theme");
+    .upsert(
+      {
+        key: "next_cycle_theme",
+        value: nextTheme || null,
+      },
+      { onConflict: "key" }
+    );
 
     if (hours > 0 || minutes > 0) {
   const now = new Date();
@@ -30,8 +40,13 @@ export async function updateCycleHud(formData: FormData) {
 
   await supabaseAdmin
     .from("app_config")
-    .update({ value: end.toISOString() })
-    .eq("key", "cycle_end_at");
+    .upsert(
+      {
+        key: "cycle_end_at",
+        value: end.toISOString(),
+      },
+      { onConflict: "key" }
+    );
 }
 
 }

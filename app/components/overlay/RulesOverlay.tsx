@@ -48,7 +48,7 @@ export default function RulesOverlay({
             <>
               Please review and accept the{" "}
               <a
-                href="/faq"
+                href="/rules"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline font-semibold cursor-pointer"
@@ -61,7 +61,7 @@ export default function RulesOverlay({
             <>
               We updated our{" "}
               <a
-                href="/faq"
+                href="/rules"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline font-semibold cursor-pointer"

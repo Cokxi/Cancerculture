@@ -9,8 +9,6 @@ interface InvitePageProps {
 export default async function InviteConsumePage({
   params,
 }: InvitePageProps) {
-  const { slug } = await params;
-
-  
-  redirect(`/api/invite/consume/${slug}`);
+  await params;
+  redirect("/?invite=retired");
 }

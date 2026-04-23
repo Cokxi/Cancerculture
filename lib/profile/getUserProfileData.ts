@@ -2,6 +2,8 @@ import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
 import { supabaseServer } from "@/lib/db/server";
 import { getUserSubmissions } from "@/lib/queries/getUserSubmissions";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getUserSocialLinks } from "@/lib/socials/getUserSocialLinks";
+import type { UserSocialLink } from "@/lib/socials/types";
 import {
   getSubmissionPrivateData,
   type SubmissionPrivateData,
@@ -22,9 +24,14 @@ export type UserProfileData = {
   activeCycleId: number | null;
   avatarUrl: string | null;
   avatarUpdatedAt: string | null;
+  currentDiscordUsername: string | null;
   currentSubmissionPrivateData: SubmissionPrivateData | null;
   currentSubmission: ProfileSubmission | null;
+  discordUserId: string;
   joinedDate: string | null;
+  showSocialsOnProfile: boolean;
+  showSocialsOnSubmissions: boolean;
+  socialLinks: UserSocialLink[];
   submissions: ProfileSubmission[];
   votes: ProfileVote[];
 };
@@ -32,12 +39,18 @@ export type UserProfileData = {
 export async function getUserProfileData(
   discordUserId: string
 ): Promise<UserProfileData> {
-  const [userLogResult, submissions, activeCycle, votesResult] =
+  const [
+    userLogResult,
+    submissions,
+    activeCycle,
+    votesResult,
+    socialLinks,
+  ] =
     await Promise.all([
       supabaseServer
         .from("user_logs")
         .select(
-          "first_seen_at, avatar_key, avatar_updated_at, discord_avatar"
+          "first_seen_at, avatar_key, avatar_updated_at, discord_avatar, current_discord_username, show_socials, show_socials_on_submissions"
         )
         .eq("discord_user_id", discordUserId)
         .maybeSingle(),
@@ -49,6 +62,7 @@ export async function getUserProfileData(
         .eq("discord_user_id", discordUserId)
         .order("cycle_id", { ascending: false })
         .order("created_at", { ascending: false }),
+      getUserSocialLinks(discordUserId),
     ]);
 
   const userLog = userLogResult.data;
@@ -116,9 +130,16 @@ export async function getUserProfileData(
     activeCycleId,
     avatarUrl: cacheBustedAvatarUrl,
     avatarUpdatedAt,
+    currentDiscordUsername:
+      userLog?.current_discord_username ?? null,
     currentSubmissionPrivateData,
     currentSubmission,
+    discordUserId,
     joinedDate,
+    showSocialsOnProfile: userLog?.show_socials ?? false,
+    showSocialsOnSubmissions:
+      userLog?.show_socials_on_submissions ?? false,
+    socialLinks,
     submissions,
     votes,
   };

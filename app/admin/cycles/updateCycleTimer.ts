@@ -1,13 +1,29 @@
 "use server";
 
+import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function updateCycleTimer(formData: FormData) {
+  await requireAdmin();
+
   const hours = Number(formData.get("timer_hours") || 0);
   const minutes = Number(formData.get("timer_minutes") || 0);
+  const totalMinutes = hours * 60 + minutes;
 
-  if (hours <= 0 && minutes <= 0) {
-    
+  const { data: activeCycle } = await supabaseAdmin
+    .from("voting_cycles")
+    .select("id")
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (totalMinutes <= 0) {
+    if (activeCycle) {
+      await supabaseAdmin
+        .from("voting_cycles")
+        .update({ ends_at: null })
+        .eq("id", activeCycle.id);
+    }
+
     await supabaseAdmin
       .from("app_config")
       .upsert({
@@ -18,8 +34,14 @@ export async function updateCycleTimer(formData: FormData) {
   }
 
   const end = new Date();
-  end.setHours(end.getHours() + hours);
-  end.setMinutes(end.getMinutes() + minutes);
+  end.setMinutes(end.getMinutes() + totalMinutes);
+
+  if (activeCycle) {
+    await supabaseAdmin
+      .from("voting_cycles")
+      .update({ ends_at: end.toISOString() })
+      .eq("id", activeCycle.id);
+  }
 
   await supabaseAdmin
     .from("app_config")

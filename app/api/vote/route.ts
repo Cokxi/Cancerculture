@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { isUniqueViolation } from "@/lib/db/isUniqueViolation";
 import { requireSession } from "@/lib/auth/requireSession";
 import { logVote } from "@/lib/logging/logVote";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
@@ -113,6 +114,21 @@ export async function POST(req: Request) {
       });
 
     if (insertError) {
+      if (isUniqueViolation(insertError)) {
+        await logVote({
+          cycleId: voteEligibility.activeCycleId,
+          submissionId,
+          discordUserId,
+          status: "rejected",
+          reason: "already_voted",
+        });
+
+        return NextResponse.json(
+          { error: "You already voted in this cycle" },
+          { status: 400 }
+        );
+      }
+
       throw insertError;
     }
 

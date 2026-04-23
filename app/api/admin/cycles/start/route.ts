@@ -2,6 +2,11 @@ export const runtime = "nodejs";
 
 import { logAdminAction } from "@/lib/audit/logAdminAction";
 import { requireAdmin } from "@/lib/auth/guards";
+import {
+  clearSponsoredCycleDraft,
+  getSponsoredCycleDraft,
+  saveCycleSponsoredMeta,
+} from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { NextResponse } from "next/server";
 
@@ -61,8 +66,25 @@ export async function POST(req: Request) {
       nextThemeConfig.value.trim().length > 0
         ? nextThemeConfig.value.trim()
         : null;
+    const sponsoredDraft = await getSponsoredCycleDraft();
 
     const resolvedTheme = manualTheme ?? storedNextTheme;
+
+    if (sponsoredDraft.enabled) {
+      if (
+        sponsoredDraft.companyName.length === 0 ||
+        sponsoredDraft.sponsorLink.length === 0 ||
+        sponsoredDraft.bannerR2Key.length === 0
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Sponsored cycle needs company name, sponsor link, and banner before start",
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     const { data: cycle, error } = await supabaseAdmin
       .from("voting_cycles")
@@ -84,6 +106,25 @@ export async function POST(req: Request) {
       );
     }
 
+    if (sponsoredDraft.enabled) {
+      await saveCycleSponsoredMeta(cycle.id, {
+        enabled: true,
+        companyName: sponsoredDraft.companyName,
+        sponsorLink: sponsoredDraft.sponsorLink,
+        bannerR2Key: sponsoredDraft.bannerR2Key,
+      });
+    }
+
+    await supabaseAdmin
+      .from("app_config")
+      .upsert(
+        {
+          key: "cycle_theme",
+          value: resolvedTheme,
+        },
+        { onConflict: "key" }
+      );
+
     await supabaseAdmin
       .from("user_logs")
       .update({
@@ -95,6 +136,7 @@ export async function POST(req: Request) {
       .from("app_config")
       .update({ value: null })
       .eq("key", "next_cycle_theme");
+    await clearSponsoredCycleDraft();
 
     await logAdminAction({
       actorType: "admin",
@@ -110,6 +152,13 @@ export async function POST(req: Request) {
           : storedNextTheme
             ? "next_cycle_theme"
             : "none",
+        sponsored_cycle: sponsoredDraft.enabled
+          ? {
+              company_name: sponsoredDraft.companyName,
+              sponsor_link: sponsoredDraft.sponsorLink,
+              banner_r2_key: sponsoredDraft.bannerR2Key,
+            }
+          : null,
       },
     });
 

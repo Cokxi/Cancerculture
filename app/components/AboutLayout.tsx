@@ -68,10 +68,10 @@ The remaining 50% belongs to the Dev.
 
 Winners choose whether to keep, donate, or split their prize.
 
-Those who donate at least 1% appear on the Wall of Fame.
-Others appear on the Wall of Shame.
+Winning submissions are archived on the Wall of Fame.
 
-Whatever the winner decides, the Dev mirrors the exact same decision for their remaining share, including donation percentage and charity.
+The exact reward structure can evolve over time as the project grows, but the core loop stays the same:
+create, upload, vote, and let the community shape the culture.
 `;
 
 export default function AboutLayout() {

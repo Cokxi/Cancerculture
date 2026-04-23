@@ -3,6 +3,7 @@ import AvatarUpload from "@/app/components/ui/AvatarUpload";
 import { requireSession } from "@/lib/auth/requireSession";
 import { formatReason } from "@/lib/profile/formatReason";
 import { getUserProfileData } from "@/lib/profile/getUserProfileData";
+import ProfileSocialsSection from "@/app/components/profile/ProfileSocialsSection";
 import ProfileSections from "./ProfileSections";
 
 function renderRank(submission: {
@@ -26,9 +27,14 @@ export default async function MyProfilePage() {
   const {
     activeCycleId,
     avatarUrl,
+    currentDiscordUsername,
     currentSubmission,
     currentSubmissionPrivateData,
+    discordUserId,
     joinedDate,
+    showSocialsOnProfile,
+    showSocialsOnSubmissions,
+    socialLinks,
     submissions,
     votes,
   } = await getUserProfileData(session.discord_user_id);
@@ -60,6 +66,29 @@ export default async function MyProfilePage() {
           <p className="text-sm text-gray-300">
             Joined: {joinedDate ?? "-"}
           </p>
+
+          <div className="w-full max-w-md rounded-2xl border border-[var(--orange-dark)]/40 bg-black/30 px-4 py-3 text-left text-sm text-gray-200">
+            <div>
+              <span className="text-[var(--orange-dark)]">
+                Discord Name:
+              </span>{" "}
+              {currentDiscordUsername ?? "-"}
+            </div>
+            <div className="mt-1">
+              <span className="text-[var(--orange-dark)]">
+                Discord ID:
+              </span>{" "}
+              <code className="text-gray-100">{discordUserId}</code>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <ProfileSocialsSection
+            initialSocialLinks={socialLinks}
+            initialShowSocialsOnProfile={showSocialsOnProfile}
+            initialShowSocialsOnSubmissions={showSocialsOnSubmissions}
+          />
         </div>
 
         <div className="space-y-4">
@@ -134,14 +163,13 @@ export default async function MyProfilePage() {
                     </div>
 
                     <div className="mt-2">
-                      <strong>X:</strong>{" "}
-                      {currentSubmissionPrivateData.x_username ??
-                        "Not provided"}
-                    </div>
-
-                    <div className="mt-1">
                       <strong>Wallet:</strong>{" "}
-                      {currentSubmissionPrivateData.wallet_address}
+                      {currentSubmissionPrivateData.wallet_address
+                        ? currentSubmissionPrivateData.wallet_address
+                        : currentSubmissionPrivateData.payout_choice ===
+                            "donate"
+                        ? "No wallet required for full donation"
+                        : "Not provided"}
                     </div>
 
                     <div className="mt-1">

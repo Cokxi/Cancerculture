@@ -1,7 +1,14 @@
-import { updateNextTheme } from "./updateNextTheme";
-import { updateCycleTimer } from "./updateCycleTimer";
+"use client";
 
-export default function CycleHudControls() {
+import { updateCycleTimer } from "./updateCycleTimer";
+import SponsoredCycleDraftPanel from "./SponsoredCycleDraftPanel";
+import type { SponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
+
+export default function CycleHudControls({
+  initialSponsoredDraft,
+}: {
+  initialSponsoredDraft: SponsoredCycleDraft;
+}) {
   return (
     <div
       className="
@@ -17,36 +24,6 @@ export default function CycleHudControls() {
       <span className="font-['Permanent_Marker'] text-sm tracking-wide">
         CYCLE HUD
       </span>
-
-      
-      <form action={updateNextTheme} className="flex flex-col gap-2">
-        <input
-          name="next_cycle_theme"
-          placeholder="Next cycle theme"
-          className="
-            px-3 py-2
-            rounded-md
-            bg-white/90
-            text-black
-            placeholder-black/50
-            outline-none
-          "
-        />
-
-        <button
-          type="submit"
-          className="
-            py-2
-            rounded-md
-            bg-black/70
-            hover:bg-black
-            transition
-            font-['Permanent_Marker']
-          "
-        >
-          SAVE NEXT THEME
-        </button>
-      </form>
 
       
       <form action={updateCycleTimer} className="flex flex-col gap-2">
@@ -82,6 +59,10 @@ export default function CycleHudControls() {
           SET TIMER
         </button>
       </form>
+
+      <SponsoredCycleDraftPanel
+        initialDraft={initialSponsoredDraft}
+      />
     </div>
   );
 }

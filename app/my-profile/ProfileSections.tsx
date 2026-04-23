@@ -20,7 +20,7 @@ function Section({
     <div className="rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/30">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left font-[var(--font-marker)] tracking-wide text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
+        className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left font-[var(--font-marker)] tracking-wide text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
       >
         {title}
         <span className="text-lg">{open ? "-" : "+"}</span>

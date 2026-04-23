@@ -1,8 +1,10 @@
 import { supabaseServer } from "@/lib/db/server";
+import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
 import FameGrid from "./FameGrid";
 import AnimatedCell from "./AnimatedCell";
 import PageWrapper from "@/app/components/ui/PageWrapper";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getSubmissionSocialLinksBySubmissionIds } from "@/lib/socials/getSubmissionSocialLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -74,31 +76,56 @@ export default async function WallOfFamePage() {
   );
 
   const winnersWithUrls =
-  winners?.map((w) => ({
-    ...w,
-    discord_username:
-      submissionMetaById.get(w.submission_id)
-        ?.discord_username ?? "unknown",
-    public_profile_id:
-      profileIdByDiscordUserId.get(
+    await (async () => {
+      const socialLinksBySubmissionId =
+        await getSubmissionSocialLinksBySubmissionIds(
+          submissionIds
+        );
+
+      return (
+    winners?.map((w) => ({
+      ...w,
+      discord_username:
+        submissionMetaById.get(w.submission_id)
+          ?.discord_username ?? "unknown",
+      public_profile_id:
+        profileIdByDiscordUserId.get(
         submissionMetaById.get(w.submission_id)
           ?.discord_user_id ?? ""
-      ) ?? null,
-    image_url: getPublicImageUrl(w.r2_key) ?? "",
-  })) ?? [];
+        ) ?? null,
+      image_url: getPublicImageUrl(w.r2_key) ?? "",
+      social_links:
+        socialLinksBySubmissionId.get(w.submission_id) ?? [],
+    })) ?? []
+      );
+    })();
+  const sponsoredMetaEntries = await Promise.all(
+    Array.from(
+      new Set(
+        winnersWithUrls.map((winner) => winner.cycle_id)
+      )
+    ).map(async (cycleId) => [
+      cycleId,
+      await getCycleSponsoredMeta(cycleId),
+    ])
+  );
+  const sponsoredMetaByCycleId = Object.fromEntries(
+    sponsoredMetaEntries
+  );
 
   return (
     <PageWrapper>
-    <div className="p-4 sm:p-6 text-white/90">
-  <h1 className="flex items-center justify-center gap-2 text-2xl sm:text-3xl mb-8 font-[Permanent_Marker] text-[var(--orange-dark)]">
+      <div className="p-4 sm:p-6 text-white/90">
+        <h1 className="flex items-center justify-center gap-2 text-2xl sm:text-3xl mb-8 font-[Permanent_Marker] text-[var(--orange-dark)]">
+          <AnimatedCell />
+          <span>Wall of Fame</span>
+        </h1>
 
-
-        <AnimatedCell />
-        <span>Wall of Fame</span>
-      </h1>
-
-      <FameGrid winners={winnersWithUrls} />
-    </div>
+        <FameGrid
+          winners={winnersWithUrls}
+          sponsoredMetaByCycleId={sponsoredMetaByCycleId}
+        />
+      </div>
     </PageWrapper>
   );
 }

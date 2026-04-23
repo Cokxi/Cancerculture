@@ -1,6 +1,7 @@
 import PageWrapper from "@/app/components/ui/PageWrapper";
 import DesktopUpload from "@/app/components/upload/DesktopUpload";
 import { requireSession } from "@/lib/auth/requireSession";
+import { getUserSocialSettings } from "@/lib/socials/getUserSocialSettings";
 import { getUploadEligibility } from "@/lib/upload/getUploadEligibility";
 import { redirect } from "next/navigation";
 
@@ -19,6 +20,9 @@ export default async function UploadPage() {
   const uploadEligibility = await getUploadEligibility({
     discordUserId,
   });
+  const socialSettings = await getUserSocialSettings(
+    discordUserId
+  );
 
   if (uploadEligibility.isBanned) {
     const reason = encodeURIComponent(
@@ -30,8 +34,13 @@ export default async function UploadPage() {
   return (
     <PageWrapper>
       <DesktopUpload
+        hasActiveCycle={Boolean(uploadEligibility.activeCycleId)}
         showSupportLink
-        forceSuccessState={uploadEligibility.alreadyUploaded}
+        forceSuccessState={
+          uploadEligibility.alreadyUploaded &&
+          !uploadEligibility.uploadLimitBypassed
+        }
+        socialSettings={socialSettings}
       />
     </PageWrapper>
   );

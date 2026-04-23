@@ -1,14 +1,17 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireModOrAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
+import UserRoleActions from "./UserRoleActions";
 
 
 type UserLog = {
   discord_user_id: string;
+  public_profile_id?: string | null;
   current_discord_username: string | null;
   known_discord_usernames: string[] | null;
   username_change_count: number;
@@ -31,6 +34,7 @@ type UserLog = {
   ban_reason: string | null;
   first_seen_at: string;
   last_seen_at: string;
+  team_role?: "admin" | "mod" | null;
 };
 
 
@@ -84,6 +88,38 @@ export default async function AdminUsersPage({
     console.error("USER LOG VIEW ERROR", error);
     return <div style={{ padding: 24 }}>Failed to load user logs</div>;
   }
+
+  const discordUserIds =
+    (filteredUsers ?? []).map(
+      (user: UserLog) => user.discord_user_id
+    );
+  const publicProfilesResult =
+    discordUserIds.length > 0
+      ? await supabaseAdmin
+          .from("user_logs")
+          .select("discord_user_id, public_profile_id")
+          .in("discord_user_id", discordUserIds)
+      : { data: [], error: null };
+
+  const publicProfileIdByDiscordUserId = new Map(
+    (publicProfilesResult.data ?? []).map((row) => [
+      row.discord_user_id,
+      row.public_profile_id,
+    ])
+  );
+  const teamMembersResult =
+    discordUserIds.length > 0
+      ? await supabaseAdmin
+          .from("team_members")
+          .select("discord_user_id, role")
+          .in("discord_user_id", discordUserIds)
+      : { data: [], error: null };
+  const teamRoleByDiscordUserId = new Map(
+    (teamMembersResult.data ?? []).map((row) => [
+      row.discord_user_id,
+      row.role as "admin" | "mod",
+    ])
+  );
 
   return (
     <div style={{ padding: 24 }}>
@@ -156,9 +192,24 @@ export default async function AdminUsersPage({
 
                 
                 <td style={{ padding: "8px 0" }}>
-  <strong>
-    {user.current_discord_username ?? "Unknown"}
-  </strong>
+  {publicProfileIdByDiscordUserId.get(user.discord_user_id) ? (
+    <Link
+      href={`/profile/${publicProfileIdByDiscordUserId.get(user.discord_user_id)}`}
+      style={{
+        color: "#ff9f1c",
+        textDecoration: "underline",
+        textUnderlineOffset: 4,
+      }}
+    >
+      <strong>
+        {user.current_discord_username ?? "Unknown"}
+      </strong>
+    </Link>
+  ) : (
+    <strong>
+      {user.current_discord_username ?? "Unknown"}
+    </strong>
+  )}
 
   
   {user.flagged_for_review && (
@@ -243,6 +294,16 @@ export default async function AdminUsersPage({
   isBanned={user.is_banned}
   role={member.role}
 />
+
+  {member.role === "admin" && (
+    <UserRoleActions
+      discordUserId={user.discord_user_id}
+      role={
+        teamRoleByDiscordUserId.get(user.discord_user_id) ??
+        null
+      }
+    />
+  )}
 
 </td>
 

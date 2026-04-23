@@ -1,14 +1,19 @@
 export const runtime = "nodejs";
 
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { requireSession } from "@/lib/auth/requireSession";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { isUniqueViolation } from "@/lib/db/isUniqueViolation";
 import { logUpload } from "@/lib/logging/logUpload";
 import { logUploadFailAndCheckLimit } from "@/lib/logging/logUploadFailAndCheckLimit";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
 import { r2 } from "@/lib/r2";
+import { getSocialDisplayLabel } from "@/lib/socials/normalize";
 import { getUploadEligibility } from "@/lib/upload/getUploadEligibility";
 
 const MAX_UPLOAD_SIZE = 4 * 1024 * 1024;
@@ -46,7 +51,26 @@ async function failUpload({
   return NextResponse.json({ error }, { status });
 }
 
+async function cleanupUploadedObject(r2Key: string | null) {
+  if (!r2Key) {
+    return;
+  }
+
+  try {
+    await r2.send(
+      new DeleteObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: r2Key,
+      })
+    );
+  } catch (cleanupError) {
+    console.error("[UPLOAD CLEANUP ERROR]", cleanupError);
+  }
+}
+
 export async function POST(req: Request) {
+  let uploadedR2Key: string | null = null;
+
   try {
     const { discord_user_id: discordUserId } = await requireSession();
     const uploadEligibility = await getUploadEligibility({
@@ -117,7 +141,10 @@ export async function POST(req: Request) {
       );
     }
 
-    if (uploadEligibility.alreadyUploaded) {
+    if (
+      uploadEligibility.alreadyUploaded &&
+      !uploadEligibility.uploadLimitBypassed
+    ) {
       return failUpload({
         discordUserId,
         cycleId: uploadEligibility.activeCycleId,
@@ -152,8 +179,6 @@ export async function POST(req: Request) {
       });
     }
 
-    const xUsernameRaw = formData.get("xUsername")?.toString() ?? "";
-    const xUsername = xUsernameRaw.trim() || null;
     const walletAddress =
       formData.get("walletAddress")?.toString().trim() ?? "";
     const payoutChoice = formData.get("payoutChoice")?.toString() ?? null;
@@ -165,11 +190,23 @@ export async function POST(req: Request) {
     const normalizedCharity =
       charityRaw.length > 0 ? charityRaw : null;
 
-    if (!walletAddress || !payoutChoice) {
+    if (!payoutChoice) {
       return failUpload({
         discordUserId,
         reason: "validation_failed",
         error: "Missing submission metadata",
+        status: 400,
+      });
+    }
+
+    if (
+      (payoutChoice === "keep" || payoutChoice === "split") &&
+      !walletAddress
+    ) {
+      return failUpload({
+        discordUserId,
+        reason: "validation_failed",
+        error: "Wallet address required",
         status: 400,
       });
     }
@@ -213,6 +250,8 @@ export async function POST(req: Request) {
       payoutChoice === "donate" || payoutChoice === "split"
         ? normalizedCharity
         : null;
+    const normalizedWalletAddress =
+      payoutChoice === "donate" ? "" : walletAddress;
 
     const inputBuffer = Buffer.from(await file.arrayBuffer());
     const webpBuffer = await sharp(inputBuffer)
@@ -221,6 +260,7 @@ export async function POST(req: Request) {
       .toBuffer();
 
     const r2Key = `${uploadEligibility.activeCycleId}/${crypto.randomUUID()}.webp`;
+    uploadedR2Key = r2Key;
 
     await r2.send(
       new PutObjectCommand({
@@ -233,7 +273,9 @@ export async function POST(req: Request) {
 
     const { data: userLog } = await supabaseAdmin
       .from("user_logs")
-      .select("current_discord_username")
+      .select(
+        "current_discord_username, show_socials_on_submissions"
+      )
       .eq("discord_user_id", discordUserId)
       .maybeSingle();
 
@@ -252,6 +294,19 @@ export async function POST(req: Request) {
       .single();
 
     if (insertError || !submission) {
+      if (isUniqueViolation(insertError)) {
+        await cleanupUploadedObject(uploadedR2Key);
+        uploadedR2Key = null;
+
+        return failUpload({
+          discordUserId,
+          cycleId: uploadEligibility.activeCycleId,
+          reason: "duplicate_submission",
+          error: "You already uploaded for this cycle",
+          status: 400,
+        });
+      }
+
       await logUpload({
         cycleId: uploadEligibility.activeCycleId,
         discordUserId,
@@ -266,8 +321,8 @@ export async function POST(req: Request) {
       .from("submission_private_data")
       .insert({
         submission_id: submission.id,
-        x_username: xUsername,
-        wallet_address: walletAddress,
+        x_username: null,
+        wallet_address: normalizedWalletAddress,
         payout_choice: payoutChoice,
         split_percent: submissionSplitPercent,
         charity: submissionCharity,
@@ -285,6 +340,64 @@ export async function POST(req: Request) {
       throw privateError;
     }
 
+    if (userLog?.show_socials_on_submissions) {
+      const { data: socialLinks, error: socialLinksError } =
+        await supabaseAdmin
+          .from("user_social_links")
+          .select(
+            "id, platform, handle, profile_url, is_verified"
+          )
+          .eq("discord_user_id", discordUserId)
+          .eq("is_verified", true)
+          .order("created_at", { ascending: true });
+
+      if (socialLinksError) {
+        await logUpload({
+          cycleId: uploadEligibility.activeCycleId,
+          discordUserId,
+          submissionId: submission.id,
+          status: "failed",
+          reason: "db_error",
+        });
+
+        throw socialLinksError;
+      }
+
+      const snapshotRows = (socialLinks ?? []).map(
+        (socialLink) => ({
+          submission_id: submission.id,
+          discord_user_id: discordUserId,
+          platform: socialLink.platform,
+          display_label: getSocialDisplayLabel({
+            platform: socialLink.platform,
+            handle: socialLink.handle,
+            profile_url: socialLink.profile_url,
+          }),
+          profile_url: socialLink.profile_url,
+          is_verified_snapshot: socialLink.is_verified,
+          source_user_social_link_id: socialLink.id,
+        })
+      );
+
+      if (snapshotRows.length > 0) {
+        const { error: snapshotError } = await supabaseAdmin
+          .from("submission_social_links")
+          .insert(snapshotRows);
+
+        if (snapshotError) {
+          await logUpload({
+            cycleId: uploadEligibility.activeCycleId,
+            discordUserId,
+            submissionId: submission.id,
+            status: "failed",
+            reason: "db_error",
+          });
+
+          throw snapshotError;
+        }
+      }
+    }
+
     await logUpload({
       cycleId: uploadEligibility.activeCycleId,
       discordUserId,
@@ -292,9 +405,13 @@ export async function POST(req: Request) {
       status: "success",
     });
 
+    uploadedR2Key = null;
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("UPLOAD ERROR", error);
+
+    await cleanupUploadedObject(uploadedR2Key);
 
     if (error instanceof Response) {
       throw error;

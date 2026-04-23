@@ -63,20 +63,10 @@ export default async function Home() {
             <a href="#about">ABOUT</a>
             <a href="/upload">UPLOAD</a>
             <a href="/vote">VOTE</a>
-
-            <span className="hidden gap-8 sm:flex">
-              <a href="/faq">FAQ / RULES</a>
-              <a href="/wall/fame">WALL OF FAME</a>
-              <a href="/wall/shame">WALL OF SHAME</a>
-            </span>
-
-            <span className="mt-2 flex w-full justify-center sm:hidden">
-              <span className="flex gap-8">
-                <a href="/faq">FAQ</a>
-                <a href="/wall/fame">FAME</a>
-                <a href="/wall/shame">SHAME</a>
-              </span>
-            </span>
+            <a href="/faq">FAQ</a>
+            <a href="/rules">RULES</a>
+            <a href="/wall/fame">WALL OF FAME</a>
+            <a href="/wall/shame">WALL OF SHAME</a>
           </nav>
         </div>
       </div>
@@ -196,18 +186,16 @@ export default async function Home() {
               </p>
 
               <p>
-                Winners choose whether to keep, donate, or split their prize.
-                Those who donate at least 1% appear on the Wall of Fame; others
-                on the Wall of Shame.
+                At the end of each cycle, the winning submissions are published
+                on the Wall of Fame.
               </p>
 
               <p>
-                Whatever the winner decides, the creator mirrors the exact same
-                decision for their remaining 50%, including donation amount and
-                charity.
+                The project will evolve over time, but the core idea stays the
+                same: create, upload, vote, and grow the culture together.
               </p>
 
-              <a href="/faq" className="orange-box-link">
+              <a href="/rules" className="orange-box-link">
                 View more -&gt;
               </a>
             </div>

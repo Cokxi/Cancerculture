@@ -1,6 +1,7 @@
 "use client";
 
 import HomeBlinkCell from "@/app/components/HomeBlinkCell";
+import { SocialPlatformBadge } from "@/app/components/profile/SocialUi";
 import ScannerDisplay from "@/app/components/upload/ScannerDisplay";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
@@ -8,6 +9,7 @@ import { useOverlay } from "@/app/components/overlay/OverlayProvider";
 import CharitiesOverlay from "@/app/components/overlay/CharitiesOverlay";
 import RulesOverlay from "@/app/components/overlay/RulesOverlay";
 import DiscordGateOverlay from "@/app/components/overlay/DiscordGateOverlay";
+import type { UserSocialSettings } from "@/lib/socials/getUserSocialSettings";
 
 
 type PayoutChoice = "keep" | "donate" | "split";
@@ -28,12 +30,15 @@ const CHARITY_OPTIONS = [
 
 
 export default function DesktopUpload({ 
-  
+  hasActiveCycle,
   showSupportLink,
   forceSuccessState = false,
+  socialSettings,
 }: {
+  hasActiveCycle: boolean;
   showSupportLink: boolean;
   forceSuccessState?: boolean;
+  socialSettings: UserSocialSettings;
 }) {
 
   const { openOverlay } = useOverlay();
@@ -41,7 +46,6 @@ export default function DesktopUpload({
   const [uploadDone, setUploadDone] = useState(forceSuccessState);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [xUsername, setXUsername] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
   const [payoutChoice, setPayoutChoice] = useState<PayoutChoice | null>(null);
   const [splitPercent, setSplitPercent] = useState(50);
@@ -63,9 +67,12 @@ useEffect(() => {
 
 
   const hasImage = !!file;
+  const walletDisabled = payoutChoice === "donate";
+  const walletRequired =
+    payoutChoice === "keep" || payoutChoice === "split";
   const hasMeta =
-    !!walletAddress.trim() &&
     !!payoutChoice &&
+    (!walletRequired || !!walletAddress.trim()) &&
     (payoutChoice !== "split" || splitPercent > 0) &&
     (payoutChoice === "keep" || charity);
 
@@ -73,6 +80,7 @@ useEffect(() => {
   hasImage && hasMeta ? "ready" : hasImage || hasMeta ? "partial" : "idle";
 
 useEffect(() => {
+  if (!hasActiveCycle) return;
   if (submitState !== "ready") return;
   if (rulesStatus !== "unknown") return;
 
@@ -110,7 +118,7 @@ useEffect(() => {
   };
 
   checkRules();
-}, [openOverlay, rulesStatus, submitState]);
+}, [hasActiveCycle, openOverlay, rulesStatus, submitState]);
   const submitImage =
   submitState === "ready"
     ? "https://cdn.cancerculture.fun/webp/submit.confirm/sub3.webp"
@@ -119,7 +127,10 @@ useEffect(() => {
     : "https://cdn.cancerculture.fun/webp/submit.confirm/sub1.webp";
 
 
-  const handleScannerClick = () => fileInputRef.current?.click();
+  const handleScannerClick = () => {
+    if (!hasActiveCycle) return;
+    fileInputRef.current?.click();
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -129,6 +140,7 @@ useEffect(() => {
   };
 
   const handleSubmit = async () => {
+  if (!hasActiveCycle) return;
   if (
     submitState !== "ready" ||
     isSubmitting ||
@@ -141,9 +153,10 @@ useEffect(() => {
     try {
       const formData = new FormData();
       formData.append("file", file!);
-      const normalizedX = xUsername.trim().replace(/^@+/, "");
-      formData.append("xUsername", normalizedX);
-      formData.append("walletAddress", walletAddress);
+      formData.append(
+        "walletAddress",
+        walletRequired ? walletAddress : ""
+      );
       formData.append("payoutChoice", payoutChoice!);
       formData.append("splitPercent", splitPercent.toString());
       if (charity === "other") formData.append("charity", customCharity);
@@ -196,8 +209,9 @@ if (file.size > MAX_UPLOAD_SIZE) {
       <div className="max-w-6xl mx-auto px-6 flex flex-col gap-14">
 
         
-        {!uploadDone && (
-          <>
+        {!uploadDone &&
+          (hasActiveCycle ? (
+            <>
             
             <div className="flex flex-col items-center gap-4">
               <span className="upload-hint animate-soft-hint">
@@ -231,25 +245,65 @@ if (file.size > MAX_UPLOAD_SIZE) {
 
             
             <div className="mx-auto w-full max-w-xl bg-yellow-star rounded-3xl p-8 flex flex-col gap-5">
-              <input
-                placeholder="@username (optional)"
-                value={xUsername}
-                onChange={(e) => setXUsername(e.target.value)}
-                className="rounded-xl px-4 py-2 bg-white"
-              />
+              <div className="flex flex-col items-center gap-3 text-center">
+                <div className="font-[Permanent_Marker] text-[var(--orange-dark)]">
+                {socialSettings.socialCount === 0 ? (
+                  <span>
+                    No socials connected yet.
+                  </span>
+                ) : socialSettings.showSocialsOnSubmissions &&
+                  socialSettings.verifiedSocialCount > 0 ? (
+                  <span>
+                    Your verified socials will show on revealed submissions.
+                  </span>
+                ) : socialSettings.showSocialsOnSubmissions ? (
+                  <span>
+                    Submission socials are enabled, but you have no verified socials yet.
+                  </span>
+                ) : (
+                  <span>
+                    Your socials are currently hidden for submissions.
+                  </span>
+                )}
+                </div>
 
-              <input
-                placeholder="Wallet address"
-                value={walletAddress}
-                onChange={(e) => setWalletAddress(e.target.value)}
-                className="rounded-xl px-4 py-2 bg-white"
-              />
+                {socialSettings.showSocialsOnSubmissions &&
+                socialSettings.socialPlatforms.length > 0 ? (
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    {socialSettings.socialPlatforms.map((platform, index) => (
+                      <SocialPlatformBadge
+                        key={`${platform}-${index}`}
+                        platform={platform}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              {!walletDisabled ? (
+                <input
+                  placeholder="Wallet address"
+                  value={walletAddress}
+                  onChange={(e) => setWalletAddress(e.target.value)}
+                  className="rounded-xl px-4 py-2 bg-white"
+                />
+              ) : (
+                <div className="text-center font-[Permanent_Marker] text-[var(--orange-dark)]">
+                  Clean move. We respect that!
+                </div>
+              )}
 
               <div className="flex gap-3">
                 {["keep", "donate", "split"].map((o) => (
                   <button
                     key={o}
-                    onClick={() => setPayoutChoice(o as PayoutChoice)}
+                    onClick={() => {
+                      const nextChoice = o as PayoutChoice;
+                      setPayoutChoice(nextChoice);
+                      if (nextChoice === "donate") {
+                        setWalletAddress("");
+                      }
+                    }}
                     className={`flex-1 py-2 rounded-xl cursor-pointer transition ${
                       payoutChoice === o
                         ? "bg-black text-yellow-300"
@@ -343,14 +397,25 @@ if (file.size > MAX_UPLOAD_SIZE) {
               </div>
             )}
           </>
-        )}
+          ) : (
+            <div className="mx-auto w-full max-w-2xl rounded-[2rem] bg-yellow-star px-8 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
+              <div className="font-[Permanent_Marker] text-3xl text-[var(--orange-dark)]">
+                No active cycle right now.
+              </div>
+              <p className="mt-4 text-base text-[var(--orange-main)]">
+                Uploads open again automatically as soon as the next cycle starts.
+              </p>
+            </div>
+          ))}
 
         
-        {!uploadDone ? (
+        {!uploadDone && hasActiveCycle ? (
           <div
   onClick={handleSubmit}
   className={`mx-auto ${
-    submitState === "ready" && rulesStatus === "accepted"
+    hasActiveCycle &&
+    submitState === "ready" &&
+    rulesStatus === "accepted"
       ? "cursor-pointer"
       : "opacity-60"
   }`}
@@ -362,7 +427,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
               height={260}
             />
           </div>
-        ) : (
+        ) : uploadDone ? (
           <div
             className="mx-auto cursor-pointer"
             onClick={() => (location.href = "/")}
@@ -370,7 +435,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
             <HomeBlinkCell mode={successMode} />
 
           </div>
-        )}
+        ) : null}
 
         
         {showSupportLink && (
@@ -395,6 +460,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
           accept="image/*"
           hidden
           onChange={handleFileChange}
+          disabled={!hasActiveCycle}
         />
       </div>
   

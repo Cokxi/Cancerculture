@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 
 function sanitizeState(state: string | null): string {
   if (!state) return "/upload";
@@ -8,11 +9,10 @@ function sanitizeState(state: string | null): string {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-
-  
-  const state = sanitizeState(
+  const redirectPath = sanitizeState(
     searchParams.get("state")
   );
+  const oauthState = randomUUID();
 
   const discordAuthUrl = new URL(
     "https://discord.com/api/oauth2/authorize"
@@ -29,7 +29,29 @@ export async function GET(req: Request) {
   );
   discordAuthUrl.searchParams.set("scope", "identify");
   discordAuthUrl.searchParams.set("prompt", "consent");
-  discordAuthUrl.searchParams.set("state", state);
+  discordAuthUrl.searchParams.set("state", oauthState);
 
-  return NextResponse.redirect(discordAuthUrl.toString());
+  const response = NextResponse.redirect(
+    discordAuthUrl.toString()
+  );
+
+  const isProd = process.env.NODE_ENV === "production";
+
+  response.cookies.set("oauth_state", oauthState, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 10,
+  });
+
+  response.cookies.set("oauth_redirect_path", redirectPath, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 10,
+  });
+
+  return response;
 }

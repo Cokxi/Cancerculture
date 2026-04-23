@@ -25,23 +25,14 @@ export async function POST(req: Request) {
     }
 
     if (role === "mod") {
-      
-      const { data: inviteLog } =
-        await supabaseAdmin
-          .from("invite_auth_logs")
-          .select("discord_username")
-          .eq(
-            "invited_discord_user_id",
-            targetDiscordId
-          )
-          .order("created_at", {
-            ascending: false,
-          })
-          .limit(1)
-          .maybeSingle();
+      const { data: userLog } = await supabaseAdmin
+        .from("user_logs")
+        .select("current_discord_username")
+        .eq("discord_user_id", targetDiscordId)
+        .maybeSingle();
 
       const discordUsername: string | null =
-        inviteLog?.discord_username ?? null;
+        userLog?.current_discord_username ?? null;
 
       
       await supabaseAdmin
@@ -79,8 +70,15 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    if (error?.status === 401 || error?.status === 403) {
+  } catch (error: unknown) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      (error.status === 401 || error.status === 403) &&
+      "message" in error &&
+      typeof error.message === "string"
+    ) {
       return NextResponse.json(
         { error: error.message },
         { status: error.status }

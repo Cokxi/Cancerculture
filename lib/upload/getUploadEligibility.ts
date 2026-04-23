@@ -18,10 +18,26 @@ export type UploadEligibility = {
   banReason: string | null;
   activeCycleId: number | null;
   alreadyUploaded: boolean;
+  uploadLimitBypassed: boolean;
   hasAcceptedRules: boolean;
   isRateLimited: boolean;
   membership: DiscordMembershipStatus | null;
 };
+
+function isUploadLimitBypassedForUser(discordUserId: string) {
+  const allowList =
+    process.env.UPLOAD_LIMIT_BYPASS_DISCORD_IDS ?? "";
+
+  if (!allowList.trim()) {
+    return false;
+  }
+
+  return allowList
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .includes(discordUserId);
+}
 
 export async function getUploadEligibility({
   discordUserId,
@@ -40,10 +56,12 @@ export async function getUploadEligibility({
     .single();
 
   const activeCycle = await getActiveCycle();
+  const uploadLimitBypassed =
+    isUploadLimitBypassedForUser(discordUserId);
 
   let alreadyUploaded = false;
 
-  if (activeCycle?.id) {
+  if (activeCycle?.id && !uploadLimitBypassed) {
     const { data: existingSubmission } = await supabaseAdmin
       .from("submissions")
       .select("id")
@@ -84,6 +102,7 @@ export async function getUploadEligibility({
     banReason: userLog?.ban_reason ?? null,
     activeCycleId: activeCycle?.id ?? null,
     alreadyUploaded,
+    uploadLimitBypassed,
     hasAcceptedRules:
       userLog?.accepted_rules_version === currentRules?.current_version,
     isRateLimited: (userLog?.upload_fail_count ?? 0) >= 5,

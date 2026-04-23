@@ -1,5 +1,8 @@
 import BackButton from "@/app/components/ui/BackButton";
+import PublicProfileSocialsSection from "@/app/components/profile/PublicProfileSocialsSection";
+import { getTeamMember } from "@/lib/auth/guards";
 import { requireSession } from "@/lib/auth/requireSession";
+import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
 import { getPublicUserProfileData } from "@/lib/profile/getPublicUserProfileData";
 
@@ -25,6 +28,15 @@ export default async function PublicProfilePage({
   params: Promise<{ publicProfileId: string }>;
 }) {
   await requireSession();
+
+  let canModerateSocials = false;
+
+  try {
+    await getTeamMember();
+    canModerateSocials = true;
+  } catch {
+    canModerateSocials = false;
+  }
 
   const { publicProfileId } = await params;
   const profile = await getPublicUserProfileData(publicProfileId);
@@ -91,6 +103,12 @@ export default async function PublicProfilePage({
           )}
         </div>
 
+        <PublicProfileSocialsSection
+          socials={profile.socialLinks}
+          showSocials={profile.showSocials}
+          canModerate={canModerateSocials}
+        />
+
         <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
           <h2 className="mb-4 text-xl font-[Permanent_Marker] text-[var(--orange-dark)]">
             Submissions
@@ -111,8 +129,8 @@ export default async function PublicProfilePage({
                         alt={`Submission for cycle ${submission.cycle_id}`}
                       />
                     ) : (
-                      <div className="flex h-40 w-40 items-center justify-center rounded bg-orange-200/20 text-4xl">
-                        ?
+                      <div className="flex h-40 w-40 items-center justify-center rounded bg-orange-200/20 px-3 text-center text-sm text-white/80">
+                        Hidden pending legal review
                       </div>
                     )}
 
@@ -120,6 +138,27 @@ export default async function PublicProfilePage({
                       <div>Cycle: {submission.cycle_id}</div>
                       <div>Votes: {submission.vote_count}</div>
                       <div>Rank: {renderRank(submission)}</div>
+
+                      {submission.public_visibility_status ===
+                        SUBMISSION_PUBLIC_VISIBILITY.legalReview && (
+                        <div className="rounded-lg bg-yellow-500/10 p-3 text-yellow-200">
+                          <div className="font-semibold">
+                            Temporarily hidden pending legal review
+                          </div>
+                          {submission.public_visibility_reason_code && (
+                            <div className="mt-1 text-xs">
+                              {formatReason(
+                                submission.public_visibility_reason_code
+                              )}
+                            </div>
+                          )}
+                          {submission.public_visibility_reason_text && (
+                            <div className="mt-1 text-xs">
+                              {submission.public_visibility_reason_text}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {submission.is_disqualified ? (
                         <div className="pt-2 text-red-400">

@@ -3,6 +3,10 @@ export const runtime = "nodejs";
 import { logAdminAction } from "@/lib/audit/logAdminAction";
 import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin as supabase } from "@/lib/db/admin";
+import {
+  normalizeSubmissionPublicVisibilityStatus,
+  SUBMISSION_PUBLIC_VISIBILITY,
+} from "@/lib/moderation/submissionPublicVisibility";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { NextResponse } from "next/server";
 
@@ -65,9 +69,54 @@ export async function POST() {
       );
     }
 
-    const maxVotes = Math.max(...results.map((r) => r.vote_count));
+    const visibilityRowsResult = await supabase
+      .from("submissions")
+      .select("id, public_visibility_status")
+      .in(
+        "id",
+        results.map((result) => result.id)
+      );
 
-    const finalizedResults = results.map((r) => ({
+    if (visibilityRowsResult.error) {
+      return NextResponse.json(
+        {
+          error:
+            "Failed to load submission visibility states",
+        },
+        { status: 500 }
+      );
+    }
+
+    const visibleSubmissionIds = new Set(
+      (visibilityRowsResult.data ?? [])
+        .filter(
+          (submission) =>
+            normalizeSubmissionPublicVisibilityStatus(
+              submission.public_visibility_status
+            ) === SUBMISSION_PUBLIC_VISIBILITY.visible
+        )
+        .map((submission) => submission.id)
+    );
+
+    const visibleResults = results.filter((result) =>
+      visibleSubmissionIds.has(result.id)
+    );
+
+    if (visibleResults.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No publicly visible submissions remain for finalization",
+        },
+        { status: 400 }
+      );
+    }
+
+    const maxVotes = Math.max(
+      ...visibleResults.map((result) => result.vote_count)
+    );
+
+    const finalizedResults = visibleResults.map((r) => ({
       cycle_id: cycle.id,
       submission_id: r.id,
       vote_count: r.vote_count,
@@ -130,10 +179,15 @@ export async function POST() {
         );
       }
 
-      const wall =
-        privateData.payout_choice === "keep"
-          ? "shame"
-          : "fame";
+      const charitySharePercent =
+        privateData.payout_choice === "donate"
+          ? 100
+          : privateData.payout_choice === "split" &&
+              typeof privateData.split_percent === "number"
+            ? 100 - privateData.split_percent
+            : 0;
+      const winnerWall =
+        charitySharePercent >= 1 ? "fame" : "shame";
 
       const {
         error: winnerProfileInsertError,
@@ -144,7 +198,7 @@ export async function POST() {
           submission_id: winner.submission_id,
           r2_key: submission.r2_key,
           image_url: getPublicImageUrl(submission.r2_key) ?? "",
-          wall,
+          wall: winnerWall,
           // Compatibility fallback for legacy schemas that still require x_username.
           x_username:
             privateData.x_username ??
@@ -179,6 +233,11 @@ export async function POST() {
       .from("app_config")
       .update({ value: null })
       .eq("key", "cycle_end_at");
+
+    await supabase
+      .from("app_config")
+      .update({ value: null })
+      .eq("key", "cycle_theme");
 
     await logAdminAction({
       actorType: "admin",

@@ -32,7 +32,13 @@ export default async function AdminModerationLogsPage() {
       cycle_id,
       evidence
     `)
-    .in("action", ["disqualify_submission", "reinstate_submission"])
+    .in("action", [
+      "disqualify_submission",
+      "reinstate_submission",
+      "mark_submission_legal_review",
+      "restore_submission_public_visibility",
+      "remove_submission_from_public",
+    ])
     .not("cycle_id", "is", null)
     .order("cycle_id", { ascending: false })
     .order("created_at", { ascending: false });

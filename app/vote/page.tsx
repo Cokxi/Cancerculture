@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth/requireSession";
 import VoteClient from "./VoteClient";
 import PageWrapper from "@/app/components/ui/PageWrapper";
+import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
 import { supabaseServer } from "@/lib/db/server";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { getVoteEligibility } from "@/lib/vote/getVoteEligibility";
@@ -11,7 +12,6 @@ export const dynamic = "force-dynamic";
 export default async function VotePage() {
   let discordUserId: string;
 
-  
   try {
     const session = await requireSession();
     discordUserId = session.discord_user_id;
@@ -45,6 +45,9 @@ export default async function VotePage() {
       ...s,
       image_url: getPublicImageUrl(s.r2_key) ?? "",
     })) ?? [];
+  const sponsoredMeta = await getCycleSponsoredMeta(
+    voteEligibility.activeCycleId
+  );
 
   return (
     <PageWrapper>
@@ -53,6 +56,7 @@ export default async function VotePage() {
         hasVoted={voteEligibility.hasVoted}
         discordUserId={discordUserId}
         isBanned={voteEligibility.isBanned}
+        sponsoredMeta={sponsoredMeta}
       />
     </PageWrapper>
   );

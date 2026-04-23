@@ -24,13 +24,12 @@ export default async function AdminModerationSubmissionsPage() {
 
   
   const { data: submissions } = await supabaseAdmin
-    .from("submissions_with_votes")
+    .from("submissions")
     .select(`
       id,
       cycle_id,
       r2_key,
       is_disqualified,
-      vote_count,
       discord_user_id
     `)
     .eq("cycle_id", activeCycle.id)
@@ -41,6 +40,11 @@ export default async function AdminModerationSubmissionsPage() {
     submissions?.map((s) => ({
       ...s,
       image_url: getPublicImageUrl(s.r2_key) ?? "",
+      thumb_url: s.r2_key
+        ? `${new URL(
+            getPublicImageUrl(s.r2_key) ?? ""
+          ).origin}/cdn-cgi/image/w=400,q=75/${s.r2_key}`
+        : "",
     })) ?? [];
 
   return (
