@@ -10,6 +10,7 @@ export type SponsoredCycleDraft = {
 };
 
 export type SponsoredCycleMeta = {
+  sponsorshipId: number | null;
   enabled: boolean;
   companyName: string;
   sponsorLink: string;
@@ -107,6 +108,30 @@ export async function saveCycleSponsoredMeta(
   cycleId: number,
   meta: Omit<SponsoredCycleMeta, "bannerUrl">
 ) {
+  const sponsorshipResult = await supabaseAdmin
+    .from("cycle_sponsorships")
+    .upsert(
+      {
+        cycle_id: cycleId,
+        sponsor_name: meta.companyName,
+        sponsor_link: meta.sponsorLink,
+        banner_r2_key: meta.bannerR2Key,
+        is_active: meta.enabled,
+        starts_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "cycle_id" }
+    );
+
+  if (!sponsorshipResult.error) {
+    return;
+  }
+
+  console.warn(
+    "[saveCycleSponsoredMeta][cycle_sponsorships]",
+    sponsorshipResult.error.message
+  );
+
   const { error } = await supabaseAdmin
     .from("app_config")
     .upsert(
@@ -122,9 +147,60 @@ export async function saveCycleSponsoredMeta(
   }
 }
 
+export async function markCycleSponsorshipEnded(cycleId: number) {
+  const { error } = await supabaseAdmin
+    .from("cycle_sponsorships")
+    .update({
+      ends_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("cycle_id", cycleId);
+
+  if (error) {
+    console.warn(
+      "[markCycleSponsorshipEnded]",
+      error.message
+    );
+  }
+}
+
 export async function getCycleSponsoredMeta(
   cycleId: number
 ): Promise<SponsoredCycleMeta | null> {
+  const sponsorshipResult = await supabaseAdmin
+    .from("cycle_sponsorships")
+    .select(
+      "id, sponsor_name, sponsor_link, banner_r2_key, is_active"
+    )
+    .eq("cycle_id", cycleId)
+    .maybeSingle();
+
+  if (!sponsorshipResult.error && sponsorshipResult.data) {
+    const bannerR2Key = normalizeString(
+      sponsorshipResult.data.banner_r2_key
+    );
+
+    return {
+      sponsorshipId: sponsorshipResult.data.id,
+      enabled: sponsorshipResult.data.is_active === true,
+      companyName: normalizeString(
+        sponsorshipResult.data.sponsor_name
+      ),
+      sponsorLink: normalizeString(
+        sponsorshipResult.data.sponsor_link
+      ),
+      bannerR2Key,
+      bannerUrl: getPublicImageUrl(bannerR2Key) ?? null,
+    };
+  }
+
+  if (sponsorshipResult.error) {
+    console.warn(
+      "[getCycleSponsoredMeta][cycle_sponsorships]",
+      sponsorshipResult.error.message
+    );
+  }
+
   const { data } = await supabaseAdmin
     .from("app_config")
     .select("value")
@@ -143,15 +219,80 @@ export async function getCycleSponsoredMeta(
       bannerR2Key?: string;
     };
     const bannerR2Key = normalizeString(parsed.bannerR2Key);
-
-    return {
+    const legacyMeta = {
       enabled: parsed.enabled === true,
       companyName: normalizeString(parsed.companyName),
       sponsorLink: normalizeString(parsed.sponsorLink),
       bannerR2Key,
       bannerUrl: getPublicImageUrl(bannerR2Key) ?? null,
     };
+
+    if (
+      legacyMeta.enabled &&
+      legacyMeta.companyName &&
+      legacyMeta.sponsorLink &&
+      legacyMeta.bannerR2Key
+    ) {
+      const migrationResult = await supabaseAdmin
+        .from("cycle_sponsorships")
+        .upsert(
+          {
+            cycle_id: cycleId,
+            sponsor_name: legacyMeta.companyName,
+            sponsor_link: legacyMeta.sponsorLink,
+            banner_r2_key: legacyMeta.bannerR2Key,
+            is_active: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "cycle_id" }
+        )
+        .select("id")
+        .single();
+
+      if (!migrationResult.error && migrationResult.data) {
+        return {
+          sponsorshipId: migrationResult.data.id,
+          ...legacyMeta,
+        };
+      }
+    }
+
+    return {
+      sponsorshipId: null,
+      ...legacyMeta,
+    };
   } catch {
     return null;
   }
+}
+
+export async function getCycleSponsorshipById(
+  sponsorshipId: number
+): Promise<SponsoredCycleMeta | null> {
+  const { data, error } = await supabaseAdmin
+    .from("cycle_sponsorships")
+    .select(
+      "id, sponsor_name, sponsor_link, banner_r2_key, is_active"
+    )
+    .eq("id", sponsorshipId)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) {
+      console.warn("[getCycleSponsorshipById]", error.message);
+    }
+
+    return null;
+  }
+
+  const bannerR2Key = normalizeString(data.banner_r2_key);
+
+  return {
+    sponsorshipId: data.id,
+    enabled: data.is_active === true,
+    companyName: normalizeString(data.sponsor_name),
+    sponsorLink: normalizeString(data.sponsor_link),
+    bannerR2Key,
+    bannerUrl: getPublicImageUrl(bannerR2Key) ?? null,
+  };
 }

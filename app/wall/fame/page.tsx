@@ -5,6 +5,10 @@ import AnimatedCell from "./AnimatedCell";
 import PageWrapper from "@/app/components/ui/PageWrapper";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { getSubmissionSocialLinksBySubmissionIds } from "@/lib/socials/getSubmissionSocialLinks";
+import {
+  normalizeSubmissionPublicVisibilityStatus,
+  showsSubmissionImagePublicly,
+} from "@/lib/moderation/submissionPublicVisibility";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +38,7 @@ export default async function WallOfFamePage() {
       ? await supabaseServer
           .from("submissions")
           .select(
-            "id, discord_username_at_upload, discord_user_id"
+            "id, discord_username_at_upload, discord_user_id, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text"
           )
           .in("id", submissionIds)
       : { data: [] };
@@ -83,20 +87,42 @@ export default async function WallOfFamePage() {
         );
 
       return (
-    winners?.map((w) => ({
-      ...w,
-      discord_username:
-        submissionMetaById.get(w.submission_id)
-          ?.discord_username ?? "unknown",
-      public_profile_id:
-        profileIdByDiscordUserId.get(
-        submissionMetaById.get(w.submission_id)
-          ?.discord_user_id ?? ""
-        ) ?? null,
-      image_url: getPublicImageUrl(w.r2_key) ?? "",
-      social_links:
-        socialLinksBySubmissionId.get(w.submission_id) ?? [],
-    })) ?? []
+        winners?.map((winner) => {
+          const submission = submissions.find(
+            (entry) => entry.id === winner.submission_id
+          );
+          const publicVisibilityStatus =
+            normalizeSubmissionPublicVisibilityStatus(
+              submission?.public_visibility_status
+            );
+
+          return {
+            ...winner,
+            discord_username:
+              submissionMetaById.get(winner.submission_id)
+                ?.discord_username ?? "unknown",
+            public_profile_id:
+              profileIdByDiscordUserId.get(
+                submissionMetaById.get(winner.submission_id)
+                  ?.discord_user_id ?? ""
+              ) ?? null,
+            image_url: showsSubmissionImagePublicly(
+              publicVisibilityStatus
+            )
+              ? getPublicImageUrl(winner.r2_key) ?? ""
+              : null,
+            public_visibility_status:
+              publicVisibilityStatus,
+            public_visibility_reason_code:
+              submission?.public_visibility_reason_code ??
+              null,
+            public_visibility_reason_text:
+              submission?.public_visibility_reason_text ??
+              null,
+            social_links:
+              socialLinksBySubmissionId.get(winner.submission_id) ?? [],
+          };
+        }) ?? []
       );
     })();
   const sponsoredMetaEntries = await Promise.all(

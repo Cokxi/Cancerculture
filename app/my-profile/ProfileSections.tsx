@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
 import type {
   ProfileSubmission,
@@ -43,6 +44,26 @@ function renderRank(submission: ProfileSubmission) {
   }`;
 }
 
+function renderPublicVisibilityStatus(
+  submission: ProfileSubmission
+) {
+  if (
+    submission.public_visibility_status ===
+    SUBMISSION_PUBLIC_VISIBILITY.legalReview
+  ) {
+    return "Hidden pending legal review";
+  }
+
+  if (
+    submission.public_visibility_status ===
+    SUBMISSION_PUBLIC_VISIBILITY.removed
+  ) {
+    return "Removed from public view";
+  }
+
+  return null;
+}
+
 export default function ProfileSections({
   submissions,
   votes,
@@ -66,11 +87,13 @@ export default function ProfileSections({
                     className="mb-2 h-40 w-40 rounded object-cover"
                     alt={`Submission for cycle ${submission.cycle_id}`}
                   />
-                ) : (
-                  <div className="mb-2 flex h-40 w-40 items-center justify-center rounded bg-orange-200/20 text-4xl">
-                    ?
-                  </div>
-                )}
+                  ) : (
+                    <div className="mb-2 flex h-40 w-40 items-center justify-center rounded bg-orange-200/20 text-4xl">
+                      {renderPublicVisibilityStatus(submission)
+                        ? "-"
+                        : "?"}
+                    </div>
+                  )}
 
                 <p className="text-sm text-gray-300">
                   Cycle: {submission.cycle_id}
@@ -112,6 +135,26 @@ export default function ProfileSections({
                           {
                             submission.disqualified_by_discord_username
                           }
+                        </div>
+                      )}
+                    </div>
+                  ) : renderPublicVisibilityStatus(
+                      submission
+                    ) ? (
+                    <div className="text-yellow-300">
+                      {renderPublicVisibilityStatus(submission)}
+
+                      {submission.public_visibility_reason_code && (
+                        <div className="mt-1 text-[11px] text-yellow-200">
+                          {formatReason(
+                            submission.public_visibility_reason_code
+                          )}
+                        </div>
+                      )}
+
+                      {submission.public_visibility_reason_text && (
+                        <div className="mt-1 text-[11px] text-yellow-200">
+                          {submission.public_visibility_reason_text}
                         </div>
                       )}
                     </div>

@@ -108,6 +108,7 @@ export async function POST(req: Request) {
 
     if (sponsoredDraft.enabled) {
       await saveCycleSponsoredMeta(cycle.id, {
+        sponsorshipId: null,
         enabled: true,
         companyName: sponsoredDraft.companyName,
         sponsorLink: sponsoredDraft.sponsorLink,

@@ -1,8 +1,10 @@
 import BackButton from "@/app/components/ui/BackButton";
 import AvatarUpload from "@/app/components/ui/AvatarUpload";
 import { requireSession } from "@/lib/auth/requireSession";
+import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
 import { getUserProfileData } from "@/lib/profile/getUserProfileData";
+import type { ProfileSubmission } from "@/lib/profile/getUserProfileData";
 import ProfileSocialsSection from "@/app/components/profile/ProfileSocialsSection";
 import ProfileSections from "./ProfileSections";
 
@@ -20,6 +22,26 @@ function renderRank(submission: {
       ? ` (${submission.tie_count} tied)`
       : ""
   }`;
+}
+
+function renderPublicVisibilityStatus(
+  submission: ProfileSubmission
+) {
+  if (
+    submission.public_visibility_status ===
+    SUBMISSION_PUBLIC_VISIBILITY.legalReview
+  ) {
+    return "Hidden pending legal review";
+  }
+
+  if (
+    submission.public_visibility_status ===
+    SUBMISSION_PUBLIC_VISIBILITY.removed
+  ) {
+    return "Removed from public view";
+  }
+
+  return null;
 }
 
 export default async function MyProfilePage() {
@@ -105,7 +127,12 @@ export default async function MyProfilePage() {
               />
             ) : (
               <div className="mb-3 flex h-48 w-48 items-center justify-center rounded bg-orange-200/20 text-4xl">
-                {activeCycleId ? "?" : "-"}
+                {currentSubmission &&
+                renderPublicVisibilityStatus(currentSubmission)
+                  ? "-"
+                  : activeCycleId
+                    ? "?"
+                    : "-"}
               </div>
             )}
 
@@ -147,6 +174,30 @@ export default async function MyProfilePage() {
                           by{" "}
                           {
                             currentSubmission.disqualified_by_discord_username
+                          }
+                        </div>
+                      )}
+                    </div>
+                  ) : renderPublicVisibilityStatus(
+                      currentSubmission
+                    ) ? (
+                    <div className="text-yellow-300">
+                      {renderPublicVisibilityStatus(
+                        currentSubmission
+                      )}
+
+                      {currentSubmission.public_visibility_reason_code && (
+                        <div className="mt-1 text-[11px] text-yellow-200">
+                          {formatReason(
+                            currentSubmission.public_visibility_reason_code
+                          )}
+                        </div>
+                      )}
+
+                      {currentSubmission.public_visibility_reason_text && (
+                        <div className="text-[11px] text-yellow-200">
+                          {
+                            currentSubmission.public_visibility_reason_text
                           }
                         </div>
                       )}

@@ -1,7 +1,6 @@
 import { supabaseServer } from "@/lib/db/server";
 import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
 import {
-  isSubmissionListedPublicly,
   normalizeSubmissionPublicVisibilityStatus,
   showsSubmissionImagePublicly,
 } from "@/lib/moderation/submissionPublicVisibility";
@@ -98,14 +97,6 @@ export default async function WallOfShamePage() {
             submission?.public_visibility_status
           );
 
-        if (
-          !isSubmissionListedPublicly(
-            publicVisibilityStatus
-          )
-        ) {
-          return null;
-        }
-
         return {
           ...winner,
           discord_username:
@@ -133,7 +124,7 @@ export default async function WallOfShamePage() {
             socialLinksBySubmissionId.get(winner.submission_id) ?? [],
         };
       })
-      .filter((winner): winner is NonNullable<typeof winner> => winner !== null) ?? []
+      ?? []
       );
     })();
   const sponsoredMetaEntries = await Promise.all(

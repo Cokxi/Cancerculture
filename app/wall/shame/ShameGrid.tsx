@@ -31,6 +31,48 @@ type Winner = {
   social_links: SubmissionSocialLink[];
 };
 
+function getVisibilityTitle(
+  status: SubmissionPublicVisibilityStatus
+) {
+  if (status === SUBMISSION_PUBLIC_VISIBILITY.removed) {
+    return "Image removed from public view";
+  }
+
+  if (status === SUBMISSION_PUBLIC_VISIBILITY.legalReview) {
+    return "Image hidden pending legal review";
+  }
+
+  return "Image unavailable";
+}
+
+function VisibilityPlaceholder({
+  winner,
+  className = "",
+}: {
+  winner: Winner;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex flex-col items-center justify-center rounded-lg bg-red-500/10 px-6 text-center text-white/80 ${className}`}
+    >
+      <div className="text-sm font-semibold">
+        {getVisibilityTitle(winner.public_visibility_status)}
+      </div>
+      {winner.public_visibility_reason_code ? (
+        <div className="mt-2 text-xs text-white/60">
+          {formatReason(winner.public_visibility_reason_code)}
+        </div>
+      ) : null}
+      {winner.public_visibility_reason_text ? (
+        <div className="mt-1 text-xs text-white/60">
+          {winner.public_visibility_reason_text}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function ShameGrid({
   winners,
   sponsoredMetaByCycleId,
@@ -123,9 +165,10 @@ export default function ShameGrid({
                   className="absolute inset-0 h-full w-full object-cover"
                 />
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-red-500/10 px-3 text-center text-sm text-white/80">
-                  Hidden pending legal review
-                </div>
+                <VisibilityPlaceholder
+                  winner={winner}
+                  className="absolute inset-0 rounded-none px-3 text-sm"
+                />
               )}
 
               <div
@@ -177,9 +220,10 @@ export default function ShameGrid({
                 }
               />
             ) : (
-              <div className="flex h-[60vh] w-[60vw] min-w-[280px] items-center justify-center rounded-lg bg-red-500/10 px-6 text-center text-white/80">
-                Hidden pending legal review
-              </div>
+              <VisibilityPlaceholder
+                winner={active}
+                className="h-[60vh] w-[60vw] min-w-[280px]"
+              />
             )}
 
             <div className="flex justify-center pb-2">
@@ -214,7 +258,9 @@ export default function ShameGrid({
                       SUBMISSION_PUBLIC_VISIBILITY.visible && (
                       <div className="rounded-lg bg-yellow-500/10 p-3 text-yellow-200">
                         <div className="font-semibold">
-                          Temporarily hidden pending legal review
+                          {getVisibilityTitle(
+                            active.public_visibility_status
+                          )}
                         </div>
                         {active.public_visibility_reason_code && (
                           <div className="mt-1 text-xs">
@@ -284,6 +330,12 @@ export default function ShameGrid({
                         sponsoredMetaByCycleId[active.cycle_id]
                           ?.sponsorLink ?? ""
                       }
+                      sponsorshipId={
+                        sponsoredMetaByCycleId[active.cycle_id]
+                          ?.sponsorshipId ?? null
+                      }
+                      surface="shame_modal"
+                      label="Sponsored by:"
                     />
                   </div>
                 ) : null}

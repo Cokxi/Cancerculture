@@ -35,6 +35,12 @@ export default function AdminLogsPage() {
             Moderation Logs
           </Link>
         </li>
+
+        <li>
+          <Link href="/admin/logs/sponsors">
+            Sponsor Reports
+          </Link>
+        </li>
       </ul>
     </div>
   );

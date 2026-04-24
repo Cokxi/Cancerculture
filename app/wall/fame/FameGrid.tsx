@@ -4,13 +4,18 @@ import SponsoredBanner from "@/app/components/SponsoredBanner";
 import ProfileLinkButton from "@/app/components/profile/ProfileLinkButton";
 import SubmissionSocialLinks from "@/app/components/profile/SubmissionSocialLinks";
 import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
+import {
+  SUBMISSION_PUBLIC_VISIBILITY,
+  type SubmissionPublicVisibilityStatus,
+} from "@/lib/moderation/submissionPublicVisibility";
+import { formatReason } from "@/lib/profile/formatReason";
 import type { SubmissionSocialLink } from "@/lib/socials/getSubmissionSocialLinks";
 import { useEffect, useRef, useState } from "react";
 
 type Winner = {
   id: number;
   submission_id: number;
-  image_url: string;
+  image_url: string | null;
   cycle_id: number;
   created_at: string;
   discord_username: string;
@@ -20,8 +25,53 @@ type Winner = {
   split_percent: number | null;
   charity: string | null;
   vote_count: number | null;
+  public_visibility_status: SubmissionPublicVisibilityStatus;
+  public_visibility_reason_code: string | null;
+  public_visibility_reason_text: string | null;
   social_links: SubmissionSocialLink[];
 };
+
+function getVisibilityTitle(
+  status: SubmissionPublicVisibilityStatus
+) {
+  if (status === SUBMISSION_PUBLIC_VISIBILITY.removed) {
+    return "Image removed from public view";
+  }
+
+  if (status === SUBMISSION_PUBLIC_VISIBILITY.legalReview) {
+    return "Image hidden pending legal review";
+  }
+
+  return "Image unavailable";
+}
+
+function VisibilityPlaceholder({
+  winner,
+  className = "",
+}: {
+  winner: Winner;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex flex-col items-center justify-center rounded-lg bg-yellow-500/10 px-6 text-center text-white/80 ${className}`}
+    >
+      <div className="text-sm font-semibold">
+        {getVisibilityTitle(winner.public_visibility_status)}
+      </div>
+      {winner.public_visibility_reason_code ? (
+        <div className="mt-2 text-xs text-white/60">
+          {formatReason(winner.public_visibility_reason_code)}
+        </div>
+      ) : null}
+      {winner.public_visibility_reason_text ? (
+        <div className="mt-1 text-xs text-white/60">
+          {winner.public_visibility_reason_text}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function FameGrid({
   winners,
@@ -108,13 +158,20 @@ export default function FameGrid({
                 group-hover:shadow-xl
               "
             >
-              <img
-                src={getThumbUrl(winner.image_url)}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                className="absolute inset-0 h-full w-full object-cover"
-              />
+              {winner.image_url ? (
+                <img
+                  src={getThumbUrl(winner.image_url)}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <VisibilityPlaceholder
+                  winner={winner}
+                  className="absolute inset-0 rounded-none px-3 text-sm"
+                />
+              )}
 
               <div
                 className="
@@ -152,17 +209,24 @@ export default function FameGrid({
             className="relative mx-auto w-fit rounded-xl bg-black"
             onClick={(e) => e.stopPropagation()}
           >
-            <img
-              src={active.image_url}
-              alt=""
-              onDoubleClick={handleToggleSize}
-              onTouchStart={handleTouchStart}
-              className={
-                showOriginalSize
-                  ? "mx-auto h-auto w-auto max-w-none rounded-lg"
-                  : "mx-auto h-auto max-h-[75vh] w-auto max-w-[75vw] rounded-lg object-contain"
-              }
-            />
+            {active.image_url ? (
+              <img
+                src={active.image_url}
+                alt=""
+                onDoubleClick={handleToggleSize}
+                onTouchStart={handleTouchStart}
+                className={
+                  showOriginalSize
+                    ? "mx-auto h-auto w-auto max-w-none rounded-lg"
+                    : "mx-auto h-auto max-h-[75vh] w-auto max-w-[75vw] rounded-lg object-contain"
+                }
+              />
+            ) : (
+              <VisibilityPlaceholder
+                winner={active}
+                className="h-[60vh] w-[60vw] min-w-[280px]"
+              />
+            )}
 
             <div className="flex justify-center pb-2">
               <button
@@ -252,6 +316,12 @@ export default function FameGrid({
                         sponsoredMetaByCycleId[active.cycle_id]
                           ?.sponsorLink ?? ""
                       }
+                      sponsorshipId={
+                        sponsoredMetaByCycleId[active.cycle_id]
+                          ?.sponsorshipId ?? null
+                      }
+                      surface="fame_modal"
+                      label="Sponsored by:"
                     />
                   </div>
                 ) : null}

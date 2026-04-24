@@ -178,6 +178,8 @@ export default function VoteClient({
                     bannerUrl={sponsoredMeta.bannerUrl}
                     companyName={sponsoredMeta.companyName}
                     sponsorLink={sponsoredMeta.sponsorLink}
+                    sponsorshipId={sponsoredMeta.sponsorshipId}
+                    surface="vote_modal"
                   />
                 </div>
               </div>

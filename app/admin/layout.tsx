@@ -167,6 +167,17 @@ export default async function AdminLayout({
           {isAdmin && (
             <li className="ml-3">
               <Link
+                href="/admin/logs/sponsors"
+                className="block rounded px-2 py-1 text-orange-200 hover:bg-white/10"
+              >
+                Sponsor Reports
+              </Link>
+            </li>
+          )}
+
+          {isAdmin && (
+            <li className="ml-3">
+              <Link
                 href="/admin/logs/moderation"
                 className="block rounded px-2 py-1 hover:bg-white/10"
               >

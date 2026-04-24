@@ -529,6 +529,9 @@ function SubmissionModal({
                   bannerUrl={sponsoredMeta.bannerUrl}
                   companyName={sponsoredMeta.companyName}
                   sponsorLink={sponsoredMeta.sponsorLink}
+                  sponsorshipId={sponsoredMeta.sponsorshipId}
+                  surface="history_modal"
+                  label="Sponsored by:"
                 />
               </div>
             ) : null}
@@ -777,6 +780,11 @@ export default function CycleHistoryClient({
           const submissions = cycleDetail?.submissions ?? [];
           const isExpanded = expandedCycleIds.includes(cycle.id);
           const isLoading = loadingCycleIds.includes(cycle.id);
+          const sponsoredMeta =
+            sponsoredMetaByCycleId[cycle.id] ?? null;
+          const isSponsored =
+            sponsoredMeta?.enabled === true &&
+            Boolean(sponsoredMeta.bannerUrl);
 
           return (
           <details
@@ -798,7 +806,12 @@ export default function CycleHistoryClient({
                     Cycle #{cycle.id}
                   </h2>
                   <p className="mt-1 text-sm text-white/70">
-                    Theme: {cycle.theme ?? "Open Round"}
+                    Theme: {cycle.theme ?? "Open Cycle"}
+                    {isSponsored ? (
+                      <span className="ml-2 text-[var(--orange-dark)]">
+                        (Sponsored)
+                      </span>
+                    ) : null}
                   </p>
                 </div>
 

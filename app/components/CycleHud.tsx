@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 import CycleCountdown from "./CycleCountdown";
+import SponsorImpressionTracker from "./SponsorImpressionTracker";
 
 export default async function CycleHud() {
   const nowMs = Date.parse(new Date().toISOString());
@@ -103,12 +104,22 @@ export default async function CycleHud() {
         {sponsoredMeta?.enabled &&
           sponsoredMeta.companyName.length > 0 && (
             <div className="font-['Permanent_Marker'] text-[1.02rem] leading-tight">
+              {sponsoredMeta.sponsorshipId ? (
+                <SponsorImpressionTracker
+                  sponsorshipId={sponsoredMeta.sponsorshipId}
+                  surface="home_hud"
+                />
+              ) : null}
               <span className="text-[var(--orange-main)]">
                 Presented by:{" "}
               </span>
               {sponsoredMeta.sponsorLink.length > 0 ? (
                 <a
-                  href={sponsoredMeta.sponsorLink}
+                  href={
+                    sponsoredMeta.sponsorshipId
+                      ? `/api/sponsor/click?sponsorshipId=${sponsoredMeta.sponsorshipId}&surface=home_hud`
+                      : sponsoredMeta.sponsorLink
+                  }
                   target="_blank"
                   rel="noreferrer"
                   className="pointer-events-auto text-green-400 underline underline-offset-4 transition hover:text-green-300"

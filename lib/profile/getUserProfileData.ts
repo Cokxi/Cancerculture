@@ -5,13 +5,28 @@ import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { getUserSocialLinks } from "@/lib/socials/getUserSocialLinks";
 import type { UserSocialLink } from "@/lib/socials/types";
 import {
+  normalizeSubmissionPublicVisibilityStatus,
+  showsSubmissionImagePublicly,
+  type SubmissionPublicVisibilityStatus,
+} from "@/lib/moderation/submissionPublicVisibility";
+import {
   getSubmissionPrivateData,
   type SubmissionPrivateData,
 } from "@/lib/submissions/getSubmissionPrivateData";
 
-export type ProfileSubmission = Awaited<
+type BaseProfileSubmission = Awaited<
   ReturnType<typeof getUserSubmissions>
 >[number];
+
+export type ProfileSubmission = Omit<
+  BaseProfileSubmission,
+  "image_url"
+> & {
+  image_url: string | null;
+  public_visibility_status: SubmissionPublicVisibilityStatus;
+  public_visibility_reason_code: string | null;
+  public_visibility_reason_text: string | null;
+};
 
 export type ProfileVote = {
   cycle_id: number;
@@ -41,7 +56,7 @@ export async function getUserProfileData(
 ): Promise<UserProfileData> {
   const [
     userLogResult,
-    submissions,
+    rawSubmissions,
     activeCycle,
     votesResult,
     socialLinks,
@@ -82,6 +97,64 @@ export async function getUserProfileData(
         )}`
       : avatarUrl;
 
+  const submissionVisibilityResult =
+    rawSubmissions.length > 0
+      ? await supabaseServer
+          .from("submissions")
+          .select(
+            "id, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text"
+          )
+          .in(
+            "id",
+            rawSubmissions.map((submission) => submission.id)
+          )
+      : { data: [], error: null };
+
+  if (submissionVisibilityResult.error) {
+    console.error(
+      "Failed to load submission visibility:",
+      submissionVisibilityResult.error
+    );
+  }
+
+  const visibilityBySubmissionId = new Map(
+    (submissionVisibilityResult.data ?? []).map((row) => [
+      row.id,
+      {
+        status: normalizeSubmissionPublicVisibilityStatus(
+          row.public_visibility_status
+        ),
+        reasonCode: row.public_visibility_reason_code,
+        reasonText: row.public_visibility_reason_text,
+      },
+    ])
+  );
+
+  const submissions: ProfileSubmission[] = rawSubmissions.map(
+    (submission) => {
+      const visibility =
+        visibilityBySubmissionId.get(submission.id) ?? {
+          status: normalizeSubmissionPublicVisibilityStatus(
+            null
+          ),
+          reasonCode: null,
+          reasonText: null,
+        };
+
+      return {
+        ...submission,
+        image_url: showsSubmissionImagePublicly(
+          visibility.status
+        )
+          ? submission.image_url
+          : null,
+        public_visibility_status: visibility.status,
+        public_visibility_reason_code: visibility.reasonCode,
+        public_visibility_reason_text: visibility.reasonText,
+      };
+    }
+  );
+
   const voteRows = votesResult.data ?? [];
   const submissionIds = Array.from(
     new Set(voteRows.map((vote) => vote.submission_id))
@@ -91,7 +164,7 @@ export async function getUserProfileData(
     submissionIds.length > 0
       ? await supabaseServer
           .from("submissions")
-          .select("id, r2_key")
+          .select("id, r2_key, public_visibility_status")
           .in("id", submissionIds)
       : { data: [], error: null };
 
@@ -103,10 +176,19 @@ export async function getUserProfileData(
   }
 
   const voteSubmissionMap = new Map(
-    (voteSubmissionsResult.data ?? []).map((submission) => [
-      submission.id,
-      getPublicImageUrl(submission.r2_key) ?? null,
-    ])
+    (voteSubmissionsResult.data ?? []).map((submission) => {
+      const visibilityStatus =
+        normalizeSubmissionPublicVisibilityStatus(
+          submission.public_visibility_status
+        );
+
+      return [
+        submission.id,
+        showsSubmissionImagePublicly(visibilityStatus)
+          ? getPublicImageUrl(submission.r2_key) ?? null
+          : null,
+      ];
+    })
   );
 
   const votes: ProfileVote[] = voteRows.map((vote) => ({

@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { logAdminAction } from "@/lib/audit/logAdminAction";
 import { requireAdmin } from "@/lib/auth/guards";
+import { markCycleSponsorshipEnded } from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin as supabase } from "@/lib/db/admin";
 import {
   normalizeSubmissionPublicVisibilityStatus,
@@ -238,6 +239,8 @@ export async function POST() {
       .from("app_config")
       .update({ value: null })
       .eq("key", "cycle_theme");
+
+    await markCycleSponsorshipEnded(cycle.id);
 
     await logAdminAction({
       actorType: "admin",
