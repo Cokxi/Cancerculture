@@ -102,6 +102,19 @@ export const faqSections: FaqSection[] = [
   ],
   },
   {
+  id: "charity",
+  title: "How do charity, Wall of Fame & Wall of Shame work?",
+  paragraphs: [
+    "Winning is great. What you do with your reward is up to you.",
+    "You can keep everything, donate a portion, or split it however you like. Donations are completely optional.",
+    "If you donate at least 1% of your reward, you will be listed on the Wall of Fame.",
+    "If you keep 100% of your reward, you will be listed on the Wall of Shame.",
+    "Before you panic, this is part of the platform’s culture and not meant as serious judgment",
+    "It’s a bit of fun and a small social experiment: everyone loves to talk about generosity… until it’s their own money.",
+    "No matter what you choose, your decision should be respected by others.",
+  ],
+},
+  {
     id: "content",
   title: "Do I need to create original content?",
   paragraphs: [

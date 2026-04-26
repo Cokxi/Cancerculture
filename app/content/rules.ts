@@ -65,7 +65,20 @@ export const standardRulesSections: RuleSection[] = [
     "If multiple winners exist, the reward may be redistributed among the remaining eligible winners.",
     "If there is a single winner who does not respond, the reward may be carried over to the next cycle.",
   ],
+
   },
+
+  {
+  title: "Charity & Public Profiles",
+  paragraphs: [
+    "Winners can decide how to handle their reward. Donating is optional.",
+    "You may choose to keep 100% of your reward, donate all, or split it.",
+    "If you donate at least 1% of your reward and you win, you will be listed on the Wall of Fame.",
+    "If you keep 100% of your reward, you will be listed on the Wall of Shame.",
+    "These labels are part of the platform’s culture and are not meant as real judgment or harassment.",
+    "All choices must be respected. Harassment or attacks based on someone’s decision are not allowed.",
+  ],
+},
   {
     title: "Moderation",
     paragraphs: [
@@ -75,6 +88,7 @@ export const standardRulesSections: RuleSection[] = [
       "Moderation and system actions are logged for transparency and abuse prevention.",
     ],
   },
+
   {
     title: "Technical & Limits",
     paragraphs: [
