@@ -72,7 +72,7 @@ export default function ContractAddress({
 
       <div
         className="
-          fixed bottom-10 left-1/2 -translate-x-1/2 z-50
+          fixed bottom-20 left-1/2 -translate-x-1/2 z-50
           flex flex-col items-center gap-1
           cursor-pointer select-none md:hidden
         "

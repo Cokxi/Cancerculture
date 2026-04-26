@@ -10,6 +10,7 @@ import WalletAddressBox from "@/app/components/WalletAddressBox";
 import { requireSession } from "@/lib/auth/requireSession";
 import { getTeamMember } from "@/lib/auth/guards";
 import { getContractAddress } from "@/lib/config/getContractAddress";
+import { getPumpFunUrl } from "@/lib/config/getPumpFunUrl";
 
 export default async function Home() {
   let isTeamMember = false;
@@ -26,7 +27,10 @@ export default async function Home() {
     isLoggedIn = true;
   } catch {}
 
-  const contractAddress = await getContractAddress();
+  const [contractAddress, pumpFunUrl] = await Promise.all([
+    getContractAddress(),
+    getPumpFunUrl(),
+  ]);
 
   return (
     <main className="relative w-full bg-orange-background text-white">
@@ -94,14 +98,51 @@ export default async function Home() {
 
         <CycleHud />
 
-        <Link
-          href="/about"
+        <a
+          href={pumpFunUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           className="
-            animate-breathe -translate-y-2 transition-transform
+            group relative animate-breathe -translate-y-2 transition-transform
             hover:animate-none hover:scale-[1.03]
             active:scale-[0.98] sm:translate-y-0
           "
+          aria-label="Open CancerCulture on Pump.fun"
         >
+          <span
+            className="
+              pointer-events-none absolute left-0 top-1/2 z-20 hidden
+              -translate-x-[105%] -translate-y-1/2 scale-90 opacity-0
+              transition-all duration-1500 ease-out
+              group-hover:scale-100 group-hover:opacity-100 sm:block
+            "
+          >
+            <Image
+              src="https://cdn.cancerculture.fun/webp/icons/pump.V1.webp"
+              alt=""
+              width={60}
+              height={60}
+              className="h-10 w-10 object-contain drop-shadow-[0_4px_0_rgba(0,0,0,0.6)] sm:h-14 sm:w-14"
+            />
+          </span>
+
+          <span
+            className="
+              pointer-events-none absolute right-0 top-1/2 z-20 hidden
+              translate-x-[105%] -translate-y-1/2 scale-90 opacity-0
+              transition-all duration-1500 ease-out
+              group-hover:scale-100 group-hover:opacity-100 sm:block
+            "
+          >
+            <Image
+              src="https://cdn.cancerculture.fun/webp/icons/pump.V1.webp"
+              alt=""
+              width={60}
+              height={60}
+              className="h-10 w-10 object-contain drop-shadow-[0_4px_0_rgba(0,0,0,0.6)] sm:h-14 sm:w-14"
+            />
+          </span>
+
           <Image
             src="https://cdn.cancerculture.fun/webp/logo/logo.webp"
             alt="CancerCulture"
@@ -112,7 +153,7 @@ export default async function Home() {
               sm:max-h-[22vh] sm:w-[min(900px,80vw)]
             "
           />
-        </Link>
+        </a>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-[-1.25rem] z-20 hidden justify-center md:flex">
           <div className="pointer-events-auto">
@@ -126,80 +167,55 @@ export default async function Home() {
 
       <section id="about" className="relative w-full">
         <section className="relative flex w-full justify-center py-32">
-          <div className="content-container">
-            <div className="orange-info-box orange-info-box--compact max-w-[520px]">
-              <h3 className="orange-box-title">ABOUT</h3>
+          <div className="orange-info-box orange-info-box--compact">
+  <div className="max-w-[520px] mx-auto text-center">
+    <h3 className="orange-box-title">ABOUT</h3>
 
-              <p>
-                CancerCulture is a community driven charity meme competition
-                built around the chaotic nature of the memecoin space. The name
-                does not refer to cancer as a disease. It symbolically
-                describes the irrational, fast spreading culture of memes,
-                trends, and narratives that define the space.
-              </p>
+    <p>
+      CancerCulture is a community-driven meme competition built around creativity and chaos.
+    </p>
 
-              <p>
-                Instead of fighting that chaos, CancerCulture turns it into a
-                game: create original memes, upload them, and let the community
-                decide what survives.
-              </p>
+    <p>
+      The name represents how memes and narratives spread, fast, irrational, and everywhere.
+    </p>
 
-              <p>
-                An ongoing competition distributes 50% of creator rewards back
-                to the community across multiple rounds, keeping the culture
-                alive through participation.
-              </p>
+    <p>
+      Each cycle is its own competition. No algorithms, no hidden rules, just memes and vibes.
+    </p>
 
-              <p>Be creative. Upload. Vote. Chill + shill.</p>
+    <p>
+      Create something, upload it, and let the community decide.
+    </p>
 
-              <a href="/about" className="orange-box-link">
-                View more -&gt;
-              </a>
-            </div>
-          </div>
+    <p>Win or lose, you&apos;re part of the culture.</p>
+  </div>
+</div>
         </section>
 
         <section className="relative flex w-full justify-center py-24">
-          <div className="content-container">
-            <div className="orange-info-box orange-info-box--compact">
-              <h3 className="orange-box-title">HOW IT WORKS</h3>
+          <div className="orange-info-box orange-info-box--compact">
+  <div className="max-w-[520px] mx-auto text-center">
+    <h3 className="orange-box-title">HOW IT WORKS</h3>
 
-              <p>
-                CancerCulture runs as an ongoing meme competition across
-                multiple rounds.
-              </p>
+    <p>Each cycle is a standalone meme competition.</p>
 
-              <p>
-                In each round, participants can upload one original meme and
-                cast one vote. Voting for your own submission is not allowed.
-              </p>
+    <p>You get:</p>
+    <ul className="pl-5 list-disc inline-block text-left">
+      <li>1 submission</li>
+      <li>1 vote</li>
+    </ul>
 
-              <p>
-                No wallet connection is required. To reduce bots and fake
-                votes, users verify via Discord before uploading or voting. All
-                submissions and votes remain anonymous during an active round.
-              </p>
+    <p className="mt-4">
+      No self-voting. Submissions stay anonymous during the cycle.
+    </p>
 
-              <p>
-                When a round ends, 100% of that round&apos;s rewards are claimed
-                immediately, with 50% going to the winning meme creator.
-              </p>
+    <p>When it ends, votes decide the winners.</p>
 
-              <p>
-                At the end of each cycle, the winning submissions are published
-                on the Wall of Fame.
-              </p>
+    <p>Rewards are paid in Solana and split if needed.</p>
 
-              <p>
-                The project will evolve over time, but the core idea stays the
-                same: create, upload, vote, and grow the culture together.
-              </p>
-
-              <a href="/rules" className="orange-box-link">
-                View more -&gt;
-              </a>
-            </div>
-          </div>
+    <p>Winners choose: keep it, donate, or split.</p>
+  </div>
+</div>
         </section>
       </section>
 
@@ -257,13 +273,14 @@ export default async function Home() {
       )}
 
       {isLoggedIn && (
-        <div className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 gap-3 md:hidden">
+        <>
           <Link
             href="/cycle-history"
             className="
-              flex items-center justify-center rounded-lg border border-orange-500/30
-              bg-black/75 px-4 py-2 text-sm font-[var(--font-marker)] text-orange-400
-              shadow-lg shadow-black/30 transition-all hover:bg-black/90 active:scale-95
+              fixed bottom-4 left-3 z-50 flex items-center justify-center rounded-lg border border-orange-500/40
+              bg-black/80 px-3 py-2 text-sm font-[var(--font-marker)] text-orange-400
+              shadow-lg shadow-black/40 backdrop-blur-sm transition-all hover:bg-black/90 active:scale-95
+              md:hidden
             "
           >
             Cycle History
@@ -272,14 +289,15 @@ export default async function Home() {
           <Link
             href="/my-profile"
             className="
-              flex items-center justify-center rounded-lg border border-orange-500/30
-              bg-black/75 px-4 py-2 text-sm font-[var(--font-marker)] text-orange-400
-              shadow-lg shadow-black/30 transition-all hover:bg-black/90 active:scale-95
+              fixed bottom-4 right-3 z-50 flex items-center justify-center rounded-lg border border-orange-500/40
+              bg-black/80 px-3 py-2 text-sm font-[var(--font-marker)] text-orange-400
+              shadow-lg shadow-black/40 backdrop-blur-sm transition-all hover:bg-black/90 active:scale-95
+              md:hidden
             "
           >
             My Profile
           </Link>
-        </div>
+        </>
       )}
     </main>
   );

@@ -154,8 +154,8 @@
 }
 
 .orange-info-box {
+  width: 100%;
   max-width: 900px;
-  min-height: 620px;
   margin-left: auto;
   margin-right: auto;
 
@@ -195,7 +195,7 @@
 
 .orange-info-box p {
   font-family: var(--font-marker), cursive;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   line-height: 1.7;
   margin-bottom: 1rem;
   opacity: 0.9;
