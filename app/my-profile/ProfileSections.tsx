@@ -71,6 +71,49 @@ export default function ProfileSections({
   submissions: ProfileSubmission[];
   votes: ProfileVote[];
 }) {
+  const [hidingSubmissionId, setHidingSubmissionId] =
+    useState<number | null>(null);
+
+  async function hideSubmissionFromProfile(
+    submissionId: number
+  ) {
+    const confirmed = window.confirm(
+      "Hide this disqualified submission from your profile? This does not delete moderation records."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setHidingSubmissionId(submissionId);
+
+    try {
+      const response = await fetch(
+        `/api/profile/submissions/${submissionId}/hide`,
+        {
+          method: "POST",
+        }
+      );
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+            "Failed to hide submission from profile"
+        );
+      }
+
+      window.location.reload();
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to hide submission from profile"
+      );
+      setHidingSubmissionId(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Section title="My Submissions">
@@ -162,6 +205,21 @@ export default function ProfileSections({
                     <div className="text-green-400">Active</div>
                   )}
                 </div>
+
+                {submission.can_hide_from_profile ? (
+                  <button
+                    type="button"
+                    disabled={hidingSubmissionId === submission.id}
+                    onClick={() =>
+                      hideSubmissionFromProfile(submission.id)
+                    }
+                    className="mt-3 cursor-pointer rounded-full border border-yellow-400/30 bg-yellow-500/10 px-3 py-1.5 text-xs text-yellow-200 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {hidingSubmissionId === submission.id
+                      ? "Hiding..."
+                      : "Hide from my profile"}
+                  </button>
+                ) : null}
               </div>
             ))}
           </div>
@@ -211,11 +269,6 @@ export default function ProfileSections({
         )}
       </Section>
 
-      <Section title="My Comments">
-        <p className="text-sm text-gray-400">
-          Coming soon...
-        </p>
-      </Section>
     </div>
   );
 }

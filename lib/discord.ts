@@ -1,3 +1,4 @@
+import "server-only";
 export async function checkDiscordMembership(userId: string) {
   try {
     const res = await fetch(

@@ -22,6 +22,8 @@ export type ProfileSubmission = Omit<
   BaseProfileSubmission,
   "image_url"
 > & {
+  can_hide_from_profile: boolean;
+  hidden_from_profile_at: string | null;
   image_url: string | null;
   public_visibility_status: SubmissionPublicVisibilityStatus;
   public_visibility_reason_code: string | null;
@@ -102,7 +104,7 @@ export async function getUserProfileData(
       ? await supabaseServer
           .from("submissions")
           .select(
-            "id, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text"
+            "id, cycle_id, hidden_from_profile_at, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text"
           )
           .in(
             "id",
@@ -126,12 +128,39 @@ export async function getUserProfileData(
         ),
         reasonCode: row.public_visibility_reason_code,
         reasonText: row.public_visibility_reason_text,
+        hiddenFromProfileAt:
+          row.hidden_from_profile_at ?? null,
       },
     ])
   );
 
-  const submissions: ProfileSubmission[] = rawSubmissions.map(
-    (submission) => {
+  const cycleIds = Array.from(
+    new Set(rawSubmissions.map((submission) => submission.cycle_id))
+  );
+  const cycleRowsResult =
+    cycleIds.length > 0
+      ? await supabaseServer
+          .from("voting_cycles")
+          .select("id, status")
+          .in("id", cycleIds)
+      : { data: [], error: null };
+
+  if (cycleRowsResult.error) {
+    console.error(
+      "Failed to load submission cycles:",
+      cycleRowsResult.error
+    );
+  }
+
+  const cycleStatusById = new Map(
+    (cycleRowsResult.data ?? []).map((cycle) => [
+      cycle.id,
+      cycle.status,
+    ])
+  );
+
+  const submissions: ProfileSubmission[] = rawSubmissions.flatMap(
+    (submission): ProfileSubmission[] => {
       const visibility =
         visibilityBySubmissionId.get(submission.id) ?? {
           status: normalizeSubmissionPublicVisibilityStatus(
@@ -139,19 +168,32 @@ export async function getUserProfileData(
           ),
           reasonCode: null,
           reasonText: null,
+          hiddenFromProfileAt: null,
         };
 
-      return {
-        ...submission,
-        image_url: showsSubmissionImagePublicly(
-          visibility.status
-        )
-          ? submission.image_url
-          : null,
-        public_visibility_status: visibility.status,
-        public_visibility_reason_code: visibility.reasonCode,
-        public_visibility_reason_text: visibility.reasonText,
-      };
+      if (visibility.hiddenFromProfileAt) {
+        return [];
+      }
+
+      return [
+        {
+          ...submission,
+          can_hide_from_profile:
+            submission.is_disqualified &&
+            cycleStatusById.get(submission.cycle_id) ===
+              "finished",
+          hidden_from_profile_at:
+            visibility.hiddenFromProfileAt,
+          image_url: showsSubmissionImagePublicly(
+            visibility.status
+          )
+            ? submission.image_url
+            : null,
+          public_visibility_status: visibility.status,
+          public_visibility_reason_code: visibility.reasonCode,
+          public_visibility_reason_text: visibility.reasonText,
+        },
+      ];
     }
   );
 

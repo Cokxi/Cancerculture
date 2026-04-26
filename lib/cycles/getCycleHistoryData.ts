@@ -168,7 +168,7 @@ export async function getCycleHistorySummaries(
   const cycleIds = cycleRows.map((cycle) => cycle.id);
   const { data: submissions, error } = await supabaseAdmin
     .from("submissions")
-    .select("cycle_id, public_visibility_status")
+    .select("cycle_id, is_disqualified, public_visibility_status")
     .in("cycle_id", cycleIds);
 
   if (error) {
@@ -181,6 +181,10 @@ export async function getCycleHistorySummaries(
   const countsByCycleId = new Map<number, number>();
 
   for (const submission of submissions ?? []) {
+    if (submission.is_disqualified) {
+      continue;
+    }
+
     const publicVisibilityStatus =
       normalizeSubmissionPublicVisibilityStatus(
         submission.public_visibility_status
@@ -344,6 +348,10 @@ export async function getCycleHistoryCycleData(
 
   const submissions = typedSubmissions.flatMap(
     (submission): CycleHistorySubmission[] => {
+      if (submission.is_disqualified) {
+        return [];
+      }
+
       const publicVisibilityStatus =
         normalizeSubmissionPublicVisibilityStatus(
           submission.public_visibility_status

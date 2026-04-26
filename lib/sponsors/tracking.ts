@@ -1,3 +1,4 @@
+import "server-only";
 import { createHash, randomUUID } from "crypto";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";

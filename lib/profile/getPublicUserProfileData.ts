@@ -67,7 +67,7 @@ export async function getPublicUserProfileData(
       ? await supabaseServer
           .from("submissions")
           .select(
-            "id, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text"
+            "id, hidden_from_profile_at, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text"
           )
           .in("id", submissionIds)
       : { data: [], error: null };
@@ -88,6 +88,8 @@ export async function getPublicUserProfileData(
         ),
         reasonCode: row.public_visibility_reason_code,
         reasonText: row.public_visibility_reason_text,
+        hiddenFromProfileAt:
+          row.hidden_from_profile_at ?? null,
       },
     ])
   );
@@ -101,7 +103,12 @@ export async function getPublicUserProfileData(
           ),
           reasonCode: null,
           reasonText: null,
+          hiddenFromProfileAt: null,
         };
+
+      if (visibility.hiddenFromProfileAt) {
+        return null;
+      }
 
       if (!isSubmissionListedPublicly(visibility.status)) {
         return null;

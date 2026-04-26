@@ -57,29 +57,30 @@ export default function RulesPage() {
 
           <div className="relative">
             <p className="font-['Permanent_Marker'] text-sm uppercase tracking-[0.2em] text-[rgba(26,11,5,0.72)]">
-              Rules & Guidelines
-            </p>
-            <h1 className="mt-3 font-['Permanent_Marker'] text-4xl leading-tight text-[#140803] sm:text-5xl">
-              Clear rules for every cycle on the platform.
-            </h1>
-            <p className="mt-5 max-w-3xl text-base leading-7 text-[rgba(26,11,5,0.85)] sm:text-[1.05rem]">
-              CancerCulture is community-first. These rules define the base
-              expectations for uploads, voting, conduct, moderation, and
-              participation across the platform.
-            </p>
-          </div>
-        </section>
+  Rules & Guidelines
+</p>
 
-        <section className="rounded-[24px] border border-[rgba(255,232,196,0.56)] bg-[linear-gradient(180deg,rgba(255,196,112,0.95),rgba(255,147,67,0.92))] p-5 text-[rgba(43,18,8,0.9)] shadow-[0_12px_30px_rgba(0,0,0,0.14)]">
-          <p className="font-['Permanent_Marker'] text-lg text-[#2b1208]">
-            Current Rules
-          </p>
-          <p className="mt-2 text-sm leading-6">
-            These are the active platform rules for the current community
-            competition flow. If additional cycle-specific conditions are ever
-            introduced later, they will be communicated clearly and require a new
-            acceptance step.
-          </p>
+<h1 className="mt-3 font-['Permanent_Marker'] text-4xl leading-tight text-[#140803] sm:text-5xl">
+  Simple rules. Fair competition.
+</h1>
+
+<p className="mt-5 max-w-3xl text-base leading-7 text-[rgba(26,11,5,0.85)] sm:text-[1.05rem]">
+  CancerCulture is built around creativity, fair play, and community voting.
+  These rules keep things clear, how to participate, what’s allowed, and how
+  we keep the competition fair for everyone.
+</p>
+</div>
+</section>
+
+<section className="rounded-[24px] border border-[rgba(255,232,196,0.56)] bg-[linear-gradient(180deg,rgba(255,196,112,0.95),rgba(255,147,67,0.92))] p-5 text-[rgba(43,18,8,0.9)] shadow-[0_12px_30px_rgba(0,0,0,0.14)]">
+  <p className="font-['Permanent_Marker'] text-lg text-[#2b1208]">
+    Current Rules
+  </p>
+
+  <p className="mt-2 text-sm leading-6">
+    These are the rules for the current cycle. If anything changes, you’ll be
+    notified before joining the next one and asked to accept the updated version.
+  </p>
         </section>
 
         <section className="space-y-5">
