@@ -3,7 +3,7 @@
 export default function TelegramCellAnimated() {
   return (
     <a
-      href="https://discord.gg/PMzTJPm4p5"
+      href="https://discord.gg/MyPkN3s8RX"
       target="_blank"
       rel="noopener noreferrer"
       className="relative cursor-pointer group"
