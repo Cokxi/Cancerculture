@@ -188,11 +188,13 @@ function SubmissionPreview({
 
 function SubmissionCard({
   cycleId,
+  isDeepLinkTarget,
   isAdmin,
   onOpen,
   submission,
 }: {
   cycleId: number;
+  isDeepLinkTarget: boolean;
   isAdmin: boolean;
   onOpen: (submission: CycleHistorySubmission) => void;
   submission: CycleHistorySubmission;
@@ -210,11 +212,16 @@ function SubmissionCard({
 
   return (
     <div
+      id={`submission-${submission.id}`}
       role="button"
       tabIndex={0}
       onClick={handleActivate}
       onKeyDown={handleKeyDown}
-      className="cursor-pointer rounded-xl border border-white/10 bg-black/40 p-4 text-left transition hover:border-[var(--orange-dark)]/50"
+      className={`scroll-mt-24 cursor-pointer rounded-xl border bg-black/40 p-4 text-left transition hover:border-[var(--orange-dark)]/50 ${
+        isDeepLinkTarget
+          ? "border-[var(--orange-dark)] shadow-[0_0_24px_rgba(255,95,31,0.35)]"
+          : "border-white/10"
+      }`}
     >
       <SubmissionPreview
         cycleId={cycleId}
@@ -699,22 +706,73 @@ export default function CycleHistoryClient({
   const [expandedCycleIds, setExpandedCycleIds] = useState<
     number[]
   >(cycles.length > 0 ? [cycles[0].id] : []);
+  const [deepLinkedSubmissionId, setDeepLinkedSubmissionId] =
+    useState<number | null>(null);
   const [cycleDetails, setCycleDetails] = useState<
     Record<number, CycleHistoryCycle>
   >({});
   const [loadingCycleIds, setLoadingCycleIds] = useState<
     number[]
   >([]);
+  const hasScrolledToDeepLink = useRef(false);
 
   useEffect(() => {
     if (cycles.length === 0) {
       return;
     }
 
-    void loadCycle(cycles[0].id);
+    const params = new URLSearchParams(window.location.search);
+    const targetCycleId = Number(params.get("cycle"));
+    const hashMatch = window.location.hash.match(
+      /^#submission-(\d+)$/
+    );
+    const targetSubmissionId = hashMatch
+      ? Number(hashMatch[1])
+      : null;
+
+    if (
+      Number.isInteger(targetCycleId) &&
+      cycles.some((cycle) => cycle.id === targetCycleId)
+    ) {
+      setExpandedCycleIds((previous) =>
+        previous.includes(targetCycleId)
+          ? previous
+          : [...previous, targetCycleId]
+      );
+      void loadCycle(targetCycleId);
+    } else {
+      void loadCycle(cycles[0].id);
+    }
+
+    if (
+      targetSubmissionId &&
+      Number.isInteger(targetSubmissionId)
+    ) {
+      setDeepLinkedSubmissionId(targetSubmissionId);
+    }
     // We only want the initial cycle to prefetch on first mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!deepLinkedSubmissionId || hasScrolledToDeepLink.current) {
+      return;
+    }
+
+    const target = document.getElementById(
+      `submission-${deepLinkedSubmissionId}`
+    );
+
+    if (!target) {
+      return;
+    }
+
+    hasScrolledToDeepLink.current = true;
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [cycleDetails, deepLinkedSubmissionId]);
 
   async function loadCycle(cycleId: number) {
     if (cycleDetails[cycleId]) {
@@ -851,6 +909,9 @@ export default function CycleHistoryClient({
                       <SubmissionCard
                         key={submission.id}
                         cycleId={cycle.id}
+                        isDeepLinkTarget={
+                          submission.id === deepLinkedSubmissionId
+                        }
                         isAdmin={isAdmin}
                         submission={submission}
                         onOpen={setActiveSubmission}

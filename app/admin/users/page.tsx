@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireModOrAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
 import UserRoleActions from "./UserRoleActions";
@@ -13,6 +14,9 @@ type UserLog = {
   discord_user_id: string;
   public_profile_id?: string | null;
   current_discord_username: string | null;
+  current_discord_handle?: string | null;
+  current_display_name?: string | null;
+  current_guild_nickname?: string | null;
   known_discord_usernames: string[] | null;
   username_change_count: number;
   submission_count: number;
@@ -97,10 +101,18 @@ export default async function AdminUsersPage({
     discordUserIds.length > 0
       ? await supabaseAdmin
           .from("user_logs")
-          .select("discord_user_id, public_profile_id")
+          .select(
+            "discord_user_id, public_profile_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+          )
           .in("discord_user_id", discordUserIds)
       : { data: [], error: null };
 
+  const userLabelByDiscordUserId = new Map(
+    (publicProfilesResult.data ?? []).map((row) => [
+      row.discord_user_id,
+      formatDiscordUserLabel(row),
+    ])
+  );
   const publicProfileIdByDiscordUserId = new Map(
     (publicProfilesResult.data ?? []).map((row) => [
       row.discord_user_id,
@@ -166,6 +178,9 @@ export default async function AdminUsersPage({
 
           <tbody>
             {filteredUsers.map((user: UserLog) => {
+  const userLabel =
+    userLabelByDiscordUserId.get(user.discord_user_id) ??
+    formatDiscordUserLabel(user);
   const isMatch =
     query !== "" &&
     (
@@ -202,12 +217,12 @@ export default async function AdminUsersPage({
       }}
     >
       <strong>
-        {user.current_discord_username ?? "Unknown"}
+        {userLabel}
       </strong>
     </Link>
   ) : (
     <strong>
-      {user.current_discord_username ?? "Unknown"}
+      {userLabel}
     </strong>
   )}
 

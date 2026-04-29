@@ -5,6 +5,7 @@ import type {
   ActorUser,
   ModerationLogRow,
 } from "@/lib/admin/moderationLogs";
+import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 
 export default function ModerationLogList({
   byCycle,
@@ -127,8 +128,8 @@ export default function ModerationLogList({
                     <div style={{ marginTop: 4 }}>
                       by{" "}
                       {actor
-                        ?.current_discord_username ??
-                        "Unknown"}{" "}
+                        ? formatDiscordUserLabel(actor)
+                        : "Unknown User"}{" "}
                       <span style={{ opacity: 0.5 }}>
                         ({log.actor_id})
                       </span>

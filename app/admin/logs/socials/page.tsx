@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireModOrAdminPage } from "@/lib/auth/pageAccess";
+import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 
 type SocialLogRow = {
   id: number;
@@ -50,16 +51,16 @@ export default async function AdminSocialLogsPage() {
       ? await supabaseAdmin
           .from("user_logs")
           .select(
-            "discord_user_id, current_discord_username"
+            "discord_user_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
           )
           .in("discord_user_id", lookupIds)
       : { data: [] };
 
-  const usernameByDiscordId = new Map<string, string>();
+  const userLabelByDiscordId = new Map<string, string>();
   (users ?? []).forEach((user) => {
-    usernameByDiscordId.set(
+    userLabelByDiscordId.set(
       user.discord_user_id,
-      user.current_discord_username ?? "unknown"
+      formatDiscordUserLabel(user)
     );
   });
 
@@ -116,7 +117,7 @@ export default async function AdminSocialLogsPage() {
                 <div>
                   Actor:{" "}
                   <strong>
-                    {usernameByDiscordId.get(
+                    {userLabelByDiscordId.get(
                       log.actor_discord_user_id
                     ) ?? log.actor_discord_user_id}
                   </strong>{" "}
@@ -125,7 +126,7 @@ export default async function AdminSocialLogsPage() {
                 <div style={{ marginTop: 4 }}>
                   User:{" "}
                   <strong>
-                    {usernameByDiscordId.get(
+                    {userLabelByDiscordId.get(
                       log.target_discord_user_id
                     ) ?? log.target_discord_user_id}
                   </strong>{" "}

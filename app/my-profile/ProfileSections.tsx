@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
@@ -64,6 +65,16 @@ function renderPublicVisibilityStatus(
   return null;
 }
 
+function getCycleHistorySubmissionHref(
+  submission: ProfileSubmission
+) {
+  if (submission.is_disqualified || !submission.rank) {
+    return null;
+  }
+
+  return `/cycle-history?cycle=${submission.cycle_id}#submission-${submission.id}`;
+}
+
 export default function ProfileSections({
   submissions,
   votes,
@@ -124,12 +135,31 @@ export default function ProfileSections({
                 key={submission.id}
                 className="rounded-lg border-2 border-[var(--orange-dark)]/40 bg-black/40 p-4 text-white"
               >
+                {(() => {
+                  const historyHref =
+                    getCycleHistorySubmissionHref(submission);
+
+                  return (
+                    <>
                 {submission.image_url ? (
-                  <img
-                    src={submission.image_url}
-                    className="mb-2 h-40 w-40 rounded object-cover"
-                    alt={`Submission for cycle ${submission.cycle_id}`}
-                  />
+                  historyHref ? (
+                    <Link
+                      href={historyHref}
+                      className="mb-2 block h-40 w-40 rounded focus:outline-none focus:ring-2 focus:ring-[var(--orange-dark)]"
+                    >
+                      <img
+                        src={submission.image_url}
+                        className="h-40 w-40 rounded object-cover transition hover:opacity-85"
+                        alt={`Submission for cycle ${submission.cycle_id}`}
+                      />
+                    </Link>
+                  ) : (
+                    <img
+                      src={submission.image_url}
+                      className="mb-2 h-40 w-40 rounded object-cover"
+                      alt={`Submission for cycle ${submission.cycle_id}`}
+                    />
+                  )
                   ) : (
                     <div className="mb-2 flex h-40 w-40 items-center justify-center rounded bg-orange-200/20 text-4xl">
                       {renderPublicVisibilityStatus(submission)
@@ -152,6 +182,18 @@ export default function ProfileSections({
                     {renderRank(submission)}
                   </span>
                 </p>
+
+                {historyHref ? (
+                  <Link
+                    href={historyHref}
+                    className="mt-2 inline-flex rounded-full border border-[var(--orange-dark)]/40 px-3 py-1 text-xs text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
+                  >
+                    View in Cycle History
+                  </Link>
+                ) : null}
+                    </>
+                  );
+                })()}
 
                 <div className="mt-2 text-xs">
                   {submission.is_disqualified ? (

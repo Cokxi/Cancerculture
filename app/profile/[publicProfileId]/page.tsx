@@ -1,4 +1,5 @@
 import BackButton from "@/app/components/ui/BackButton";
+import Link from "next/link";
 import PublicProfileSocialsSection from "@/app/components/profile/PublicProfileSocialsSection";
 import { getTeamMember } from "@/lib/auth/guards";
 import { requireSession } from "@/lib/auth/requireSession";
@@ -20,6 +21,19 @@ function renderRank(submission: {
       ? ` (${submission.tie_count} tied)`
       : ""
   }`;
+}
+
+function getCycleHistorySubmissionHref(submission: {
+  id: number;
+  cycle_id: number;
+  is_disqualified: boolean;
+  rank: number | null;
+}) {
+  if (submission.is_disqualified || !submission.rank) {
+    return null;
+  }
+
+  return `/cycle-history?cycle=${submission.cycle_id}#submission-${submission.id}`;
 }
 
 export default async function PublicProfilePage({
@@ -64,9 +78,6 @@ export default async function PublicProfilePage({
               <h1 className="text-3xl font-[Permanent_Marker] text-[var(--orange-dark)]">
                 {profile.currentDiscordUsername}
               </h1>
-              <p className="mt-2 text-sm text-gray-400">
-                Public profile for logged-in users
-              </p>
             </div>
 
             <div className="flex flex-wrap justify-center gap-3 text-sm">
@@ -121,13 +132,31 @@ export default async function PublicProfilePage({
                   key={submission.id}
                   className="rounded-xl border border-[var(--orange-dark)]/30 bg-black/40 p-4"
                 >
+                  {(() => {
+                    const historyHref =
+                      getCycleHistorySubmissionHref(submission);
+
+                    return (
                   <div className="flex flex-col gap-4 md:flex-row">
                     {submission.image_url ? (
-                      <img
-                        src={submission.image_url}
-                        className="h-40 w-40 rounded object-cover"
-                        alt={`Submission for cycle ${submission.cycle_id}`}
-                      />
+                      historyHref ? (
+                        <Link
+                          href={historyHref}
+                          className="block h-40 w-40 rounded focus:outline-none focus:ring-2 focus:ring-[var(--orange-dark)]"
+                        >
+                          <img
+                            src={submission.image_url}
+                            className="h-40 w-40 rounded object-cover transition hover:opacity-85"
+                            alt={`Submission for cycle ${submission.cycle_id}`}
+                          />
+                        </Link>
+                      ) : (
+                        <img
+                          src={submission.image_url}
+                          className="h-40 w-40 rounded object-cover"
+                          alt={`Submission for cycle ${submission.cycle_id}`}
+                        />
+                      )
                     ) : (
                       <div className="flex h-40 w-40 items-center justify-center rounded bg-orange-200/20 px-3 text-center text-sm text-white/80">
                         Hidden pending legal review
@@ -138,6 +167,15 @@ export default async function PublicProfilePage({
                       <div>Cycle: {submission.cycle_id}</div>
                       <div>Votes: {submission.vote_count}</div>
                       <div>Rank: {renderRank(submission)}</div>
+
+                      {historyHref ? (
+                        <Link
+                          href={historyHref}
+                          className="inline-flex rounded-full border border-[var(--orange-dark)]/40 px-3 py-1 text-xs text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
+                        >
+                          View in Cycle History
+                        </Link>
+                      ) : null}
 
                       {submission.public_visibility_status ===
                         SUBMISSION_PUBLIC_VISIBILITY.legalReview && (
@@ -185,6 +223,8 @@ export default async function PublicProfilePage({
                       )}
                     </div>
                   </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

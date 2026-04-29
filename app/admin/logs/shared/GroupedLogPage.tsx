@@ -10,6 +10,7 @@ type BaseLog = {
   status: string;
   reason: string | null;
   submission_id?: number | null;
+  discord_user_label?: string | null;
 };
 
 type GroupedLogPageProps<TLog extends BaseLog> = {
@@ -213,8 +214,17 @@ export default function GroupedLogPage<TLog extends BaseLog>({
                                 marginTop: 4,
                               }}
                             >
-                              Discord ID:{" "}
-                              <code>{log.discord_user_id}</code>
+                              {log.discord_user_label ? (
+                                <>
+                                  User:{" "}
+                                  <strong>{log.discord_user_label}</strong>
+                                </>
+                              ) : (
+                                <>
+                                  Discord ID:{" "}
+                                  <code>{log.discord_user_id}</code>
+                                </>
+                              )}
                             </div>
                           )}
 

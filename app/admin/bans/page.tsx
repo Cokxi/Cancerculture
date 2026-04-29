@@ -3,12 +3,17 @@ export const dynamic = "force-dynamic";
 import { getBannedUsersWithStats } from "@/lib/admin/getUserLogsWithStats";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/guards";
+import { supabaseAdmin } from "@/lib/db/admin";
+import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import UserModerationActions from "../users/UserModerationActions";
 import UserSubmissionsDropdown from "../users/UserSubmissionsDropdown";
 
 type BannedUser = {
   discord_user_id: string;
   current_discord_username: string | null;
+  current_discord_handle?: string | null;
+  current_display_name?: string | null;
+  current_guild_nickname?: string | null;
 
   is_banned: boolean;
   ban_reason: string | null;
@@ -36,6 +41,25 @@ export default async function AdminBannedUsersPage() {
       </div>
     );
   }
+
+  const discordUserIds = (users ?? []).map(
+    (user: BannedUser) => user.discord_user_id
+  );
+  const { data: userNames } =
+    discordUserIds.length > 0
+      ? await supabaseAdmin
+          .from("user_logs")
+          .select(
+            "discord_user_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+          )
+          .in("discord_user_id", discordUserIds)
+      : { data: [] };
+  const userLabelByDiscordUserId = new Map(
+    (userNames ?? []).map((user) => [
+      user.discord_user_id,
+      formatDiscordUserLabel(user),
+    ])
+  );
 
   return (
     <div style={{ padding: 24 }}>
@@ -74,7 +98,9 @@ export default async function AdminBannedUsersPage() {
                
                 <td style={{ padding: "8px 0" }}>
                   <strong>
-                    {user.current_discord_username ?? "Unknown"}
+                    {userLabelByDiscordUserId.get(
+                      user.discord_user_id
+                    ) ?? formatDiscordUserLabel(user)}
                   </strong>
 
                   <div

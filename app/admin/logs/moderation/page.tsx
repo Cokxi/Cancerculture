@@ -56,7 +56,9 @@ export default async function AdminModerationLogsPage() {
     actorIds.length > 0
       ? await supabaseAdmin
           .from("user_logs")
-          .select("discord_user_id, current_discord_username")
+          .select(
+            "discord_user_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+          )
           .in("discord_user_id", actorIds)
       : { data: [] };
 

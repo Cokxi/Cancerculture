@@ -14,4 +14,7 @@ export type ModerationLogRow = {
 export type ActorUser = {
   discord_user_id: string;
   current_discord_username: string | null;
+  current_discord_handle?: string | null;
+  current_display_name?: string | null;
+  current_guild_nickname?: string | null;
 };
