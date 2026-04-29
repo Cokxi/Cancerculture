@@ -3,6 +3,7 @@
 import { useOverlay } from "./OverlayProvider";
 import BaseOverlay from "./BaseOverlay";
 import { useEffect, useState } from "react";
+import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 
 type Props = {
   type: "not_in_discord" | "cooldown";
@@ -11,7 +12,10 @@ type Props = {
 
 const COOLDOWN_MS = 10 * 60 * 1000;
 
-export default function DiscordGateOverlay({ type, joinedAt }: Props) {
+export default function DiscordGateOverlay({
+  type,
+  joinedAt,
+}: Props) {
   const { closeOverlay, openOverlay } = useOverlay();
 
   const [remaining, setRemaining] = useState(() => {
@@ -181,8 +185,9 @@ if (type === "cooldown" && !joinedAt) {
             </p>
 
             <a
-              href="https://discord.gg/PMzTJPm4p5"
+              href={DISCORD_INVITE_URL}
               target="_blank"
+              rel="noopener noreferrer"
               className="py-3 px-6 rounded-xl bg-black text-yellow-300 cursor-pointer"
             >
               Join Discord
@@ -193,7 +198,7 @@ if (type === "cooldown" && !joinedAt) {
         {type === "cooldown" && (
           <>
             <h2 className="text-2xl font-['Permanent_Marker'] text-[var(--orange-main)]">
-              You're almost in
+              You&apos;re almost in
             </h2>
 
             <div className="text-sm text-[var(--orange-main)] opacity-80 max-w-xs text-center">

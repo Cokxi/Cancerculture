@@ -1,9 +1,11 @@
 "use client";
 
+import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
+
 export default function TelegramCellAnimated() {
   return (
     <a
-      href="https://discord.gg/MyPkN3s8RX"
+      href={DISCORD_INVITE_URL}
       target="_blank"
       rel="noopener noreferrer"
       className="relative cursor-pointer group"

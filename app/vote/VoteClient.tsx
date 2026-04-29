@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import DiscordCooldownTimer from "@/app/components/DiscordCooldownTimer";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
+import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
 
 type Submission = {
@@ -11,19 +14,28 @@ type Submission = {
   discord_user_id: string;
 };
 
+type VoteBlockedReason =
+  | "banned"
+  | "not_in_discord"
+  | "joined_too_recently"
+  | null;
+
 export default function VoteClient({
   submissions,
   hasVoted,
   discordUserId,
-  isBanned,
+  voteBlockedReason,
+  voteCooldownJoinedAt,
   sponsoredMeta,
 }: {
   submissions: Submission[];
   hasVoted: boolean;
   discordUserId: string;
-  isBanned: boolean;
+  voteBlockedReason: VoteBlockedReason;
+  voteCooldownJoinedAt: string | null;
   sponsoredMeta: SponsoredCycleMeta | null;
 }) {
+  const router = useRouter();
   const [showOriginalSize, setShowOriginalSize] = useState(false);
   const lastTapRef = useRef(0);
 
@@ -41,12 +53,76 @@ export default function VoteClient({
 
   const [active, setActive] = useState<Submission | null>(null);
   const [voted, setVoted] = useState(hasVoted);
+  const [localVoteBlockedReason, setLocalVoteBlockedReason] =
+    useState<VoteBlockedReason | undefined>(undefined);
+  const [localVoteCooldownJoinedAt, setLocalVoteCooldownJoinedAt] =
+    useState<string | null | undefined>(undefined);
+  const [waitingForDiscordJoin, setWaitingForDiscordJoin] =
+    useState(false);
   const [localVotes, setLocalVotes] = useState(
     Object.fromEntries(submissions.map((s) => [s.id, s.vote_count]))
   );
+  const effectiveVoteBlockedReason =
+    localVoteBlockedReason ?? voteBlockedReason;
+  const effectiveVoteCooldownJoinedAt =
+    localVoteCooldownJoinedAt ?? voteCooldownJoinedAt;
+
+  useEffect(() => {
+    if (!waitingForDiscordJoin) return;
+
+    const refreshVotePage = () => {
+      setActive(null);
+      setWaitingForDiscordJoin(false);
+      setLocalVoteBlockedReason(undefined);
+      setLocalVoteCooldownJoinedAt(undefined);
+      router.refresh();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshVotePage();
+      }
+    };
+
+    window.addEventListener("focus", refreshVotePage);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const timeout = window.setTimeout(refreshVotePage, 10000);
+
+    return () => {
+      window.removeEventListener("focus", refreshVotePage);
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+      window.clearTimeout(timeout);
+    };
+  }, [router, waitingForDiscordJoin]);
+
+  function getVoteBlockedMessage() {
+    if (effectiveVoteBlockedReason === "banned") {
+      return "You're banned from voting";
+    }
+
+    if (effectiveVoteBlockedReason === "not_in_discord") {
+      return "Join Discord to vote";
+    }
+
+    if (effectiveVoteBlockedReason === "joined_too_recently") {
+      return null;
+    }
+
+    return null;
+  }
+
+  const voteBlockedMessage = getVoteBlockedMessage();
 
   async function vote(submissionId: number) {
-    if (isBanned) return;
+    if (effectiveVoteBlockedReason === "joined_too_recently") {
+      return;
+    }
+
+    if (effectiveVoteBlockedReason) return;
 
     const fd = new FormData();
     fd.append("submissionId", String(submissionId));
@@ -56,7 +132,25 @@ export default function VoteClient({
       body: fd,
     });
 
-    if (!res.ok) return;
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+
+      if (data?.error === "NOT_IN_DISCORD") {
+        setLocalVoteBlockedReason("not_in_discord");
+        return;
+      }
+
+      if (data?.error === "JOINED_TOO_RECENTLY") {
+        const joinedAt =
+          typeof data.joinedAt === "string" ? data.joinedAt : null;
+
+        setLocalVoteBlockedReason("joined_too_recently");
+        setLocalVoteCooldownJoinedAt(joinedAt);
+        return;
+      }
+
+      return;
+    }
 
     setVoted(true);
     setLocalVotes((v) => ({
@@ -139,8 +233,27 @@ export default function VoteClient({
               </button>
             </div>
 
-            <div className="p-4 flex items-center text-white">
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 p-4 text-white">
               <span>Votes: {localVotes[active.id]}</span>
+
+              <div className="flex min-w-[90px] justify-center">
+                {active.discord_user_id !== discordUserId &&
+                effectiveVoteBlockedReason === "joined_too_recently" ? (
+                  <div className="flex flex-col items-center leading-tight">
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-white/55">
+                      Please wait:
+                    </span>
+                    <DiscordCooldownTimer
+                      joinedAt={effectiveVoteCooldownJoinedAt}
+                      onComplete={() => {
+                        setLocalVoteBlockedReason(null);
+                        setLocalVoteCooldownJoinedAt(null);
+                      }}
+                      className="font-mono text-2xl text-white"
+                    />
+                  </div>
+                ) : null}
+              </div>
 
               <div className="ml-auto flex items-center gap-3">
                 {active.discord_user_id === discordUserId && (
@@ -149,29 +262,54 @@ export default function VoteClient({
                   </span>
                 )}
 
-                {active.discord_user_id !== discordUserId && isBanned && (
-                  <span className="opacity-70 text-red-400">
-                    You’re banned from voting
-                  </span>
-                )}
+                {active.discord_user_id !== discordUserId &&
+                  voteBlockedMessage && (
+                    effectiveVoteBlockedReason === "not_in_discord" ? (
+                      <a
+                        href={DISCORD_INVITE_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setWaitingForDiscordJoin(true)}
+                        className="rounded bg-orange-500 px-4 py-2 text-white transition hover:bg-orange-600"
+                      >
+                        {waitingForDiscordJoin
+                          ? "Refresh after joining..."
+                          : "Join Discord to Vote"}
+                      </a>
+                    ) : (
+                      <span className="opacity-70 text-red-400">
+                        {voteBlockedMessage}
+                      </span>
+                    )
+                  )}
 
-                {active.discord_user_id !== discordUserId && !isBanned && !voted && (
-                  <button
-                    onClick={() => vote(active.id)}
-                    className="px-4 py-2 bg-orange-500 rounded hover:bg-orange-600 transition cursor-pointer"
-                  >
-                    Vote
-                  </button>
-                )}
+                {active.discord_user_id !== discordUserId &&
+                  !voteBlockedMessage &&
+                  !voted && (
+                    <button
+                      onClick={() => vote(active.id)}
+                      disabled={
+                        effectiveVoteBlockedReason === "joined_too_recently"
+                      }
+                      className={`rounded px-4 py-2 transition ${
+                        effectiveVoteBlockedReason === "joined_too_recently"
+                          ? "cursor-not-allowed bg-orange-500/35 text-white/45"
+                          : "cursor-pointer bg-orange-500 hover:bg-orange-600"
+                      }`}
+                    >
+                      Vote
+                    </button>
+                  )}
 
-                {active.discord_user_id !== discordUserId && !isBanned && voted && (
-                  <span className="opacity-70">You already voted</span>
-                )}
+                {active.discord_user_id !== discordUserId &&
+                  !voteBlockedMessage &&
+                  voted && (
+                    <span className="opacity-70">You already voted</span>
+                  )}
               </div>
             </div>
 
-            {sponsoredMeta?.enabled &&
-            sponsoredMeta.bannerUrl ? (
+            {sponsoredMeta?.enabled && sponsoredMeta.bannerUrl ? (
               <div className="px-4 pb-4">
                 <div className="mx-auto w-full max-w-[316px]">
                   <SponsoredBanner

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 export default function BaseOverlay({
   children,
@@ -13,12 +13,20 @@ export default function BaseOverlay({
   size?: "full" | "compact";
   blocking?: boolean;
 }) {
-
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-
   const startX = useRef<number | null>(null);
   const [dragX, setDragX] = useState(0);
+
+  const handleClose = useCallback(() => {
+    if (isClosing) return;
+
+    setIsClosing(true);
+
+    setTimeout(() => {
+      onClose();
+    }, 1000);
+  }, [isClosing, onClose]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -27,8 +35,8 @@ export default function BaseOverlay({
 
     const handleKey = (e: KeyboardEvent) => {
       if (!blocking && e.key === "Escape") {
-  handleClose();
-}
+        handleClose();
+      }
     };
 
     window.addEventListener("keydown", handleKey);
@@ -36,24 +44,13 @@ export default function BaseOverlay({
     return () => {
       window.removeEventListener("keydown", handleKey);
     };
-  }, []);
-
-  const handleClose = () => {
-    if (isClosing) return;
-
-    setIsClosing(true);
-
-    setTimeout(() => {
-      onClose();
-    }, 1000);
-  };
+  }, [blocking, handleClose]);
 
   return (
     <div
-  className="fixed inset-0 z-[999] overflow-x-hidden"
-  onClick={blocking ? undefined : handleClose}
->
-      
+      className="fixed inset-0 z-[999] overflow-x-hidden"
+      onClick={blocking ? undefined : handleClose}
+    >
       <div
         className={`
           absolute inset-0
@@ -63,15 +60,14 @@ export default function BaseOverlay({
         `}
       />
 
-      
       <div
         className={`
           relative
           w-[94%] md:w-[600px] xl:w-[700px]
           ${
             size === "full"
-          ? "h-[94vh] my-[3vh]"
-          : "h-auto mt-[40vh] mb-[5vh] max-h-[55vh]"
+              ? "h-[94vh] my-[3vh]"
+              : "h-auto mt-[40vh] mb-[5vh] max-h-[55vh]"
           }
           mx-auto
           bg-orange-background
@@ -102,39 +98,38 @@ export default function BaseOverlay({
         }}
         onTouchEnd={() => {
           if (!blocking && dragX > 120) {
-  handleClose();
-}
+            handleClose();
+          }
+
           setDragX(0);
           startX.current = null;
         }}
       >
-        
         <div className="sticky top-0 z-10 flex justify-center py-3 relative">
           <div className="w-12 h-1.5 rounded-full bg-black/20" />
 
-          
           {!blocking && (
-          <button
-            onClick={handleClose}
-            aria-label="Close overlay"
-            className="
-              absolute right-3 top-2
-              text-2xl leading-none
-              px-3 py-1
-              rounded-xl
-              bg-black/10 backdrop-blur-sm
-              text-[var(--orange-main)]
-              hover:bg-black/20
-              active:scale-95
-              transition
-              cursor-pointer
-            "
-          >
-            <span className="block -translate-y-[1px]">×</span>
-          </button>
+            <button
+              onClick={handleClose}
+              aria-label="Close overlay"
+              className="
+                absolute right-3 top-2
+                text-2xl leading-none
+                px-3 py-1
+                rounded-xl
+                bg-black/10 backdrop-blur-sm
+                text-[var(--orange-main)]
+                hover:bg-black/20
+                active:scale-95
+                transition
+                cursor-pointer
+              "
+            >
+              <span className="block -translate-y-[1px]">x</span>
+            </button>
           )}
         </div>
-            
+
         {children}
       </div>
     </div>

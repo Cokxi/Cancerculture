@@ -27,6 +27,37 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!voteEligibility.membership.isInDiscord) {
+      await logVote({
+        cycleId: voteEligibility.activeCycleId,
+        discordUserId,
+        status: "rejected",
+        reason: "not_in_discord",
+      });
+
+      return NextResponse.json(
+        { error: "NOT_IN_DISCORD" },
+        { status: 403 }
+      );
+    }
+
+    if (voteEligibility.membership.joinedTooRecently) {
+      await logVote({
+        cycleId: voteEligibility.activeCycleId,
+        discordUserId,
+        status: "rejected",
+        reason: "joined_too_recently",
+      });
+
+      return NextResponse.json(
+        {
+          error: "JOINED_TOO_RECENTLY",
+          joinedAt: voteEligibility.membership.joinedAt,
+        },
+        { status: 403 }
+      );
+    }
+
     await touchUserLog({
       discordUserId,
     });

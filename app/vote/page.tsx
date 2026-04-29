@@ -48,6 +48,13 @@ export default async function VotePage() {
   const sponsoredMeta = await getCycleSponsoredMeta(
     voteEligibility.activeCycleId
   );
+  const voteBlockedReason = voteEligibility.isBanned
+    ? "banned"
+    : !voteEligibility.membership.isInDiscord
+      ? "not_in_discord"
+      : voteEligibility.membership.joinedTooRecently
+        ? "joined_too_recently"
+        : null;
 
   return (
     <PageWrapper>
@@ -55,7 +62,8 @@ export default async function VotePage() {
         submissions={submissionsWithUrls}
         hasVoted={voteEligibility.hasVoted}
         discordUserId={discordUserId}
-        isBanned={voteEligibility.isBanned}
+        voteBlockedReason={voteBlockedReason}
+        voteCooldownJoinedAt={voteEligibility.membership.joinedAt}
         sponsoredMeta={sponsoredMeta}
       />
     </PageWrapper>

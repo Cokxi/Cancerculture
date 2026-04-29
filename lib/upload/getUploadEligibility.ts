@@ -1,6 +1,6 @@
-import { checkDiscordMembership } from "@/lib/discord";
 import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { getDiscordMembershipEligibility } from "@/lib/eligibility/discordMembership";
 
 type UploadEligibilityOptions = {
   discordUserId: string;
@@ -75,26 +75,14 @@ export async function getUploadEligibility({
   let membership: DiscordMembershipStatus | null = null;
 
   if (includeDiscordMembership) {
-    const member = await checkDiscordMembership(discordUserId);
+    const discordMembership =
+      await getDiscordMembershipEligibility(discordUserId);
 
-    if (!member.isMember) {
-      membership = {
-        isMember: false,
-        joinedAt: null,
-        joinedTooRecently: false,
-      };
-    } else {
-      const joinedAt = member.joinedAt;
-      const joinedAtDate = new Date(joinedAt);
-      const diffMinutes =
-        (Date.now() - joinedAtDate.getTime()) / 1000 / 60;
-
-      membership = {
-        isMember: true,
-        joinedAt,
-        joinedTooRecently: diffMinutes < 10,
-      };
-    }
+    membership = {
+      isMember: discordMembership.isInDiscord,
+      joinedAt: discordMembership.joinedAt,
+      joinedTooRecently: discordMembership.joinedTooRecently,
+    };
   }
 
   return {

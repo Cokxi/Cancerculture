@@ -1,20 +1,29 @@
 import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
+import {
+  getDiscordMembershipEligibility,
+  type DiscordMembershipEligibility,
+} from "@/lib/eligibility/discordMembership";
 
 export type VoteEligibility = {
   isBanned: boolean;
   activeCycleId: number | null;
   hasVoted: boolean;
+  membership: DiscordMembershipEligibility;
 };
 
 export async function getVoteEligibility(discordUserId: string) {
-  const { data: userLog } = await supabaseAdmin
-    .from("user_logs")
-    .select("is_banned")
-    .eq("discord_user_id", discordUserId)
-    .maybeSingle();
+  const [userLogResult, activeCycle, membership] = await Promise.all([
+    supabaseAdmin
+      .from("user_logs")
+      .select("is_banned")
+      .eq("discord_user_id", discordUserId)
+      .maybeSingle(),
+    getActiveCycle(),
+    getDiscordMembershipEligibility(discordUserId),
+  ]);
 
-  const activeCycle = await getActiveCycle();
+  const userLog = userLogResult.data;
 
   let hasVoted = false;
 
@@ -33,5 +42,6 @@ export async function getVoteEligibility(discordUserId: string) {
     isBanned: userLog?.is_banned === true,
     activeCycleId: activeCycle?.id ?? null,
     hasVoted,
+    membership,
   } satisfies VoteEligibility;
 }

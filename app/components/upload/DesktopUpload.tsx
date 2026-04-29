@@ -187,7 +187,15 @@ if (file.size > MAX_UPLOAD_SIZE) {
   }
 
   if (data.error === "JOINED_TOO_RECENTLY") {
-    openOverlay(<DiscordGateOverlay type="cooldown" />);
+    const joinedAt =
+      typeof data.joinedAt === "string" ? data.joinedAt : null;
+
+    openOverlay(
+      <DiscordGateOverlay
+        type="cooldown"
+        joinedAt={joinedAt ?? undefined}
+      />
+    );
     return;
   }
 
@@ -229,8 +237,6 @@ if (file.size > MAX_UPLOAD_SIZE) {
               </div>
             </div>
 
-
-            
             {previewUrl && (
               <div className="mx-auto bg-white rounded-xl p-2 shadow-xl">
                 <img
