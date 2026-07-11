@@ -7,15 +7,18 @@ import SponsorImpressionTracker from "./SponsorImpressionTracker";
 
 const HOME_PERF_PREFIX = "[HOME_PERF]";
 
+function logHomeHudPerf(label: string, durationMs: number) {
+  console.log(
+    `${HOME_PERF_PREFIX} ${label}: ${durationMs.toFixed(1)}ms`
+  );
+}
+
 function startHomeHudTimer(label: string) {
   const startedAt = performance.now();
+  logHomeHudPerf(`${label} start`, 0);
 
   return () => {
-    console.log(
-      `${HOME_PERF_PREFIX} ${label}: ${(
-        performance.now() - startedAt
-      ).toFixed(1)}ms`
-    );
+    logHomeHudPerf(label, performance.now() - startedAt);
   };
 }
 
@@ -24,15 +27,23 @@ async function timeHomeHudAsync<T>(
   callback: () => Promise<T>
 ) {
   const startedAt = performance.now();
+  logHomeHudPerf(`${label} start`, 0);
 
   try {
     return await callback();
   } finally {
-    console.log(
-      `${HOME_PERF_PREFIX} ${label}: ${(
-        performance.now() - startedAt
-      ).toFixed(1)}ms`
-    );
+    logHomeHudPerf(label, performance.now() - startedAt);
+  }
+}
+
+function timeHomeHudSync<T>(label: string, callback: () => T) {
+  const startedAt = performance.now();
+  logHomeHudPerf(`${label} start`, 0);
+
+  try {
+    return callback();
+  } finally {
+    logHomeHudPerf(label, performance.now() - startedAt);
   }
 }
 
@@ -40,7 +51,20 @@ export default async function CycleHud() {
   const endHudTimer = startHomeHudTimer(
     "home CycleHud server render total"
   );
-  const nowMs = Date.parse(new Date().toISOString());
+
+  timeHomeHudSync(
+    "home CycleHud Supabase client creation check (module singleton/no per-render creation)",
+    () => supabaseAdmin
+  );
+  timeHomeHudSync(
+    "home CycleHud auth/session/user/team/admin check (not used)",
+    () => null
+  );
+
+  const nowMs = timeHomeHudSync(
+    "home CycleHud now timestamp transform",
+    () => Date.parse(new Date().toISOString())
+  );
   const { data: activeCycle } = await timeHomeHudAsync(
     "home active/open cycle loading (active cycle query)",
     async () =>
@@ -63,13 +87,19 @@ export default async function CycleHud() {
         .limit(1)
         .maybeSingle()
   );
-  const cycle = activeCycle ?? latestCycle;
+  const cycle = timeHomeHudSync(
+    "home CycleHud cycle selection transform",
+    () => activeCycle ?? latestCycle
+  );
   const sponsoredMeta = cycle
     ? await timeHomeHudAsync(
         "home sponsor/cycle sponsorship loading",
         () => getCycleSponsoredMeta(cycle.id)
       )
-    : null;
+    : timeHomeHudSync(
+        "home sponsor/cycle sponsorship loading skipped (no cycle)",
+        () => null
+      );
 
   const { data: configRows } = await timeHomeHudAsync(
     "home cycle hud app_config loading",
@@ -84,40 +114,72 @@ export default async function CycleHud() {
         ])
   );
 
-  const config = Object.fromEntries(
-    (configRows ?? []).map((r) => [r.key, r.value])
+  const config = timeHomeHudSync(
+    "home CycleHud app_config rows transform",
+    () =>
+      Object.fromEntries(
+        (configRows ?? []).map((r) => [r.key, r.value])
+      )
   );
-  const endAtMs = config.cycle_end_at
-    ? new Date(config.cycle_end_at).getTime()
-    : null;
 
-  const isTimerActive =
-    cycle?.status === "active" &&
-    endAtMs &&
-    endAtMs > nowMs;
-  const displayTheme =
-    sponsoredMeta?.enabled
-      ? "Sponsored Cycle"
-      : typeof config.cycle_theme === "string" &&
-          config.cycle_theme.trim().length > 0
-        ? config.cycle_theme.trim()
-        : cycle?.theme ?? "Open Cycle";
-  const displayStatus =
-    cycle?.status === "active"
-      ? "ACTIVE"
-      : cycle?.status === "finalizing"
-        ? "FINALIZED"
-        : cycle?.status === "finished"
-          ? "FINALIZED"
-          : cycle?.status?.toUpperCase() ?? "-";
-  const statusClassName =
-    cycle?.status === "active"
-      ? "text-green-400"
-      : cycle?.status === "finished"
-        ? "text-red-600"
-      : cycle?.status === "finalizing"
-          ? "text-red-600"
-          : "text-red-600";
+  const {
+    displayStatus,
+    displayTheme,
+    endAtMs,
+    isTimerActive,
+    statusClassName,
+  } = timeHomeHudSync(
+    "home CycleHud display state transform",
+    () => {
+      const transformedEndAtMs = config.cycle_end_at
+        ? new Date(config.cycle_end_at).getTime()
+        : null;
+      const transformedIsTimerActive =
+        cycle?.status === "active" &&
+        transformedEndAtMs &&
+        transformedEndAtMs > nowMs;
+      const transformedDisplayTheme =
+        sponsoredMeta?.enabled
+          ? "Sponsored Cycle"
+          : typeof config.cycle_theme === "string" &&
+              config.cycle_theme.trim().length > 0
+            ? config.cycle_theme.trim()
+            : cycle?.theme ?? "Open Cycle";
+      const transformedDisplayStatus =
+        cycle?.status === "active"
+          ? "ACTIVE"
+          : cycle?.status === "finalizing"
+            ? "FINALIZED"
+            : cycle?.status === "finished"
+              ? "FINALIZED"
+              : cycle?.status?.toUpperCase() ?? "-";
+      const transformedStatusClassName =
+        cycle?.status === "active"
+          ? "text-green-400"
+          : cycle?.status === "finished"
+            ? "text-red-600"
+            : cycle?.status === "finalizing"
+              ? "text-red-600"
+              : "text-red-600";
+
+      return {
+        displayStatus: transformedDisplayStatus,
+        displayTheme: transformedDisplayTheme,
+        endAtMs: transformedEndAtMs,
+        isTimerActive: transformedIsTimerActive,
+        statusClassName: transformedStatusClassName,
+      };
+    }
+  );
+
+  timeHomeHudSync(
+    "home CycleHud render readiness transform",
+    () => ({
+      hasCycle: Boolean(cycle),
+      hasEndAt: Boolean(endAtMs),
+      hasSponsor: Boolean(sponsoredMeta?.enabled),
+    })
+  );
 
   endHudTimer();
 
