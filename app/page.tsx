@@ -12,25 +12,90 @@ import { getTeamMember } from "@/lib/auth/guards";
 import { getContractAddress } from "@/lib/config/getContractAddress";
 import { getPumpFunUrl } from "@/lib/config/getPumpFunUrl";
 
+const HOME_PERF_PREFIX = "[HOME_PERF]";
+
+function startHomeTimer(label: string) {
+  const startedAt = performance.now();
+
+  return () => {
+    console.log(
+      `${HOME_PERF_PREFIX} ${label}: ${(
+        performance.now() - startedAt
+      ).toFixed(1)}ms`
+    );
+  };
+}
+
+async function timeHomeAsync<T>(
+  label: string,
+  callback: () => Promise<T>
+) {
+  const startedAt = performance.now();
+
+  try {
+    return await callback();
+  } finally {
+    console.log(
+      `${HOME_PERF_PREFIX} ${label}: ${(
+        performance.now() - startedAt
+      ).toFixed(1)}ms`
+    );
+  }
+}
+
 export default async function Home() {
+  const endHomeTimer = startHomeTimer(
+    "home page server render total (Home component before child RSC render)"
+  );
+
   let isTeamMember = false;
 
   try {
-    await getTeamMember();
+    await timeHomeAsync("home auth/team member loading", () =>
+      getTeamMember()
+    );
     isTeamMember = true;
   } catch {}
 
   let isLoggedIn = false;
 
   try {
-    await requireSession();
+    await timeHomeAsync("home auth/session loading", () =>
+      requireSession()
+    );
     isLoggedIn = true;
   } catch {}
 
-  const [contractAddress, pumpFunUrl] = await Promise.all([
-    getContractAddress(),
-    getPumpFunUrl(),
-  ]);
+  const [contractAddress, pumpFunUrl] = await timeHomeAsync(
+    "home app config loading (contract + pumpfun)",
+    () =>
+      Promise.all([
+        timeHomeAsync("home contract address loading", () =>
+          getContractAddress()
+        ),
+        timeHomeAsync("home pumpfun url loading", () =>
+          getPumpFunUrl()
+        ),
+      ])
+  );
+
+  console.log(
+    `${HOME_PERF_PREFIX} home submissions loading: not used by home route`
+  );
+  console.log(
+    `${HOME_PERF_PREFIX} home user profile loading: not used by home route`
+  );
+  console.log(
+    `${HOME_PERF_PREFIX} home user vote state / vote counts loading: not used by home route`
+  );
+  console.log(
+    `${HOME_PERF_PREFIX} home social links loading: not used by home route`
+  );
+  console.log(
+    `${HOME_PERF_PREFIX} home cycle history / wall preview loading: not used by home route`
+  );
+
+  endHomeTimer();
 
   return (
     <main className="relative w-full bg-orange-background text-white">

@@ -5,31 +5,84 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import CycleCountdown from "./CycleCountdown";
 import SponsorImpressionTracker from "./SponsorImpressionTracker";
 
-export default async function CycleHud() {
-  const nowMs = Date.parse(new Date().toISOString());
-  const { data: activeCycle } = await supabaseAdmin
-    .from("voting_cycles")
-    .select("id,status,theme")
-    .eq("status", "active")
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+const HOME_PERF_PREFIX = "[HOME_PERF]";
 
-  const { data: latestCycle } = await supabaseAdmin
-    .from("voting_cycles")
-    .select("id,status,theme")
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+function startHomeHudTimer(label: string) {
+  const startedAt = performance.now();
+
+  return () => {
+    console.log(
+      `${HOME_PERF_PREFIX} ${label}: ${(
+        performance.now() - startedAt
+      ).toFixed(1)}ms`
+    );
+  };
+}
+
+async function timeHomeHudAsync<T>(
+  label: string,
+  callback: () => Promise<T>
+) {
+  const startedAt = performance.now();
+
+  try {
+    return await callback();
+  } finally {
+    console.log(
+      `${HOME_PERF_PREFIX} ${label}: ${(
+        performance.now() - startedAt
+      ).toFixed(1)}ms`
+    );
+  }
+}
+
+export default async function CycleHud() {
+  const endHudTimer = startHomeHudTimer(
+    "home CycleHud server render total"
+  );
+  const nowMs = Date.parse(new Date().toISOString());
+  const { data: activeCycle } = await timeHomeHudAsync(
+    "home active/open cycle loading (active cycle query)",
+    async () =>
+      await supabaseAdmin
+        .from("voting_cycles")
+        .select("id,status,theme")
+        .eq("status", "active")
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+  );
+
+  const { data: latestCycle } = await timeHomeHudAsync(
+    "home active/open cycle loading (latest cycle fallback query)",
+    async () =>
+      await supabaseAdmin
+        .from("voting_cycles")
+        .select("id,status,theme")
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+  );
   const cycle = activeCycle ?? latestCycle;
   const sponsoredMeta = cycle
-    ? await getCycleSponsoredMeta(cycle.id)
+    ? await timeHomeHudAsync(
+        "home sponsor/cycle sponsorship loading",
+        () => getCycleSponsoredMeta(cycle.id)
+      )
     : null;
 
-  const { data: configRows } = await supabaseAdmin
-    .from("app_config")
-    .select("key,value")
-    .in("key", ["cycle_theme", "next_cycle_theme", "cycle_end_at"]);
+  const { data: configRows } = await timeHomeHudAsync(
+    "home cycle hud app_config loading",
+    async () =>
+      await supabaseAdmin
+        .from("app_config")
+        .select("key,value")
+        .in("key", [
+          "cycle_theme",
+          "next_cycle_theme",
+          "cycle_end_at",
+        ])
+  );
 
   const config = Object.fromEntries(
     (configRows ?? []).map((r) => [r.key, r.value])
@@ -65,6 +118,8 @@ export default async function CycleHud() {
       : cycle?.status === "finalizing"
           ? "text-red-600"
           : "text-red-600";
+
+  endHudTimer();
 
   if (!cycle) return null;
 
