@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getTeamMember } from "@/lib/auth/guards";
-import { requireSession } from "@/lib/auth/requireSession";
 import { getCycleHistoryCycleData } from "@/lib/cycles/getCycleHistoryData";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 
@@ -14,8 +13,6 @@ export async function GET(
   }
 ) {
   try {
-    await requireSession();
-
     let isAdminView = false;
 
     try {

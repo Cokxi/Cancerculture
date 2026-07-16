@@ -24,10 +24,14 @@ export async function GET(req: Request) {
         disqualification_reason_code,
         disqualification_reason_text,
         created_at,
-        voting_cycles!inner(status)
+        voting_cycles!inner(status, paused_from_status)
         `
       )
-      .eq("voting_cycles.status", "active")
+      .in("voting_cycles.status", [
+        "active",
+        "submission_open",
+        "paused",
+      ])
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -37,12 +41,6 @@ export async function GET(req: Request) {
 
     const { data, error } = await query;
 
-    const submissionsWithUrls =
-  data?.map((s) => ({
-    ...s,
-    image_url: getPublicImageUrl(s.r2_key) ?? "",
-  })) ?? [];
-
     if (error) {
       return NextResponse.json(
         { error: "Failed to load submissions" },
@@ -50,15 +48,40 @@ export async function GET(req: Request) {
       );
     }
 
+    const submissionsWithUrls = (data ?? [])
+      .filter((submission) => {
+        const cycle = Array.isArray(submission.voting_cycles)
+          ? submission.voting_cycles[0]
+          : submission.voting_cycles;
+
+        return (
+          cycle?.status !== "paused" ||
+          cycle.paused_from_status === "submission_open"
+        );
+      })
+      .map((submission) => ({
+        ...submission,
+        image_url: getPublicImageUrl(submission.r2_key) ?? "",
+      }));
+
     return NextResponse.json({
-  submissions: submissionsWithUrls,
-});
-  } catch (error: any) {
+      submissions: submissionsWithUrls,
+    });
+  } catch (error: unknown) {
+    const status =
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      typeof error.status === "number"
+        ? error.status
+        : null;
+    const message =
+      error instanceof Error ? error.message : "Unauthorized";
     
-    if (error?.status === 401 || error?.status === 403) {
+    if (status === 401 || status === 403) {
       return NextResponse.json(
-        { error: error.message },
-        { status: error.status }
+        { error: message },
+        { status }
       );
     }
 

@@ -14,6 +14,8 @@ type ReviewSubmissionRow = {
   public_visibility_reason_text: string | null;
   public_visibility_updated_at: string | null;
   public_visibility_updated_by_discord_username: string | null;
+  public_visibility_source: string;
+  is_disqualified: boolean;
 };
 
 function buildThumbUrl(imageUrl: string | null) {
@@ -135,11 +137,18 @@ function SubmissionSection({
                     ).toLocaleString()}
                   </div>
                 ) : null}
+
+                {submission.is_disqualified ? (
+                  <div className="text-xs font-semibold text-red-300">
+                    Competition disqualification remains active
+                  </div>
+                ) : null}
               </div>
 
               <ReviewActions
                 submissionId={submission.id}
                 status={status}
+                visibilitySource={submission.public_visibility_source}
               />
             </article>
           ))}
@@ -155,7 +164,7 @@ export default async function AdminLegalReviewPage() {
   const { data, error } = await supabaseAdmin
     .from("submissions")
     .select(
-      "id, cycle_id, r2_key, discord_user_id, discord_username_at_upload, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text, public_visibility_updated_at, public_visibility_updated_by_discord_username"
+      "id, cycle_id, r2_key, discord_user_id, discord_username_at_upload, is_disqualified, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text, public_visibility_updated_at, public_visibility_updated_by_discord_username, public_visibility_source"
     )
     .in("public_visibility_status", ["legal_review", "removed"])
     .order("public_visibility_updated_at", { ascending: false });

@@ -2,15 +2,15 @@ export const dynamic = "force-dynamic";
 
 import Image from "next/image";
 import Link from "next/link";
-import ContractAddress from "./components/ContractAddress";
+import CoinLaunchDisplay from "./components/CoinLaunchDisplay";
 import CycleHud from "@/app/components/CycleHud";
 import DiscordCellAnimated from "./components/DiscordCellAnimated";
 import TelegramCellAnimated from "./components/TelegramCellAnimated";
-import WalletAddressBox from "@/app/components/WalletAddressBox";
+import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { requireSession } from "@/lib/auth/requireSession";
-import { getTeamMember } from "@/lib/auth/guards";
-import { getContractAddress } from "@/lib/config/getContractAddress";
-import { getPumpFunUrl } from "@/lib/config/getPumpFunUrl";
+import { getTeamMemberForDiscordUserId } from "@/lib/auth/guards";
+import { getPrimaryCoinLaunch } from "@/lib/coinLaunches/getActiveCoinLaunches";
+import { processDueCycleTransitions } from "@/lib/cycles/phaseAutomation";
 
 const HOME_PERF_PREFIX = "[HOME_PERF]";
 
@@ -48,36 +48,65 @@ export default async function Home() {
     "home page server render total (Home component before child RSC render)"
   );
 
-  let isTeamMember = false;
-
-  try {
-    await timeHomeAsync("home auth/team member loading", () =>
-      getTeamMember()
-    );
-    isTeamMember = true;
-  } catch {}
+  await timeHomeAsync("home due cycle transitions", () =>
+    processDueCycleTransitions()
+  );
 
   let isLoggedIn = false;
+  let discordUserId: string | null = null;
 
   try {
-    await timeHomeAsync("home auth/session loading", () =>
+    const session = await timeHomeAsync("home auth/session loading", () =>
       requireSession()
     );
+    discordUserId = session.discord_user_id;
     isLoggedIn = true;
-  } catch {}
+  } catch (error) {
+    const status = getAuthErrorStatus(error);
 
-  const [contractAddress, pumpFunUrl] = await timeHomeAsync(
-    "home app config loading (contract + pumpfun)",
-    () =>
-      Promise.all([
-        timeHomeAsync("home contract address loading", () =>
-          getContractAddress()
-        ),
-        timeHomeAsync("home pumpfun url loading", () =>
-          getPumpFunUrl()
-        ),
-      ])
-  );
+    if (status !== null && status >= 500) {
+      console.error("[ADMIN_AUTH] home session check unavailable", error);
+    } else if (status === null) {
+      throw error;
+    }
+  }
+
+  let isTeamMember = false;
+
+  if (discordUserId) {
+    try {
+      await timeHomeAsync("home auth/team member loading", () =>
+        getTeamMemberForDiscordUserId(discordUserId)
+      );
+      isTeamMember = true;
+    } catch (error) {
+      const status = getAuthErrorStatus(error);
+
+      if (status !== null && status >= 500) {
+        console.error(
+          "[ADMIN_AUTH] home team-member check unavailable; menu will retry on the next server render",
+          error
+        );
+      } else if (status === null) {
+        throw error;
+      }
+    }
+  } else {
+    console.log(
+      `${HOME_PERF_PREFIX} home auth/team member loading: skipped (no session)`
+    );
+  }
+
+  let primaryCoinLaunch = null;
+
+  try {
+    primaryCoinLaunch = await timeHomeAsync(
+      "home primary coin launch loading",
+      () => getPrimaryCoinLaunch()
+    );
+  } catch (error) {
+    console.error("[COIN_LAUNCHES] home launch loading failed", error);
+  }
 
   console.log(
     `${HOME_PERF_PREFIX} home submissions loading: not used by home route`
@@ -131,7 +160,7 @@ export default async function Home() {
           <nav className="link-bar">
             <a href="#about">ABOUT</a>
             <a href="/upload">UPLOAD</a>
-            <a href="/vote">VOTE</a>
+            <a href="/submissions">SUBMISSIONS</a>
             <a href="/faq">FAQ</a>
             <a href="/rules">RULES</a>
             <a href="/wall/fame">WALL OF FAME</a>
@@ -163,51 +192,7 @@ export default async function Home() {
 
         <CycleHud />
 
-        <a
-          href={pumpFunUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="
-            group relative animate-breathe -translate-y-2 transition-transform
-            hover:animate-none hover:scale-[1.03]
-            active:scale-[0.98] sm:translate-y-0
-          "
-          aria-label="Open CancerCulture on Pump.fun"
-        >
-          <span
-            className="
-              pointer-events-none absolute left-0 top-1/2 z-20 hidden
-              -translate-x-[105%] -translate-y-1/2 scale-90 opacity-0
-              transition-all duration-1500 ease-out
-              group-hover:scale-100 group-hover:opacity-100 sm:block
-            "
-          >
-            <Image
-              src="https://cdn.cancerculture.fun/webp/icons/pump.V1.webp"
-              alt=""
-              width={60}
-              height={60}
-              className="h-10 w-10 object-contain drop-shadow-[0_4px_0_rgba(0,0,0,0.6)] sm:h-14 sm:w-14"
-            />
-          </span>
-
-          <span
-            className="
-              pointer-events-none absolute right-0 top-1/2 z-20 hidden
-              translate-x-[105%] -translate-y-1/2 scale-90 opacity-0
-              transition-all duration-1500 ease-out
-              group-hover:scale-100 group-hover:opacity-100 sm:block
-            "
-          >
-            <Image
-              src="https://cdn.cancerculture.fun/webp/icons/pump.V1.webp"
-              alt=""
-              width={60}
-              height={60}
-              className="h-10 w-10 object-contain drop-shadow-[0_4px_0_rgba(0,0,0,0.6)] sm:h-14 sm:w-14"
-            />
-          </span>
-
+        <div className="relative animate-breathe -translate-y-2 sm:translate-y-0">
           <Image
             src="https://cdn.cancerculture.fun/webp/logo/logo.webp"
             alt="CancerCulture"
@@ -218,16 +203,15 @@ export default async function Home() {
               sm:max-h-[22vh] sm:w-[min(900px,80vw)]
             "
           />
-        </a>
-
-        <div className="pointer-events-none absolute inset-x-0 bottom-[-1.25rem] z-20 hidden justify-center md:flex">
-          <div className="pointer-events-auto">
-            <ContractAddress
-              address={contractAddress}
-              desktopVariant="centered"
-            />
-          </div>
         </div>
+
+        {primaryCoinLaunch ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-[-1.25rem] z-20 flex justify-center">
+            <div className="pointer-events-auto">
+              <CoinLaunchDisplay launch={primaryCoinLaunch} />
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section id="about" className="relative w-full">
@@ -267,7 +251,7 @@ export default async function Home() {
     <p>You get:</p>
     <ul className="pl-5 list-disc inline-block text-left">
       <li>1 submission</li>
-      <li>1 vote</li>
+      <li>2 votes</li>
     </ul>
 
     <p className="mt-4">
@@ -284,44 +268,17 @@ export default async function Home() {
         </section>
       </section>
 
-      <div className="relative mx-auto max-w-6xl px-6 pb-32 pt-16">
-        <div
-          className="
-            grid grid-cols-1 items-start justify-center gap-20
-            lg:grid-cols-[minmax(320px,380px)_220px_minmax(320px,380px)]
-          "
-        >
-          <WalletAddressBox
-            label="REWARD WALLET 80%"
-            address="HaHu8HiA7FZb7EaaFEop7FxJnSbS5BUq9Q54g7EKrRCt"
-          />
-
-          <div aria-hidden className="h-full" />
-
-          <WalletAddressBox
-            label="MARKETING WALLET 20%"
-            address="26univYjGYH6HRoRQnyTJj7X1wvCyVrFF1K9oHrGQGoE"
-          />
-        </div>
-      </div>
-
-      <div className="md:hidden">
-        <ContractAddress address={contractAddress} />
-      </div>
-
-      {isLoggedIn && (
-        <Link
-          href="/cycle-history"
-          className="
-            fixed bottom-6 left-6 z-50 hidden items-center justify-center
-            rounded-lg border border-orange-500/30 bg-black/75 px-5 py-3
-            text-sm font-[var(--font-marker)] text-orange-400 shadow-lg shadow-black/30
-            transition-all hover:bg-black/90 hover:scale-105 active:scale-95 md:flex
-          "
-        >
-          Cycle History
-        </Link>
-      )}
+      <Link
+        href="/cycle-history"
+        className="
+          fixed bottom-6 left-6 z-50 hidden items-center justify-center
+          rounded-lg border border-orange-500/30 bg-black/75 px-5 py-3
+          text-sm font-[var(--font-marker)] text-orange-400 shadow-lg shadow-black/30
+          transition-all hover:bg-black/90 hover:scale-105 active:scale-95 md:flex
+        "
+      >
+        Cycle History
+      </Link>
 
       {isLoggedIn && (
         <Link
@@ -337,9 +294,7 @@ export default async function Home() {
         </Link>
       )}
 
-      {isLoggedIn && (
-        <>
-          <Link
+      <Link
             href="/cycle-history"
             className="
               fixed bottom-4 left-3 z-50 flex items-center justify-center rounded-lg border border-orange-500/40
@@ -351,6 +306,8 @@ export default async function Home() {
             Cycle History
           </Link>
 
+      {isLoggedIn && (
+        <>
           <Link
             href="/my-profile"
             className="

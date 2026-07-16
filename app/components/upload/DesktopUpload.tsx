@@ -10,10 +10,19 @@ import CharitiesOverlay from "@/app/components/overlay/CharitiesOverlay";
 import RulesOverlay from "@/app/components/overlay/RulesOverlay";
 import DiscordGateOverlay from "@/app/components/overlay/DiscordGateOverlay";
 import type { UserSocialSettings } from "@/lib/socials/getUserSocialSettings";
+import type { DiscordMembershipStatus } from "@/lib/upload/getUploadEligibility";
+import {
+  MEDIA_VALIDATION_MESSAGES,
+  preflightBrowserImage,
+  SUBMISSION_MEDIA_PROFILE,
+} from "@/lib/media/profiles";
 
 
 type PayoutChoice = "keep" | "donate" | "split";
 type SubmitState = "idle" | "partial" | "ready";
+
+const DISCORD_GATE_STORAGE_KEY =
+  "cancerculture:upload-discord-gate";
 
 const CHARITY_OPTIONS = [
   { value: "Animal Haven", label: "Animal Haven" },
@@ -34,15 +43,23 @@ export default function DesktopUpload({
   showSupportLink,
   forceSuccessState = false,
   socialSettings,
+  initialMembership,
+  currentCycleStatus,
+  pausedFromStatus,
 }: {
   hasActiveCycle: boolean;
   showSupportLink: boolean;
   forceSuccessState?: boolean;
   socialSettings: UserSocialSettings;
+  initialMembership: DiscordMembershipStatus | null;
+  currentCycleStatus: string | null;
+  pausedFromStatus: string | null;
 }) {
 
   const { openOverlay } = useOverlay();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialDiscordGateHandledRef = useRef(false);
+  const uploadAttemptKeyRef = useRef<string | null>(null);
   const [uploadDone, setUploadDone] = useState(forceSuccessState);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -64,6 +81,33 @@ useEffect(() => {
   }
 }, [forceSuccessState]);
 
+useEffect(() => {
+  if (initialDiscordGateHandledRef.current) return;
+  initialDiscordGateHandledRef.current = true;
+
+  if (!hasActiveCycle || !initialMembership) return;
+
+  if (initialMembership.joinedTooRecently) {
+    localStorage.setItem(DISCORD_GATE_STORAGE_KEY, "true");
+    openOverlay(
+      <DiscordGateOverlay
+        type="cooldown"
+        joinedAt={initialMembership.joinedAt ?? undefined}
+      />
+    );
+    return;
+  }
+
+  if (initialMembership.isMember) {
+    localStorage.removeItem(DISCORD_GATE_STORAGE_KEY);
+    return;
+  }
+
+  if (localStorage.getItem(DISCORD_GATE_STORAGE_KEY) === "true") {
+    openOverlay(<DiscordGateOverlay type="not_in_discord" />);
+  }
+}, [hasActiveCycle, initialMembership, openOverlay]);
+
 
 
   const hasImage = !!file;
@@ -78,6 +122,49 @@ useEffect(() => {
 
   const submitState: SubmitState =
   hasImage && hasMeta ? "ready" : hasImage || hasMeta ? "partial" : "idle";
+
+  const uploadUnavailableMessage = (() => {
+    if (currentCycleStatus === "voting_open") {
+      return {
+        title: "Submissions are closed",
+        text: "The voting phase is active now. Submissions open again when the next cycle starts.",
+      };
+    }
+
+    if (currentCycleStatus === "submission_closed") {
+      return {
+        title: "Submission phase ended",
+        text: "Voting will begin shortly. Submissions open again when the next cycle starts.",
+      };
+    }
+
+    if (currentCycleStatus === "paused") {
+      return pausedFromStatus === "submission_open"
+        ? {
+            title: "Submission phase paused",
+            text: "Uploads are temporarily paused and will continue when the cycle resumes.",
+          }
+        : {
+            title: "Cycle paused",
+            text: "Voting is temporarily paused. Submissions open again with the next cycle.",
+          };
+    }
+
+    if (
+      currentCycleStatus === "voting_closed" ||
+      currentCycleStatus === "finalizing"
+    ) {
+      return {
+        title: "This cycle is wrapping up",
+        text: "Voting has ended. Submissions open again when the next cycle starts.",
+      };
+    }
+
+    return {
+      title: "No active cycle right now.",
+      text: "Uploads open again automatically as soon as the next cycle starts.",
+    };
+  })();
 
 useEffect(() => {
   if (!hasActiveCycle) return;
@@ -132,11 +219,26 @@ useEffect(() => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (!f || !f.type.startsWith("image/")) return;
+    if (!f) return;
+
+    const validationError = await preflightBrowserImage(
+      f,
+      SUBMISSION_MEDIA_PROFILE
+    );
+    if (validationError) {
+      alert(MEDIA_VALIDATION_MESSAGES[validationError]);
+      e.target.value = "";
+      return;
+    }
+
+    uploadAttemptKeyRef.current = null;
     setFile(f);
-    setPreviewUrl(URL.createObjectURL(f));
+    setPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(f);
+    });
   };
 
   const handleSubmit = async () => {
@@ -162,26 +264,25 @@ useEffect(() => {
       if (charity === "other") formData.append("charity", customCharity);
       else if (charity) formData.append("charity", charity);
 
-      const MAX_UPLOAD_SIZE = 4 * 1024 * 1024;
-
 if (!file) {
   alert("No file selected");
   return;
 }
 
-if (file.size > MAX_UPLOAD_SIZE) {
-  alert("Max file size is 4 MB");
-  return;
-}
-
       const res = await fetch("/api/upload", {
         method: "POST",
+        headers: {
+          "Idempotency-Key":
+            uploadAttemptKeyRef.current ??
+            (uploadAttemptKeyRef.current = crypto.randomUUID()),
+        },
         body: formData,
       });
       const data = await res.json();
 
       if (!res.ok) {
   if (data.error === "NOT_IN_DISCORD") {
+    localStorage.setItem(DISCORD_GATE_STORAGE_KEY, "true");
     openOverlay(<DiscordGateOverlay type="not_in_discord" />);
     return;
   }
@@ -190,6 +291,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
     const joinedAt =
       typeof data.joinedAt === "string" ? data.joinedAt : null;
 
+    localStorage.setItem(DISCORD_GATE_STORAGE_KEY, "true");
     openOverlay(
       <DiscordGateOverlay
         type="cooldown"
@@ -199,13 +301,23 @@ if (file.size > MAX_UPLOAD_SIZE) {
     return;
   }
 
-  alert(data.error ?? "Upload not possible right now");
+  const mediaMessage =
+    typeof data.error === "string" && data.error in MEDIA_VALIDATION_MESSAGES
+      ? MEDIA_VALIDATION_MESSAGES[
+          data.error as keyof typeof MEDIA_VALIDATION_MESSAGES
+        ]
+      : null;
+  alert(mediaMessage ?? data.error ?? "Upload not possible right now");
   return;
 }
 
       setSuccessMode("success");
       setUploadDone(true);
-      
+      localStorage.removeItem(DISCORD_GATE_STORAGE_KEY);
+    } catch {
+      alert(
+        "The upload result could not be confirmed. Retry without changing the form; the same request key will be reused safely."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -239,11 +351,14 @@ if (file.size > MAX_UPLOAD_SIZE) {
 
             {previewUrl && (
               <div className="mx-auto bg-white rounded-xl p-2 shadow-xl">
-                <img
-  src={previewUrl}
-  alt="Preview"
-  className="w-[260px] h-[260px] rounded-lg object-contain"
-/>
+                <Image
+                  src={previewUrl}
+                  alt="Preview"
+                  width={260}
+                  height={260}
+                  unoptimized
+                  className="h-[260px] w-[260px] rounded-lg object-contain"
+                />
               </div>
             )}
 
@@ -290,7 +405,10 @@ if (file.size > MAX_UPLOAD_SIZE) {
                 <input
                   placeholder="Wallet address"
                   value={walletAddress}
-                  onChange={(e) => setWalletAddress(e.target.value)}
+                  onChange={(e) => {
+                    uploadAttemptKeyRef.current = null;
+                    setWalletAddress(e.target.value);
+                  }}
                   className="rounded-xl px-4 py-2 bg-white"
                 />
               ) : (
@@ -304,6 +422,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
                   <button
                     key={o}
                     onClick={() => {
+                      uploadAttemptKeyRef.current = null;
                       const nextChoice = o as PayoutChoice;
                       setPayoutChoice(nextChoice);
                       if (nextChoice === "donate") {
@@ -328,7 +447,10 @@ if (file.size > MAX_UPLOAD_SIZE) {
                 min={1}
                 max={99}
                 value={splitPercent}
-                onChange={(e) => setSplitPercent(Number(e.target.value))}
+                onChange={(e) => {
+                  uploadAttemptKeyRef.current = null;
+                  setSplitPercent(Number(e.target.value));
+                }}
               />
               <div className="flex justify-between text-sm text-[var(--orange-main)]">
                 <span>You: {splitPercent}%</span>
@@ -341,7 +463,10 @@ if (file.size > MAX_UPLOAD_SIZE) {
                 <>
                   <select
                     value={charity ?? ""}
-                    onChange={(e) => setCharity(e.target.value)}
+                    onChange={(e) => {
+                      uploadAttemptKeyRef.current = null;
+                      setCharity(e.target.value);
+                    }}
                     className="rounded-xl px-4 py-2 bg-white"
                   >
                     <option value="" disabled>
@@ -359,9 +484,10 @@ if (file.size > MAX_UPLOAD_SIZE) {
                     <input
                       placeholder="Custom charity"
                       value={customCharity}
-                      onChange={(e) =>
-                        setCustomCharity(e.target.value)
-                      }
+                      onChange={(e) => {
+                        uploadAttemptKeyRef.current = null;
+                        setCustomCharity(e.target.value);
+                      }}
                       className="rounded-xl px-4 py-2 bg-white"
                     />
                   )}
@@ -406,10 +532,10 @@ if (file.size > MAX_UPLOAD_SIZE) {
           ) : (
             <div className="mx-auto w-full max-w-2xl rounded-[2rem] bg-yellow-star px-8 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
               <div className="font-[Permanent_Marker] text-3xl text-[var(--orange-dark)]">
-                No active cycle right now.
+                {uploadUnavailableMessage.title}
               </div>
               <p className="mt-4 text-base text-[var(--orange-main)]">
-                Uploads open again automatically as soon as the next cycle starts.
+                {uploadUnavailableMessage.text}
               </p>
             </div>
           ))}
@@ -463,7 +589,7 @@ if (file.size > MAX_UPLOAD_SIZE) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept={SUBMISSION_MEDIA_PROFILE.allowedBrowserMimeTypes.join(",")}
           hidden
           onChange={handleFileChange}
           disabled={!hasActiveCycle}

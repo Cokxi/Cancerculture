@@ -2,7 +2,6 @@ import BackButton from "@/app/components/ui/BackButton";
 import Link from "next/link";
 import PublicProfileSocialsSection from "@/app/components/profile/PublicProfileSocialsSection";
 import { getTeamMember } from "@/lib/auth/guards";
-import { requireSession } from "@/lib/auth/requireSession";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
 import { getPublicUserProfileData } from "@/lib/profile/getPublicUserProfileData";
@@ -23,26 +22,11 @@ function renderRank(submission: {
   }`;
 }
 
-function getCycleHistorySubmissionHref(submission: {
-  id: number;
-  cycle_id: number;
-  is_disqualified: boolean;
-  rank: number | null;
-}) {
-  if (submission.is_disqualified || !submission.rank) {
-    return null;
-  }
-
-  return `/cycle-history?cycle=${submission.cycle_id}#submission-${submission.id}`;
-}
-
 export default async function PublicProfilePage({
   params,
 }: {
   params: Promise<{ publicProfileId: string }>;
 }) {
-  await requireSession();
-
   let canModerateSocials = false;
 
   try {
@@ -133,15 +117,14 @@ export default async function PublicProfilePage({
                   className="rounded-xl border border-[var(--orange-dark)]/30 bg-black/40 p-4"
                 >
                   {(() => {
-                    const historyHref =
-                      getCycleHistorySubmissionHref(submission);
+                    const destinationHref = submission.destination_href;
 
                     return (
                   <div className="flex flex-col gap-4 md:flex-row">
                     {submission.image_url ? (
-                      historyHref ? (
+                      destinationHref ? (
                         <Link
-                          href={historyHref}
+                          href={destinationHref}
                           className="block h-40 w-40 rounded focus:outline-none focus:ring-2 focus:ring-[var(--orange-dark)]"
                         >
                           <img
@@ -168,12 +151,14 @@ export default async function PublicProfilePage({
                       <div>Votes: {submission.vote_count}</div>
                       <div>Rank: {renderRank(submission)}</div>
 
-                      {historyHref ? (
+                      {destinationHref ? (
                         <Link
-                          href={historyHref}
+                          href={destinationHref}
                           className="inline-flex rounded-full border border-[var(--orange-dark)]/40 px-3 py-1 text-xs text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
                         >
-                          View in Cycle History
+                          {destinationHref.startsWith("/submissions")
+                            ? "View in Current Submissions"
+                            : "View in Cycle History"}
                         </Link>
                       ) : null}
 

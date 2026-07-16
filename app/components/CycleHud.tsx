@@ -1,11 +1,73 @@
 export const dynamic = "force-dynamic";
 
-import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
+import {
+  getCycleSponsoredMeta,
+  type SponsoredCycleMeta,
+} from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 import CycleCountdown from "./CycleCountdown";
 import SponsorImpressionTracker from "./SponsorImpressionTracker";
 
 const HOME_PERF_PREFIX = "[HOME_PERF]";
+const HOME_PERF_JSON_PREFIX = "[HOME_PERF_JSON]";
+
+const RELEVANT_CYCLE_STATUSES = [
+  "submission_open",
+  "voting_open",
+  "paused",
+  "submission_closed",
+  "voting_closed",
+  "finalizing",
+  "completed",
+  "active",
+  "finished",
+] as const;
+
+const CYCLE_HUD_SELECT = `
+  id,
+  status,
+  theme,
+  submission_ends_at,
+  voting_ends_at,
+  results_published_at,
+  archived_at,
+  votes_per_user,
+  paused_from_status,
+  phase_pause_reason,
+  ends_at,
+  is_sponsored,
+  sponsorship_id,
+  sponsor_name_snapshot,
+  sponsor_link_snapshot,
+  sponsor_banner_url_snapshot
+`;
+
+type CycleHudStatus = (typeof RELEVANT_CYCLE_STATUSES)[number] | string;
+
+type CycleHudRow = {
+  id: number;
+  status: CycleHudStatus;
+  theme: string | null;
+  submission_ends_at: string | null;
+  voting_ends_at: string | null;
+  results_published_at: string | null;
+  archived_at: string | null;
+  votes_per_user: number | null;
+  paused_from_status: string | null;
+  phase_pause_reason: string | null;
+  ends_at: string | null;
+  is_sponsored: boolean | null;
+  sponsorship_id: number | null;
+  sponsor_name_snapshot: string | null;
+  sponsor_link_snapshot: string | null;
+  sponsor_banner_url_snapshot: string | null;
+};
+
+type PerfMetrics = {
+  cycleQueryMs: number;
+  appConfigMs: number;
+  sponsorshipMs: number;
+};
 
 function logHomeHudPerf(label: string, durationMs: number) {
   console.log(
@@ -18,13 +80,16 @@ function startHomeHudTimer(label: string) {
   logHomeHudPerf(`${label} start`, 0);
 
   return () => {
-    logHomeHudPerf(label, performance.now() - startedAt);
+    const durationMs = performance.now() - startedAt;
+    logHomeHudPerf(label, durationMs);
+    return durationMs;
   };
 }
 
 async function timeHomeHudAsync<T>(
   label: string,
-  callback: () => Promise<T>
+  callback: () => Promise<T>,
+  onDuration?: (durationMs: number) => void
 ) {
   const startedAt = performance.now();
   logHomeHudPerf(`${label} start`, 0);
@@ -32,7 +97,9 @@ async function timeHomeHudAsync<T>(
   try {
     return await callback();
   } finally {
-    logHomeHudPerf(label, performance.now() - startedAt);
+    const durationMs = performance.now() - startedAt;
+    onDuration?.(durationMs);
+    logHomeHudPerf(label, durationMs);
   }
 }
 
@@ -47,7 +114,260 @@ function timeHomeHudSync<T>(label: string, callback: () => T) {
   }
 }
 
+function normalizeString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getCyclePriority(status: CycleHudStatus) {
+  const index = RELEVANT_CYCLE_STATUSES.indexOf(
+    status as (typeof RELEVANT_CYCLE_STATUSES)[number]
+  );
+
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function choosePreferredCycle(cycles: CycleHudRow[]) {
+  return [...cycles].sort((a, b) => {
+    const priorityDelta =
+      getCyclePriority(a.status) - getCyclePriority(b.status);
+
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    return b.id - a.id;
+  })[0] ?? null;
+}
+
+function sponsorMetaFromSnapshot(
+  cycle: CycleHudRow
+): SponsoredCycleMeta | null {
+  if (cycle.is_sponsored !== true) {
+    return null;
+  }
+
+  const companyName = normalizeString(cycle.sponsor_name_snapshot);
+  const sponsorLink = normalizeString(cycle.sponsor_link_snapshot);
+  const bannerUrl = normalizeString(
+    cycle.sponsor_banner_url_snapshot
+  );
+
+  if (!companyName && !sponsorLink && !bannerUrl) {
+    return null;
+  }
+
+  return {
+    sponsorshipId: cycle.sponsorship_id,
+    enabled: true,
+    companyName,
+    sponsorLink,
+    bannerR2Key: "",
+    bannerUrl: bannerUrl || null,
+  };
+}
+
+async function getPreferredCycle(metrics: PerfMetrics) {
+  const relevantResult = await timeHomeHudAsync(
+    "home CycleHud relevant phase cycle query",
+    async () =>
+      await supabaseAdmin
+        .from("voting_cycles")
+        .select(CYCLE_HUD_SELECT)
+        .in("status", RELEVANT_CYCLE_STATUSES)
+        .order("id", { ascending: false })
+        .limit(12),
+    (durationMs) => {
+      metrics.cycleQueryMs += durationMs;
+    }
+  );
+
+  const relevantCycles = (relevantResult.data ??
+    []) as CycleHudRow[];
+  const relevantCycle = timeHomeHudSync(
+    "home CycleHud relevant cycle selection transform",
+    () => choosePreferredCycle(relevantCycles)
+  );
+
+  if (relevantCycle) {
+    timeHomeHudSync(
+      "home active/open cycle loading (latest cycle fallback skipped)",
+      () => null
+    );
+    return relevantCycle;
+  }
+
+  const latestResult = await timeHomeHudAsync(
+    "home active/open cycle loading (latest cycle fallback query)",
+    async () =>
+      await supabaseAdmin
+        .from("voting_cycles")
+        .select(CYCLE_HUD_SELECT)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    (durationMs) => {
+      metrics.cycleQueryMs += durationMs;
+    }
+  );
+
+  return (latestResult.data as CycleHudRow | null) ?? null;
+}
+
+function getDisplayState({
+  cycle,
+  sponsoredMeta,
+  nowMs,
+}: {
+  cycle: CycleHudRow;
+  sponsoredMeta: SponsoredCycleMeta | null;
+  nowMs: number;
+}) {
+  const themeFromCycle = normalizeString(cycle.theme);
+  const displayTheme =
+    sponsoredMeta?.enabled && sponsoredMeta.companyName.length > 0
+      ? "Sponsored Cycle"
+      : themeFromCycle || "Open Cycle";
+
+  switch (cycle.status) {
+    case "submission_open": {
+      const endAt = cycle.submission_ends_at;
+      const endAtMs = endAt ? new Date(endAt).getTime() : null;
+
+      return {
+        displayTheme,
+        displayStatus: "SUBMISSION OPEN",
+        statusClassName: "text-green-400",
+        timerLabel: "Submission phase ends in:",
+        timerEndAt: endAt,
+        isTimerActive: Boolean(endAtMs && endAtMs > nowMs),
+        votesPerUser:
+          cycle.votes_per_user && cycle.votes_per_user !== 2
+            ? cycle.votes_per_user
+            : null,
+      };
+    }
+
+    case "voting_open": {
+      const endAt = cycle.voting_ends_at;
+      const endAtMs = endAt ? new Date(endAt).getTime() : null;
+
+      return {
+        displayTheme,
+        displayStatus: "VOTING OPEN",
+        statusClassName: "text-green-400",
+        timerLabel: "Voting phase ends in:",
+        timerEndAt: endAt,
+        isTimerActive: Boolean(endAtMs && endAtMs > nowMs),
+        votesPerUser:
+          cycle.votes_per_user && cycle.votes_per_user !== 2
+            ? cycle.votes_per_user
+            : null,
+      };
+    }
+
+    case "paused":
+      return {
+        displayTheme,
+        displayStatus: "PAUSED",
+        statusClassName: "text-red-500",
+        timerLabel: null,
+        timerEndAt: null,
+        isTimerActive: false,
+        votesPerUser:
+          cycle.votes_per_user && cycle.votes_per_user !== 2
+            ? cycle.votes_per_user
+            : null,
+      };
+
+    case "submission_closed":
+      return {
+        displayTheme,
+        displayStatus: "SUBMISSION CLOSED",
+        statusClassName: "text-red-600",
+        timerLabel: null,
+        timerEndAt: null,
+        isTimerActive: false,
+        votesPerUser: null,
+      };
+
+    case "voting_closed":
+      return {
+        displayTheme,
+        displayStatus: "VOTING CLOSED",
+        statusClassName: "text-red-600",
+        timerLabel: null,
+        timerEndAt: null,
+        isTimerActive: false,
+        votesPerUser: null,
+      };
+
+    case "finalizing":
+      return {
+        displayTheme,
+        displayStatus: "FINALIZING",
+        statusClassName: "text-red-600",
+        timerLabel: null,
+        timerEndAt: null,
+        isTimerActive: false,
+        votesPerUser: null,
+      };
+
+    case "completed":
+      return {
+        displayTheme,
+        displayStatus: "COMPLETED",
+        statusClassName: "text-red-600",
+        timerLabel: null,
+        timerEndAt: null,
+        isTimerActive: false,
+        votesPerUser: null,
+      };
+
+    case "finished":
+      return {
+        displayTheme,
+        displayStatus: "FINALIZED",
+        statusClassName: "text-red-600",
+        timerLabel: null,
+        timerEndAt: null,
+        isTimerActive: false,
+        votesPerUser: null,
+      };
+
+    case "active": {
+      const endAt = cycle.ends_at;
+      const endAtMs = endAt ? new Date(endAt).getTime() : null;
+
+      return {
+        displayTheme,
+        displayStatus: "ACTIVE",
+        statusClassName: "text-green-400",
+        timerLabel: "Ends in:",
+        timerEndAt: endAt,
+        isTimerActive: Boolean(endAtMs && endAtMs > nowMs),
+        votesPerUser: null,
+      };
+    }
+
+    default:
+      return {
+        displayTheme,
+        displayStatus: cycle.status?.toUpperCase() ?? "-",
+        statusClassName: "text-red-600",
+        timerLabel: null,
+        timerEndAt: null,
+        isTimerActive: false,
+        votesPerUser: null,
+      };
+  }
+}
+
 export default async function CycleHud() {
+  const metrics: PerfMetrics = {
+    cycleQueryMs: 0,
+    appConfigMs: 0,
+    sponsorshipMs: 0,
+  };
   const endHudTimer = startHomeHudTimer(
     "home CycleHud server render total"
   );
@@ -65,125 +385,94 @@ export default async function CycleHud() {
     "home CycleHud now timestamp transform",
     () => Date.parse(new Date().toISOString())
   );
-  const { data: activeCycle } = await timeHomeHudAsync(
-    "home active/open cycle loading (active cycle query)",
-    async () =>
-      await supabaseAdmin
-        .from("voting_cycles")
-        .select("id,status,theme")
-        .eq("status", "active")
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-  );
-
-  const { data: latestCycle } = await timeHomeHudAsync(
-    "home active/open cycle loading (latest cycle fallback query)",
-    async () =>
-      await supabaseAdmin
-        .from("voting_cycles")
-        .select("id,status,theme")
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-  );
-  const cycle = timeHomeHudSync(
-    "home CycleHud cycle selection transform",
-    () => activeCycle ?? latestCycle
-  );
-  const sponsoredMeta = cycle
-    ? await timeHomeHudAsync(
-        "home sponsor/cycle sponsorship loading",
-        () => getCycleSponsoredMeta(cycle.id)
+  const cycle = await getPreferredCycle(metrics);
+  const snapshotSponsorMeta = cycle
+    ? timeHomeHudSync(
+        "home CycleHud sponsor snapshot transform",
+        () => sponsorMetaFromSnapshot(cycle)
       )
-    : timeHomeHudSync(
-        "home sponsor/cycle sponsorship loading skipped (no cycle)",
-        () => null
-      );
+    : null;
+  const shouldUseSponsorFallback =
+    cycle?.is_sponsored === true &&
+    (!snapshotSponsorMeta ||
+      snapshotSponsorMeta.companyName.length === 0 ||
+      snapshotSponsorMeta.sponsorLink.length === 0);
+  const fallbackSponsorMeta =
+    cycle && shouldUseSponsorFallback
+      ? await timeHomeHudAsync(
+          "home sponsor/cycle sponsorship loading",
+          () => getCycleSponsoredMeta(cycle.id),
+          (durationMs) => {
+            metrics.sponsorshipMs += durationMs;
+          }
+        )
+      : timeHomeHudSync(
+          cycle
+            ? "home sponsor/cycle sponsorship loading skipped (snapshot or no sponsor)"
+            : "home sponsor/cycle sponsorship loading skipped (no cycle)",
+          () => null
+        );
+  const sponsoredMeta = snapshotSponsorMeta ?? fallbackSponsorMeta;
 
   const { data: configRows } = await timeHomeHudAsync(
-    "home cycle hud app_config loading",
+    "home cycle hud app_config loading (next_cycle_theme only)",
     async () =>
       await supabaseAdmin
         .from("app_config")
         .select("key,value")
-        .in("key", [
-          "cycle_theme",
-          "next_cycle_theme",
-          "cycle_end_at",
-        ])
-  );
-
-  const config = timeHomeHudSync(
-    "home CycleHud app_config rows transform",
-    () =>
-      Object.fromEntries(
-        (configRows ?? []).map((r) => [r.key, r.value])
-      )
-  );
-
-  const {
-    displayStatus,
-    displayTheme,
-    endAtMs,
-    isTimerActive,
-    statusClassName,
-  } = timeHomeHudSync(
-    "home CycleHud display state transform",
-    () => {
-      const transformedEndAtMs = config.cycle_end_at
-        ? new Date(config.cycle_end_at).getTime()
-        : null;
-      const transformedIsTimerActive =
-        cycle?.status === "active" &&
-        transformedEndAtMs &&
-        transformedEndAtMs > nowMs;
-      const transformedDisplayTheme =
-        sponsoredMeta?.enabled
-          ? "Sponsored Cycle"
-          : typeof config.cycle_theme === "string" &&
-              config.cycle_theme.trim().length > 0
-            ? config.cycle_theme.trim()
-            : cycle?.theme ?? "Open Cycle";
-      const transformedDisplayStatus =
-        cycle?.status === "active"
-          ? "ACTIVE"
-          : cycle?.status === "finalizing"
-            ? "FINALIZED"
-            : cycle?.status === "finished"
-              ? "FINALIZED"
-              : cycle?.status?.toUpperCase() ?? "-";
-      const transformedStatusClassName =
-        cycle?.status === "active"
-          ? "text-green-400"
-          : cycle?.status === "finished"
-            ? "text-red-600"
-            : cycle?.status === "finalizing"
-              ? "text-red-600"
-              : "text-red-600";
-
-      return {
-        displayStatus: transformedDisplayStatus,
-        displayTheme: transformedDisplayTheme,
-        endAtMs: transformedEndAtMs,
-        isTimerActive: transformedIsTimerActive,
-        statusClassName: transformedStatusClassName,
-      };
+        .eq("key", "next_cycle_theme"),
+    (durationMs) => {
+      metrics.appConfigMs += durationMs;
     }
   );
+
+  const nextCycleTheme = timeHomeHudSync(
+    "home CycleHud app_config next_cycle_theme transform",
+    () => normalizeString(configRows?.[0]?.value)
+  );
+
+  const displayState = cycle
+    ? timeHomeHudSync(
+        "home CycleHud display state transform",
+        () =>
+          getDisplayState({
+            cycle,
+            sponsoredMeta,
+            nowMs,
+          })
+      )
+    : null;
 
   timeHomeHudSync(
     "home CycleHud render readiness transform",
     () => ({
       hasCycle: Boolean(cycle),
-      hasEndAt: Boolean(endAtMs),
+      status: cycle?.status ?? null,
+      hasEndAt: Boolean(displayState?.timerEndAt),
       hasSponsor: Boolean(sponsoredMeta?.enabled),
+      usedSponsorSnapshot: Boolean(snapshotSponsorMeta),
+      usedSponsorFallback: Boolean(fallbackSponsorMeta),
     })
   );
 
-  endHudTimer();
+  const totalMs = endHudTimer();
 
-  if (!cycle) return null;
+  console.log(
+    `${HOME_PERF_JSON_PREFIX} ${JSON.stringify({
+      component: "CycleHud",
+      totalMs: Number(totalMs.toFixed(1)),
+      cycleQueryMs: Number(metrics.cycleQueryMs.toFixed(1)),
+      appConfigMs: Number(metrics.appConfigMs.toFixed(1)),
+      sponsorshipMs: Number(metrics.sponsorshipMs.toFixed(1)),
+      hasCycle: Boolean(cycle),
+      status: cycle?.status ?? null,
+      hasSponsor: Boolean(sponsoredMeta?.enabled),
+      usedSponsorSnapshot: Boolean(snapshotSponsorMeta),
+      usedSponsorFallback: Boolean(fallbackSponsorMeta),
+    })}`
+  );
+
+  if (!cycle || !displayState) return null;
 
   return (
     <div
@@ -210,7 +499,7 @@ export default async function CycleHud() {
             border-[rgba(0,0,0,0.35)]
           "
         >
-          {displayTheme}
+          {displayState.displayTheme}
         </div>
 
         <div className="font-['Permanent_Marker']">
@@ -253,29 +542,39 @@ export default async function CycleHud() {
 
         <div className="font-['Permanent_Marker']">
           <span className="text-[var(--orange-main)]">Status: </span>
-          <span className={statusClassName}>{displayStatus}</span>
+          <span className={displayState.statusClassName}>
+            {displayState.displayStatus}
+          </span>
         </div>
 
-        {isTimerActive && (
+        {displayState.isTimerActive && displayState.timerEndAt && (
           <div className="font-['Permanent_Marker']">
             <span className="text-[var(--orange-main)]">
-              Ends in:{" "}
+              {displayState.timerLabel}{" "}
             </span>
-            <CycleCountdown endAt={config.cycle_end_at} />
+            <CycleCountdown endAt={displayState.timerEndAt} />
           </div>
         )}
 
-        {typeof config.next_cycle_theme === "string" &&
-          config.next_cycle_theme.trim().length > 0 && (
-            <div className="font-['Permanent_Marker'] text-xs">
-              <span className="text-[var(--orange-main)]">
-                Next Theme:{" "}
-              </span>
-              <span className="text-red-600">
-                {config.next_cycle_theme.trim()}
-              </span>
-            </div>
-          )}
+        {displayState.votesPerUser ? (
+          <div className="font-['Permanent_Marker'] text-xs">
+            <span className="text-[var(--orange-main)]">
+              Votes per user:{" "}
+            </span>
+            <span className="text-green-400">
+              {displayState.votesPerUser}
+            </span>
+          </div>
+        ) : null}
+
+        {nextCycleTheme.length > 0 && (
+          <div className="font-['Permanent_Marker'] text-xs">
+            <span className="text-[var(--orange-main)]">
+              Next Theme:{" "}
+            </span>
+            <span className="text-red-600">{nextCycleTheme}</span>
+          </div>
+        )}
       </div>
     </div>
   );

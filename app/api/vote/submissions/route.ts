@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/requireSession";
-import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
+import { getCurrentPublicCycle } from "@/lib/cycles/currentCycle";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import {
   getVoteSubmissions,
@@ -14,11 +14,11 @@ export async function GET(req: Request) {
   try {
     await requireSession();
 
-    const activeCycle = await getActiveCycle();
+    const activeCycle = await getCurrentPublicCycle();
 
     if (!activeCycle) {
       return NextResponse.json(
-        { error: "No active voting cycle" },
+        { error: "No active cycle" },
         { status: 400 }
       );
     }

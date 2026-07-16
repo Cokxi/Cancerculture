@@ -3,6 +3,7 @@ import DesktopUpload from "@/app/components/upload/DesktopUpload";
 import { requireSession } from "@/lib/auth/requireSession";
 import { getUserSocialSettings } from "@/lib/socials/getUserSocialSettings";
 import { getUploadEligibility } from "@/lib/upload/getUploadEligibility";
+import { getLatestCycleState } from "@/lib/cycles/currentCycle";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -17,12 +18,15 @@ export default async function UploadPage() {
     redirect("/api/auth/discord/login?state=/upload");
   }
 
-  const uploadEligibility = await getUploadEligibility({
-    discordUserId,
-  });
-  const socialSettings = await getUserSocialSettings(
-    discordUserId
-  );
+  const [uploadEligibility, socialSettings, latestCycle] =
+    await Promise.all([
+      getUploadEligibility({
+        discordUserId,
+        includeDiscordMembership: true,
+      }),
+      getUserSocialSettings(discordUserId),
+      getLatestCycleState(),
+    ]);
 
   if (uploadEligibility.isBanned) {
     const reason = encodeURIComponent(
@@ -37,10 +41,12 @@ export default async function UploadPage() {
         hasActiveCycle={Boolean(uploadEligibility.activeCycleId)}
         showSupportLink
         forceSuccessState={
-          uploadEligibility.alreadyUploaded &&
-          !uploadEligibility.uploadLimitBypassed
+          uploadEligibility.alreadyUploaded
         }
         socialSettings={socialSettings}
+        initialMembership={uploadEligibility.membership}
+        currentCycleStatus={latestCycle?.status ?? null}
+        pausedFromStatus={latestCycle?.paused_from_status ?? null}
       />
     </PageWrapper>
   );

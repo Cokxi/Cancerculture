@@ -65,16 +65,6 @@ function renderPublicVisibilityStatus(
   return null;
 }
 
-function getCycleHistorySubmissionHref(
-  submission: ProfileSubmission
-) {
-  if (submission.is_disqualified || !submission.rank) {
-    return null;
-  }
-
-  return `/cycle-history?cycle=${submission.cycle_id}#submission-${submission.id}`;
-}
-
 export default function ProfileSections({
   submissions,
   votes,
@@ -136,15 +126,14 @@ export default function ProfileSections({
                 className="rounded-lg border-2 border-[var(--orange-dark)]/40 bg-black/40 p-4 text-white"
               >
                 {(() => {
-                  const historyHref =
-                    getCycleHistorySubmissionHref(submission);
+                  const destinationHref = submission.destination_href;
 
                   return (
                     <>
                 {submission.image_url ? (
-                  historyHref ? (
+                  destinationHref ? (
                     <Link
-                      href={historyHref}
+                      href={destinationHref}
                       className="mb-2 block h-40 w-40 rounded focus:outline-none focus:ring-2 focus:ring-[var(--orange-dark)]"
                     >
                       <img
@@ -183,12 +172,14 @@ export default function ProfileSections({
                   </span>
                 </p>
 
-                {historyHref ? (
+                {destinationHref ? (
                   <Link
-                    href={historyHref}
+                    href={destinationHref}
                     className="mt-2 inline-flex rounded-full border border-[var(--orange-dark)]/40 px-3 py-1 text-xs text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
                   >
-                    View in Cycle History
+                    {destinationHref.startsWith("/submissions")
+                      ? "View in Current Submissions"
+                      : "View in Cycle History"}
                   </Link>
                 ) : null}
                     </>

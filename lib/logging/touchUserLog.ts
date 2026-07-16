@@ -4,15 +4,47 @@ type TouchUserLogInput = {
   discordUserId: string;
   discordUsername?: string | null;
   discordAvatar?: string | null;
+  throwOnError?: boolean;
 };
+
+class UserLogSyncError extends Error {
+  constructor() {
+    super("User log synchronization failed");
+    this.name = "UserLogSyncError";
+  }
+}
+
+function handleSyncError({
+  error,
+  stage,
+  throwOnError,
+}: {
+  error: unknown;
+  stage: string;
+  throwOnError: boolean;
+}) {
+  console.warn(`[touchUserLog][${stage}]`, error);
+
+  if (throwOnError) {
+    throw new UserLogSyncError();
+  }
+}
 
 export async function touchUserLog({
   discordUserId,
   discordUsername,
   discordAvatar,
+  throwOnError = false,
 }: TouchUserLogInput): Promise<void> {
   try {
-    if (!discordUserId) return;
+    if (!discordUserId) {
+      handleSyncError({
+        error: new Error("Discord user ID is missing"),
+        stage: "input",
+        throwOnError,
+      });
+      return;
+    }
 
     
     const { data: existing, error: loadError } =
@@ -30,10 +62,11 @@ export async function touchUserLog({
         .maybeSingle();
 
     if (loadError) {
-      console.warn(
-        "[touchUserLog][load]",
-        loadError
-      );
+      handleSyncError({
+        error: loadError,
+        stage: "load",
+        throwOnError,
+      });
       return;
     }
 
@@ -58,17 +91,24 @@ export async function touchUserLog({
 });
 
       if (insertError) {
-        console.warn(
-          "[touchUserLog][insert]",
-          insertError
-        );
+        handleSyncError({
+          error: insertError,
+          stage: "insert",
+          throwOnError,
+        });
       }
 
       return;
     }
 
     
-    const updatePayload: any = {
+    const updatePayload: {
+      last_seen_at: string;
+      discord_avatar?: string;
+      current_discord_username?: string;
+      known_discord_usernames?: string[];
+      username_change_count?: number;
+    } = {
       last_seen_at: now,
     };
 
@@ -105,15 +145,21 @@ export async function touchUserLog({
         .eq("discord_user_id", discordUserId);
 
     if (updateError) {
-      console.warn(
-        "[touchUserLog][update]",
-        updateError
-      );
+      handleSyncError({
+        error: updateError,
+        stage: "update",
+        throwOnError,
+      });
     }
   } catch (err) {
-    console.warn(
-      "[touchUserLog][unexpected]",
-      err
-    );
+    if (err instanceof UserLogSyncError) {
+      throw err;
+    }
+
+    handleSyncError({
+      error: err,
+      stage: "unexpected",
+      throwOnError,
+    });
   }
 }

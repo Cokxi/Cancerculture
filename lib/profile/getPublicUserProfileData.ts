@@ -75,7 +75,7 @@ export async function getPublicUserProfileData(
   if (visibilityRowsResult.error) {
     console.error(
       "[getPublicUserProfileData][visibility]",
-      visibilityRowsResult.error
+      { code: visibilityRowsResult.error.code }
     );
   }
 
@@ -96,15 +96,16 @@ export async function getPublicUserProfileData(
 
   const publicSubmissions = submissions
     .map((submission) => {
+      if (visibilityRowsResult.error) {
+        return null;
+      }
+
       const visibility =
-        visibilityBySubmissionId.get(submission.id) ?? {
-          status: normalizeSubmissionPublicVisibilityStatus(
-            null
-          ),
-          reasonCode: null,
-          reasonText: null,
-          hiddenFromProfileAt: null,
-        };
+        visibilityBySubmissionId.get(submission.id);
+
+      if (!visibility) {
+        return null;
+      }
 
       if (visibility.hiddenFromProfileAt) {
         return null;

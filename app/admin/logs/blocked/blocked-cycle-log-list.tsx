@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import BlockedUserMetaActions from "./BlockedUserMetaActions";
+import UserProfileLink from "../shared/UserProfileLink";
 
 type BlockedUser = {
   discord_user_id: string;
@@ -9,6 +10,7 @@ type BlockedUser = {
   block_count: number;
   latest_cycle: number;
   admin_handled: boolean;
+  public_profile_id: string | null;
 };
 
 export default function BlockedCycleLogList({
@@ -28,7 +30,19 @@ export default function BlockedCycleLogList({
   }
 
   useEffect(() => {
-    load();
+    let cancelled = false;
+
+    fetch(`/api/admin/logs/blocked?sort=${sort}`)
+      .then((response) => response.json())
+      .then((json) => {
+        if (!cancelled) {
+          setUsers(json.users ?? []);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [sort]);
 
   function toggle(id: string) {
@@ -77,13 +91,11 @@ export default function BlockedCycleLogList({
     </button>
 
     
-    <a
-      href={`/admin/users?discord_user_id=${u.discord_user_id}`}
-      target="_blank"
-      className="cursor-pointer hover:underline"
-    >
-      {u.discord_user_id}
-    </a>
+    <UserProfileLink
+      discordUserId={u.discord_user_id}
+      label={u.discord_user_id}
+      publicProfileId={u.public_profile_id}
+    />
 
   </div>
 

@@ -34,6 +34,26 @@ export async function setSubmissionDisqualification({
     throw new Error("Submission not found");
   }
 
+  const { data: cycle } = await supabaseAdmin
+    .from("voting_cycles")
+    .select("status, paused_from_status")
+    .eq("id", submission.cycle_id)
+    .single();
+  const canUseActiveModeration =
+    cycle?.status === "active" ||
+    cycle?.status === "submission_open" ||
+    (cycle?.status === "paused" &&
+      cycle.paused_from_status === "submission_open");
+
+  if (!canUseActiveModeration) {
+    throw Object.assign(
+      new Error(
+        "Submission disqualification is only available during the submission phase"
+      ),
+      { status: 409 }
+    );
+  }
+
   const actorAudit = await getActorAuditInfo(actor.discord_user_id);
 
   if (mode === "disqualify") {

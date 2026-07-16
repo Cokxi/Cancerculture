@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import {
+  AVATAR_MEDIA_PROFILE,
+  MEDIA_VALIDATION_MESSAGES,
+  preflightBrowserImage,
+} from "@/lib/media/profiles";
 
 export default function AvatarUpload() {
   const [loading, setLoading] = useState(false);
@@ -11,6 +16,16 @@ export default function AvatarUpload() {
   ) {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const validationError = await preflightBrowserImage(
+      file,
+      AVATAR_MEDIA_PROFILE
+    );
+    if (validationError) {
+      setError(MEDIA_VALIDATION_MESSAGES[validationError]);
+      e.target.value = "";
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -26,7 +41,14 @@ export default function AvatarUpload() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Upload failed");
+        const message =
+          typeof data.error === "string" &&
+          data.error in MEDIA_VALIDATION_MESSAGES
+            ? MEDIA_VALIDATION_MESSAGES[
+                data.error as keyof typeof MEDIA_VALIDATION_MESSAGES
+              ]
+            : data.error;
+        throw new Error(message || "Upload failed");
       }
 
       window.location.reload();
@@ -44,7 +66,7 @@ export default function AvatarUpload() {
     <div className="mt-2">
       <input
         type="file"
-        accept="image/*"
+        accept={AVATAR_MEDIA_PROFILE.allowedBrowserMimeTypes.join(",")}
         onChange={handleChange}
         className="hidden"
         id="avatarUpload"

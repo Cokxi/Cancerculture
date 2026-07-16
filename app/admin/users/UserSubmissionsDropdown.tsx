@@ -43,6 +43,16 @@ export default async function UserSubmissionsDropdown({
   }
 
   const typedSubmissions = submissions as SubmissionRow[];
+  const cycleIds = Array.from(
+    new Set(typedSubmissions.map((submission) => submission.cycle_id))
+  );
+  const { data: cycleRows } = await supabaseAdmin
+    .from("voting_cycles")
+    .select("id, status")
+    .in("id", cycleIds);
+  const cycleStatusById = new Map(
+    (cycleRows ?? []).map((cycle) => [cycle.id, cycle.status])
+  );
 
   
   const submissionIds = typedSubmissions.map((s) => s.id);
@@ -66,6 +76,13 @@ export default async function UserSubmissionsDropdown({
     ...s,
     image_url: getPublicImageUrl(s.r2_key) ?? "",
     vote_count: voteCountMap.get(s.id) ?? 0,
+    destination_href: s.is_disqualified
+      ? null
+      : ["active", "submission_open", "voting_open", "paused"].includes(
+            cycleStatusById.get(s.cycle_id) ?? ""
+          )
+        ? `/submissions?submission=${s.id}`
+        : `/cycle-history?cycle=${s.cycle_id}#submission-${s.id}`,
   }));
 
   
@@ -110,12 +127,26 @@ export default async function UserSubmissionsDropdown({
               }}
             >
               {sub.image_url ? (
-                <a
-                  href={sub.image_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ display: "block" }}
-                >
+                sub.destination_href ? (
+                  <a
+                    href={sub.destination_href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: "block" }}
+                  >
+                    <img
+                      src={sub.image_url}
+                      alt={`Cycle ${sub.cycle_id}`}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                        cursor: "pointer",
+                      }}
+                    />
+                  </a>
+                ) : (
                   <img
                     src={sub.image_url}
                     alt={`Cycle ${sub.cycle_id}`}
@@ -127,7 +158,7 @@ export default async function UserSubmissionsDropdown({
                       cursor: "pointer",
                     }}
                   />
-                </a>
+                )
               ) : (
                 <div
                   style={{

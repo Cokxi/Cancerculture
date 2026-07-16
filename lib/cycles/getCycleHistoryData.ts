@@ -133,7 +133,9 @@ function withComputedRanks(
 
     return {
       ...submission,
-      rank: currentRank,
+      // New finalizations persist immutable dense ranks. Only legacy rows
+      // without a stored rank use the historical computed fallback.
+      rank: submission.rank ?? currentRank,
     };
   });
 }

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireModOrAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
+import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 
 export async function GET(request: Request) {
   try {
@@ -33,7 +34,38 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ logs: data ?? [] });
+    const actorIds = Array.from(
+      new Set(
+        (data ?? [])
+          .map((log) => log.actor_id)
+          .filter((actorId): actorId is string => Boolean(actorId))
+      )
+    );
+    const { data: actors } =
+      actorIds.length > 0
+        ? await supabaseAdmin
+            .from("user_logs")
+            .select(
+              "discord_user_id, public_profile_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+            )
+            .in("discord_user_id", actorIds)
+        : { data: [] };
+    const actorById = new Map(
+      (actors ?? []).map((actor) => [actor.discord_user_id, actor])
+    );
+    const logs = (data ?? []).map((log) => {
+      const actor = actorById.get(log.actor_id);
+
+      return {
+        ...log,
+        actor_label: actor
+          ? formatDiscordUserLabel(actor, "admin")
+          : null,
+        actor_public_profile_id: actor?.public_profile_id ?? null,
+      };
+    });
+
+    return NextResponse.json({ logs });
   } catch (error) {
     return getRouteErrorResponse(error);
   }

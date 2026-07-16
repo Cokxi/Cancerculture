@@ -9,6 +9,7 @@ export type UploadLogRow = {
   reason: string | null;
   discord_user_id: string | null;
   discord_user_label?: string | null;
+  discord_public_profile_id?: string | null;
   submission_id: number | null;
 };
 
@@ -19,6 +20,7 @@ export type VoteLogRow = {
   submission_id: number | null;
   discord_user_id: string | null;
   discord_user_label?: string | null;
+  discord_public_profile_id?: string | null;
   status: string;
   reason: string | null;
 };
@@ -49,21 +51,27 @@ async function addDiscordUserLabels<TLog extends LogWithDiscordUserId>(
   const { data: users } = await supabaseAdmin
     .from("user_logs")
     .select(
-      "discord_user_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+      "discord_user_id, public_profile_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
     )
     .in("discord_user_id", discordUserIds);
 
-  const labelByDiscordUserId = new Map(
+  const userByDiscordUserId = new Map(
     (users ?? []).map((user) => [
       user.discord_user_id,
-      formatDiscordUserLabel(user, "admin"),
+      {
+        label: formatDiscordUserLabel(user, "admin"),
+        publicProfileId: user.public_profile_id,
+      },
     ])
   );
 
   return (logs ?? []).map((log) => ({
     ...log,
     discord_user_label: log.discord_user_id
-      ? labelByDiscordUserId.get(log.discord_user_id) ?? null
+      ? userByDiscordUserId.get(log.discord_user_id)?.label ?? null
+      : null,
+    discord_public_profile_id: log.discord_user_id
+      ? userByDiscordUserId.get(log.discord_user_id)?.publicProfileId ?? null
       : null,
   }));
 }

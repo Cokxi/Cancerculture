@@ -8,7 +8,11 @@ import { logAvatarUpload } from "@/lib/logging/logAvatarUpload";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { r2 } from "@/lib/r2";
-import sharp from "sharp";
+import { AVATAR_MEDIA_PROFILE } from "@/lib/media/profiles";
+import {
+  MediaValidationError,
+  processStaticImage,
+} from "@/lib/media/processStaticImage";
 
 export async function POST(req: Request) {
   try {
@@ -37,9 +41,9 @@ export async function POST(req: Request) {
     }
 
     const formData = await req.formData();
-    const file = formData.get("file") as File;
+    const file = formData.get("file");
 
-    if (!file) {
+    if (!(file instanceof File)) {
       await logAvatarUpload({
         discordUserId: discord_user_id,
         status: "failed",
@@ -49,36 +53,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file" }, { status: 400 });
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const processedImage = await processStaticImage({
+      input: buffer,
+      claimedMimeType: file.type,
+      profile: AVATAR_MEDIA_PROFILE,
+    });
 
-    
-    const processedImage = await sharp(buffer)
-      .resize(256, 256, {
-        fit: "cover", 
-      })
-      .png({ quality: 90 })
-      .toBuffer();
-
-    const key = `avatars/${discord_user_id}.png`;
+    const key = `avatars/${discord_user_id}.webp`;
     const avatarUpdatedAt = new Date().toISOString();
 
     await r2.send(
       new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME!,
         Key: key,
-        Body: processedImage,
-        ContentType: "image/png",
+        Body: processedImage.buffer,
+        ContentType: "image/webp",
+        CacheControl: "public, max-age=300",
       })
     );
 
-    await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from("user_logs")
       .update({
         avatar_key: key,
         avatar_updated_at: avatarUpdatedAt,
       })
       .eq("discord_user_id", discord_user_id);
+
+    if (updateError) {
+      console.error("[avatar upload][database]", {
+        code: updateError.code,
+      });
+      throw new Error("AVATAR_UPLOAD_DEPENDENCY_UNAVAILABLE");
+    }
 
     await logAvatarUpload({
       discordUserId: discord_user_id,
@@ -88,7 +96,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("[UPLOAD AVATAR]", err);
+    if (err instanceof MediaValidationError) {
+      return NextResponse.json(
+        { error: err.code },
+        { status: err.status }
+      );
+    }
+
+    console.error("[UPLOAD AVATAR]", {
+      errorName: err instanceof Error ? err.name : "UnknownError",
+    });
     if (
       typeof err === "object" &&
       err !== null &&

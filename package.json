@@ -6,7 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:cycle-concurrency:dev": "node tests/db/cycleConcurrency.dev.mjs",
+    "test:media-cleanup": "node --test tests/r2/mediaCleanupState.test.mjs tests/auth/mediaCleanupTriggerAuth.test.mjs",
+    "test:media-cleanup-concurrency:dev": "node tests/db/mediaCleanupConcurrency.dev.mjs",
+    "test:media-cleanup-r2-smoke:dev": "node tests/integration/mediaCleanupR2Smoke.dev.mjs",
+    "test:submission-upload": "node --experimental-loader ./tests/integration/nextAliasLoader.mjs --test tests/upload/submissionUploadRequest.test.mjs tests/upload/submissionUploadRouteShape.test.mjs tests/media/staticImageProfiles.test.mjs",
+    "test:submission-upload-concurrency:dev": "node tests/db/submissionUploadConcurrency.dev.mjs",
+    "test:submission-upload-abuse:dev": "node tests/db/submissionUploadAbuse.dev.mjs",
+    "test:submission-upload-r2-saga:dev": "node tests/integration/submissionUploadR2Saga.dev.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.955.0",
