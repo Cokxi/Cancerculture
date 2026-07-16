@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,8 +9,10 @@ const repoRoot = path.resolve(
   "..",
   ".."
 );
-const cycleId = 9100000101;
-const userPrefix = "codex-upload-concurrency-";
+const runId = randomUUID();
+const runSeed = BigInt(`0x${runId.replaceAll("-", "").slice(0, 12)}`);
+const cycleId = Number(8_000_000_000n + (runSeed % 500_000_000n));
+const userPrefix = `codex-upload-concurrency-${runId}-`;
 const users = {
   same: `${userPrefix}same`,
   limit: `${userPrefix}limit`,
@@ -19,12 +22,21 @@ const users = {
   pause: `${userPrefix}pause`,
 };
 const sessions = {
-  same: "95000000-0000-4000-8000-000000000001",
-  limit: "95000000-0000-4000-8000-000000000002",
-  independentA: "95000000-0000-4000-8000-000000000003",
-  independentB: "95000000-0000-4000-8000-000000000004",
-  close: "95000000-0000-4000-8000-000000000005",
-  pause: "95000000-0000-4000-8000-000000000006",
+  same: randomUUID(),
+  limit: randomUUID(),
+  independentA: randomUUID(),
+  independentB: randomUUID(),
+  close: randomUUID(),
+  pause: randomUUID(),
+};
+const idempotencyKeys = {
+  same: randomUUID(),
+  limitA: randomUUID(),
+  limitB: randomUUID(),
+  independentA: randomUUID(),
+  independentB: randomUUID(),
+  close: randomUUID(),
+  pause: randomUUID(),
 };
 
 function sqlText(value) {
@@ -271,7 +283,7 @@ async function setupFixtures(databaseUrl) {
 async function testSameIdempotencyKey(databaseUrl) {
   const args = reservationArgs({
     session: sessions.same,
-    key: "96000000-0000-4000-8000-000000000001",
+    key: idempotencyKeys.same,
     fingerprint: "a".repeat(64),
     content: "b".repeat(64),
   });
@@ -303,12 +315,20 @@ async function testSameIdempotencyKey(databaseUrl) {
 }
 
 async function testOneRemainingSlot(databaseUrl) {
-  const definitions = [1, 2].map((suffix) => ({
-    session: sessions.limit,
-    key: `96000000-0000-4000-8000-${String(10 + suffix).padStart(12, "0")}`,
-    fingerprint: String(suffix).repeat(64),
-    content: String(suffix + 2).repeat(64),
-  }));
+  const definitions = [
+    {
+      session: sessions.limit,
+      key: idempotencyKeys.limitA,
+      fingerprint: "1".repeat(64),
+      content: "3".repeat(64),
+    },
+    {
+      session: sessions.limit,
+      key: idempotencyKeys.limitB,
+      fingerprint: "2".repeat(64),
+      content: "4".repeat(64),
+    },
+  ];
   const attempts = definitions.map((definition) =>
     rpc(
       databaseUrl,
@@ -378,13 +398,13 @@ async function testIndependentUsers(databaseUrl) {
   const definitions = [
     {
       session: sessions.independentA,
-      key: "96000000-0000-4000-8000-000000000021",
+      key: idempotencyKeys.independentA,
       fingerprint: "c".repeat(64),
       content: "d".repeat(64),
     },
     {
       session: sessions.independentB,
-      key: "96000000-0000-4000-8000-000000000022",
+      key: idempotencyKeys.independentB,
       fingerprint: "e".repeat(64),
       content: "f".repeat(64),
     },
@@ -444,13 +464,12 @@ async function waitForTransactionBarrier(databaseUrl, advisoryKey) {
 async function testPhaseRace(databaseUrl, mode) {
   const session = sessions[mode];
   const user = users[mode];
-  const suffix = mode === "close" ? "31" : "32";
   const reservation = await rpc(
     databaseUrl,
     "reserve_submission_upload",
     reservationArgs({
       session,
-      key: `96000000-0000-4000-8000-0000000000${suffix}`,
+      key: idempotencyKeys[mode],
       fingerprint: (mode === "close" ? "1" : "2").repeat(64),
       content: (mode === "close" ? "3" : "4").repeat(64),
     })
@@ -461,7 +480,7 @@ async function testPhaseRace(databaseUrl, mode) {
     mode === "close"
       ? `update public.voting_cycles set status = 'submission_closed' where id = ${cycleId};`
       : `update public.voting_cycles set status = 'paused', paused_from_status = 'submission_open' where id = ${cycleId};`;
-  const advisoryKey = mode === "close" ? 9100000991 : 9100000992;
+  const advisoryKey = mode === "close" ? cycleId * 10 + 1 : cycleId * 10 + 2;
   const phaseChange = runSql(
     databaseUrl,
     `begin; select pg_advisory_xact_lock(${advisoryKey}); ${phaseSql} select pg_sleep(2); commit;`

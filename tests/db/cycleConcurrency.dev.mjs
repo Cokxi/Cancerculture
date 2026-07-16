@@ -1,11 +1,23 @@
 import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const devProjectRef = "gceljiuydyiwkomymuqh";
-const testCycleIds = [2000010301, 2000010302, 2000010303, 2000010304];
+const runId = randomUUID();
+const runToken = runId.replaceAll("-", "");
+const runSeed = BigInt(`0x${runToken.slice(0, 12)}`);
+const cycleBase = Number(7_000_000_000n + (runSeed % 500_000_000n) * 10n);
+const testCycleIds = [1, 2, 3, 4].map((offset) => cycleBase + offset);
+const [sameDraftId, differentDraftAId, differentDraftBId, automationId] =
+  testCycleIds;
+const actorBase =
+  990_000_000_000_000_000n + (runSeed % 9_000_000_000_000_000n);
+const actors = [1n, 2n, 3n, 4n].map((offset) =>
+  String(actorBase + offset)
+);
 const configKeys = [
   "cycle_theme",
   "next_cycle_theme",
@@ -16,8 +28,8 @@ const configKeys = [
   "next_cycle_sponsor_banner_r2_key",
   "next_cycle_is_sponsored",
 ];
-const appConfigBackup = "_codex_cycle_concurrency_app_config_backup";
-const userLogBackup = "_codex_cycle_concurrency_user_log_backup";
+const appConfigBackup = `_codex_cycle_config_${runToken}`;
+const userLogBackup = `_codex_cycle_users_${runToken}`;
 
 function sqlText(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
@@ -151,12 +163,12 @@ function startSql(cycleId, actorId) {
 async function testSameDraft(databaseUrl) {
   await runSql(
     databaseUrl,
-    "insert into public.voting_cycles (id, status) values (2000010301, 'draft');",
+    `insert into public.voting_cycles (id, status) values (${sameDraftId}, 'draft');`,
   );
 
   const results = await Promise.allSettled([
-    runSql(databaseUrl, startSql(2000010301, "900000000000000301")),
-    runSql(databaseUrl, startSql(2000010301, "900000000000000302")),
+    runSql(databaseUrl, startSql(sameDraftId, actors[0])),
+    runSql(databaseUrl, startSql(sameDraftId, actors[1])),
   ]);
 
   if (results.some((result) => result.status === "rejected")) {
@@ -170,18 +182,18 @@ async function testSameDraft(databaseUrl) {
       begin
         if not exists (
           select 1 from public.voting_cycles
-          where id = 2000010301 and status = 'submission_open'
+          where id = ${sameDraftId} and status = 'submission_open'
         )
-          or (select count(*) from public.cycle_events where cycle_id = 2000010301 and event_type = 'submission_phase_opened') <> 1
-          or (select count(*) from public.admin_action_logs where target_id = '2000010301' and action = 'cycle_started') <> 1
+          or (select count(*) from public.cycle_events where cycle_id = ${sameDraftId} and event_type = 'submission_phase_opened') <> 1
+          or (select count(*) from public.admin_action_logs where target_id = ${sqlText(sameDraftId)} and action = 'cycle_started') <> 1
         then
           raise exception 'CONCURRENT_SAME_DRAFT_ASSERTION_FAILED';
         end if;
       end;
       $assert$;
 
-      delete from public.admin_action_logs where target_id = '2000010301' and action = 'cycle_started';
-      delete from public.voting_cycles where id = 2000010301;
+      delete from public.admin_action_logs where target_id = ${sqlText(sameDraftId)} and action = 'cycle_started';
+      delete from public.voting_cycles where id = ${sameDraftId};
     `,
   );
 }
@@ -189,12 +201,12 @@ async function testSameDraft(databaseUrl) {
 async function testDifferentDrafts(databaseUrl) {
   await runSql(
     databaseUrl,
-    "insert into public.voting_cycles (id, status) values (2000010302, 'draft'), (2000010303, 'draft');",
+    `insert into public.voting_cycles (id, status) values (${differentDraftAId}, 'draft'), (${differentDraftBId}, 'draft');`,
   );
 
   const results = await Promise.allSettled([
-    runSql(databaseUrl, startSql(2000010302, "900000000000000303")),
-    runSql(databaseUrl, startSql(2000010303, "900000000000000304")),
+    runSql(databaseUrl, startSql(differentDraftAId, actors[2])),
+    runSql(databaseUrl, startSql(differentDraftBId, actors[3])),
   ]);
   const fulfilled = results.filter((result) => result.status === "fulfilled").length;
   const rejected = results.filter((result) => result.status === "rejected").length;
@@ -208,18 +220,18 @@ async function testDifferentDrafts(databaseUrl) {
     `
       do $assert$
       begin
-        if (select count(*) from public.voting_cycles where id in (2000010302, 2000010303) and status = 'submission_open') <> 1
-          or (select count(*) from public.voting_cycles where id in (2000010302, 2000010303) and status = 'draft') <> 1
-          or (select count(*) from public.cycle_events where cycle_id in (2000010302, 2000010303) and event_type = 'submission_phase_opened') <> 1
-          or (select count(*) from public.admin_action_logs where target_id in ('2000010302', '2000010303') and action = 'cycle_started') <> 1
+        if (select count(*) from public.voting_cycles where id in (${differentDraftAId}, ${differentDraftBId}) and status = 'submission_open') <> 1
+          or (select count(*) from public.voting_cycles where id in (${differentDraftAId}, ${differentDraftBId}) and status = 'draft') <> 1
+          or (select count(*) from public.cycle_events where cycle_id in (${differentDraftAId}, ${differentDraftBId}) and event_type = 'submission_phase_opened') <> 1
+          or (select count(*) from public.admin_action_logs where target_id in (${sqlText(differentDraftAId)}, ${sqlText(differentDraftBId)}) and action = 'cycle_started') <> 1
         then
           raise exception 'CONCURRENT_DIFFERENT_DRAFT_ASSERTION_FAILED';
         end if;
       end;
       $assert$;
 
-      delete from public.admin_action_logs where target_id in ('2000010302', '2000010303') and action = 'cycle_started';
-      delete from public.voting_cycles where id in (2000010302, 2000010303);
+      delete from public.admin_action_logs where target_id in (${sqlText(differentDraftAId)}, ${sqlText(differentDraftBId)}) and action = 'cycle_started';
+      delete from public.voting_cycles where id in (${differentDraftAId}, ${differentDraftBId});
     `,
   );
 }
@@ -231,7 +243,7 @@ async function testAutomationBurst(databaseUrl) {
       insert into public.voting_cycles (
         id, status, submission_starts_at, submission_ends_at
       ) values (
-        2000010304,
+        ${automationId},
         'submission_open',
         transaction_timestamp() - interval '1 hour',
         transaction_timestamp() - interval '1 minute'
@@ -240,7 +252,7 @@ async function testAutomationBurst(databaseUrl) {
       insert into public.cycle_reminders (
         cycle_id, phase, reminder_type, due_at
       ) values (
-        2000010304,
+        ${automationId},
         'submission_open',
         'phase_end_due',
         transaction_timestamp() - interval '1 minute'
@@ -250,7 +262,7 @@ async function testAutomationBurst(databaseUrl) {
 
   const results = await Promise.allSettled(
     Array.from({ length: 10 }, () =>
-      runSql(databaseUrl, "select public.process_due_cycle_transitions(2000010304);"),
+      runSql(databaseUrl, `select public.process_due_cycle_transitions(${automationId});`),
     ),
   );
 
@@ -265,20 +277,20 @@ async function testAutomationBurst(databaseUrl) {
       begin
         if not exists (
           select 1 from public.voting_cycles
-          where id = 2000010304
+          where id = ${automationId}
             and status = 'voting_open'
             and voting_starts_at is not null
             and voting_ends_at is null
         )
-          or (select count(*) from public.cycle_events where cycle_id = 2000010304 and event_type = 'voting_phase_opened') <> 1
-          or exists (select 1 from public.cycle_reminders where cycle_id = 2000010304 and status = 'pending')
+          or (select count(*) from public.cycle_events where cycle_id = ${automationId} and event_type = 'voting_phase_opened') <> 1
+          or exists (select 1 from public.cycle_reminders where cycle_id = ${automationId} and status = 'pending')
         then
           raise exception 'CONCURRENT_AUTOMATION_ASSERTION_FAILED';
         end if;
       end;
       $assert$;
 
-      delete from public.voting_cycles where id = 2000010304;
+      delete from public.voting_cycles where id = ${automationId};
     `,
   );
 }

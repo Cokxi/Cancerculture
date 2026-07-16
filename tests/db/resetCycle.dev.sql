@@ -2,13 +2,20 @@
 
 begin;
 
--- Isolate synthetic current-Cycle fixtures without changing persisted DEV state.
-update public.voting_cycles
-set status = 'archived'
-where status::text in (
-  'draft', 'active', 'submission_open', 'submission_closed', 'voting_open',
-  'voting_closed', 'paused', 'finalizing'
-);
+do $guard$
+begin
+  if exists (
+    select 1
+    from public.voting_cycles
+    where status::text in (
+      'draft', 'active', 'submission_open', 'submission_closed', 'voting_open',
+      'voting_closed', 'paused', 'finalizing'
+    )
+  ) then
+    raise exception 'DEV_RESET_CYCLE_REQUIRES_NO_CURRENT_CYCLE';
+  end if;
+end;
+$guard$;
 
 do $$
 declare
@@ -28,7 +35,19 @@ begin
   if exists (
     select 1
     from public.voting_cycles
-    where id in (v_empty_cycle_id, v_data_cycle_id)
+    where id in (
+      v_empty_cycle_id,
+      v_data_cycle_id,
+      v_finalization_cycle_id
+    )
+  ) or exists (
+    select 1
+    from public.submissions
+    where id in (
+      v_submission_one,
+      v_submission_two,
+      v_finalization_submission_id
+    )
   ) then
     raise exception 'RESET_TEST_ID_COLLISION';
   end if;

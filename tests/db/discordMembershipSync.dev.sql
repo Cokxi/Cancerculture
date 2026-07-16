@@ -15,6 +15,33 @@ declare
   v_session uuid := gen_random_uuid();
   v_new_session uuid := gen_random_uuid();
 begin
+  if exists (
+    select 1
+    from public.user_logs
+    where discord_user_id in (
+      v_user,
+      v_snapshot_member,
+      v_snapshot_ban,
+      v_snapshot_absent
+    )
+  ) or exists (
+    select 1
+    from public.discord_member_state
+    where discord_user_id in (
+      v_user,
+      v_snapshot_member,
+      v_snapshot_ban,
+      v_snapshot_absent
+    )
+  ) or exists (
+    select 1
+    from public.discord_membership_sync_events
+    where event_id like 'test-%'
+       or event_id like 'snapshot-%'
+  ) then
+    raise exception 'DISCORD_MEMBERSHIP_SYNC_TEST_FIXTURE_COLLISION';
+  end if;
+
   insert into public.user_logs (
     discord_user_id,
     current_discord_username,
@@ -24,8 +51,7 @@ begin
     (v_snapshot_member, 'sync-test-member', false),
     (v_snapshot_ban, 'sync-test-ban', false),
     (v_snapshot_absent, 'sync-test-absent', false)
-  on conflict (discord_user_id) do update
-  set is_banned = false;
+  ;
 
   insert into public.discord_member_state (
     discord_user_id,
@@ -64,15 +90,7 @@ begin
       v_base,
       v_base
     )
-  on conflict (discord_user_id) do update
-  set
-    current_discord_username = excluded.current_discord_username,
-    discord_joined_at = excluded.discord_joined_at,
-    is_in_discord = excluded.is_in_discord,
-    discord_ban_active = excluded.discord_ban_active,
-    discord_membership_observed_at =
-      excluded.discord_membership_observed_at,
-    discord_ban_observed_at = excluded.discord_ban_observed_at;
+  ;
 
   insert into public.sessions (id, discord_user_id)
   values (v_session, v_user);

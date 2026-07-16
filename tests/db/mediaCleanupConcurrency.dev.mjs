@@ -1,12 +1,20 @@
 import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const devProjectRef = "gceljiuydyiwkomymuqh";
-const fixtureReason = "codex_media_cleanup_concurrency_test";
-const backupTable = "_codex_media_cleanup_old_leases";
+const runId = randomUUID();
+const runToken = runId.replaceAll("-", "");
+const runSeed = BigInt(`0x${runToken.slice(0, 12)}`);
+const fixtureReason = `codex_media_cleanup_concurrency_${runId}`;
+const backupTable = `_codex_media_leases_${runToken}`;
+const fixtureIdBase = Number(
+  6_000_000_000n + (runSeed % 500_000_000n) * 10n
+);
+const fixtureKeyPrefix = `codex-tests/media-cleanup/${runId}`;
 
 async function readDevDatabaseUrl() {
   if (process.env.SUPABASE_DEV_DATABASE_URL) {
@@ -113,9 +121,9 @@ try {
         id, storage_provider, storage_key, reason, status
       ) overriding system value
       select
-        2100001000 + series,
+        ${fixtureIdBase} + series,
         'r2',
-        'codex-tests/media-cleanup/concurrency-' || series::text || '.webp',
+        '${fixtureKeyPrefix}/concurrency-' || series::text || '.webp',
         '${fixtureReason}',
         'pending'
       from generate_series(1, 8) series;

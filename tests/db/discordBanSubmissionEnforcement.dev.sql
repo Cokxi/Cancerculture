@@ -25,6 +25,35 @@ declare
   v_audit_count integer;
   v_r2_key text;
 begin
+  if exists (
+    select 1
+    from public.voting_cycles
+    where id in (v_cycle_id, v_history_cycle_id)
+  ) or exists (
+    select 1
+    from public.user_logs
+    where discord_user_id in (
+      v_current_user,
+      v_voter,
+      v_other_user,
+      v_history_user,
+      v_no_submission_user,
+      v_snapshot_user,
+      v_admin
+    )
+  ) or exists (
+    select 1
+    from public.submissions
+    where id in (
+      v_current_submission,
+      v_other_submission,
+      v_history_submission,
+      v_snapshot_submission
+    )
+  ) then
+    raise exception 'DISCORD_BAN_SUBMISSION_TEST_FIXTURE_COLLISION';
+  end if;
+
   select count(*)::text || ':' ||
     coalesce(
       md5(string_agg(id::text || ':' || status, ',' order by id)),

@@ -20,7 +20,8 @@ const repoRoot = path.resolve(
 );
 const requiredBucket = "cancerculture-local";
 const runId = randomUUID();
-let cycleId = null;
+const runSeed = BigInt(`0x${runId.replaceAll("-", "").slice(0, 12)}`);
+const cycleId = Number(8_900_000_000n + (runSeed % 90_000_000n));
 const userPrefix = `codex-upload-r2-${runId}`;
 const users = {
   success: `${userPrefix}-success`,
@@ -297,6 +298,10 @@ async function cleanupDatabaseFixtures() {
       .in("discord_user_id", Object.values(users)),
     "CLEANUP_USERS"
   );
+  await assertNoError(
+    supabaseAdmin.from("voting_cycles").delete().eq("id", cycleId),
+    "CLEANUP_CYCLE"
+  );
 }
 
 async function setupDatabaseFixtures() {
@@ -304,11 +309,39 @@ async function setupDatabaseFixtures() {
     supabaseAdmin
       .from("voting_cycles")
       .select("id, status")
-      .in("status", ["active", "submission_open"]),
+      .in("status", [
+        "draft",
+        "active",
+        "submission_open",
+        "submission_closed",
+        "voting_open",
+        "voting_closed",
+        "paused",
+        "finalizing",
+      ]),
     "CURRENT_CYCLE_GUARD"
   );
-  assert.equal(currentCycles?.length ?? 0, 1);
-  cycleId = currentCycles[0].id;
+  assert.equal(currentCycles?.length ?? 0, 0);
+
+  const cycleCollision = await assertNoError(
+    supabaseAdmin.from("voting_cycles").select("id").eq("id", cycleId),
+    "CYCLE_COLLISION"
+  );
+  assert.equal(cycleCollision.length, 0);
+
+  await assertNoError(
+    supabaseAdmin.from("voting_cycles").insert({
+      id: cycleId,
+      status: "submission_open",
+      starts_at: new Date(Date.now() - 3_600_000).toISOString(),
+      submission_starts_at: new Date(
+        Date.now() - 3_600_000
+      ).toISOString(),
+      votes_per_user: 2,
+      allow_self_vote: false,
+    }),
+    "CYCLE_INSERT"
+  );
 
   const rules = await assertNoError(
     supabaseAdmin

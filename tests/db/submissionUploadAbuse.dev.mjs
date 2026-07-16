@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,13 +7,18 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const psql =
   process.env.PSQL_BIN ?? "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe";
-const userId = "codex-upload-abuse-concurrency";
-const sessionId = "93000001-0000-4000-8000-000000000001";
+const runId = randomUUID();
+const runSeed = BigInt(`0x${runId.replaceAll("-", "").slice(0, 12)}`);
+const userId = `codex-upload-abuse-concurrency-${runId}`;
+const sessionId = randomUUID();
 const sagaUserA = `${userId}-saga-a`;
 const sagaUserB = `${userId}-saga-b`;
-const sagaSessionA = "93000001-0000-4000-8000-000000000002";
-const sagaSessionB = "93000001-0000-4000-8000-000000000003";
-const syntheticCycleId = 9300000101;
+const sagaSessionA = randomUUID();
+const sagaSessionB = randomUUID();
+const syntheticCycleId = Number(
+  8_500_000_000n + (runSeed % 400_000_000n)
+);
+const requestKeys = Array.from({ length: 6 }, () => randomUUID());
 
 async function readEnv(name) {
   const values = new Map();
@@ -89,44 +95,41 @@ async function cleanup(databaseUrl) {
 
 const databaseUrl = await loadDevDatabaseUrl();
 await runPsql(databaseUrl, ["-f", "tests/db/submissionUploadAbuse.dev.sql"]);
-const currentCycleId = await sql(
+const currentCycleCount = await sql(
   databaseUrl,
-  "select id from public.voting_cycles where status::text in ('submission_open','active') order by id desc limit 1;"
+  "select count(*) from public.voting_cycles where status::text in ('draft','active','submission_open','submission_closed','voting_open','voting_closed','paused','finalizing');"
 );
-let cycleId = currentCycleId ? Number(currentCycleId) : Number.NaN;
-let createdSyntheticCycle = false;
-if (!Number.isSafeInteger(cycleId)) {
-  const collision = await sql(
-    databaseUrl,
-    `select exists(select 1 from public.voting_cycles where id = ${syntheticCycleId})::text;`
-  );
-  if (collision === "true") {
-    throw new Error("The synthetic DEV Cycle ID is already in use.");
-  }
-
-  cycleId = syntheticCycleId;
-  await sql(
-    databaseUrl,
-    `
-      insert into public.voting_cycles (
-        id,
-        status,
-        starts_at,
-        submission_starts_at,
-        votes_per_user,
-        allow_self_vote
-      ) values (
-        ${cycleId},
-        'submission_open',
-        transaction_timestamp(),
-        transaction_timestamp(),
-        2,
-        false
-      );
-    `
-  );
-  createdSyntheticCycle = true;
+if (currentCycleCount !== "0") {
+  throw new Error("DEV_UPLOAD_ABUSE_CONCURRENCY_REQUIRES_NO_CURRENT_CYCLE");
 }
+const cycleId = syntheticCycleId;
+const collision = await sql(
+  databaseUrl,
+  `select exists(select 1 from public.voting_cycles where id = ${cycleId})::text;`
+);
+if (collision === "true") {
+  throw new Error("The synthetic DEV Cycle ID is already in use.");
+}
+await sql(
+  databaseUrl,
+  `
+    insert into public.voting_cycles (
+      id,
+      status,
+      starts_at,
+      submission_starts_at,
+      votes_per_user,
+      allow_self_vote
+    ) values (
+      ${cycleId},
+      'submission_open',
+      transaction_timestamp(),
+      transaction_timestamp(),
+      2,
+      false
+    );
+  `
+);
 
 await cleanup(databaseUrl);
 const baseline = await sql(
@@ -165,8 +168,8 @@ try {
     `select public.reserve_submission_upload('${session}'::uuid, '${key}'::uuid, repeat('${fingerprint}',64), repeat('${content}',64), 'image/webp', 100)::text;`;
 
   const sameKey = await Promise.all([
-    rpc(databaseUrl, reserveSql(sagaSessionA, "93000001-0000-4000-8000-000000000101", "a", "b")),
-    rpc(databaseUrl, reserveSql(sagaSessionA, "93000001-0000-4000-8000-000000000101", "a", "b")),
+    rpc(databaseUrl, reserveSql(sagaSessionA, requestKeys[0], "a", "b")),
+    rpc(databaseUrl, reserveSql(sagaSessionA, requestKeys[0], "a", "b")),
   ]);
   const sameKeyOutcomes = sameKey
     .map((result) => result.outcome)
@@ -180,8 +183,8 @@ try {
   await sql(databaseUrl, `delete from public.submission_upload_operations where discord_user_id = '${sagaUserA}';`);
 
   const differentKeys = await Promise.all([
-    rpc(databaseUrl, reserveSql(sagaSessionA, "93000001-0000-4000-8000-000000000102", "c", "d")),
-    rpc(databaseUrl, reserveSql(sagaSessionA, "93000001-0000-4000-8000-000000000103", "e", "f")),
+    rpc(databaseUrl, reserveSql(sagaSessionA, requestKeys[1], "c", "d")),
+    rpc(databaseUrl, reserveSql(sagaSessionA, requestKeys[2], "e", "f")),
   ]);
   if (differentKeys.map((result) => result.outcome).sort().join(",") !== "reserved,upload_in_progress") {
     throw new Error("Concurrent different upload keys bypassed the active slot.");
@@ -189,8 +192,8 @@ try {
   await sql(databaseUrl, `delete from public.submission_upload_operations where discord_user_id = '${sagaUserA}';`);
 
   const independent = await Promise.all([
-    rpc(databaseUrl, reserveSql(sagaSessionA, "93000001-0000-4000-8000-000000000104", "1", "2")),
-    rpc(databaseUrl, reserveSql(sagaSessionB, "93000001-0000-4000-8000-000000000105", "3", "4")),
+    rpc(databaseUrl, reserveSql(sagaSessionA, requestKeys[3], "1", "2")),
+    rpc(databaseUrl, reserveSql(sagaSessionB, requestKeys[4], "3", "4")),
   ]);
   if (independent.some((result) => result.outcome !== "reserved")) {
     throw new Error("Independent users interfered during upload reservation.");
@@ -232,7 +235,7 @@ try {
   try {
     await sql(
       databaseUrl,
-      `select public.reserve_submission_upload('${sessionId}'::uuid, '93000001-0000-4000-8000-000000000011'::uuid, repeat('a',64), repeat('b',64), 'image/webp', 100);`
+      `select public.reserve_submission_upload('${sessionId}'::uuid, '${requestKeys[5]}'::uuid, repeat('a',64), repeat('b',64), 'image/webp', 100);`
     );
   } catch {
     reservationRejected = true;
@@ -247,12 +250,10 @@ try {
   console.log("DEV submission upload abuse rollback and concurrency tests passed.");
 } finally {
   await cleanup(databaseUrl);
-  if (createdSyntheticCycle) {
-    await sql(
-      databaseUrl,
-      `delete from public.voting_cycles where id = ${cycleId};`
-    );
-  }
+  await sql(
+    databaseUrl,
+    `delete from public.voting_cycles where id = ${cycleId};`
+  );
 }
 
 const after = await sql(

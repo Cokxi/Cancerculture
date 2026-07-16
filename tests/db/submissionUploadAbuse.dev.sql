@@ -9,9 +9,9 @@ declare
   v_cycle_b constant bigint := 9300000002;
   v_user_a constant text := 'codex-upload-abuse-user-a';
   v_user_b constant text := 'codex-upload-abuse-user-b';
+  v_admin_id constant text := 'codex-upload-abuse-admin';
   v_session_a constant uuid := '93000000-0000-4000-8000-000000000001';
   v_session_b constant uuid := '93000000-0000-4000-8000-000000000002';
-  v_admin_id text;
   v_rules_version integer;
   v_result jsonb;
   v_attempt integer;
@@ -22,46 +22,51 @@ begin
     where id in (v_cycle_a_fixture, v_cycle_b)
   ) or exists (
     select 1 from public.user_logs where discord_user_id like 'codex-upload-abuse-%'
+  ) or exists (
+    select 1
+    from public.voting_cycles
+    where status::text in (
+      'draft', 'active', 'submission_open', 'submission_closed', 'voting_open',
+      'voting_closed', 'paused', 'finalizing'
+    )
   ) then
     raise exception 'UPLOAD_ABUSE_TEST_FIXTURE_COLLISION';
   end if;
 
   select current_version into v_rules_version
   from public.rules_meta where id = 1;
-  select id into v_cycle_a
-  from public.voting_cycles
-  where status::text in ('submission_open', 'active')
-  order by id desc limit 1;
-  if v_cycle_a is null then
-    v_cycle_a := v_cycle_a_fixture;
-    insert into public.voting_cycles (
-      id,
-      status,
-      starts_at,
-      submission_starts_at,
-      votes_per_user,
-      allow_self_vote
-    ) values (
-      v_cycle_a,
-      'submission_open',
-      transaction_timestamp(),
-      transaction_timestamp(),
-      2,
-      false
-    );
-  end if;
-  select discord_user_id into v_admin_id
-  from public.team_members where role = 'admin'
-  order by created_at limit 1;
-  if v_rules_version is null or v_admin_id is null then
+  if v_rules_version is null then
     raise exception 'UPLOAD_ABUSE_TEST_DEPENDENCY_MISSING';
   end if;
+
+  v_cycle_a := v_cycle_a_fixture;
+  insert into public.voting_cycles (
+    id,
+    status,
+    starts_at,
+    submission_starts_at,
+    votes_per_user,
+    allow_self_vote
+  ) values (
+    v_cycle_a,
+    'submission_open',
+    transaction_timestamp(),
+    transaction_timestamp(),
+    2,
+    false
+  );
 
   insert into public.user_logs (
     discord_user_id, current_discord_username, accepted_rules_version
   ) values
     (v_user_a, 'codex-abuse-a', v_rules_version),
-    (v_user_b, 'codex-abuse-b', v_rules_version);
+    (v_user_b, 'codex-abuse-b', v_rules_version),
+    (v_admin_id, 'codex-abuse-admin', v_rules_version);
+  insert into public.team_members (
+    discord_user_id, role, discord_username
+  ) values (
+    v_admin_id, 'admin', 'codex-abuse-admin'
+  );
   insert into public.discord_member_state (
     discord_user_id, current_discord_username, discord_joined_at, is_in_discord
   ) values

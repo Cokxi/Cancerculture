@@ -2,13 +2,20 @@
 
 begin;
 
--- Isolate synthetic current-Cycle fixtures without changing persisted DEV state.
-update public.voting_cycles
-set status = 'archived'
-where status::text in (
-  'draft', 'active', 'submission_open', 'submission_closed', 'voting_open',
-  'voting_closed', 'paused', 'finalizing'
-);
+do $guard$
+begin
+  if exists (
+    select 1
+    from public.voting_cycles
+    where status::text in (
+      'draft', 'active', 'submission_open', 'submission_closed', 'voting_open',
+      'voting_closed', 'paused', 'finalizing'
+    )
+  ) then
+    raise exception 'DEV_CYCLE_AUTOMATION_REQUIRES_NO_CURRENT_CYCLE';
+  end if;
+end;
+$guard$;
 
 create function pg_temp.fail_selected_admin_audit_writes()
 returns trigger

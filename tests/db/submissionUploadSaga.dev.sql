@@ -21,14 +21,20 @@ begin
 end;
 $$;
 
--- Keep the real DEV Cycle unchanged while making room for the synthetic
--- current Cycle inside this rollback-only transaction.
-update public.voting_cycles
-set status = 'archived'
-where status::text in (
-  'draft', 'active', 'submission_open', 'submission_closed', 'voting_open',
-  'voting_closed', 'paused', 'finalizing'
-);
+do $guard$
+begin
+  if exists (
+    select 1
+    from public.voting_cycles
+    where status::text in (
+      'draft', 'active', 'submission_open', 'submission_closed', 'voting_open',
+      'voting_closed', 'paused', 'finalizing'
+    )
+  ) then
+    raise exception 'DEV_UPLOAD_SAGA_REQUIRES_NO_CURRENT_CYCLE';
+  end if;
+end;
+$guard$;
 
 do $$
 declare

@@ -1,22 +1,84 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const databaseUrl = process.env.SUPABASE_DEV_DATABASE_URL;
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  ".."
+);
 const psql =
   process.env.PSQL_BIN ??
   "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe";
+const runId = randomUUID();
+const runSeed = BigInt(`0x${runId.replaceAll("-", "").slice(0, 12)}`);
+const cycleId = Number(8_200_000_000n + (runSeed % 500_000_000n));
+const submissionBase = Number(
+  8_800_000_000n + (runSeed % 100_000_000n) * 10n
+);
+const discordBase =
+  991_000_000_000_000_000n + (runSeed % 8_000_000_000_000_000n);
+const targetUser = String(discordBase + 1n);
+const voterUser = String(discordBase + 2n);
+const otherUser = String(discordBase + 3n);
+const adminUser = String(discordBase + 99n);
+const targetSubmission = submissionBase + 1;
+const otherSubmission = submissionBase + 2;
+const prefix = `ban-sub-concurrency-${runId}-`;
+const targetStorageUuid = randomUUID();
+const otherStorageUuid = randomUUID();
+let databaseUrl;
 
-if (!databaseUrl) {
-  throw new Error("SUPABASE_DEV_DATABASE_URL is required");
+async function readEnvFile(name) {
+  const values = new Map();
+  const source = await readFile(path.join(repoRoot, name), "utf8");
+  for (const line of source.split(/\r?\n/u)) {
+    if (!line || /^\s*#/u.test(line) || !line.includes("=")) continue;
+    const separator = line.indexOf("=");
+    values.set(
+      line.slice(0, separator).trim(),
+      line
+        .slice(separator + 1)
+        .trim()
+        .replace(/^(['"])(.*)\1$/u, "$2")
+    );
+  }
+  return values;
 }
 
-const cycleId = 9200000301;
-const targetUser = "991100000000000001";
-const voterUser = "991100000000000002";
-const otherUser = "991100000000000003";
-const adminUser = "991100000000000099";
-const targetSubmission = 992100001;
-const otherSubmission = 992100002;
-const prefix = "ban-sub-concurrency-";
+function projectRef(databaseUrlValue) {
+  const parsed = new URL(databaseUrlValue);
+  return (
+    parsed.hostname.match(/^db\.([^.]+)\./u)?.[1] ??
+    decodeURIComponent(parsed.username).match(/^postgres\.([^:]+)$/u)?.[1] ??
+    null
+  );
+}
+
+async function loadDevDatabaseUrl() {
+  const [local, codex] = await Promise.all([
+    readEnvFile(".env.local"),
+    readEnvFile(".env.codex.local"),
+  ]);
+  const databaseUrlValue =
+    process.env.SUPABASE_DEV_DATABASE_URL ??
+    codex.get("SUPABASE_DEV_DATABASE_URL");
+  const websiteUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ??
+    local.get("NEXT_PUBLIC_SUPABASE_URL");
+  if (!databaseUrlValue || !websiteUrl) {
+    throw new Error("Required DEV configuration is missing");
+  }
+  if (
+    projectRef(databaseUrlValue) !==
+    new URL(websiteUrl).hostname.split(".")[0]
+  ) {
+    throw new Error("Refusing to run against a non-matching database project");
+  }
+  return databaseUrlValue;
+}
 
 function literal(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
@@ -203,14 +265,14 @@ async function setup(status) {
         ${targetSubmission},
         ${cycleId},
         ${literal(targetUser)},
-        ${literal(`${cycleId}/00000000-0000-4000-8000-000000000301.webp`)},
+        ${literal(`${cycleId}/${targetStorageUuid}.webp`)},
         'concurrency-target'
       ),
       (
         ${otherSubmission},
         ${cycleId},
         ${literal(otherUser)},
-        ${literal(`${cycleId}/00000000-0000-4000-8000-000000000302.webp`)},
+        ${literal(`${cycleId}/${otherStorageUuid}.webp`)},
         'concurrency-other'
       );
 
@@ -400,6 +462,7 @@ async function testBanAndRepublish() {
   }
 }
 
+databaseUrl = await loadDevDatabaseUrl();
 await cleanup();
 
 const currentCycleCount = Number(
