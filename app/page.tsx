@@ -268,19 +268,17 @@ export default async function Home() {
         </section>
       </section>
 
-      {isLoggedIn && (
-        <Link
-          href="/cycle-history"
-          className="
-            fixed bottom-6 left-6 z-50 hidden items-center justify-center
-            rounded-lg border border-orange-500/30 bg-black/75 px-5 py-3
-            text-sm font-[var(--font-marker)] text-orange-400 shadow-lg shadow-black/30
-            transition-all hover:bg-black/90 hover:scale-105 active:scale-95 md:flex
-          "
-        >
-          Cycle History
-        </Link>
-      )}
+      <Link
+        href="/cycle-history"
+        className="
+          fixed bottom-6 left-6 z-50 hidden items-center justify-center
+          rounded-lg border border-orange-500/30 bg-black/75 px-5 py-3
+          text-sm font-[var(--font-marker)] text-orange-400 shadow-lg shadow-black/30
+          transition-all hover:bg-black/90 hover:scale-105 active:scale-95 md:flex
+        "
+      >
+        Cycle History
+      </Link>
 
       {isLoggedIn && (
         <Link
@@ -296,9 +294,7 @@ export default async function Home() {
         </Link>
       )}
 
-      {isLoggedIn && (
-        <>
-          <Link
+      <Link
             href="/cycle-history"
             className="
               fixed bottom-4 left-3 z-50 flex items-center justify-center rounded-lg border border-orange-500/40
@@ -310,6 +306,8 @@ export default async function Home() {
             Cycle History
           </Link>
 
+      {isLoggedIn && (
+        <>
           <Link
             href="/my-profile"
             className="

@@ -32,7 +32,15 @@ function sqlText(value) {
 }
 
 async function readEnvFile(name) {
-  const source = await readFile(path.join(repoRoot, name), "utf8");
+  let source;
+  try {
+    source = await readFile(path.join(repoRoot, name), "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return new Map();
+    }
+    throw error;
+  }
   const values = new Map();
 
   for (const line of source.split(/\r?\n/u)) {

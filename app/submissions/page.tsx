@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { getAuthErrorCode } from "@/lib/auth/AuthError";
 import { requireSession } from "@/lib/auth/requireSession";
 import SubmissionsClient from "./SubmissionsClient";
 import PageWrapper from "@/app/components/ui/PageWrapper";
@@ -47,24 +47,39 @@ export default async function SubmissionsPage({
 }: {
   searchParams: Promise<{ submission?: string }>;
 }) {
-  let discordUserId: string;
+  let discordUserId: string | null = null;
+  let viewerBlockReason:
+    | "banned"
+    | "not_in_discord"
+    | "joined_too_recently"
+    | "not_authenticated" = "not_authenticated";
 
   try {
     const session = await requireSession();
     discordUserId = session.discord_user_id;
-  } catch {
-    redirect("/api/auth/discord/login?state=/submissions");
+  } catch (error) {
+    const authCode = getAuthErrorCode(error)?.split(":")[0];
+    viewerBlockReason =
+      authCode === "DISCORD_BANNED" || authCode === "WEBSITE_BANNED"
+        ? "banned"
+        : authCode === "NOT_IN_DISCORD"
+          ? "not_in_discord"
+          : authCode === "JOINED_TOO_RECENTLY"
+            ? "joined_too_recently"
+            : "not_authenticated";
   }
 
   await processDueCycleTransitions();
 
-  const [voteEligibility, currentCycle, latestCycle, resolvedSearchParams] =
+  const [currentCycle, latestCycle, resolvedSearchParams] =
     await Promise.all([
-      getVoteEligibility(discordUserId),
       getCurrentPublicCycle(),
       getLatestCycleState(),
       searchParams,
     ]);
+  const voteEligibility = discordUserId
+    ? await getVoteEligibility(discordUserId)
+    : null;
 
   if (!currentCycle) {
     const message = getInactiveMessage(latestCycle?.status ?? null);
@@ -84,10 +99,9 @@ export default async function SubmissionsPage({
   }
 
   const { data: submissions } = await supabaseServer
-    .from("submissions_with_votes")
+    .from("public_submissions_with_votes")
     .select("id, r2_key, vote_count, discord_user_id")
     .eq("cycle_id", currentCycle.id)
-    .eq("is_disqualified", false)
     .order("id", { ascending: true });
 
   const submissionsWithUrls =
@@ -101,7 +115,9 @@ export default async function SubmissionsPage({
   const requestedSubmissionId = Number(
     resolvedSearchParams.submission
   );
-  const voteBlockedReason = voteEligibility.isBanned
+  const voteBlockedReason = !voteEligibility
+    ? viewerBlockReason
+    : voteEligibility.isBanned
     ? "banned"
     : !voteEligibility.membership.isInDiscord
       ? "not_in_discord"
@@ -113,10 +129,13 @@ export default async function SubmissionsPage({
     <PageWrapper>
       <SubmissionsClient
         submissions={submissionsWithUrls}
-        hasVoted={voteEligibility.hasVoted}
-        voteCount={voteEligibility.voteCount}
-        votesPerUser={voteEligibility.votesPerUser}
-        votedSubmissionIds={voteEligibility.votedSubmissionIds}
+        hasVoted={voteEligibility?.hasVoted ?? false}
+        voteCount={voteEligibility?.voteCount ?? 0}
+        votesPerUser={
+          voteEligibility?.votesPerUser ??
+          Math.max(1, Math.min(currentCycle.votes_per_user ?? 2, 10))
+        }
+        votedSubmissionIds={voteEligibility?.votedSubmissionIds ?? []}
         votingEnabled={
           currentCycle.status === "voting_open" ||
           currentCycle.status === "active"
@@ -124,7 +143,9 @@ export default async function SubmissionsPage({
         isPaused={currentCycle.status === "paused"}
         discordUserId={discordUserId}
         voteBlockedReason={voteBlockedReason}
-        voteCooldownJoinedAt={voteEligibility.membership.joinedAt}
+        voteCooldownJoinedAt={
+          voteEligibility?.membership.joinedAt ?? null
+        }
         sponsoredMeta={sponsoredMeta}
         initialSubmissionId={
           Number.isInteger(requestedSubmissionId)

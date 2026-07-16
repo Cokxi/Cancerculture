@@ -18,7 +18,7 @@ type OAuthFailureStage =
   | "discord_token_exchange"
   | "discord_user_fetch"
   | "user_context_sync"
-  | "ban_check"
+  | "access_check"
   | "session_insert"
   | "unexpected";
 
@@ -27,7 +27,8 @@ class OAuthCallbackError extends Error {
     readonly status: 400 | 401 | 403 | 500 | 503,
     readonly stage: OAuthFailureStage,
     readonly publicMessage: string,
-    readonly causeValue?: unknown
+    readonly causeValue?: unknown,
+    readonly code = "AUTHENTICATION_FAILED"
   ) {
     super(publicMessage);
     this.name = "OAuthCallbackError";
@@ -69,14 +70,19 @@ function createFailureResponse(
   const response =
     error.status === 403 && applicationOrigin
       ? NextResponse.rewrite(
-          new URL("/banned", applicationOrigin),
+          new URL(
+            `/banned?code=${encodeURIComponent(error.code)}`,
+            applicationOrigin
+          ),
           { status: 403 }
         )
       : NextResponse.json(
-          { error: error.publicMessage },
+          { error: error.code },
           { status: error.status }
         );
 
+  response.headers.set("X-Auth-Error-Code", error.code);
+  response.headers.set("Cache-Control", "no-store");
   clearOAuthCookies(response);
   expireCookie(response, "session_id");
   expireCookie(response, "discord_user_id");
@@ -341,59 +347,60 @@ export async function GET(req: Request) {
       );
     }
 
-    const { data: userLog, error: banError } = await supabaseAdmin
-      .from("user_logs")
-      .select("is_banned")
-      .eq("discord_user_id", user.id)
-      .single();
-
-    if (banError || !userLog) {
-      throw new OAuthCallbackError(
-        503,
-        "ban_check",
-        "Authentication data is temporarily unavailable",
-        banError
-      );
-    }
-
-    if (userLog.is_banned) {
-      throw new OAuthCallbackError(
-        403,
-        "ban_check",
-        "This account is restricted"
-      );
-    }
-
     const sessionId = randomUUID();
-    const now = new Date().toISOString();
     const successResponse = NextResponse.redirect(
       new URL(redirectPath, applicationOrigin)
     );
 
     sessionCleanupId = sessionId;
 
-    const { data: storedSession, error: sessionError } =
-      await supabaseAdmin
-        .from("sessions")
-        .insert({
-          id: sessionId,
-          discord_user_id: user.id,
-          created_at: now,
-          last_seen_at: now,
-        })
-        .select("id")
-        .single();
+    const { data: sessionResult, error: sessionError } =
+      await supabaseAdmin.rpc("create_cancerculture_session", {
+        p_session_id: sessionId,
+        p_discord_user_id: user.id,
+      });
 
-    if (
-      sessionError ||
-      !storedSession ||
-      storedSession.id !== sessionId
-    ) {
+    if (sessionError) {
       throw new OAuthCallbackError(
         503,
         "session_insert",
         "Authentication data is temporarily unavailable",
-        sessionError
+        sessionError,
+        "AUTHENTICATION_UNAVAILABLE"
+      );
+    }
+
+    const normalizedSessionResult =
+      sessionResult && typeof sessionResult === "object"
+        ? (sessionResult as Record<string, unknown>)
+        : {};
+    const sessionOutcome =
+      typeof normalizedSessionResult.outcome === "string"
+        ? normalizedSessionResult.outcome
+        : "";
+
+    if (sessionOutcome !== "created") {
+      const deniedCode =
+        sessionOutcome === "discord_banned"
+          ? "DISCORD_BANNED"
+          : sessionOutcome === "website_banned"
+            ? "WEBSITE_BANNED"
+            : sessionOutcome === "not_in_discord"
+              ? "NOT_IN_DISCORD"
+              : sessionOutcome === "joined_too_recently"
+                ? "JOINED_TOO_RECENTLY"
+                : "AUTHENTICATION_UNAVAILABLE";
+      const deniedStatus =
+        deniedCode === "AUTHENTICATION_UNAVAILABLE" ? 503 : 403;
+
+      throw new OAuthCallbackError(
+        deniedStatus,
+        "access_check",
+        deniedStatus === 403
+          ? "This account cannot sign in"
+          : "Authentication data is temporarily unavailable",
+        undefined,
+        deniedCode
       );
     }
 

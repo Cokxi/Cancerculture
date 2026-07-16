@@ -7,7 +7,7 @@ import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { getSubmissionSocialLinksBySubmissionIds } from "@/lib/socials/getSubmissionSocialLinks";
 import {
   normalizeSubmissionPublicVisibilityStatus,
-  showsSubmissionImagePublicly,
+  SUBMISSION_PUBLIC_VISIBILITY,
 } from "@/lib/moderation/submissionPublicVisibility";
 
 export const dynamic = "force-dynamic";
@@ -41,8 +41,27 @@ export default async function WallOfFamePage() {
             "id, discord_username_at_upload, discord_user_id, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text"
           )
           .in("id", submissionIds)
-      : { data: [] };
-  const submissions = submissionsResult.data ?? [];
+      : { data: [], error: null };
+
+  if (submissionsResult.error) {
+    console.error("[wall of fame][submission visibility]", {
+      code: submissionsResult.error.code,
+    });
+  }
+
+  const submissions = (submissionsResult.data ?? []).filter(
+    (submission) =>
+      normalizeSubmissionPublicVisibilityStatus(
+        submission.public_visibility_status
+      ) === SUBMISSION_PUBLIC_VISIBILITY.visible
+  );
+  const visibleSubmissionIds = new Set(
+    submissions.map((submission) => submission.id)
+  );
+  const visibleWinners =
+    winners?.filter((winner) =>
+      visibleSubmissionIds.has(winner.submission_id)
+    ) ?? [];
 
   const discordUserIds = Array.from(
     new Set(
@@ -83,11 +102,11 @@ export default async function WallOfFamePage() {
     await (async () => {
       const socialLinksBySubmissionId =
         await getSubmissionSocialLinksBySubmissionIds(
-          submissionIds
+          [...visibleSubmissionIds]
         );
 
       return (
-        winners?.map((winner) => {
+        visibleWinners.map((winner) => {
           const submission = submissions.find(
             (entry) => entry.id === winner.submission_id
           );
@@ -106,11 +125,7 @@ export default async function WallOfFamePage() {
                 submissionMetaById.get(winner.submission_id)
                   ?.discord_user_id ?? ""
               ) ?? null,
-            image_url: showsSubmissionImagePublicly(
-              publicVisibilityStatus
-            )
-              ? getPublicImageUrl(winner.r2_key) ?? ""
-              : null,
+            image_url: getPublicImageUrl(winner.r2_key) ?? "",
             public_visibility_status:
               publicVisibilityStatus,
             public_visibility_reason_code:
@@ -122,7 +137,7 @@ export default async function WallOfFamePage() {
             social_links:
               socialLinksBySubmissionId.get(winner.submission_id) ?? [],
           };
-        }) ?? []
+        })
       );
     })();
   const sponsoredMetaEntries = await Promise.all(

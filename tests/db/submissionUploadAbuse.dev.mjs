@@ -12,10 +12,18 @@ const sagaUserA = `${userId}-saga-a`;
 const sagaUserB = `${userId}-saga-b`;
 const sagaSessionA = "93000001-0000-4000-8000-000000000002";
 const sagaSessionB = "93000001-0000-4000-8000-000000000003";
+const syntheticCycleId = 9300000101;
 
 async function readEnv(name) {
   const values = new Map();
-  for (const line of (await readFile(path.join(repoRoot, name), "utf8")).split(/\r?\n/u)) {
+  let source;
+  try {
+    source = await readFile(path.join(repoRoot, name), "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return values;
+    throw error;
+  }
+  for (const line of source.split(/\r?\n/u)) {
     if (!line || /^\s*#/u.test(line) || !line.includes("=")) continue;
     const index = line.indexOf("=");
     values.set(
@@ -81,14 +89,43 @@ async function cleanup(databaseUrl) {
 
 const databaseUrl = await loadDevDatabaseUrl();
 await runPsql(databaseUrl, ["-f", "tests/db/submissionUploadAbuse.dev.sql"]);
-const cycleId = Number(
+const currentCycleId = await sql(
+  databaseUrl,
+  "select id from public.voting_cycles where status::text in ('submission_open','active') order by id desc limit 1;"
+);
+let cycleId = currentCycleId ? Number(currentCycleId) : Number.NaN;
+let createdSyntheticCycle = false;
+if (!Number.isSafeInteger(cycleId)) {
+  const collision = await sql(
+    databaseUrl,
+    `select exists(select 1 from public.voting_cycles where id = ${syntheticCycleId})::text;`
+  );
+  if (collision === "true") {
+    throw new Error("The synthetic DEV Cycle ID is already in use.");
+  }
+
+  cycleId = syntheticCycleId;
   await sql(
     databaseUrl,
-    "select id from public.voting_cycles where status::text in ('submission_open','active') order by id desc limit 1;"
-  )
-);
-if (!Number.isSafeInteger(cycleId)) {
-  throw new Error("The DEV submission phase must be open for this test.");
+    `
+      insert into public.voting_cycles (
+        id,
+        status,
+        starts_at,
+        submission_starts_at,
+        votes_per_user,
+        allow_self_vote
+      ) values (
+        ${cycleId},
+        'submission_open',
+        transaction_timestamp(),
+        transaction_timestamp(),
+        2,
+        false
+      );
+    `
+  );
+  createdSyntheticCycle = true;
 }
 
 await cleanup(databaseUrl);
@@ -131,8 +168,14 @@ try {
     rpc(databaseUrl, reserveSql(sagaSessionA, "93000001-0000-4000-8000-000000000101", "a", "b")),
     rpc(databaseUrl, reserveSql(sagaSessionA, "93000001-0000-4000-8000-000000000101", "a", "b")),
   ]);
-  if (sameKey.map((result) => result.outcome).sort().join(",") !== "in_progress,reserved") {
-    throw new Error("Concurrent identical upload keys were not deduplicated.");
+  const sameKeyOutcomes = sameKey
+    .map((result) => result.outcome)
+    .sort()
+    .join(",");
+  if (sameKeyOutcomes !== "in_progress,reserved") {
+    throw new Error(
+      `Concurrent identical upload keys were not deduplicated: ${sameKeyOutcomes}`
+    );
   }
   await sql(databaseUrl, `delete from public.submission_upload_operations where discord_user_id = '${sagaUserA}';`);
 
@@ -204,6 +247,12 @@ try {
   console.log("DEV submission upload abuse rollback and concurrency tests passed.");
 } finally {
   await cleanup(databaseUrl);
+  if (createdSyntheticCycle) {
+    await sql(
+      databaseUrl,
+      `delete from public.voting_cycles where id = ${cycleId};`
+    );
+  }
 }
 
 const after = await sql(

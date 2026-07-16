@@ -22,20 +22,28 @@ export async function getVoteEligibility(discordUserId: string) {
       .select("is_banned")
       .eq("discord_user_id", discordUserId)
       .maybeSingle(),
-    getCurrentVotingCycle(),
+    getCurrentVotingCycle({ throwOnError: true }),
     getDiscordMembershipEligibility(discordUserId),
   ]);
+
+  if (userLogResult.error || !userLogResult.data) {
+    throw new Error("Vote eligibility dependency unavailable");
+  }
 
   const userLog = userLogResult.data;
 
   let votedSubmissionIds: number[] = [];
 
   if (activeCycle?.id) {
-    const { data: voteRows } = await supabaseAdmin
+    const { data: voteRows, error: votesError } = await supabaseAdmin
       .from("votes")
       .select("submission_id")
       .eq("cycle_id", activeCycle.id)
       .eq("discord_user_id", discordUserId);
+
+    if (votesError) {
+      throw new Error("Vote eligibility dependency unavailable");
+    }
 
     votedSubmissionIds = (voteRows ?? [])
       .map((vote) => vote.submission_id)

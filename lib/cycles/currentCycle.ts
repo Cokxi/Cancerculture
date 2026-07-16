@@ -44,8 +44,10 @@ export async function getCurrentSubmissionCycle(options?: {
   );
 }
 
-export async function getCurrentVotingCycle() {
-  return getNewestCycleByStatuses(["voting_open", "active"]);
+export async function getCurrentVotingCycle(options?: {
+  throwOnError?: boolean;
+}) {
+  return getNewestCycleByStatuses(["voting_open", "active"], options);
 }
 
 export async function getCurrentPublicCycle() {

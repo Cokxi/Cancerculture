@@ -1,10 +1,12 @@
 export class AuthError extends Error {
   status: number;
+  code: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code = "AUTH_ERROR") {
     super(message);
     this.name = "AuthError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -27,4 +29,8 @@ export function getAuthErrorStatus(error: unknown) {
   }
 
   return null;
+}
+
+export function getAuthErrorCode(error: unknown) {
+  return error instanceof AuthError ? error.code : null;
 }

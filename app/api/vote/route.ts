@@ -2,6 +2,10 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
+import {
+  getAuthErrorCode,
+  getAuthErrorStatus,
+} from "@/lib/auth/AuthError";
 import { requireSession } from "@/lib/auth/requireSession";
 import { logVote } from "@/lib/logging/logVote";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
@@ -180,13 +184,27 @@ export async function POST(req: Request) {
       const isSubmissionMissing = errorMessage.includes(
         "SUBMISSION_NOT_FOUND"
       );
+      const isSubmissionIneligible = errorMessage.includes(
+        "SUBMISSION_NOT_COMPETITION_ELIGIBLE"
+      );
+      const isDiscordBanned = errorMessage.includes("DISCORD_BANNED");
+      const isWebsiteBanned = errorMessage.includes("WEBSITE_BANNED");
+      const isNotInDiscord = errorMessage.includes("NOT_IN_DISCORD");
+      const isJoinCooldown = errorMessage.includes(
+        "JOINED_TOO_RECENTLY"
+      );
 
       if (
         isSelfVote ||
         isDuplicate ||
         isLimitReached ||
         isVotingClosed ||
-        isSubmissionMissing
+        isSubmissionMissing ||
+        isSubmissionIneligible ||
+        isDiscordBanned ||
+        isWebsiteBanned ||
+        isNotInDiscord ||
+        isJoinCooldown
       ) {
         await logVote({
           cycleId: voteEligibility.activeCycleId,
@@ -206,6 +224,16 @@ export async function POST(req: Request) {
           {
             error: isSelfVote
               ? "You cannot vote for your own submission"
+              : isDiscordBanned
+                ? "DISCORD_BANNED"
+                : isWebsiteBanned
+                  ? "WEBSITE_BANNED"
+                  : isNotInDiscord
+                    ? "NOT_IN_DISCORD"
+                    : isJoinCooldown
+                      ? "JOINED_TOO_RECENTLY"
+                      : isSubmissionIneligible
+                        ? "SUBMISSION_NOT_COMPETITION_ELIGIBLE"
               : isDuplicate
                 ? "You already voted for this submission"
                 : isVotingClosed
@@ -215,10 +243,17 @@ export async function POST(req: Request) {
                   : "You used all votes for this cycle",
           },
           {
-            status: isSelfVote
+            status:
+              isSelfVote ||
+              isDiscordBanned ||
+              isWebsiteBanned ||
+              isNotInDiscord ||
+              isJoinCooldown
               ? 403
               : isSubmissionMissing
                 ? 404
+                : isSubmissionIneligible
+                  ? 409
                 : 400,
           }
         );
@@ -257,13 +292,19 @@ export async function POST(req: Request) {
             voteEligibility.votesPerUser,
     });
   } catch (error) {
-    console.error("VOTE ERROR", error);
-
-    
-    if (error instanceof Response) {
-      throw error;
+    const authStatus = getAuthErrorStatus(error);
+    if (authStatus) {
+      return NextResponse.json(
+        {
+          error:
+            getAuthErrorCode(error)?.split(":")[0] ??
+            "AUTHENTICATION_UNAVAILABLE",
+        },
+        { status: authStatus }
+      );
     }
 
+    console.error("VOTE ERROR", error);
     return NextResponse.json(
       { error: "Voting failed" },
       { status: 500 }

@@ -18,6 +18,7 @@ type VoteBlockedReason =
   | "banned"
   | "not_in_discord"
   | "joined_too_recently"
+  | "not_authenticated"
   | null;
 
 export default function SubmissionsClient({
@@ -41,7 +42,7 @@ export default function SubmissionsClient({
   votedSubmissionIds: number[];
   votingEnabled: boolean;
   isPaused: boolean;
-  discordUserId: string;
+  discordUserId: string | null;
   voteBlockedReason: VoteBlockedReason;
   voteCooldownJoinedAt: string | null;
   sponsoredMeta: SponsoredCycleMeta | null;
@@ -132,6 +133,10 @@ export default function SubmissionsClient({
 
     if (effectiveVoteBlockedReason === "joined_too_recently") {
       return null;
+    }
+
+    if (effectiveVoteBlockedReason === "not_authenticated") {
+      return "Sign in to vote";
     }
 
     return null;
@@ -345,6 +350,14 @@ export default function SubmissionsClient({
                         {waitingForDiscordJoin
                           ? "Refresh after joining..."
                           : "Join Discord to Vote"}
+                      </a>
+                    ) : effectiveVoteBlockedReason ===
+                      "not_authenticated" ? (
+                      <a
+                        href="/api/auth/discord/login?state=/submissions"
+                        className="rounded bg-orange-500 px-4 py-2 text-white transition hover:bg-orange-600"
+                      >
+                        Sign in to Vote
                       </a>
                     ) : (
                       <span className="opacity-70 text-red-400">

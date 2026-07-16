@@ -1,12 +1,10 @@
 import BackButton from "@/app/components/ui/BackButton";
 import CycleHistoryClient from "./CycleHistoryClient";
 import { getTeamMember } from "@/lib/auth/guards";
-import { requireSession } from "@/lib/auth/requireSession";
 import { getCycleHistorySummaries } from "@/lib/cycles/getCycleHistoryData";
 import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
 
 export default async function CycleHistoryPage() {
-  await requireSession();
   let isAdmin = false;
   let canModerate = false;
 

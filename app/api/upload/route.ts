@@ -2,7 +2,10 @@ export const runtime = "nodejs";
 
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import { getAuthErrorStatus } from "@/lib/auth/AuthError";
+import {
+  getAuthErrorCode,
+  getAuthErrorStatus,
+} from "@/lib/auth/AuthError";
 import { requireSession } from "@/lib/auth/requireSession";
 import { logUpload } from "@/lib/logging/logUpload";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
@@ -316,12 +319,10 @@ export async function POST(req: Request) {
 
     const authStatus = getAuthErrorStatus(error);
     if (authStatus) {
+      const authCode = getAuthErrorCode(error)?.split(":")[0];
       return NextResponse.json(
         {
-          error:
-            authStatus === 401
-              ? "NOT_AUTHENTICATED"
-              : "AUTHENTICATION_UNAVAILABLE",
+          error: authCode ?? "AUTHENTICATION_UNAVAILABLE",
         },
         { status: authStatus }
       );

@@ -35,6 +35,12 @@ export default function AdminLogsPage() {
         </li>
 
         <li>
+          <Link href="/admin/logs/discord-sync">
+            Discord Sync Health
+          </Link>
+        </li>
+
+        <li>
           <Link href="/admin/logs/moderation">
             Moderation Logs
           </Link>

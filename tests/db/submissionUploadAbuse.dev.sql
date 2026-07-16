@@ -5,6 +5,7 @@ begin;
 do $$
 declare
   v_cycle_a bigint;
+  v_cycle_a_fixture constant bigint := 9300000001;
   v_cycle_b constant bigint := 9300000002;
   v_user_a constant text := 'codex-upload-abuse-user-a';
   v_user_b constant text := 'codex-upload-abuse-user-b';
@@ -16,7 +17,9 @@ declare
   v_attempt integer;
 begin
   if exists (
-    select 1 from public.voting_cycles where id = v_cycle_b
+    select 1
+    from public.voting_cycles
+    where id in (v_cycle_a_fixture, v_cycle_b)
   ) or exists (
     select 1 from public.user_logs where discord_user_id like 'codex-upload-abuse-%'
   ) then
@@ -29,10 +32,28 @@ begin
   from public.voting_cycles
   where status::text in ('submission_open', 'active')
   order by id desc limit 1;
+  if v_cycle_a is null then
+    v_cycle_a := v_cycle_a_fixture;
+    insert into public.voting_cycles (
+      id,
+      status,
+      starts_at,
+      submission_starts_at,
+      votes_per_user,
+      allow_self_vote
+    ) values (
+      v_cycle_a,
+      'submission_open',
+      transaction_timestamp(),
+      transaction_timestamp(),
+      2,
+      false
+    );
+  end if;
   select discord_user_id into v_admin_id
   from public.team_members where role = 'admin'
   order by created_at limit 1;
-  if v_rules_version is null or v_admin_id is null or v_cycle_a is null then
+  if v_rules_version is null or v_admin_id is null then
     raise exception 'UPLOAD_ABUSE_TEST_DEPENDENCY_MISSING';
   end if;
 

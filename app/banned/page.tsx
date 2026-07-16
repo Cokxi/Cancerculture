@@ -1,4 +1,11 @@
-export default function BannedPage() {
+export default async function BannedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string }>;
+}) {
+  const code = (await searchParams).code;
+  const isDiscordRestriction = code === "DISCORD_BANNED";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-black px-6">
       <div className="text-center max-w-xl">
@@ -11,7 +18,9 @@ export default function BannedPage() {
         </p>
 
         <p className="text-white/60 text-sm">
-          Violation of platform rules (admin decision)
+          {isDiscordRestriction
+            ? "Discord access must be restored there first. A later rejoin and waiting period are required before signing in again."
+            : "This account is not currently eligible to sign in."}
         </p>
       </div>
     </div>

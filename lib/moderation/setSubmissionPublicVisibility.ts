@@ -27,7 +27,7 @@ export async function setSubmissionPublicVisibility({
   const { data: submission } = await supabaseAdmin
     .from("submissions")
     .select(
-      "id, cycle_id, r2_key, discord_user_id, discord_username_at_upload"
+      "id, cycle_id, r2_key, discord_user_id, discord_username_at_upload, public_visibility_source"
     )
     .eq("id", submissionId)
     .single();
@@ -40,6 +40,13 @@ export async function setSubmissionPublicVisibility({
   const now = new Date().toISOString();
 
   if (status === SUBMISSION_PUBLIC_VISIBILITY.visible) {
+    if (submission.public_visibility_source === "discord_ban") {
+      throw Object.assign(
+        new Error("DISCORD_BAN_REPUBLISH_REQUIRES_REVIEW"),
+        { status: 409 }
+      );
+    }
+
     await supabaseAdmin
       .from("submissions")
       .update({

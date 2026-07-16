@@ -2,7 +2,6 @@ import BackButton from "@/app/components/ui/BackButton";
 import Link from "next/link";
 import PublicProfileSocialsSection from "@/app/components/profile/PublicProfileSocialsSection";
 import { getTeamMember } from "@/lib/auth/guards";
-import { requireSession } from "@/lib/auth/requireSession";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
 import { getPublicUserProfileData } from "@/lib/profile/getPublicUserProfileData";
@@ -28,8 +27,6 @@ export default async function PublicProfilePage({
 }: {
   params: Promise<{ publicProfileId: string }>;
 }) {
-  await requireSession();
-
   let canModerateSocials = false;
 
   try {
