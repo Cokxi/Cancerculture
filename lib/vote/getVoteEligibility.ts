@@ -1,4 +1,4 @@
-import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
+import { getCurrentVotingCycle } from "@/lib/cycles/currentCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 import {
   getDiscordMembershipEligibility,
@@ -9,6 +9,9 @@ export type VoteEligibility = {
   isBanned: boolean;
   activeCycleId: number | null;
   hasVoted: boolean;
+  voteCount: number;
+  votesPerUser: number;
+  votedSubmissionIds: number[];
   membership: DiscordMembershipEligibility;
 };
 
@@ -19,29 +22,40 @@ export async function getVoteEligibility(discordUserId: string) {
       .select("is_banned")
       .eq("discord_user_id", discordUserId)
       .maybeSingle(),
-    getActiveCycle(),
+    getCurrentVotingCycle(),
     getDiscordMembershipEligibility(discordUserId),
   ]);
 
   const userLog = userLogResult.data;
 
-  let hasVoted = false;
+  let votedSubmissionIds: number[] = [];
 
   if (activeCycle?.id) {
-    const { data: existingVote } = await supabaseAdmin
+    const { data: voteRows } = await supabaseAdmin
       .from("votes")
-      .select("id")
+      .select("submission_id")
       .eq("cycle_id", activeCycle.id)
-      .eq("discord_user_id", discordUserId)
-      .maybeSingle();
+      .eq("discord_user_id", discordUserId);
 
-    hasVoted = Boolean(existingVote);
+    votedSubmissionIds = (voteRows ?? [])
+      .map((vote) => vote.submission_id)
+      .filter((submissionId): submissionId is number =>
+        Number.isInteger(submissionId)
+      );
   }
+  const voteCount = votedSubmissionIds.length;
+  const votesPerUser = Math.max(
+    1,
+    Math.min(activeCycle?.votes_per_user ?? 2, 10)
+  );
 
   return {
     isBanned: userLog?.is_banned === true,
     activeCycleId: activeCycle?.id ?? null,
-    hasVoted,
+    hasVoted: voteCount >= votesPerUser,
+    voteCount,
+    votesPerUser,
+    votedSubmissionIds,
     membership,
   } satisfies VoteEligibility;
 }

@@ -31,6 +31,10 @@ export default function AdminLogsPage() {
         </li>
 
         <li>
+          <Link href="/admin/logs/winners">Winner Payouts</Link>
+        </li>
+
+        <li>
           <Link href="/admin/logs/moderation">
             Moderation Logs
           </Link>

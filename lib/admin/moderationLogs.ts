@@ -17,4 +17,5 @@ export type ActorUser = {
   current_discord_handle?: string | null;
   current_display_name?: string | null;
   current_guild_nickname?: string | null;
+  public_profile_id?: string | null;
 };

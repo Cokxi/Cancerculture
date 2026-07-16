@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
 import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 
@@ -44,10 +45,10 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ themes });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message ?? "Forbidden" },
-      { status: err.status ?? 403 }
+  } catch (error) {
+    return getAdminApiErrorResponse(
+      error,
+      "GET /api/admin/cycles/themes"
     );
   }
 }

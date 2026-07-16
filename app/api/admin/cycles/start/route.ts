@@ -1,38 +1,28 @@
 export const runtime = "nodejs";
 
-import { logAdminAction } from "@/lib/audit/logAdminAction";
-import { requireAdmin } from "@/lib/auth/guards";
-import {
-  clearSponsoredCycleDraft,
-  getSponsoredCycleDraft,
-  saveCycleSponsoredMeta,
-} from "@/lib/cycles/sponsoredCycle";
-import { supabaseAdmin } from "@/lib/db/admin";
 import { NextResponse } from "next/server";
-
-function getErrorResponse(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : "Forbidden";
-  const status =
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof error.status === "number"
-      ? error.status
-      : 403;
-
-  return NextResponse.json({ error: message }, { status });
-}
+import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
+import { requireAdmin } from "@/lib/auth/guards";
+import { startCycleTransactional } from "@/lib/cycles/startCycle";
+import { getSponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
+import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function POST(req: Request) {
   try {
     const admin = await requireAdmin();
-    const body = await req.json();
-    const { endsAt, theme } = body;
+    const body = await req.json().catch(() => null);
+    const theme = body?.theme;
+    const requestedCycleId =
+      body?.cycleId === null || body?.cycleId === undefined
+        ? null
+        : Number(body.cycleId);
 
-    if (!endsAt) {
+    if (
+      requestedCycleId !== null &&
+      (!Number.isSafeInteger(requestedCycleId) || requestedCycleId <= 0)
+    ) {
       return NextResponse.json(
-        { error: "endsAt is required" },
+        { error: "Invalid cycle id" },
         { status: 400 }
       );
     }
@@ -42,129 +32,90 @@ export async function POST(req: Request) {
         ? theme.trim()
         : null;
 
-    const { data: activeCycle } = await supabaseAdmin
-      .from("voting_cycles")
-      .select("id")
-      .eq("status", "active")
-      .maybeSingle();
+    const { data: nextCycleConfig, error: nextCycleConfigError } =
+      await supabaseAdmin
+        .from("app_config")
+        .select("key, value")
+        .in("key", [
+          "next_cycle_theme",
+          "next_cycle_reward_description",
+        ]);
 
-    if (activeCycle) {
+    if (nextCycleConfigError) {
+      console.error("[cycle start][next config]", {
+        code: nextCycleConfigError.code,
+      });
+      throw new Error("Failed to load next cycle configuration");
+    }
+
+    const nextCycleConfigByKey = Object.fromEntries(
+      (nextCycleConfig ?? []).map((row) => [row.key, row.value])
+    );
+    const storedNextTheme =
+      typeof nextCycleConfigByKey.next_cycle_theme === "string" &&
+      nextCycleConfigByKey.next_cycle_theme.trim().length > 0
+        ? nextCycleConfigByKey.next_cycle_theme.trim()
+        : null;
+    const rewardDescription =
+      typeof nextCycleConfigByKey.next_cycle_reward_description ===
+        "string" &&
+      nextCycleConfigByKey.next_cycle_reward_description.trim().length >
+        0
+        ? nextCycleConfigByKey.next_cycle_reward_description.trim()
+        : null;
+    const sponsoredDraft = await getSponsoredCycleDraft();
+    const resolvedTheme = manualTheme ?? storedNextTheme;
+
+    if (
+      sponsoredDraft.enabled &&
+      (sponsoredDraft.companyName.length === 0 ||
+        sponsoredDraft.sponsorLink.length === 0 ||
+        sponsoredDraft.bannerR2Key.length === 0)
+    ) {
       return NextResponse.json(
-        { error: "There is already an active cycle" },
+        {
+          error:
+            "Sponsored cycle needs company name, sponsor link, and banner before start",
+        },
         { status: 400 }
       );
     }
 
-    const { data: nextThemeConfig } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "next_cycle_theme")
-      .maybeSingle();
-
-    const storedNextTheme =
-      typeof nextThemeConfig?.value === "string" &&
-      nextThemeConfig.value.trim().length > 0
-        ? nextThemeConfig.value.trim()
-        : null;
-    const sponsoredDraft = await getSponsoredCycleDraft();
-
-    const resolvedTheme = manualTheme ?? storedNextTheme;
-
-    if (sponsoredDraft.enabled) {
-      if (
-        sponsoredDraft.companyName.length === 0 ||
-        sponsoredDraft.sponsorLink.length === 0 ||
-        sponsoredDraft.bannerR2Key.length === 0
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "Sponsored cycle needs company name, sponsor link, and banner before start",
-          },
-          { status: 400 }
-        );
-      }
-    }
-
-    const { data: cycle, error } = await supabaseAdmin
-      .from("voting_cycles")
-      .insert({
-        status: "active",
-        starts_at: new Date().toISOString(),
-        ends_at: endsAt,
-        created_by_discord_id: admin.discord_user_id,
+    const result = await startCycleTransactional({
+      actorDiscordUserId: admin.discord_user_id,
+      cycleId: requestedCycleId,
+      settings: {
         theme: resolvedTheme,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Cycle start error:", error);
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
-    }
-
-    if (sponsoredDraft.enabled) {
-      await saveCycleSponsoredMeta(cycle.id, {
-        sponsorshipId: null,
-        enabled: true,
-        companyName: sponsoredDraft.companyName,
-        sponsorLink: sponsoredDraft.sponsorLink,
-        bannerR2Key: sponsoredDraft.bannerR2Key,
-      });
-    }
-
-    await supabaseAdmin
-      .from("app_config")
-      .upsert(
-        {
-          key: "cycle_theme",
-          value: resolvedTheme,
-        },
-        { onConflict: "key" }
-      );
-
-    await supabaseAdmin
-      .from("user_logs")
-      .update({
-        upload_fail_count: 0,
-      })
-      .neq("upload_fail_count", 0);
-
-    await supabaseAdmin
-      .from("app_config")
-      .update({ value: null })
-      .eq("key", "next_cycle_theme");
-    await clearSponsoredCycleDraft();
-
-    await logAdminAction({
-      actorType: "admin",
-      actorId: admin.discord_user_id,
-      action: "cycle_started",
-      targetType: "cycle",
-      targetId: cycle.id,
-      meta: {
-        ends_at: endsAt,
-        theme: resolvedTheme,
-        theme_source: manualTheme
+        themeSource: manualTheme
           ? "manual"
           : storedNextTheme
             ? "next_cycle_theme"
             : "none",
-        sponsored_cycle: sponsoredDraft.enabled
-          ? {
-              company_name: sponsoredDraft.companyName,
-              sponsor_link: sponsoredDraft.sponsorLink,
-              banner_r2_key: sponsoredDraft.bannerR2Key,
-            }
-          : null,
+        rewardDescription,
+        sponsored: {
+          enabled: sponsoredDraft.enabled,
+          companyName: sponsoredDraft.companyName,
+          sponsorLink: sponsoredDraft.sponsorLink,
+          bannerR2Key: sponsoredDraft.bannerR2Key,
+          bannerUrl: sponsoredDraft.bannerUrl,
+        },
       },
     });
 
-    return NextResponse.json({ success: true, cycle });
+    return NextResponse.json({
+      success: true,
+      cycle: {
+        id: result.cycleId,
+        status: result.status,
+        submission_starts_at: result.startedAt,
+        reset_count: result.resetCount,
+      },
+      alreadyStarted: result.alreadyStarted,
+      createdCycle: result.createdCycle,
+      reusedDraft: result.reusedDraft,
+      reusedResetCycle: result.reusedResetDraft,
+    });
   } catch (error) {
-    return getErrorResponse(error);
+    return getAdminApiErrorResponse(error, "POST /api/admin/cycles/start");
   }
 }

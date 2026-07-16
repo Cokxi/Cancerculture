@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireModOrAdminPage } from "@/lib/auth/pageAccess";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
+import UserProfileLink from "../shared/UserProfileLink";
 
 type SocialLogRow = {
   id: number;
@@ -51,16 +52,21 @@ export default async function AdminSocialLogsPage() {
       ? await supabaseAdmin
           .from("user_logs")
           .select(
-            "discord_user_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+            "discord_user_id, public_profile_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
           )
           .in("discord_user_id", lookupIds)
       : { data: [] };
 
   const userLabelByDiscordId = new Map<string, string>();
+  const publicProfileIdByDiscordId = new Map<string, string>();
   (users ?? []).forEach((user) => {
     userLabelByDiscordId.set(
       user.discord_user_id,
       formatDiscordUserLabel(user)
+    );
+    publicProfileIdByDiscordId.set(
+      user.discord_user_id,
+      user.public_profile_id
     );
   });
 
@@ -116,20 +122,32 @@ export default async function AdminSocialLogsPage() {
               <div style={{ marginTop: 8, fontSize: 13 }}>
                 <div>
                   Actor:{" "}
-                  <strong>
-                    {userLabelByDiscordId.get(
+                  <UserProfileLink
+                    discordUserId={log.actor_discord_user_id}
+                    label={
+                      userLabelByDiscordId.get(
+                        log.actor_discord_user_id
+                      ) ?? log.actor_discord_user_id
+                    }
+                    publicProfileId={publicProfileIdByDiscordId.get(
                       log.actor_discord_user_id
-                    ) ?? log.actor_discord_user_id}
-                  </strong>{" "}
+                    )}
+                  />{" "}
                   ({log.actor_discord_user_id})
                 </div>
                 <div style={{ marginTop: 4 }}>
                   User:{" "}
-                  <strong>
-                    {userLabelByDiscordId.get(
+                  <UserProfileLink
+                    discordUserId={log.target_discord_user_id}
+                    label={
+                      userLabelByDiscordId.get(
+                        log.target_discord_user_id
+                      ) ?? log.target_discord_user_id
+                    }
+                    publicProfileId={publicProfileIdByDiscordId.get(
                       log.target_discord_user_id
-                    ) ?? log.target_discord_user_id}
-                  </strong>{" "}
+                    )}
+                  />{" "}
                   ({log.target_discord_user_id})
                 </div>
                 <div style={{ marginTop: 4 }}>

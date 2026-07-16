@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { getTeamMember } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { updateRulesVersion } from "./actions/updateRulesVersion";
@@ -14,8 +15,18 @@ export default async function AdminLayout({
 
   try {
     member = await getTeamMember();
-  } catch {
-    redirect("/403");
+  } catch (error) {
+    const status = getAuthErrorStatus(error);
+
+    if (status === 401) {
+      redirect("/api/auth/discord/login?state=/admin");
+    }
+
+    if (status === 403) {
+      redirect("/403");
+    }
+
+    throw error;
   }
 
   const isAdmin = member.role === "admin";
@@ -52,6 +63,17 @@ export default async function AdminLayout({
             </li>
           )}
 
+          {isAdmin && (
+            <li>
+              <Link
+                href="/admin/coin-launches"
+                className="block rounded px-2 py-1 hover:bg-white/10"
+              >
+                Coin Launch Links
+              </Link>
+            </li>
+          )}
+
           <li>
             <Link
               href="/admin/moderation/submissions"
@@ -69,6 +91,17 @@ export default async function AdminLayout({
               Disqualified Submissions
             </Link>
           </li>
+
+          {isAdmin && (
+            <li className="ml-3">
+              <Link
+                href="/admin/logs/winners"
+                className="block rounded px-2 py-1 text-green-300 hover:bg-white/10"
+              >
+                Winner Payouts
+              </Link>
+            </li>
+          )}
 
           {isAdmin && (
             <li className="ml-3">

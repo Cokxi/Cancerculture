@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import UserProfileLink from "./UserProfileLink";
 
 type BaseLog = {
   id: number;
@@ -11,6 +12,7 @@ type BaseLog = {
   reason: string | null;
   submission_id?: number | null;
   discord_user_label?: string | null;
+  discord_public_profile_id?: string | null;
 };
 
 type GroupedLogPageProps<TLog extends BaseLog> = {
@@ -217,12 +219,21 @@ export default function GroupedLogPage<TLog extends BaseLog>({
                               {log.discord_user_label ? (
                                 <>
                                   User:{" "}
-                                  <strong>{log.discord_user_label}</strong>
+                                  <UserProfileLink
+                                    discordUserId={log.discord_user_id}
+                                    label={log.discord_user_label}
+                                    publicProfileId={
+                                      log.discord_public_profile_id
+                                    }
+                                  />
                                 </>
                               ) : (
                                 <>
                                   Discord ID:{" "}
-                                  <code>{log.discord_user_id}</code>
+                                  <UserProfileLink
+                                    discordUserId={log.discord_user_id}
+                                    label={log.discord_user_id}
+                                  />
                                 </>
                               )}
                             </div>

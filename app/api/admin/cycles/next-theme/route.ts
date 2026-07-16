@@ -1,22 +1,9 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
 import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
-
-function getErrorResponse(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : "Forbidden";
-  const status =
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof error.status === "number"
-      ? error.status
-      : 403;
-
-  return NextResponse.json({ error: message }, { status });
-}
 
 export async function POST(req: Request) {
   try {
@@ -50,6 +37,9 @@ export async function POST(req: Request) {
       nextTheme: theme,
     });
   } catch (error) {
-    return getErrorResponse(error);
+    return getAdminApiErrorResponse(
+      error,
+      "POST /api/admin/cycles/next-theme"
+    );
   }
 }

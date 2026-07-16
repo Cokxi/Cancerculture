@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 import { NextResponse } from "next/server";
+import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
 import { requireAdmin } from "@/lib/auth/guards";
 import { r2 } from "@/lib/r2";
 import {
@@ -12,20 +13,6 @@ import {
 
 const MAX_BANNER_SIZE = 4 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
-
-function getErrorResponse(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : "Forbidden";
-  const status =
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof error.status === "number"
-      ? error.status
-      : 403;
-
-  return NextResponse.json({ error: message }, { status });
-}
 
 export async function POST(req: Request) {
   try {
@@ -123,6 +110,9 @@ export async function POST(req: Request) {
       draft,
     });
   } catch (error) {
-    return getErrorResponse(error);
+    return getAdminApiErrorResponse(
+      error,
+      "POST /api/admin/cycles/sponsored-draft"
+    );
   }
 }

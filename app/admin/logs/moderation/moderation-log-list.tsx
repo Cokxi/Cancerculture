@@ -6,6 +6,7 @@ import type {
   ModerationLogRow,
 } from "@/lib/admin/moderationLogs";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
+import UserProfileLink from "../shared/UserProfileLink";
 
 export default function ModerationLogList({
   byCycle,
@@ -98,6 +99,9 @@ export default function ModerationLogList({
                   submissionUserMap.get(
                     Number(log.target_id)
                   );
+                const submitterUser = submitter
+                  ? actorMap.get(submitter)
+                  : null;
 
 
                 return (
@@ -127,9 +131,15 @@ export default function ModerationLogList({
 
                     <div style={{ marginTop: 4 }}>
                       by{" "}
-                      {actor
-                        ? formatDiscordUserLabel(actor)
-                        : "Unknown User"}{" "}
+                      {actor ? (
+                        <UserProfileLink
+                          discordUserId={log.actor_id}
+                          label={formatDiscordUserLabel(actor)}
+                          publicProfileId={actor.public_profile_id}
+                        />
+                      ) : (
+                        "Unknown User"
+                      )}{" "}
                       <span style={{ opacity: 0.5 }}>
                         ({log.actor_id})
                       </span>
@@ -143,8 +153,15 @@ export default function ModerationLogList({
                       }}
                     >
                       Submitter:{" "}
-                      {submitter ??
-                        "unknown (deleted)"}
+                      {submitter && submitterUser ? (
+                        <UserProfileLink
+                          discordUserId={submitter}
+                          label={formatDiscordUserLabel(submitterUser)}
+                          publicProfileId={submitterUser.public_profile_id}
+                        />
+                      ) : (
+                        submitter ?? "unknown (deleted)"
+                      )}
                     </div>
                     {log.reason_code && (
   <div style={{ marginTop: 8, fontWeight: 600 }}>

@@ -75,21 +75,40 @@ export async function GET(req: Request) {
 
     
     const result = Object.values(users);
+    const discordUserIds = result.map((user) => user.discord_user_id);
+    const { data: userProfiles } =
+      discordUserIds.length > 0
+        ? await supabaseAdmin
+            .from("user_logs")
+            .select("discord_user_id, public_profile_id")
+            .in("discord_user_id", discordUserIds)
+        : { data: [] };
+    const publicProfileIdByDiscordId = new Map(
+      (userProfiles ?? []).map((user) => [
+        user.discord_user_id,
+        user.public_profile_id,
+      ])
+    );
+    const resultWithProfiles = result.map((user) => ({
+      ...user,
+      public_profile_id:
+        publicProfileIdByDiscordId.get(user.discord_user_id) ?? null,
+    }));
 
     
     if (sortMode === "general") {
       
-      result.sort((a, b) => b.block_count - a.block_count);
+      resultWithProfiles.sort((a, b) => b.block_count - a.block_count);
     } else {
       
-      result.sort((a, b) => {
+      resultWithProfiles.sort((a, b) => {
         if (!a.latest_created_at) return 1;
         if (!b.latest_created_at) return -1;
         return b.latest_created_at.localeCompare(a.latest_created_at);
       });
     }
 
-    return NextResponse.json({ users: result });
+    return NextResponse.json({ users: resultWithProfiles });
   } catch (error) {
     return getRouteErrorResponse(error);
   }

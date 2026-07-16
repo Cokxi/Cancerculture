@@ -1,23 +1,43 @@
 export const runtime = "nodejs";
 
-import {
-  DeleteObjectCommand,
-  PutObjectCommand,
-} from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import sharp from "sharp";
+import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { requireSession } from "@/lib/auth/requireSession";
-import { supabaseAdmin } from "@/lib/db/admin";
-import { isUniqueViolation } from "@/lib/db/isUniqueViolation";
 import { logUpload } from "@/lib/logging/logUpload";
-import { logUploadFailAndCheckLimit } from "@/lib/logging/logUploadFailAndCheckLimit";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
+import {
+  isCountableSubmissionMediaErrorCode,
+  SUBMISSION_MEDIA_PROFILE,
+} from "@/lib/media/profiles";
+import {
+  MediaValidationError,
+  processStaticImage,
+} from "@/lib/media/processStaticImage";
 import { r2 } from "@/lib/r2";
-import { getSocialDisplayLabel } from "@/lib/socials/normalize";
-import { getUploadEligibility } from "@/lib/upload/getUploadEligibility";
-
-const MAX_UPLOAD_SIZE = 4 * 1024 * 1024;
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+import { isCanonicalQueuedStorageKey } from "@/lib/r2/mediaCleanupState";
+import {
+  getUploadEligibility,
+  UploadEligibilityDependencyError,
+} from "@/lib/upload/getUploadEligibility";
+import {
+  createSubmissionContentHash,
+  createSubmissionUploadFingerprint,
+  normalizeSubmissionPrivateData,
+  parseSubmissionUploadIdempotencyKey,
+  SUBMISSION_UPLOAD_IDEMPOTENCY_HEADER,
+  SubmissionUploadRequestError,
+} from "@/lib/upload/submissionUploadRequest";
+import {
+  commitSubmissionUpload,
+  compensateSubmissionUpload,
+  getSubmissionUploadAbuseStatus,
+  hasCompletedSubmissionUploadOperation,
+  markSubmissionUploadR2Uploaded,
+  registerInvalidSubmissionUpload,
+  reserveSubmissionUpload,
+  SubmissionUploadSagaError,
+} from "@/lib/upload/submissionUploadSaga";
 
 async function failUpload({
   discordUserId,
@@ -25,401 +45,385 @@ async function failUpload({
   reason,
   error,
   status,
-  countFailure = true,
+  joinedAt,
 }: {
-  discordUserId: string;
+  discordUserId: string | null;
   cycleId?: number | null;
   reason: string;
   error: string;
   status: number;
-  countFailure?: boolean;
+  joinedAt?: string | null;
 }) {
-  if (countFailure) {
-    await logUploadFailAndCheckLimit({
+  await Promise.allSettled([
+    logUpload({
+      cycleId,
       discordUserId,
-      mode: "fail",
-    });
-  }
+      status: "failed",
+      reason,
+    }),
+  ]);
 
-  await logUpload({
-    cycleId,
-    discordUserId,
-    status: "failed",
-    reason,
-  });
-
-  return NextResponse.json({ error }, { status });
+  return NextResponse.json(
+    joinedAt ? { error, joinedAt } : { error },
+    { status }
+  );
 }
 
-async function cleanupUploadedObject(r2Key: string | null) {
-  if (!r2Key) {
-    return;
+function providerErrorCode(error: unknown) {
+  if (error && typeof error === "object" && "name" in error) {
+    return String(error.name).replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 80);
   }
 
-  try {
-    await r2.send(
-      new DeleteObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME!,
-        Key: r2Key,
-      })
-    );
-  } catch (cleanupError) {
-    console.error("[UPLOAD CLEANUP ERROR]", cleanupError);
-  }
+  return "R2_UPLOAD_FAILED";
 }
 
 export async function POST(req: Request) {
-  let uploadedR2Key: string | null = null;
+  let discordUserId: string | null = null;
+  let sessionId: string | null = null;
+  let operationId: string | null = null;
+  let cycleId: number | null = null;
+  let r2WriteAttempted = false;
+  let compensationStarted = false;
+
+  const compensateOnce = async (errorCode: string) => {
+    if (
+      compensationStarted ||
+      !r2WriteAttempted ||
+      !operationId ||
+      !sessionId
+    ) {
+      return;
+    }
+
+    compensationStarted = true;
+    await compensateSubmissionUpload({
+      operationId,
+      sessionId,
+      errorCode,
+    });
+  };
 
   try {
-    const { discord_user_id: discordUserId } = await requireSession();
-    const uploadEligibility = await getUploadEligibility({
-      discordUserId,
-      includeDiscordMembership: true,
-    });
+    const session = await requireSession();
+    const authenticatedDiscordUserId = session.discord_user_id;
+    discordUserId = authenticatedDiscordUserId;
+    sessionId = session.session_id;
+
+    const [uploadEligibility, abuseStatus] = await Promise.all([
+      getUploadEligibility({
+        discordUserId: authenticatedDiscordUserId,
+        includeDiscordMembership: true,
+      }),
+      getSubmissionUploadAbuseStatus({ sessionId }),
+    ]);
 
     if (uploadEligibility.isBanned) {
-      await logUpload({
-        cycleId: null,
+      return failUpload({
         discordUserId,
-        status: "failed",
         reason: "banned",
+        error: "BANNED",
+        status: 403,
       });
-
-      return NextResponse.json({ error: "BANNED" }, { status: 403 });
     }
 
     if (!uploadEligibility.membership?.isMember) {
-      await logUpload({
-        cycleId: null,
+      return failUpload({
         discordUserId,
-        status: "failed",
         reason: "not_in_discord",
+        error: "NOT_IN_DISCORD",
+        status: 403,
       });
-
-      return NextResponse.json(
-        { error: "NOT_IN_DISCORD" },
-        { status: 403 }
-      );
     }
 
     if (uploadEligibility.membership.joinedTooRecently) {
-      await logUpload({
-        cycleId: null,
+      return failUpload({
         discordUserId,
-        status: "failed",
         reason: "joined_too_recently",
+        error: "JOINED_TOO_RECENTLY",
+        status: 403,
+        joinedAt: uploadEligibility.membership.joinedAt,
       });
-
-      return NextResponse.json(
-        {
-          error: "JOINED_TOO_RECENTLY",
-          joinedAt: uploadEligibility.membership.joinedAt,
-        },
-        { status: 403 }
-      );
     }
 
     if (!uploadEligibility.hasAcceptedRules) {
-      return NextResponse.json(
-        { error: "RULES_NOT_ACCEPTED" },
-        { status: 403 }
-      );
+      return failUpload({
+        discordUserId,
+        reason: "rules_not_accepted",
+        error: "RULES_NOT_ACCEPTED",
+        status: 403,
+      });
     }
 
-    if (uploadEligibility.isRateLimited) {
-      return NextResponse.json(
-        { error: "TOO_MANY_FAILED_UPLOADS" },
-        { status: 429 }
-      );
+    if (uploadEligibility.isUploadBlocked || abuseStatus.blocked) {
+      return failUpload({
+        discordUserId,
+        cycleId: abuseStatus.cycleId ?? uploadEligibility.activeCycleId,
+        reason: "upload_blocked_for_cycle",
+        error: "UPLOAD_BLOCKED_FOR_CYCLE",
+        status: 403,
+      });
     }
 
     if (!uploadEligibility.activeCycleId) {
-      return NextResponse.json(
-        { error: "No active voting cycle" },
-        { status: 400 }
-      );
+      return failUpload({
+        discordUserId,
+        reason: "cycle_not_open",
+        error: "SUBMISSION_PHASE_CLOSED",
+        status: 409,
+      });
     }
 
-    if (
-      uploadEligibility.alreadyUploaded &&
-      !uploadEligibility.uploadLimitBypassed
-    ) {
+    const idempotencyKey = parseSubmissionUploadIdempotencyKey(
+      req.headers.get(SUBMISSION_UPLOAD_IDEMPOTENCY_HEADER)
+    );
+    const isCompletedReplay = uploadEligibility.alreadyUploaded
+      ? await hasCompletedSubmissionUploadOperation({
+          discordUserId: authenticatedDiscordUserId,
+          idempotencyKey,
+        })
+      : false;
+
+    if (uploadEligibility.alreadyUploaded && !isCompletedReplay) {
       return failUpload({
         discordUserId,
         cycleId: uploadEligibility.activeCycleId,
         reason: "duplicate_submission",
-        error: "You already uploaded for this cycle",
-        status: 400,
+        error: "UPLOAD_LIMIT_REACHED",
+        status: 409,
       });
     }
 
-    await touchUserLog({ discordUserId });
+    cycleId = uploadEligibility.activeCycleId;
+
+    await touchUserLog({
+      discordUserId: authenticatedDiscordUserId,
+      throwOnError: true,
+    });
 
     const formData = await req.formData();
     const fileEntry = formData.get("file");
 
     if (!(fileEntry instanceof File)) {
-      return failUpload({
-        discordUserId,
-        reason: "no_file",
-        error: "No file provided",
-        status: 400,
-      });
+      throw new SubmissionUploadRequestError("NO_FILE");
     }
 
-    const file = fileEntry;
-
-    if (file.size > MAX_UPLOAD_SIZE) {
-      return failUpload({
-        discordUserId,
-        reason: "file_size",
-        error: "File too large",
-        status: 400,
-      });
+    if (fileEntry.size > SUBMISSION_MEDIA_PROFILE.maxInputBytes) {
+      throw new MediaValidationError("MEDIA_FILE_TOO_LARGE", 413);
     }
 
-    const walletAddress =
-      formData.get("walletAddress")?.toString().trim() ?? "";
-    const payoutChoice = formData.get("payoutChoice")?.toString() ?? null;
-    const splitPercentRaw = formData.get("splitPercent")?.toString();
-    const charityRaw = formData.get("charity")?.toString().trim() ?? "";
-    const splitPercent = splitPercentRaw
-      ? parseInt(splitPercentRaw, 10)
-      : null;
-    const normalizedCharity =
-      charityRaw.length > 0 ? charityRaw : null;
+    const privateData = normalizeSubmissionPrivateData(formData);
+    const inputBuffer = Buffer.from(await fileEntry.arrayBuffer());
+    const processedImage = await processStaticImage({
+      input: inputBuffer,
+      claimedMimeType: fileEntry.type,
+      profile: SUBMISSION_MEDIA_PROFILE,
+    });
+    const webpBuffer = processedImage.buffer;
 
-    if (!payoutChoice) {
-      return failUpload({
-        discordUserId,
-        reason: "validation_failed",
-        error: "Missing submission metadata",
-        status: 400,
-      });
-    }
-
-    if (
-      (payoutChoice === "keep" || payoutChoice === "split") &&
-      !walletAddress
-    ) {
-      return failUpload({
-        discordUserId,
-        reason: "validation_failed",
-        error: "Wallet address required",
-        status: 400,
-      });
-    }
-
-    if (
-      payoutChoice === "split" &&
-      (!splitPercent || splitPercent <= 0 || splitPercent >= 100)
-    ) {
-      return failUpload({
-        discordUserId,
-        reason: "validation_failed",
-        error: "Invalid split percentage",
-        status: 400,
-      });
-    }
-
-    if (
-      (payoutChoice === "donate" || payoutChoice === "split") &&
-      !normalizedCharity
-    ) {
-      return failUpload({
-        discordUserId,
-        reason: "validation_failed",
-        error: "Charity required",
-        status: 400,
-      });
-    }
-
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return failUpload({
-        discordUserId,
-        reason: "invalid_file_type",
-        error: "Invalid file type",
-        status: 400,
-      });
-    }
-
-    const submissionSplitPercent =
-      payoutChoice === "split" ? splitPercent : null;
-    const submissionCharity =
-      payoutChoice === "donate" || payoutChoice === "split"
-        ? normalizedCharity
-        : null;
-    const normalizedWalletAddress =
-      payoutChoice === "donate" ? "" : walletAddress;
-
-    const inputBuffer = Buffer.from(await file.arrayBuffer());
-    const webpBuffer = await sharp(inputBuffer)
-      .rotate()
-      .webp({ quality: 75 })
-      .toBuffer();
-
-    const r2Key = `${uploadEligibility.activeCycleId}/${crypto.randomUUID()}.webp`;
-    uploadedR2Key = r2Key;
-
-    await r2.send(
-      new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME!,
-        Key: r2Key,
-        Body: webpBuffer,
-        ContentType: "image/webp",
-      })
-    );
-
-    const { data: userLog } = await supabaseAdmin
-      .from("user_logs")
-      .select(
-        "current_discord_username, show_socials_on_submissions"
-      )
-      .eq("discord_user_id", discordUserId)
-      .maybeSingle();
-
-    const discordUsernameAtUpload =
-      userLog?.current_discord_username ?? "unknown";
-
-    const { data: submission, error: insertError } = await supabaseAdmin
-      .from("submissions")
-      .insert({
-        cycle_id: uploadEligibility.activeCycleId,
-        discord_user_id: discordUserId,
-        r2_key: r2Key,
-        discord_username_at_upload: discordUsernameAtUpload,
-      })
-      .select()
-      .single();
-
-    if (insertError || !submission) {
-      if (isUniqueViolation(insertError)) {
-        await cleanupUploadedObject(uploadedR2Key);
-        uploadedR2Key = null;
-
-        return failUpload({
-          discordUserId,
-          cycleId: uploadEligibility.activeCycleId,
-          reason: "duplicate_submission",
-          error: "You already uploaded for this cycle",
-          status: 400,
-        });
-      }
-
-      await logUpload({
-        cycleId: uploadEligibility.activeCycleId,
-        discordUserId,
-        status: "failed",
-        reason: "db_error",
-      });
-
-      throw insertError;
-    }
-
-    const { error: privateError } = await supabaseAdmin
-      .from("submission_private_data")
-      .insert({
-        submission_id: submission.id,
-        x_username: null,
-        wallet_address: normalizedWalletAddress,
-        payout_choice: payoutChoice,
-        split_percent: submissionSplitPercent,
-        charity: submissionCharity,
-      });
-
-    if (privateError) {
-      await logUpload({
-        cycleId: uploadEligibility.activeCycleId,
-        discordUserId,
-        submissionId: submission.id,
-        status: "failed",
-        reason: "db_error",
-      });
-
-      throw privateError;
-    }
-
-    if (userLog?.show_socials_on_submissions) {
-      const { data: socialLinks, error: socialLinksError } =
-        await supabaseAdmin
-          .from("user_social_links")
-          .select(
-            "id, platform, handle, profile_url, is_verified"
-          )
-          .eq("discord_user_id", discordUserId)
-          .eq("is_verified", true)
-          .order("created_at", { ascending: true });
-
-      if (socialLinksError) {
-        await logUpload({
-          cycleId: uploadEligibility.activeCycleId,
-          discordUserId,
-          submissionId: submission.id,
-          status: "failed",
-          reason: "db_error",
-        });
-
-        throw socialLinksError;
-      }
-
-      const snapshotRows = (socialLinks ?? []).map(
-        (socialLink) => ({
-          submission_id: submission.id,
-          discord_user_id: discordUserId,
-          platform: socialLink.platform,
-          display_label: getSocialDisplayLabel({
-            platform: socialLink.platform,
-            handle: socialLink.handle,
-            profile_url: socialLink.profile_url,
-          }),
-          profile_url: socialLink.profile_url,
-          is_verified_snapshot: socialLink.is_verified,
-          source_user_social_link_id: socialLink.id,
-        })
-      );
-
-      if (snapshotRows.length > 0) {
-        const { error: snapshotError } = await supabaseAdmin
-          .from("submission_social_links")
-          .insert(snapshotRows);
-
-        if (snapshotError) {
-          await logUpload({
-            cycleId: uploadEligibility.activeCycleId,
-            discordUserId,
-            submissionId: submission.id,
-            status: "failed",
-            reason: "db_error",
-          });
-
-          throw snapshotError;
-        }
-      }
-    }
-
-    await logUpload({
-      cycleId: uploadEligibility.activeCycleId,
-      discordUserId,
-      submissionId: submission.id,
-      status: "success",
+    const contentSha256 = createSubmissionContentHash(webpBuffer);
+    const requestFingerprint = createSubmissionUploadFingerprint({
+      contentSha256,
+      privateData,
+    });
+    const reservation = await reserveSubmissionUpload({
+      sessionId,
+      idempotencyKey,
+      requestFingerprint,
+      contentSha256,
+      mediaBytes: webpBuffer.byteLength,
     });
 
-    uploadedR2Key = null;
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("UPLOAD ERROR", error);
-
-    await cleanupUploadedObject(uploadedR2Key);
-
-    if (error instanceof Response) {
-      throw error;
+    if (reservation.outcome === "already_completed") {
+      return NextResponse.json({
+        success: true,
+        alreadyCompleted: true,
+        submissionId: reservation.submissionId,
+      });
     }
 
-    return NextResponse.json(
-      { error: "Upload failed" },
-      { status: 500 }
+    if (reservation.outcome !== "reserved") {
+      throw new SubmissionUploadSagaError(
+        "UPLOAD_STATE_CONFLICT",
+        409
+      );
+    }
+
+    operationId = reservation.operationId;
+    cycleId = reservation.cycleId;
+
+    if (
+      !isCanonicalQueuedStorageKey(reservation.storageKey) ||
+      !new RegExp(
+        `^${reservation.cycleId}/[0-9A-Fa-f-]{36}\\.webp$`
+      ).test(reservation.storageKey)
+    ) {
+      throw new SubmissionUploadSagaError("INVALID_MEDIA_KEY", 503);
+    }
+
+    const bucket = process.env.R2_BUCKET_NAME;
+    if (!bucket) {
+      throw new SubmissionUploadSagaError("R2_NOT_CONFIGURED", 503);
+    }
+
+    r2WriteAttempted = true;
+    let putResult;
+
+    try {
+      putResult = await r2.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: reservation.storageKey,
+          Body: webpBuffer,
+          ContentType: "image/webp",
+          CacheControl: "public, max-age=31536000, immutable",
+          Metadata: {
+            "content-sha256": contentSha256,
+          },
+        })
+      );
+    } catch (error) {
+      const errorCode = providerErrorCode(error);
+      console.error("[submission upload][r2 put]", {
+        errorCode,
+      });
+      await compensateOnce(errorCode);
+      throw new SubmissionUploadSagaError("R2_PROVIDER_ERROR", 503);
+    }
+
+    await markSubmissionUploadR2Uploaded({
+      operationId,
+      sessionId,
+      etag: putResult.ETag ?? null,
+    });
+
+    const completed = await commitSubmissionUpload({
+      operationId,
+      sessionId,
+      privateData,
+    });
+
+    return NextResponse.json({
+      success: true,
+      alreadyCompleted: completed.outcome === "already_completed",
+      submissionId: completed.submissionId,
+    });
+  } catch (error) {
+    await compensateOnce(
+      error instanceof SubmissionUploadSagaError
+        ? error.code
+        : "UPLOAD_DEPENDENCY_FAILURE"
     );
+
+    const authStatus = getAuthErrorStatus(error);
+    if (authStatus) {
+      return NextResponse.json(
+        {
+          error:
+            authStatus === 401
+              ? "NOT_AUTHENTICATED"
+              : "AUTHENTICATION_UNAVAILABLE",
+        },
+        { status: authStatus }
+      );
+    }
+
+    if (error instanceof SubmissionUploadRequestError) {
+      return failUpload({
+        discordUserId,
+        cycleId,
+        reason: "validation_failed",
+        error: error.code,
+        status: error.status,
+      });
+    }
+
+    if (
+      error instanceof MediaValidationError &&
+      sessionId &&
+      cycleId &&
+      isCountableSubmissionMediaErrorCode(error.code)
+    ) {
+      try {
+        const abuseResult = await registerInvalidSubmissionUpload({
+          sessionId,
+          cycleId,
+          errorCode: error.code,
+        });
+
+        if (abuseResult.blocked) {
+          return failUpload({
+            discordUserId,
+            cycleId,
+            reason: "upload_blocked_for_cycle",
+            error: "UPLOAD_BLOCKED_FOR_CYCLE",
+            status: 403,
+          });
+        }
+      } catch (counterError) {
+        console.error("[submission upload][abuse counter]", {
+          errorName:
+            counterError instanceof Error
+              ? counterError.name
+              : "UnknownError",
+        });
+        return failUpload({
+          discordUserId,
+          cycleId,
+          reason: "dependency_unavailable",
+          error: "UPLOAD_DEPENDENCY_UNAVAILABLE",
+          status: 503,
+        });
+      }
+
+      return failUpload({
+        discordUserId,
+        cycleId,
+        reason: error.code.toLowerCase(),
+        error: error.code,
+        status: error.status,
+      });
+    }
+
+    if (error instanceof MediaValidationError) {
+      return failUpload({
+        discordUserId,
+        cycleId,
+        reason: error.code.toLowerCase(),
+        error: error.code,
+        status: error.status,
+      });
+    }
+
+    if (error instanceof SubmissionUploadSagaError) {
+      return failUpload({
+        discordUserId,
+        cycleId,
+        reason: error.code.toLowerCase(),
+        error: error.code,
+        status: error.status,
+      });
+    }
+
+    if (error instanceof UploadEligibilityDependencyError) {
+      return failUpload({
+        discordUserId,
+        cycleId,
+        reason: "dependency_unavailable",
+        error: "UPLOAD_DEPENDENCY_UNAVAILABLE",
+        status: 503,
+      });
+    }
+
+    console.error("[submission upload][unexpected]", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
+
+    return failUpload({
+      discordUserId,
+      cycleId,
+      reason: "internal_error",
+      error: "UPLOAD_FAILED",
+      status: 500,
+    });
   }
 }

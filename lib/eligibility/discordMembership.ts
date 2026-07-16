@@ -28,11 +28,18 @@ type DiscordMemberStateRow = {
 export async function getDiscordMembershipEligibility(
   discordUserId: string
 ): Promise<DiscordMembershipEligibility> {
-  const { data: memberState } = await supabaseAdmin
+  const { data: memberState, error } = await supabaseAdmin
     .from("discord_member_state")
     .select("discord_joined_at, is_in_discord")
     .eq("discord_user_id", discordUserId)
     .maybeSingle<DiscordMemberStateRow>();
+
+  if (error) {
+    console.error("[discord membership eligibility]", {
+      code: error.code,
+    });
+    throw new Error("Discord membership lookup failed");
+  }
 
   if (!memberState?.is_in_discord) {
     return {

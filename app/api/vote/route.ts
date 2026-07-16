@@ -2,7 +2,6 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
-import { isUniqueViolation } from "@/lib/db/isUniqueViolation";
 import { requireSession } from "@/lib/auth/requireSession";
 import { logVote } from "@/lib/logging/logVote";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
@@ -84,7 +83,7 @@ export async function POST(req: Request) {
 
     if (!voteEligibility.activeCycleId) {
       return NextResponse.json(
-        { error: "No active voting cycle" },
+        { error: "No active voting phase" },
         { status: 400 }
       );
     }
@@ -115,8 +114,31 @@ export async function POST(req: Request) {
       });
 
       return NextResponse.json(
-        { error: "You can’t vote for your own submission" },
+        { error: "You cannot vote for your own submission" },
         { status: 403 }
+      );
+    }
+
+    const { data: existingSubmissionVote } = await supabaseAdmin
+      .from("votes")
+      .select("id")
+      .eq("cycle_id", voteEligibility.activeCycleId)
+      .eq("submission_id", submissionId)
+      .eq("discord_user_id", discordUserId)
+      .maybeSingle();
+
+    if (existingSubmissionVote) {
+      await logVote({
+        cycleId: voteEligibility.activeCycleId,
+        submissionId,
+        discordUserId,
+        status: "rejected",
+        reason: "already_voted",
+      });
+
+      return NextResponse.json(
+        { error: "You already voted for this submission" },
+        { status: 400 }
       );
     }
 
@@ -130,37 +152,79 @@ export async function POST(req: Request) {
       });
 
       return NextResponse.json(
-        { error: "You already voted in this cycle" },
+        { error: "You used all votes for this cycle" },
         { status: 400 }
       );
     }
 
     
-    const { error: insertError } = await supabaseAdmin
-      .from("votes")
-      .insert({
-        cycle_id: voteEligibility.activeCycleId,
-        submission_id: submissionId,
-        discord_user_id: discordUserId,
+    const { data: voteResult, error: voteError } =
+      await supabaseAdmin.rpc("cast_cycle_vote", {
+        p_cycle_id: voteEligibility.activeCycleId,
+        p_submission_id: submissionId,
+        p_discord_user_id: discordUserId,
       });
 
-    if (insertError) {
-      if (isUniqueViolation(insertError)) {
+    if (voteError) {
+      const errorMessage = voteError.message ?? "";
+      const isSelfVote = errorMessage.includes("SELF_VOTE");
+      const isDuplicate = errorMessage.includes(
+        "DUPLICATE_SUBMISSION_VOTE"
+      );
+      const isLimitReached = errorMessage.includes(
+        "VOTE_LIMIT_REACHED"
+      );
+      const isVotingClosed = errorMessage.includes(
+        "NO_ACTIVE_VOTING_PHASE"
+      );
+      const isSubmissionMissing = errorMessage.includes(
+        "SUBMISSION_NOT_FOUND"
+      );
+
+      if (
+        isSelfVote ||
+        isDuplicate ||
+        isLimitReached ||
+        isVotingClosed ||
+        isSubmissionMissing
+      ) {
         await logVote({
           cycleId: voteEligibility.activeCycleId,
           submissionId,
           discordUserId,
           status: "rejected",
-          reason: "already_voted",
+          reason: isSelfVote
+            ? "self_vote"
+            : isVotingClosed
+              ? "voting_closed"
+              : isSubmissionMissing
+                ? "submission_not_found"
+              : "already_voted",
         });
 
         return NextResponse.json(
-          { error: "You already voted in this cycle" },
-          { status: 400 }
+          {
+            error: isSelfVote
+              ? "You cannot vote for your own submission"
+              : isDuplicate
+                ? "You already voted for this submission"
+                : isVotingClosed
+                  ? "No active voting phase"
+                  : isSubmissionMissing
+                    ? "Submission not found"
+                  : "You used all votes for this cycle",
+          },
+          {
+            status: isSelfVote
+              ? 403
+              : isSubmissionMissing
+                ? 404
+                : 400,
+          }
         );
       }
 
-      throw insertError;
+      throw voteError;
     }
 
     
@@ -171,7 +235,27 @@ export async function POST(req: Request) {
       status: "accepted",
     });
 
-    return NextResponse.json({ success: true });
+    const normalizedResult =
+      voteResult && typeof voteResult === "object"
+        ? (voteResult as Record<string, unknown>)
+        : {};
+
+    return NextResponse.json({
+      success: true,
+      voteCount:
+        typeof normalizedResult.voteCount === "number"
+          ? normalizedResult.voteCount
+          : voteEligibility.voteCount + 1,
+      votesPerUser:
+        typeof normalizedResult.votesPerUser === "number"
+          ? normalizedResult.votesPerUser
+          : voteEligibility.votesPerUser,
+      hasVoted:
+        typeof normalizedResult.hasVoted === "boolean"
+          ? normalizedResult.hasVoted
+          : voteEligibility.voteCount + 1 >=
+            voteEligibility.votesPerUser,
+    });
   } catch (error) {
     console.error("VOTE ERROR", error);
 

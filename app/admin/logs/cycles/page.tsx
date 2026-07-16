@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import UserProfileLink from "../shared/UserProfileLink";
 
 type CycleLog = {
   id: string;
@@ -10,6 +11,8 @@ type CycleLog = {
   target_id: number | null;
   actor_role: string;
   actor_id: string;
+  actor_label: string | null;
+  actor_public_profile_id: string | null;
 };
 
 export default function AdminCycleLogsPage() {
@@ -17,7 +20,9 @@ export default function AdminCycleLogsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-const [cycleThemes, setCycleThemes] = useState<Record<number, string | null>>({});  
+  const [cycleThemes, setCycleThemes] = useState<
+    Record<number, string | null>
+  >({});
 
   useEffect(() => {
     async function loadLogs() {
@@ -31,11 +36,15 @@ if (!text) {
   throw new Error("Empty response from server");
 }
 
-const data = JSON.parse(text);
+        const data = JSON.parse(text) as {
+          error?: string;
+          logs?: CycleLog[];
+        };
+        const loadedLogs = data.logs ?? [];
 
 
 const cycleIds = Array.from(
-  new Set(data.logs.map((l: any) => l.target_id))
+  new Set(loadedLogs.map((log) => log.target_id))
 );
 
 
@@ -52,9 +61,13 @@ setCycleThemes(themeData.themes || {});
           throw new Error(data.error || "Failed to load cycle logs");
         }
 
-        setLogs(data.logs);
-      } catch (err: any) {
-        setError(err.message);
+        setLogs(loadedLogs);
+      } catch (error: unknown) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to load cycle logs"
+        );
       } finally {
         setLoading(false);
       }
@@ -101,6 +114,16 @@ setCycleThemes(themeData.themes || {});
             <div style={{ opacity: 0.5 }}>
               {new Date(log.created_at).toLocaleString()}
             </div>
+            {log.actor_id ? (
+              <div style={{ marginTop: 4 }}>
+                By:{" "}
+                <UserProfileLink
+                  discordUserId={log.actor_id}
+                  label={log.actor_label ?? log.actor_id}
+                  publicProfileId={log.actor_public_profile_id}
+                />
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

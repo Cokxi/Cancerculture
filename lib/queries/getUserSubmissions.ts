@@ -22,6 +22,11 @@ type CycleCountRow = {
   cycle_id: number;
 };
 
+type CycleStatusRow = {
+  id: number;
+  status: string;
+};
+
 export async function getUserSubmissions(discord_user_id: string) {
   const supabase = supabaseServer;
 
@@ -66,8 +71,19 @@ export async function getUserSubmissions(discord_user_id: string) {
     .in("cycle_id", cycleIds)
     .eq("is_disqualified", false);
 
+  const { data: cycleRows } = await supabase
+    .from("voting_cycles")
+    .select("id, status")
+    .in("id", cycleIds);
+
   const tieMap = new Map<string, number>();
   const totalByCycle = new Map<number, number>();
+  const cycleStatusById = new Map(
+    ((cycleRows ?? []) as CycleStatusRow[]).map((cycle) => [
+      cycle.id,
+      cycle.status,
+    ])
+  );
 
   (allCycleSubmissions as CycleVoteRow[] | null)?.forEach((item) => {
     const key = `${item.cycle_id}-${item.vote_count}`;
@@ -83,6 +99,20 @@ export async function getUserSubmissions(discord_user_id: string) {
 
   return submissions.map((item) => {
     const tieKey = `${item.cycle_id}-${item.vote_count}`;
+    const cycleStatus = cycleStatusById.get(item.cycle_id);
+    const isCurrentPublicCycle = [
+      "active",
+      "submission_open",
+      "voting_open",
+      "paused",
+    ].includes(cycleStatus ?? "");
+    const destinationHref = item.is_disqualified
+      ? null
+      : isCurrentPublicCycle
+        ? `/submissions?submission=${item.id}`
+        : item.rank
+          ? `/cycle-history?cycle=${item.cycle_id}#submission-${item.id}`
+          : null;
 
     return {
       id: item.id,
@@ -96,6 +126,7 @@ export async function getUserSubmissions(discord_user_id: string) {
       rank: item.rank ?? null,
       total: totalByCycle.get(item.cycle_id) ?? 0,
       tie_count: tieMap.get(tieKey) ?? 1,
+      destination_href: destinationHref,
     };
   });
 }

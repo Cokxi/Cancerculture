@@ -57,7 +57,7 @@ export default async function AdminModerationLogsPage() {
       ? await supabaseAdmin
           .from("user_logs")
           .select(
-            "discord_user_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+            "discord_user_id, public_profile_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
           )
           .in("discord_user_id", actorIds)
       : { data: [] };
@@ -87,6 +87,22 @@ export default async function AdminModerationLogsPage() {
   const submissionUserMap = new Map<number, string>();
   (submissions ?? []).forEach((s) =>
     submissionUserMap.set(s.id, s.discord_user_id)
+  );
+
+  const submitterIds = Array.from(
+    new Set((submissions ?? []).map((submission) => submission.discord_user_id))
+  ).filter((discordUserId) => !actorMap.has(discordUserId));
+  const { data: submitterUsers } =
+    submitterIds.length > 0
+      ? await supabaseAdmin
+          .from("user_logs")
+          .select(
+            "discord_user_id, public_profile_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+          )
+          .in("discord_user_id", submitterIds)
+      : { data: [] };
+  (submitterUsers ?? []).forEach((user) =>
+    actorMap.set(user.discord_user_id, user)
   );
 
   

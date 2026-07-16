@@ -1,20 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 export default function CycleCountdown({ endAt }: { endAt: string }) {
+  const router = useRouter();
+  const refreshTriggeredRef = useRef(false);
   const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
+    refreshTriggeredRef.current = false;
+
     const update = () => {
       const end = new Date(endAt).getTime();
       const now = Date.now();
       const diff = end - now;
 
       if (diff <= 0) {
-  setTimeLeft("");
-  return;
-}
+        setTimeLeft("");
+
+        if (!refreshTriggeredRef.current) {
+          refreshTriggeredRef.current = true;
+          router.refresh();
+        }
+
+        return;
+      }
 
 
       const hours = Math.floor(diff / 1000 / 60 / 60);
@@ -34,7 +45,7 @@ export default function CycleCountdown({ endAt }: { endAt: string }) {
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [endAt]);
+  }, [endAt, router]);
 
   if (!timeLeft) return null;
 
