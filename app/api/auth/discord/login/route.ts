@@ -1,4 +1,5 @@
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import {
@@ -40,6 +41,7 @@ export async function GET(req: Request) {
     discordAuthUrl.searchParams.set("state", oauthState);
 
     const response = NextResponse.redirect(discordAuthUrl);
+    response.headers.set("Cache-Control", "no-store");
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

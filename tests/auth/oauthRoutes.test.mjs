@@ -7,7 +7,7 @@ process.env.DISCORD_REDIRECT_URI =
   "https://cancerculture.example/api/auth/discord/callback";
 process.env.NEXT_PUBLIC_BASE_URL = "https://cancerculture.example";
 
-const { GET: startDiscordOAuth } = await import(
+const { GET: startDiscordOAuth, dynamic: oauthStartDynamicMode } = await import(
   "../../app/api/auth/discord/login/route.ts"
 );
 const callbackSource = await readFile(
@@ -42,6 +42,8 @@ test("OAuth start redirects temporarily to Discord with state and secure cookies
   const oauthState = getCookieValue(cookies, "oauth_state");
 
   assert.equal(response.status, 307);
+  assert.equal(oauthStartDynamicMode, "force-dynamic");
+  assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal(location.protocol, "https:");
   assert.equal(location.hostname, "discord.com");
   assert.equal(location.pathname, "/api/oauth2/authorize");
