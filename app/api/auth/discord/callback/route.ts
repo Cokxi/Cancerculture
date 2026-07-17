@@ -69,12 +69,12 @@ function createFailureResponse(
 ) {
   const response =
     error.status === 403 && applicationOrigin
-      ? NextResponse.rewrite(
+      ? NextResponse.redirect(
           new URL(
             `/banned?code=${encodeURIComponent(error.code)}`,
             applicationOrigin
           ),
-          { status: 403 }
+          307
         )
       : NextResponse.json(
           { error: error.code },
