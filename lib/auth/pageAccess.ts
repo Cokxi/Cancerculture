@@ -1,37 +1,31 @@
 import { requireAdmin, requireModOrAdmin } from "@/lib/auth/guards";
-import { getAuthErrorStatus } from "@/lib/auth/AuthError";
+import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
 import { redirect } from "next/navigation";
 
-export async function requireAdminPage(statePath?: string) {
+export async function requireAdminPage(_statePath?: string) {
+  void _statePath;
   try {
     return await requireAdmin();
   } catch (error) {
-    const status = getAuthErrorStatus(error);
+    const destination = getTeamPageAccessRedirect(error);
 
-    if (status === 401 && statePath) {
-      redirect(`/api/auth/discord/login?state=${statePath}`);
-    }
-
-    if (status === 401 || status === 403) {
-      redirect("/403");
+    if (destination) {
+      redirect(destination);
     }
 
     throw error;
   }
 }
 
-export async function requireModOrAdminPage(statePath?: string) {
+export async function requireModOrAdminPage(_statePath?: string) {
+  void _statePath;
   try {
     return await requireModOrAdmin();
   } catch (error) {
-    const status = getAuthErrorStatus(error);
+    const destination = getTeamPageAccessRedirect(error);
 
-    if (status === 401 && statePath) {
-      redirect(`/api/auth/discord/login?state=${statePath}`);
-    }
-
-    if (status === 401 || status === 403) {
-      redirect("/403");
+    if (destination) {
+      redirect(destination);
     }
 
     throw error;

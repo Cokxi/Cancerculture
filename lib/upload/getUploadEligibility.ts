@@ -2,18 +2,17 @@ import "server-only";
 
 import { getCurrentSubmissionCycle } from "@/lib/cycles/currentCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
-import { getDiscordMembershipEligibility } from "@/lib/eligibility/discordMembership";
+import {
+  getDiscordMembershipEligibility,
+  type DiscordMembershipEligibility,
+} from "@/lib/eligibility/discordMembership";
 
 type UploadEligibilityOptions = {
   discordUserId: string;
   includeDiscordMembership?: boolean;
 };
 
-export type DiscordMembershipStatus = {
-  isMember: boolean;
-  joinedAt: string | null;
-  joinedTooRecently: boolean;
-};
+export type DiscordMembershipStatus = DiscordMembershipEligibility;
 
 export type UploadEligibility = {
   isBanned: boolean;
@@ -108,11 +107,7 @@ export async function getUploadEligibility({
       throw new UploadEligibilityDependencyError();
     }
 
-    membership = {
-      isMember: discordMembership.isInDiscord,
-      joinedAt: discordMembership.joinedAt,
-      joinedTooRecently: discordMembership.joinedTooRecently,
-    };
+    membership = discordMembership;
   }
 
   return {

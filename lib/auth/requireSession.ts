@@ -7,13 +7,12 @@ type SessionAccessResult = {
   outcome?: unknown;
   discordUserId?: unknown;
   sessionId?: unknown;
-  joinedAt?: unknown;
 };
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function accessDenied(outcome: string, joinedAt: unknown): never {
+function accessDenied(outcome: string): never {
   if (outcome === "not_authenticated") {
     throw new AuthError(401, "Not authenticated", "NOT_AUTHENTICATED");
   }
@@ -24,20 +23,6 @@ function accessDenied(outcome: string, joinedAt: unknown): never {
 
   if (outcome === "website_banned") {
     throw new AuthError(403, "Account restricted", "WEBSITE_BANNED");
-  }
-
-  if (outcome === "not_in_discord") {
-    throw new AuthError(403, "Discord membership required", "NOT_IN_DISCORD");
-  }
-
-  if (outcome === "joined_too_recently") {
-    const suffix =
-      typeof joinedAt === "string" ? `:${joinedAt}` : "";
-    throw new AuthError(
-      403,
-      "Discord membership cooldown active",
-      `JOINED_TOO_RECENTLY${suffix}`
-    );
   }
 
   throw new AuthError(
@@ -81,7 +66,7 @@ export async function requireSession() {
     typeof result.outcome === "string" ? result.outcome : "";
 
   if (outcome !== "allowed") {
-    accessDenied(outcome, result.joinedAt);
+    accessDenied(outcome);
   }
 
   if (

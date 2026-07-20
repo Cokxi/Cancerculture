@@ -10,6 +10,7 @@ import { republishDiscordBanSubmission } from "@/lib/moderation/republishDiscord
 function revalidatePublicSubmissionSurfaces() {
   revalidatePath("/");
   revalidatePath("/submissions");
+  revalidatePath("/admin/moderation/legal-review");
   revalidatePath("/cycle-history");
   revalidatePath("/profile/[publicProfileId]", "page");
   revalidatePath("/wall/fame");

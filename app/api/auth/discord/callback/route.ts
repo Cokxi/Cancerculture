@@ -385,11 +385,7 @@ export async function GET(req: Request) {
           ? "DISCORD_BANNED"
           : sessionOutcome === "website_banned"
             ? "WEBSITE_BANNED"
-            : sessionOutcome === "not_in_discord"
-              ? "NOT_IN_DISCORD"
-              : sessionOutcome === "joined_too_recently"
-                ? "JOINED_TOO_RECENTLY"
-                : "AUTHENTICATION_UNAVAILABLE";
+            : "AUTHENTICATION_UNAVAILABLE";
       const deniedStatus =
         deniedCode === "AUTHENTICATION_UNAVAILABLE" ? 503 : 403;
 

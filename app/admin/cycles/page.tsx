@@ -13,11 +13,7 @@ export default async function AdminCyclesPage() {
   } catch (error) {
     const status = getAuthErrorStatus(error);
 
-    if (status === 401) {
-      redirect("/api/auth/discord/login?state=/admin/cycles");
-    }
-
-    if (status === 403) {
+    if (status === 401 || status === 403) {
       redirect("/403");
     }
 

@@ -6,12 +6,14 @@ type ReviewActionsProps = {
   submissionId: number;
   status: "legal_review" | "removed";
   visibilitySource: string;
+  discordBanActive: boolean;
 };
 
 export default function ReviewActions({
   submissionId,
   status,
   visibilitySource,
+  discordBanActive,
 }: ReviewActionsProps) {
   const [reason, setReason] = useState("");
   const [reviewConfirmed, setReviewConfirmed] = useState(false);
@@ -83,6 +85,11 @@ export default function ReviewActions({
   ) {
     return (
       <div className="mt-4 space-y-3 rounded-lg border border-orange-400/30 bg-orange-500/5 p-3">
+        {discordBanActive ? (
+          <p className="text-xs text-orange-200">
+            Republish stays locked while the Discord ban is active.
+          </p>
+        ) : null}
         <label className="block text-xs text-white/75">
           Mandatory review reason
           <textarea
@@ -112,6 +119,7 @@ export default function ReviewActions({
           type="button"
           disabled={
             submitting ||
+            discordBanActive ||
             !reviewConfirmed ||
             reason.trim().length < 10
           }

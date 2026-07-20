@@ -6,15 +6,19 @@ import {
   getAuthErrorCode,
   getAuthErrorStatus,
 } from "@/lib/auth/AuthError";
-import { requireSession } from "@/lib/auth/requireSession";
+import { requireParticipation } from "@/lib/auth/participationGuard";
 import { logVote } from "@/lib/logging/logVote";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
 import { getVoteEligibility } from "@/lib/vote/getVoteEligibility";
 
 export async function POST(req: Request) {
   try {
-    const { discord_user_id: discordUserId } = await requireSession();
-    const voteEligibility = await getVoteEligibility(discordUserId);
+    const { membership, session } = await requireParticipation();
+    const discordUserId = session.discord_user_id;
+    const voteEligibility = await getVoteEligibility(
+      discordUserId,
+      membership
+    );
 
     if (voteEligibility.isBanned) {
       await logVote({
@@ -26,37 +30,6 @@ export async function POST(req: Request) {
 
       return NextResponse.json(
         { error: "BANNED" },
-        { status: 403 }
-      );
-    }
-
-    if (!voteEligibility.membership.isInDiscord) {
-      await logVote({
-        cycleId: voteEligibility.activeCycleId,
-        discordUserId,
-        status: "rejected",
-        reason: "not_in_discord",
-      });
-
-      return NextResponse.json(
-        { error: "NOT_IN_DISCORD" },
-        { status: 403 }
-      );
-    }
-
-    if (voteEligibility.membership.joinedTooRecently) {
-      await logVote({
-        cycleId: voteEligibility.activeCycleId,
-        discordUserId,
-        status: "rejected",
-        reason: "joined_too_recently",
-      });
-
-      return NextResponse.json(
-        {
-          error: "JOINED_TOO_RECENTLY",
-          joinedAt: voteEligibility.membership.joinedAt,
-        },
         { status: 403 }
       );
     }
@@ -294,12 +267,16 @@ export async function POST(req: Request) {
   } catch (error) {
     const authStatus = getAuthErrorStatus(error);
     if (authStatus) {
+      const fullAuthCode = getAuthErrorCode(error) ?? "";
+      const [authCode, ...authCodeDetails] = fullAuthCode.split(":");
+      const joinedAt =
+        authCode === "JOINED_TOO_RECENTLY" && authCodeDetails.length > 0
+          ? authCodeDetails.join(":")
+          : null;
       return NextResponse.json(
-        {
-          error:
-            getAuthErrorCode(error)?.split(":")[0] ??
-            "AUTHENTICATION_UNAVAILABLE",
-        },
+        joinedAt
+          ? { error: authCode, joinedAt }
+          : { error: authCode || "AUTHENTICATION_UNAVAILABLE" },
         { status: authStatus }
       );
     }

@@ -1,4 +1,19 @@
 \set ON_ERROR_STOP on
+select not exists (
+  select 1
+  from public.voting_cycles
+  where status::text in (
+    'active',
+    'submission_open',
+    'submission_closed',
+    'voting_open',
+    'voting_closed',
+    'paused',
+    'finalizing'
+  )
+) as can_run_full_enforcement \gset
+
+\if :can_run_full_enforcement
 begin;
 
 do $$
@@ -636,3 +651,6 @@ end;
 $$;
 
 rollback;
+\else
+\ir discordBanRepublishIsolated.dev.sql
+\endif

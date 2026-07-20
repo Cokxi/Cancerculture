@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { getTeamMember } from "@/lib/auth/guards";
+import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { updateRulesVersion } from "./actions/updateRulesVersion";
 
@@ -16,14 +16,10 @@ export default async function AdminLayout({
   try {
     member = await getTeamMember();
   } catch (error) {
-    const status = getAuthErrorStatus(error);
+    const destination = getTeamPageAccessRedirect(error);
 
-    if (status === 401) {
-      redirect("/api/auth/discord/login?state=/admin");
-    }
-
-    if (status === 403) {
-      redirect("/403");
+    if (destination) {
+      redirect(destination);
     }
 
     throw error;

@@ -16,6 +16,7 @@ type ReviewSubmissionRow = {
   public_visibility_updated_by_discord_username: string | null;
   public_visibility_source: string;
   is_disqualified: boolean;
+  discord_ban_active: boolean;
 };
 
 function buildThumbUrl(imageUrl: string | null) {
@@ -149,6 +150,7 @@ function SubmissionSection({
                 submissionId={submission.id}
                 status={status}
                 visibilitySource={submission.public_visibility_source}
+                discordBanActive={submission.discord_ban_active}
               />
             </article>
           ))}
@@ -177,6 +179,23 @@ export default async function AdminLegalReviewPage() {
     );
   }
 
+  const discordUserIds = Array.from(
+    new Set((data ?? []).map((submission) => submission.discord_user_id))
+  );
+  const { data: membershipStates, error: membershipStatesError } =
+    discordUserIds.length > 0
+      ? await supabaseAdmin
+          .from("discord_member_state")
+          .select("discord_user_id, discord_ban_active")
+          .in("discord_user_id", discordUserIds)
+      : { data: [], error: null };
+  const activeBanByDiscordUserId = new Map(
+    (membershipStates ?? []).map((state) => [
+      state.discord_user_id,
+      state.discord_ban_active === true,
+    ])
+  );
+
   const submissions = ((data ?? []) as ReviewSubmissionRow[]).map(
     (submission) => {
       const imageUrl =
@@ -184,6 +203,9 @@ export default async function AdminLegalReviewPage() {
 
       return {
         ...submission,
+        discord_ban_active:
+          membershipStatesError !== null ||
+          activeBanByDiscordUserId.get(submission.discord_user_id) === true,
         image_url: imageUrl,
         thumb_url: buildThumbUrl(imageUrl),
       };

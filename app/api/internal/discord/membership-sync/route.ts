@@ -44,6 +44,7 @@ function response(
 function revalidatePublicSubmissionSurfaces() {
   revalidatePath("/");
   revalidatePath("/submissions");
+  revalidatePath("/admin/moderation/legal-review");
   revalidatePath("/cycle-history");
   revalidatePath("/profile/[publicProfileId]", "page");
   revalidatePath("/wall/fame");
@@ -345,7 +346,11 @@ export async function POST(req: Request) {
     return response({ error: "SNAPSHOT_CONFLICT" }, 409);
   }
 
-  if (eventType === "ban_added" || eventType === "snapshot_finalize") {
+  if (
+    eventType === "ban_added" ||
+    eventType === "ban_removed" ||
+    eventType === "snapshot_finalize"
+  ) {
     revalidatePublicSubmissionSurfaces();
   }
 

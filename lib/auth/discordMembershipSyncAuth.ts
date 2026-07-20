@@ -8,11 +8,17 @@ import {
 
 export const DISCORD_MEMBERSHIP_SYNC_PATH =
   "/api/internal/discord/membership-sync";
+export const DISCORD_HEARTBEAT_PATH =
+  "/api/internal/discord/heartbeat";
 export const DISCORD_MEMBERSHIP_SYNC_MAX_BODY_BYTES = 256 * 1024;
 export const DISCORD_MEMBERSHIP_SYNC_MAX_SKEW_SECONDS = 5 * 60;
 
 const EVENT_ID_PATTERN = /^[A-Za-z0-9:_-]{8,128}$/;
 const SIGNATURE_PATTERN = /^(?:sha256=)?([0-9a-f]{64})$/i;
+const DISCORD_INTERNAL_PATHS = new Set([
+  DISCORD_MEMBERSHIP_SYNC_PATH,
+  DISCORD_HEARTBEAT_PATH,
+]);
 
 export class DiscordMembershipSyncAuthError extends Error {
   status: 401 | 503;
@@ -105,7 +111,7 @@ export function verifyDiscordMembershipSyncRequest({
 
   if (
     method.toUpperCase() !== "POST" ||
-    path !== DISCORD_MEMBERSHIP_SYNC_PATH ||
+    !DISCORD_INTERNAL_PATHS.has(path) ||
     !timestamp ||
     !eventId ||
     !EVENT_ID_PATTERN.test(eventId) ||

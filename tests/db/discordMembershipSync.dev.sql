@@ -3,11 +3,15 @@ begin;
 
 do $$
 declare
-  v_user text := '990000000000000001';
-  v_snapshot_member text := '990000000000000002';
-  v_snapshot_ban text := '990000000000000003';
-  v_snapshot_absent text := '990000000000000004';
+  v_seed bigint := 980000000000000000
+    + floor(random() * 1000000000000000)::bigint;
+  v_user text := v_seed::text;
+  v_snapshot_member text := (v_seed + 1)::text;
+  v_snapshot_ban text := (v_seed + 2)::text;
+  v_snapshot_absent text := (v_seed + 3)::text;
+  v_event_suffix text := gen_random_uuid()::text;
   v_base timestamptz := transaction_timestamp() - interval '2 hours';
+  v_rejoin_observed timestamptz := transaction_timestamp();
   v_result jsonb;
   v_audit_count integer;
   v_snapshot_id uuid := gen_random_uuid();
@@ -33,11 +37,6 @@ begin
       v_snapshot_ban,
       v_snapshot_absent
     )
-  ) or exists (
-    select 1
-    from public.discord_membership_sync_events
-    where event_id like 'test-%'
-       or event_id like 'snapshot-%'
   ) then
     raise exception 'DISCORD_MEMBERSHIP_SYNC_TEST_FIXTURE_COLLISION';
   end if;
@@ -96,7 +95,7 @@ begin
   values (v_session, v_user);
 
   v_result := public.apply_discord_ban(
-    'test-ban-0001',
+    'test-ban-1-' || v_event_suffix,
     v_base + interval '10 minutes',
     repeat('a', 64),
     v_user,
@@ -134,7 +133,7 @@ begin
     and target_id = v_user;
 
   v_result := public.apply_discord_ban(
-    'test-ban-0001',
+    'test-ban-1-' || v_event_suffix,
     v_base + interval '10 minutes',
     repeat('a', 64),
     v_user,
@@ -155,7 +154,7 @@ begin
   end if;
 
   v_result := public.apply_discord_unban(
-    'test-unban-0001',
+    'test-unban-1-' || v_event_suffix,
     v_base + interval '20 minutes',
     repeat('b', 64),
     v_user,
@@ -174,7 +173,7 @@ begin
   end if;
 
   v_result := public.apply_discord_ban(
-    'test-stale-ban',
+    'test-stale-ban-' || v_event_suffix,
     v_base + interval '15 minutes',
     repeat('c', 64),
     v_user,
@@ -189,7 +188,7 @@ begin
   end if;
 
   v_result := public.apply_discord_member_join(
-    'test-join-0001',
+    'test-join-1-' || v_event_suffix,
     v_base + interval '30 minutes',
     repeat('d', 64),
     v_user,
@@ -220,7 +219,7 @@ begin
   end if;
 
   v_result := public.apply_discord_member_remove(
-    'test-remove-01',
+    'test-remove-1-' || v_event_suffix,
     v_base + interval '40 minutes',
     repeat('e', 64),
     v_user,
@@ -229,21 +228,52 @@ begin
 
   if v_result ->> 'outcome' <> 'applied' or not exists (
     select 1 from public.sessions
-    where id = v_new_session and revoked_at is not null
+    where id = v_new_session and revoked_at is null
   ) then
-    raise exception 'normal remove did not block and revoke';
+    raise exception 'normal remove revoked the restricted website session';
+  end if;
+  if not exists (
+    select 1 from public.discord_member_state
+    where discord_user_id = v_user
+      and not is_in_discord
+      and discord_membership_observed_at = v_base + interval '40 minutes'
+  ) then
+    raise exception 'normal remove did not revoke participation eligibility';
   end if;
 
-  v_result := public.apply_discord_ban(
-    'test-ban-0002',
-    v_base + interval '50 minutes',
+  v_result := public.apply_discord_member_join(
+    'test-rejoin-after-remove-' || v_event_suffix,
+    v_rejoin_observed,
     repeat('f', 64),
     v_user,
     'sync-test-user'
   );
+  if v_result ->> 'outcome' <> 'applied' or not exists (
+    select 1 from public.discord_member_state
+    where discord_user_id = v_user
+      and is_in_discord
+      and discord_joined_at = v_rejoin_observed
+      and discord_membership_observed_at = v_rejoin_observed
+      and discord_joined_at > transaction_timestamp() - interval '10 minutes'
+  ) then
+    raise exception 'rejoin did not begin a fresh participation cooldown';
+  end if;
+  if (public.get_cancerculture_session_access(v_new_session) ->> 'outcome')
+    <> 'allowed'
+  then
+    raise exception 'rejoin replaced or invalidated the retained session';
+  end if;
+
+  v_result := public.apply_discord_ban(
+    'test-ban-2-' || v_event_suffix,
+    v_rejoin_observed + interval '1 second',
+    repeat('0', 64),
+    v_user,
+    'sync-test-user'
+  );
   v_result := public.apply_discord_member_remove(
-    'test-remove-02',
-    v_base + interval '51 minutes',
+    'test-remove-2-' || v_event_suffix,
+    v_rejoin_observed + interval '2 seconds',
     repeat('1', 64),
     v_user,
     'sync-test-user'
@@ -257,10 +287,16 @@ begin
   ) then
     raise exception 'ban before remove did not remain authoritative';
   end if;
+  if exists (
+    select 1 from public.sessions
+    where id = v_new_session and revoked_at is null
+  ) then
+    raise exception 'ban after remove did not revoke the retained session';
+  end if;
 
   v_result := public.apply_discord_member_join(
-    'test-stale-join',
-    v_base + interval '49 minutes',
+    'test-stale-join-' || v_event_suffix,
+    v_rejoin_observed + interval '500 milliseconds',
     repeat('2', 64),
     v_user,
     'sync-test-user'
@@ -273,8 +309,8 @@ begin
   end if;
 
   v_result := public.apply_discord_unban(
-    'test-stale-unban',
-    v_base + interval '45 minutes',
+    'test-stale-unban-' || v_event_suffix,
+    v_rejoin_observed,
     repeat('3', 64),
     v_user,
     'sync-test-user'
@@ -287,8 +323,8 @@ begin
   set is_banned = true
   where discord_user_id = v_user;
   v_result := public.apply_discord_unban(
-    'test-unban-0002',
-    v_base + interval '60 minutes',
+    'test-unban-2-' || v_event_suffix,
+    v_rejoin_observed + interval '3 seconds',
     repeat('4', 64),
     v_user,
     'sync-test-user'
@@ -299,14 +335,25 @@ begin
   ) then
     raise exception 'Discord unban cleared the independent website ban';
   end if;
+  if exists (
+    select 1 from public.sessions
+    where id = v_new_session and revoked_at is null
+  ) then
+    raise exception 'unban reactivated a revoked session';
+  end if;
 
   insert into public.sessions (id, discord_user_id)
   values
+    (gen_random_uuid(), v_snapshot_member),
     (gen_random_uuid(), v_snapshot_ban),
     (gen_random_uuid(), v_snapshot_absent);
 
+  update public.sessions
+  set revoked_at = v_base
+  where discord_user_id = v_snapshot_member;
+
   v_result := public.begin_discord_reconciliation_snapshot(
-    'test-snap-start',
+    'test-snap-start-' || v_event_suffix,
     v_base + interval '90 minutes',
     repeat('5', 64),
     v_snapshot_id,
@@ -314,7 +361,7 @@ begin
     1
   );
   v_result := public.append_discord_reconciliation_chunk(
-    'test-snap-member',
+    'test-snap-member-' || v_event_suffix,
     'snapshot_members_chunk',
     v_base + interval '91 minutes',
     repeat('6', 64),
@@ -325,7 +372,7 @@ begin
     ))
   );
   v_result := public.append_discord_reconciliation_chunk(
-    'test-snap-bans',
+    'test-snap-bans-' || v_event_suffix,
     'snapshot_bans_chunk',
     v_base + interval '92 minutes',
     repeat('7', 64),
@@ -336,7 +383,7 @@ begin
     ))
   );
   v_result := public.finalize_discord_reconciliation_snapshot(
-    'test-snap-final',
+    'test-snap-final-' || v_event_suffix,
     v_base + interval '93 minutes',
     repeat('8', 64),
     v_snapshot_id
@@ -370,9 +417,21 @@ begin
   ) then
     raise exception 'snapshot did not detect absent member';
   end if;
+  if not exists (
+    select 1 from public.sessions
+    where discord_user_id = v_snapshot_absent and revoked_at is null
+  ) then
+    raise exception 'snapshot absence revoked a restricted website session';
+  end if;
+  if exists (
+    select 1 from public.sessions
+    where discord_user_id = v_snapshot_member and revoked_at is null
+  ) then
+    raise exception 'snapshot unban reactivated a revoked session';
+  end if;
 
   v_result := public.begin_discord_reconciliation_snapshot(
-    'test-inc-start',
+    'test-inc-start-' || v_event_suffix,
     v_base + interval '100 minutes',
     repeat('9', 64),
     v_incomplete_snapshot_id,
@@ -380,13 +439,19 @@ begin
     0
   );
   v_result := public.finalize_discord_reconciliation_snapshot(
-    'test-inc-final',
+    'test-inc-final-' || v_event_suffix,
     v_base + interval '101 minutes',
     repeat('0', 64),
     v_incomplete_snapshot_id
   );
   if v_result ->> 'outcome' <> 'incomplete_snapshot' then
     raise exception 'incomplete snapshot was accepted';
+  end if;
+  if not exists (
+    select 1 from public.discord_member_state
+    where discord_user_id = v_snapshot_ban and discord_ban_active
+  ) then
+    raise exception 'incomplete snapshot cleared a known ban';
   end if;
 
   if has_function_privilege(

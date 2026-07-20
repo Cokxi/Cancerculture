@@ -15,7 +15,10 @@ export type VoteEligibility = {
   membership: DiscordMembershipEligibility;
 };
 
-export async function getVoteEligibility(discordUserId: string) {
+export async function getVoteEligibility(
+  discordUserId: string,
+  membershipOverride?: DiscordMembershipEligibility
+) {
   const [userLogResult, activeCycle, membership] = await Promise.all([
     supabaseAdmin
       .from("user_logs")
@@ -23,7 +26,7 @@ export async function getVoteEligibility(discordUserId: string) {
       .eq("discord_user_id", discordUserId)
       .maybeSingle(),
     getCurrentVotingCycle({ throwOnError: true }),
-    getDiscordMembershipEligibility(discordUserId),
+    membershipOverride ?? getDiscordMembershipEligibility(discordUserId),
   ]);
 
   if (userLogResult.error || !userLogResult.data) {

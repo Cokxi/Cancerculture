@@ -2,17 +2,19 @@ export const dynamic = "force-dynamic";
 
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import CoinLaunchDisplay from "./components/CoinLaunchDisplay";
 import CycleHud from "@/app/components/CycleHud";
 import DiscordCellAnimated from "./components/DiscordCellAnimated";
 import TelegramCellAnimated from "./components/TelegramCellAnimated";
-import { getAuthErrorStatus } from "@/lib/auth/AuthError";
-import { requireSession } from "@/lib/auth/requireSession";
-import { getTeamMemberForDiscordUserId } from "@/lib/auth/guards";
+import GlobalAccount from "@/app/components/auth/GlobalAccount";
+import HomeMenu from "@/app/components/navigation/HomeMenu";
 import { getPrimaryCoinLaunch } from "@/lib/coinLaunches/getActiveCoinLaunches";
 import { processDueCycleTransitions } from "@/lib/cycles/phaseAutomation";
+import { getHomeDesktopNavigationItems } from "@/lib/navigation/homeNavigation";
 
 const HOME_PERF_PREFIX = "[HOME_PERF]";
+const desktopNavigationItems = getHomeDesktopNavigationItems();
 
 function startHomeTimer(label: string) {
   const startedAt = performance.now();
@@ -52,51 +54,6 @@ export default async function Home() {
     processDueCycleTransitions()
   );
 
-  let isLoggedIn = false;
-  let discordUserId: string | null = null;
-
-  try {
-    const session = await timeHomeAsync("home auth/session loading", () =>
-      requireSession()
-    );
-    discordUserId = session.discord_user_id;
-    isLoggedIn = true;
-  } catch (error) {
-    const status = getAuthErrorStatus(error);
-
-    if (status !== null && status >= 500) {
-      console.error("[ADMIN_AUTH] home session check unavailable", error);
-    } else if (status === null) {
-      throw error;
-    }
-  }
-
-  let isTeamMember = false;
-
-  if (discordUserId) {
-    try {
-      await timeHomeAsync("home auth/team member loading", () =>
-        getTeamMemberForDiscordUserId(discordUserId)
-      );
-      isTeamMember = true;
-    } catch (error) {
-      const status = getAuthErrorStatus(error);
-
-      if (status !== null && status >= 500) {
-        console.error(
-          "[ADMIN_AUTH] home team-member check unavailable; menu will retry on the next server render",
-          error
-        );
-      } else if (status === null) {
-        throw error;
-      }
-    }
-  } else {
-    console.log(
-      `${HOME_PERF_PREFIX} home auth/team member loading: skipped (no session)`
-    );
-  }
-
   let primaryCoinLaunch = null;
 
   try {
@@ -128,17 +85,6 @@ export default async function Home() {
 
   return (
     <main className="relative w-full bg-orange-background text-white">
-      {isTeamMember && (
-        <div className="fixed left-6 top-20 z-30">
-          <Link
-            href="/admin"
-            className="rounded-md px-4 py-2 text-sm transition hover:bg-black"
-          >
-            Moderation
-          </Link>
-        </div>
-      )}
-
       <div className="ticker-wrapper">
         <div className="ticker-track">
           <div className="ticker-text">
@@ -155,19 +101,34 @@ export default async function Home() {
         </div>
       </div>
 
-      <div className="mt-4 flex w-full justify-center">
-        <div className="link-container">
-          <nav className="link-bar">
-            <a href="#about">ABOUT</a>
-            <a href="/upload">UPLOAD</a>
-            <a href="/submissions">SUBMISSIONS</a>
-            <a href="/faq">FAQ</a>
-            <a href="/rules">RULES</a>
-            <a href="/wall/fame">WALL OF FAME</a>
-            <a href="/wall/shame">WALL OF SHAME</a>
+      <HomeMenu />
+
+      <div className="fixed right-3 top-[74px] z-[70] sm:right-5">
+        <Suspense
+          fallback={
+            <div
+              className="h-11 w-11 animate-pulse rounded-full border border-orange-500/30 bg-black/80"
+              aria-label="Account loading"
+            />
+          }
+        >
+          <GlobalAccount />
+        </Suspense>
+      </div>
+
+      <div className="mt-3 hidden w-full justify-center md:flex">
+        <div className="link-container max-w-[780px]">
+          <nav className="link-bar" aria-label="Primary navigation">
+            {desktopNavigationItems.map((item) => (
+              <Link key={item.id} href={item.href} className="cursor-pointer">
+                {item.label.toUpperCase()}
+              </Link>
+            ))}
           </nav>
         </div>
       </div>
+
+      <div className="h-14 md:hidden" aria-hidden />
 
       <section
         className="
@@ -268,59 +229,6 @@ export default async function Home() {
         </section>
       </section>
 
-      <Link
-        href="/cycle-history"
-        className="
-          fixed bottom-6 left-6 z-50 hidden items-center justify-center
-          rounded-lg border border-orange-500/30 bg-black/75 px-5 py-3
-          text-sm font-[var(--font-marker)] text-orange-400 shadow-lg shadow-black/30
-          transition-all hover:bg-black/90 hover:scale-105 active:scale-95 md:flex
-        "
-      >
-        Cycle History
-      </Link>
-
-      {isLoggedIn && (
-        <Link
-          href="/my-profile"
-          className="
-            fixed bottom-6 right-6 z-50 hidden items-center justify-center
-            rounded-lg border border-orange-500/30 bg-black/75 px-5 py-3
-            text-sm font-[var(--font-marker)] text-orange-400 shadow-lg shadow-black/30
-            transition-all hover:bg-black/90 hover:scale-105 active:scale-95 md:flex
-          "
-        >
-          My Profile
-        </Link>
-      )}
-
-      <Link
-            href="/cycle-history"
-            className="
-              fixed bottom-4 left-3 z-50 flex items-center justify-center rounded-lg border border-orange-500/40
-              bg-black/80 px-3 py-2 text-sm font-[var(--font-marker)] text-orange-400
-              shadow-lg shadow-black/40 backdrop-blur-sm transition-all hover:bg-black/90 active:scale-95
-              md:hidden
-            "
-          >
-            Cycle History
-          </Link>
-
-      {isLoggedIn && (
-        <>
-          <Link
-            href="/my-profile"
-            className="
-              fixed bottom-4 right-3 z-50 flex items-center justify-center rounded-lg border border-orange-500/40
-              bg-black/80 px-3 py-2 text-sm font-[var(--font-marker)] text-orange-400
-              shadow-lg shadow-black/40 backdrop-blur-sm transition-all hover:bg-black/90 active:scale-95
-              md:hidden
-            "
-          >
-            My Profile
-          </Link>
-        </>
-      )}
     </main>
   );
 }

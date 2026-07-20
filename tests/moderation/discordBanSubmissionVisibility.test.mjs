@@ -59,10 +59,12 @@ test("public Submission and wall queries use fail-closed visibility filters", as
   assert.match(history, /isSubmissionListedPublicly/);
 });
 
-test("Admin republish requires Admin, reason, confirmation, audit RPC, and cache invalidation", async () => {
-  const [route, helper, reviewActions, visibilityHelper] =
+test("Admin republish requires Admin, a fresh Unban, review confirmation, audit RPC, and cache invalidation", async () => {
+  const [route, syncRoute, reviewPage, helper, reviewActions, visibilityHelper] =
     await Promise.all([
       source("app/api/admin/submissions/republish/route.ts"),
+      source("app/api/internal/discord/membership-sync/route.ts"),
+      source("app/admin/moderation/legal-review/page.tsx"),
       source("lib/moderation/republishDiscordBanSubmission.ts"),
       source(
         "app/admin/moderation/legal-review/review-actions.tsx"
@@ -74,13 +76,19 @@ test("Admin republish requires Admin, reason, confirmation, audit RPC, and cache
   assert.match(route, /manualReviewConfirmed/);
   assert.match(route, /reason\.length < 10/);
   assert.match(route, /revalidatePath\("\/submissions"\)/);
+  assert.match(route, /revalidatePath\("\/admin\/moderation\/legal-review"\)/);
   assert.match(route, /revalidatePath\("\/wall\/fame"\)/);
+  assert.match(syncRoute, /eventType === "ban_removed"/);
+  assert.match(syncRoute, /revalidatePath\("\/admin\/moderation\/legal-review"\)/);
+  assert.match(reviewPage, /discord_ban_active/);
   assert.match(
     helper,
     /republish_discord_ban_submission/
   );
   assert.match(reviewActions, /Mandatory review reason/);
   assert.match(reviewActions, /manually reviewed/);
+  assert.match(reviewActions, /discordBanActive/);
+  assert.match(reviewActions, /Republish stays locked while the Discord ban is active/);
   assert.match(
     visibilityHelper,
     /DISCORD_BAN_REPUBLISH_REQUIRES_REVIEW/

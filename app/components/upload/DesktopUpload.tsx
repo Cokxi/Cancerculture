@@ -1,16 +1,19 @@
 "use client";
 
 import HomeBlinkCell from "@/app/components/HomeBlinkCell";
+import DiscordSyncDelayNotice from "@/app/components/DiscordSyncDelayNotice";
 import { SocialPlatformBadge } from "@/app/components/profile/SocialUi";
 import ScannerDisplay from "@/app/components/upload/ScannerDisplay";
+import DiscordCooldownTimer from "@/app/components/DiscordCooldownTimer";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useOverlay } from "@/app/components/overlay/OverlayProvider";
 import CharitiesOverlay from "@/app/components/overlay/CharitiesOverlay";
 import RulesOverlay from "@/app/components/overlay/RulesOverlay";
-import DiscordGateOverlay from "@/app/components/overlay/DiscordGateOverlay";
 import type { UserSocialSettings } from "@/lib/socials/getUserSocialSettings";
-import type { DiscordMembershipStatus } from "@/lib/upload/getUploadEligibility";
+import type { ParticipationAccessState } from "@/lib/eligibility/participation";
+import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 import {
   MEDIA_VALIDATION_MESSAGES,
   preflightBrowserImage,
@@ -20,9 +23,6 @@ import {
 
 type PayoutChoice = "keep" | "donate" | "split";
 type SubmitState = "idle" | "partial" | "ready";
-
-const DISCORD_GATE_STORAGE_KEY =
-  "cancerculture:upload-discord-gate";
 
 const CHARITY_OPTIONS = [
   { value: "Animal Haven", label: "Animal Haven" },
@@ -43,7 +43,8 @@ export default function DesktopUpload({
   showSupportLink,
   forceSuccessState = false,
   socialSettings,
-  initialMembership,
+  participationState,
+  showDiscordSyncDelayNotice,
   currentCycleStatus,
   pausedFromStatus,
 }: {
@@ -51,14 +52,15 @@ export default function DesktopUpload({
   showSupportLink: boolean;
   forceSuccessState?: boolean;
   socialSettings: UserSocialSettings;
-  initialMembership: DiscordMembershipStatus | null;
+  participationState: ParticipationAccessState;
+  showDiscordSyncDelayNotice: boolean;
   currentCycleStatus: string | null;
   pausedFromStatus: string | null;
 }) {
 
   const { openOverlay } = useOverlay();
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const initialDiscordGateHandledRef = useRef(false);
   const uploadAttemptKeyRef = useRef<string | null>(null);
   const [uploadDone, setUploadDone] = useState(forceSuccessState);
   const [file, setFile] = useState<File | null>(null);
@@ -81,36 +83,14 @@ useEffect(() => {
   }
 }, [forceSuccessState]);
 
-useEffect(() => {
-  if (initialDiscordGateHandledRef.current) return;
-  initialDiscordGateHandledRef.current = true;
-
-  if (!hasActiveCycle || !initialMembership) return;
-
-  if (initialMembership.joinedTooRecently) {
-    localStorage.setItem(DISCORD_GATE_STORAGE_KEY, "true");
-    openOverlay(
-      <DiscordGateOverlay
-        type="cooldown"
-        joinedAt={initialMembership.joinedAt ?? undefined}
-      />
-    );
-    return;
-  }
-
-  if (initialMembership.isMember) {
-    localStorage.removeItem(DISCORD_GATE_STORAGE_KEY);
-    return;
-  }
-
-  if (localStorage.getItem(DISCORD_GATE_STORAGE_KEY) === "true") {
-    openOverlay(<DiscordGateOverlay type="not_in_discord" />);
-  }
-}, [hasActiveCycle, initialMembership, openOverlay]);
-
-
-
   const hasImage = !!file;
+  const canUseForm =
+    participationState.status === "eligible" ||
+    participationState.status === "join_wait";
+  const canSubmit = participationState.status === "eligible";
+  const refreshEligibility = useCallback(() => {
+    router.refresh();
+  }, [router]);
   const walletDisabled = payoutChoice === "donate";
   const walletRequired =
     payoutChoice === "keep" || payoutChoice === "split";
@@ -168,6 +148,7 @@ useEffect(() => {
 
 useEffect(() => {
   if (!hasActiveCycle) return;
+  if (!canSubmit) return;
   if (submitState !== "ready") return;
   if (rulesStatus !== "unknown") return;
 
@@ -205,7 +186,7 @@ useEffect(() => {
   };
 
   checkRules();
-}, [hasActiveCycle, openOverlay, rulesStatus, submitState]);
+}, [canSubmit, hasActiveCycle, openOverlay, rulesStatus, submitState]);
   const submitImage =
   submitState === "ready"
     ? "https://cdn.cancerculture.fun/webp/submit.confirm/sub3.webp"
@@ -215,7 +196,7 @@ useEffect(() => {
 
 
   const handleScannerClick = () => {
-    if (!hasActiveCycle) return;
+    if (!hasActiveCycle || !canUseForm) return;
     fileInputRef.current?.click();
   };
 
@@ -243,6 +224,7 @@ useEffect(() => {
 
   const handleSubmit = async () => {
   if (!hasActiveCycle) return;
+  if (!canSubmit) return;
   if (
     submitState !== "ready" ||
     isSubmitting ||
@@ -281,23 +263,13 @@ if (!file) {
       const data = await res.json();
 
       if (!res.ok) {
-  if (data.error === "NOT_IN_DISCORD") {
-    localStorage.setItem(DISCORD_GATE_STORAGE_KEY, "true");
-    openOverlay(<DiscordGateOverlay type="not_in_discord" />);
-    return;
-  }
-
-  if (data.error === "JOINED_TOO_RECENTLY") {
-    const joinedAt =
-      typeof data.joinedAt === "string" ? data.joinedAt : null;
-
-    localStorage.setItem(DISCORD_GATE_STORAGE_KEY, "true");
-    openOverlay(
-      <DiscordGateOverlay
-        type="cooldown"
-        joinedAt={joinedAt ?? undefined}
-      />
-    );
+  if (
+    data.error === "NOT_IN_DISCORD" ||
+    data.error === "JOINED_TOO_RECENTLY" ||
+    data.error === "MEMBERSHIP_PENDING" ||
+    data.error === "MEMBERSHIP_UNAVAILABLE"
+  ) {
+    router.refresh();
     return;
   }
 
@@ -313,7 +285,6 @@ if (!file) {
 
       setSuccessMode("success");
       setUploadDone(true);
-      localStorage.removeItem(DISCORD_GATE_STORAGE_KEY);
     } catch {
       alert(
         "The upload result could not be confirmed. Retry without changing the form; the same request key will be reused safely."
@@ -323,10 +294,74 @@ if (!file) {
     }
   };
 
+  if (!canUseForm) {
+    return (
+      <div className="px-6 py-28">
+        <div className="mx-auto max-w-xl rounded-[2rem] bg-yellow-star px-8 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
+          {participationState.status === "anonymous" ? (
+            <>
+              <a
+                href="/api/auth/discord/login?state=/upload"
+                className="inline-flex rounded-xl bg-black px-6 py-3 text-yellow-300"
+              >
+                Login with Discord to upload
+              </a>
+              <p className="mt-5 text-sm text-[var(--orange-main)]/80">
+                To upload or vote, you must be a member of our Discord for at least 10 minutes. This helps us reduce spam and abuse.
+              </p>
+            </>
+          ) : participationState.status === "not_in_discord" ? (
+            <>
+              {showDiscordSyncDelayNotice ? (
+                <DiscordSyncDelayNotice className="mb-5 text-sm text-[var(--orange-main)]" />
+              ) : null}
+              <a
+                href={DISCORD_INVITE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex rounded-xl bg-black px-6 py-3 text-yellow-300"
+              >
+                Join Discord to participate
+              </a>
+              <p className="mt-5 text-sm text-[var(--orange-main)]/80">
+                After joining, you need 10 minutes of actual Discord membership before uploading or voting.
+              </p>
+            </>
+          ) : participationState.status === "membership_pending" ? (
+            showDiscordSyncDelayNotice ? (
+              <DiscordSyncDelayNotice className="text-sm text-[var(--orange-main)]" />
+            ) : (
+              <p className="text-[var(--orange-main)]">
+                We&apos;re temporarily verifying your Discord membership
+              </p>
+            )
+          ) : participationState.status === "restricted" ? (
+            <p className="text-red-700">Account restricted</p>
+          ) : (
+            <p className="text-[var(--orange-main)]">
+              Temporarily unable to verify membership
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
  
   return (
     <div className="py-24">
       <div className="max-w-6xl mx-auto px-6 flex flex-col gap-14">
+
+        {participationState.status === "join_wait" ? (
+          <div className="mx-auto flex max-w-xl flex-col items-center gap-2 rounded-2xl bg-black/75 px-6 py-4 text-center text-white">
+            <span>You can prepare your submission while the join wait finishes.</span>
+            <DiscordCooldownTimer
+              joinedAt={participationState.joinedAt}
+              onComplete={refreshEligibility}
+              className="font-mono text-2xl text-orange-400"
+            />
+          </div>
+        ) : null}
 
         
         {!uploadDone &&
@@ -518,7 +553,7 @@ if (!file) {
             </div>
 
             
-{submitState === "ready" && rulesStatus === "accepted" && (
+{canSubmit && submitState === "ready" && rulesStatus === "accepted" && (
   <div className="text-center mt-4">
                 <span className="upload-hint animate-soft-hint">
                   Hit it
@@ -546,6 +581,7 @@ if (!file) {
   onClick={handleSubmit}
   className={`mx-auto ${
     hasActiveCycle &&
+    canSubmit &&
     submitState === "ready" &&
     rulesStatus === "accepted"
       ? "cursor-pointer"
@@ -592,7 +628,7 @@ if (!file) {
           accept={SUBMISSION_MEDIA_PROFILE.allowedBrowserMimeTypes.join(",")}
           hidden
           onChange={handleFileChange}
-          disabled={!hasActiveCycle}
+          disabled={!hasActiveCycle || !canUseForm}
         />
       </div>
   

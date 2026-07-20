@@ -2,14 +2,18 @@ import "server-only";
 
 import { AuthError } from "@/lib/auth/AuthError";
 import { supabaseAdmin } from "@/lib/db/admin";
+import {
+  DISCORD_MEMBERSHIP_COOLDOWN_MINUTES,
+  getDiscordMembershipCooldown,
+  isDiscordMembershipObservationFresh,
+} from "@/lib/eligibility/discordMembershipFreshness";
 
-export const DISCORD_MEMBERSHIP_COOLDOWN_MINUTES = 10;
-
-const DISCORD_MEMBERSHIP_COOLDOWN_MS =
-  DISCORD_MEMBERSHIP_COOLDOWN_MINUTES * 60 * 1000;
+export { DISCORD_MEMBERSHIP_COOLDOWN_MINUTES };
 
 export type DiscordMembershipEligibilityReason =
   | "discord_banned"
+  | "membership_pending"
+  | "membership_unavailable"
   | "not_in_discord"
   | "joined_too_recently";
 
@@ -17,6 +21,9 @@ export type DiscordMembershipEligibility = {
   isInDiscord: boolean;
   isEligible: boolean;
   isDiscordBanned: boolean;
+  membershipKnown: boolean;
+  dependencyUnavailable: boolean;
+  membershipObservedAt: string | null;
   joinedAt: string | null;
   joinedTooRecently: boolean;
   retryAfterMs: number;
@@ -26,6 +33,7 @@ export type DiscordMembershipEligibility = {
 type DiscordMemberStateRow = {
   discord_ban_active: boolean | null;
   discord_joined_at: string | null;
+  discord_membership_observed_at: string | null;
   is_in_discord: boolean | null;
 };
 
@@ -34,7 +42,9 @@ export async function getDiscordMembershipEligibility(
 ): Promise<DiscordMembershipEligibility> {
   const { data: memberState, error } = await supabaseAdmin
     .from("discord_member_state")
-    .select("discord_ban_active, discord_joined_at, is_in_discord")
+    .select(
+      "discord_ban_active, discord_joined_at, discord_membership_observed_at, is_in_discord"
+    )
     .eq("discord_user_id", discordUserId)
     .maybeSingle<DiscordMemberStateRow>();
 
@@ -54,6 +64,9 @@ export async function getDiscordMembershipEligibility(
       isInDiscord: false,
       isEligible: false,
       isDiscordBanned: true,
+      membershipKnown: true,
+      dependencyUnavailable: false,
+      membershipObservedAt: memberState.discord_membership_observed_at,
       joinedAt: memberState.discord_joined_at,
       joinedTooRecently: false,
       retryAfterMs: 0,
@@ -61,12 +74,36 @@ export async function getDiscordMembershipEligibility(
     };
   }
 
-  if (!memberState?.is_in_discord) {
+  if (
+    !memberState ||
+    !isDiscordMembershipObservationFresh(
+      memberState?.discord_membership_observed_at
+    )
+  ) {
+    return {
+      isInDiscord: memberState?.is_in_discord === true,
+      isEligible: false,
+      isDiscordBanned: false,
+      membershipKnown: false,
+      dependencyUnavailable: false,
+      membershipObservedAt:
+        memberState?.discord_membership_observed_at ?? null,
+      joinedAt: memberState?.discord_joined_at ?? null,
+      joinedTooRecently: false,
+      retryAfterMs: 0,
+      reason: "membership_pending",
+    };
+  }
+
+  if (!memberState.is_in_discord) {
     return {
       isInDiscord: false,
       isEligible: false,
       isDiscordBanned: false,
-      joinedAt: memberState?.discord_joined_at ?? null,
+      membershipKnown: true,
+      dependencyUnavailable: false,
+      membershipObservedAt: memberState.discord_membership_observed_at,
+      joinedAt: memberState.discord_joined_at,
       joinedTooRecently: false,
       retryAfterMs: 0,
       reason: "not_in_discord",
@@ -74,31 +111,32 @@ export async function getDiscordMembershipEligibility(
   }
 
   const joinedAt = memberState.discord_joined_at;
-  const joinedAtMs = joinedAt ? new Date(joinedAt).getTime() : NaN;
+  const cooldown = getDiscordMembershipCooldown(joinedAt);
 
-  if (!Number.isFinite(joinedAtMs)) {
+  if (!cooldown) {
     return {
       isInDiscord: true,
       isEligible: false,
       isDiscordBanned: false,
+      membershipKnown: true,
+      dependencyUnavailable: true,
+      membershipObservedAt: memberState.discord_membership_observed_at,
       joinedAt,
-      joinedTooRecently: true,
-      retryAfterMs: DISCORD_MEMBERSHIP_COOLDOWN_MS,
-      reason: "joined_too_recently",
+      joinedTooRecently: false,
+      retryAfterMs: 0,
+      reason: "membership_unavailable",
     };
   }
 
-  const membershipAgeMs = Date.now() - joinedAtMs;
-  const retryAfterMs = Math.max(
-    0,
-    DISCORD_MEMBERSHIP_COOLDOWN_MS - membershipAgeMs
-  );
-  const joinedTooRecently = retryAfterMs > 0;
+  const { joinedTooRecently, retryAfterMs } = cooldown;
 
   return {
     isInDiscord: true,
     isEligible: !joinedTooRecently,
     isDiscordBanned: false,
+    membershipKnown: true,
+    dependencyUnavailable: false,
+    membershipObservedAt: memberState.discord_membership_observed_at,
     joinedAt,
     joinedTooRecently,
     retryAfterMs,

@@ -9,6 +9,21 @@ export async function GET() {
     const membership =
       await getDiscordMembershipEligibility(discord_user_id);
 
+    if (membership.isDiscordBanned) {
+      return NextResponse.json({ status: "RESTRICTED" }, { status: 403 });
+    }
+
+    if (membership.dependencyUnavailable) {
+      return NextResponse.json(
+        { status: "UNAVAILABLE" },
+        { status: 503 }
+      );
+    }
+
+    if (!membership.membershipKnown) {
+      return NextResponse.json({ status: "PENDING" });
+    }
+
     if (!membership.isInDiscord) {
       return NextResponse.json({
         status: "NOT_IN_DISCORD",
@@ -28,8 +43,8 @@ export async function GET() {
     });
   } catch {
     return NextResponse.json(
-      { status: "ERROR" },
-      { status: 500 }
+      { status: "UNAVAILABLE" },
+      { status: 503 }
     );
   }
 }

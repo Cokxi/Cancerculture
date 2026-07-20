@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import DiscordCooldownTimer from "@/app/components/DiscordCooldownTimer";
+import DiscordSyncDelayNotice from "@/app/components/DiscordSyncDelayNotice";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
 import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
+import {
+  resolveVoteBlockedReason,
+  type VoteBlockedReason,
+} from "@/lib/vote/voteEligibilityState";
 
 type Submission = {
   id: number;
@@ -13,13 +19,6 @@ type Submission = {
   vote_count: number;
   discord_user_id: string;
 };
-
-type VoteBlockedReason =
-  | "banned"
-  | "not_in_discord"
-  | "joined_too_recently"
-  | "not_authenticated"
-  | null;
 
 export default function SubmissionsClient({
   submissions,
@@ -32,6 +31,7 @@ export default function SubmissionsClient({
   discordUserId,
   voteBlockedReason,
   voteCooldownJoinedAt,
+  showDiscordSyncDelayNotice,
   sponsoredMeta,
   initialSubmissionId,
 }: {
@@ -45,12 +45,14 @@ export default function SubmissionsClient({
   discordUserId: string | null;
   voteBlockedReason: VoteBlockedReason;
   voteCooldownJoinedAt: string | null;
+  showDiscordSyncDelayNotice: boolean;
   sponsoredMeta: SponsoredCycleMeta | null;
   initialSubmissionId: number | null;
 }) {
   const router = useRouter();
   const [showOriginalSize, setShowOriginalSize] = useState(false);
   const lastTapRef = useRef(0);
+  const eligibilityLoadedRef = useRef(false);
 
   function handleToggleSize() {
     setShowOriginalSize((prev) => !prev);
@@ -80,15 +82,103 @@ export default function SubmissionsClient({
     useState<VoteBlockedReason | undefined>(undefined);
   const [localVoteCooldownJoinedAt, setLocalVoteCooldownJoinedAt] =
     useState<string | null | undefined>(undefined);
+  const [localShowDiscordSyncDelayNotice, setLocalShowDiscordSyncDelayNotice] =
+    useState<boolean | undefined>(undefined);
   const [waitingForDiscordJoin, setWaitingForDiscordJoin] =
     useState(false);
   const [localVotes, setLocalVotes] = useState(
     Object.fromEntries(submissions.map((s) => [s.id, s.vote_count]))
   );
   const effectiveVoteBlockedReason =
-    localVoteBlockedReason ?? voteBlockedReason;
+    resolveVoteBlockedReason(
+      localVoteBlockedReason,
+      voteBlockedReason
+    );
   const effectiveVoteCooldownJoinedAt =
     localVoteCooldownJoinedAt ?? voteCooldownJoinedAt;
+  const effectiveShowDiscordSyncDelayNotice =
+    (localShowDiscordSyncDelayNotice ?? showDiscordSyncDelayNotice) &&
+    (effectiveVoteBlockedReason === "not_in_discord" ||
+      effectiveVoteBlockedReason === "membership_pending");
+
+  const loadVoteEligibility = useCallback(async () => {
+    if (!discordUserId) return;
+
+    setLocalVoteBlockedReason("membership_pending");
+    setLocalShowDiscordSyncDelayNotice(false);
+
+    try {
+      const response = await fetch("/api/vote/eligibility", {
+        cache: "no-store",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setLocalShowDiscordSyncDelayNotice(false);
+        setLocalVoteBlockedReason(
+          data.status === "restricted"
+            ? "banned"
+            : data.status === "anonymous"
+              ? "not_authenticated"
+              : "dependency_unavailable"
+        );
+        return;
+      }
+
+      const status = data.participation?.status;
+      setLocalShowDiscordSyncDelayNotice(
+        data.showDiscordSyncDelayNotice === true
+      );
+      setLocalVoteBlockedReason(
+        status === "eligible"
+          ? null
+          : status === "not_in_discord"
+            ? "not_in_discord"
+            : status === "join_wait"
+              ? "join_wait"
+              : status === "restricted"
+                ? "banned"
+                : status === "membership_pending"
+                  ? "membership_pending"
+                  : "dependency_unavailable"
+      );
+      setLocalVoteCooldownJoinedAt(
+        typeof data.participation?.joinedAt === "string"
+          ? data.participation.joinedAt
+          : null
+      );
+      setUsedVotes(typeof data.voteCount === "number" ? data.voteCount : 0);
+      setVoted(data.hasVoted === true);
+      setVotedSubmissionIdSet(
+        new Set(
+          Array.isArray(data.votedSubmissionIds)
+            ? data.votedSubmissionIds.filter(Number.isInteger)
+            : []
+        )
+      );
+    } catch {
+      setLocalShowDiscordSyncDelayNotice(false);
+      setLocalVoteBlockedReason("dependency_unavailable");
+    }
+  }, [discordUserId]);
+
+  useEffect(() => {
+    if (
+      !active ||
+      !votingEnabled ||
+      !discordUserId ||
+      eligibilityLoadedRef.current
+    ) {
+      return;
+    }
+
+    eligibilityLoadedRef.current = true;
+    const timeoutId = window.setTimeout(() => {
+      void loadVoteEligibility();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [active, discordUserId, loadVoteEligibility, votingEnabled]);
 
   useEffect(() => {
     if (!waitingForDiscordJoin) return;
@@ -98,6 +188,8 @@ export default function SubmissionsClient({
       setWaitingForDiscordJoin(false);
       setLocalVoteBlockedReason(undefined);
       setLocalVoteCooldownJoinedAt(undefined);
+      setLocalShowDiscordSyncDelayNotice(undefined);
+      eligibilityLoadedRef.current = false;
       router.refresh();
     };
 
@@ -124,19 +216,27 @@ export default function SubmissionsClient({
 
   function getVoteBlockedMessage() {
     if (effectiveVoteBlockedReason === "banned") {
-      return "You're banned from voting";
+      return "Account restricted";
     }
 
     if (effectiveVoteBlockedReason === "not_in_discord") {
       return "Join Discord to vote";
     }
 
-    if (effectiveVoteBlockedReason === "joined_too_recently") {
+    if (effectiveVoteBlockedReason === "join_wait") {
       return null;
     }
 
     if (effectiveVoteBlockedReason === "not_authenticated") {
-      return "Sign in to vote";
+      return "Login with Discord to vote";
+    }
+
+    if (effectiveVoteBlockedReason === "membership_pending") {
+      return "Membership verification is temporarily pending";
+    }
+
+    if (effectiveVoteBlockedReason === "dependency_unavailable") {
+      return "Temporarily unable to verify membership";
     }
 
     return null;
@@ -149,7 +249,7 @@ export default function SubmissionsClient({
       return;
     }
 
-    if (effectiveVoteBlockedReason === "joined_too_recently") {
+    if (effectiveVoteBlockedReason === "join_wait") {
       return;
     }
 
@@ -168,6 +268,8 @@ export default function SubmissionsClient({
 
       if (data?.error === "NOT_IN_DISCORD") {
         setLocalVoteBlockedReason("not_in_discord");
+        setLocalShowDiscordSyncDelayNotice(false);
+        void loadVoteEligibility();
         return;
       }
 
@@ -175,8 +277,22 @@ export default function SubmissionsClient({
         const joinedAt =
           typeof data.joinedAt === "string" ? data.joinedAt : null;
 
-        setLocalVoteBlockedReason("joined_too_recently");
+        setLocalVoteBlockedReason("join_wait");
         setLocalVoteCooldownJoinedAt(joinedAt);
+        setLocalShowDiscordSyncDelayNotice(false);
+        return;
+      }
+
+      if (data?.error === "MEMBERSHIP_PENDING") {
+        setLocalVoteBlockedReason("membership_pending");
+        setLocalShowDiscordSyncDelayNotice(false);
+        void loadVoteEligibility();
+        return;
+      }
+
+      if (data?.error === "MEMBERSHIP_UNAVAILABLE") {
+        setLocalVoteBlockedReason("dependency_unavailable");
+        setLocalShowDiscordSyncDelayNotice(false);
         return;
       }
 
@@ -231,9 +347,12 @@ export default function SubmissionsClient({
               }}
               className="group relative aspect-square overflow-hidden rounded-lg border cursor-pointer"
             >
-              <img
+              <Image
                 src={thumbSrc}
                 alt=""
+                fill
+                unoptimized
+                sizes="(min-width: 1024px) 12.5vw, (min-width: 768px) 16.67vw, (min-width: 640px) 25vw, 33.33vw"
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"
@@ -267,6 +386,7 @@ export default function SubmissionsClient({
             className="relative mx-auto w-fit bg-black rounded-lg"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element -- The R2 original has unknown intrinsic dimensions, and this modal toggles between viewport-fit and native-size zoom. */}
             <img
               src={active.image_url}
               alt=""
@@ -304,7 +424,7 @@ export default function SubmissionsClient({
                     {isPaused ? "Cycle paused" : "Voting not open yet"}
                   </span>
                 ) : active.discord_user_id !== discordUserId &&
-                effectiveVoteBlockedReason === "joined_too_recently" ? (
+                effectiveVoteBlockedReason === "join_wait" ? (
                   <div className="flex flex-col items-center leading-tight">
                     <span className="text-[10px] uppercase tracking-[0.18em] text-white/55">
                       Please wait:
@@ -312,8 +432,8 @@ export default function SubmissionsClient({
                     <DiscordCooldownTimer
                       joinedAt={effectiveVoteCooldownJoinedAt}
                       onComplete={() => {
-                        setLocalVoteBlockedReason(null);
-                        setLocalVoteCooldownJoinedAt(null);
+                        eligibilityLoadedRef.current = false;
+                        void loadVoteEligibility();
                       }}
                       className="font-mono text-2xl text-white"
                     />
@@ -339,7 +459,25 @@ export default function SubmissionsClient({
                 {votingEnabled &&
                   active.discord_user_id !== discordUserId &&
                   voteBlockedMessage && (
-                    effectiveVoteBlockedReason === "not_in_discord" ? (
+                    effectiveShowDiscordSyncDelayNotice ? (
+                      <div className="max-w-sm text-center text-xs text-orange-200">
+                        <DiscordSyncDelayNotice />
+                        {effectiveVoteBlockedReason ===
+                        "not_in_discord" ? (
+                          <a
+                            href={DISCORD_INVITE_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => setWaitingForDiscordJoin(true)}
+                            className="mt-3 inline-flex rounded bg-orange-500 px-4 py-2 text-white transition hover:bg-orange-600"
+                          >
+                            {waitingForDiscordJoin
+                              ? "Refresh after joining..."
+                              : "Join Discord to Vote"}
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : effectiveVoteBlockedReason === "not_in_discord" ? (
                       <a
                         href={DISCORD_INVITE_URL}
                         target="_blank"
@@ -353,12 +491,17 @@ export default function SubmissionsClient({
                       </a>
                     ) : effectiveVoteBlockedReason ===
                       "not_authenticated" ? (
-                      <a
-                        href="/api/auth/discord/login?state=/submissions"
-                        className="rounded bg-orange-500 px-4 py-2 text-white transition hover:bg-orange-600"
-                      >
-                        Sign in to Vote
-                      </a>
+                      <div className="max-w-56 text-center">
+                        <a
+                          href={`/api/auth/discord/login?state=${encodeURIComponent(`/submissions?submission=${active.id}`)}`}
+                          className="inline-flex rounded bg-orange-500 px-4 py-2 text-white transition hover:bg-orange-600"
+                        >
+                          Login with Discord to vote
+                        </a>
+                        <p className="mt-2 text-[10px] text-white/55">
+                          Voting requires 10 minutes of Discord membership.
+                        </p>
+                      </div>
                     ) : (
                       <span className="opacity-70 text-red-400">
                         {voteBlockedMessage}
@@ -383,10 +526,10 @@ export default function SubmissionsClient({
                     <button
                       onClick={() => vote(active.id)}
                       disabled={
-                        effectiveVoteBlockedReason === "joined_too_recently"
+                        effectiveVoteBlockedReason === "join_wait"
                       }
                       className={`rounded px-4 py-2 transition ${
-                        effectiveVoteBlockedReason === "joined_too_recently"
+                        effectiveVoteBlockedReason === "join_wait"
                           ? "cursor-not-allowed bg-orange-500/35 text-white/45"
                           : "cursor-pointer bg-orange-500 hover:bg-orange-600"
                       }`}
