@@ -106,7 +106,7 @@ test("upload and vote UX expose every non-eligible state", async () => {
   ]);
 
   assert.match(uploadClient, /Login with Discord to upload/);
-  assert.match(uploadClient, /Join Discord to participate/);
+  assert.match(uploadClient, /Join Discord to upload/);
   assert.match(uploadClient, /temporarily verifying your Discord membership/);
   assert.match(uploadClient, /DiscordCooldownTimer/);
   assert.match(submissionsClient, /Login with Discord to vote/);

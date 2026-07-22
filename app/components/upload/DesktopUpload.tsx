@@ -24,6 +24,10 @@ import {
 type PayoutChoice = "keep" | "donate" | "split";
 type SubmitState = "idle" | "partial" | "ready";
 
+const NOT_IN_DISCORD_POLL_MS = 12_000;
+const MEMBERSHIP_PENDING_POLL_MS = 25_000;
+const CONFIRMATION_RETRY_DELAYS_MS = [2_000, 5_000, 10_000] as const;
+
 const CHARITY_OPTIONS = [
   { value: "Animal Haven", label: "Animal Haven" },
   { value: "Animal Rescue Corps, Inc.", label: "Animal Rescue Corps, Inc." },
@@ -62,6 +66,9 @@ export default function DesktopUpload({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadAttemptKeyRef = useRef<string | null>(null);
+  const lastEligibilityRefreshAtRef = useRef(0);
+  const participationAtCooldownCompletionRef =
+    useRef<ParticipationAccessState | null>(null);
   const [uploadDone, setUploadDone] = useState(forceSuccessState);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -72,6 +79,8 @@ export default function DesktopUpload({
   const [customCharity, setCustomCharity] = useState("");
   const [successMode, setSuccessMode] = useState<"success" | "already">("success");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [completedCooldownKey, setCompletedCooldownKey] =
+    useState<string | null>(null);
   const [rulesStatus, setRulesStatus] = useState<
   "unknown" | "checking" | "needsAccept" | "accepted"
 >("unknown");
@@ -88,9 +97,171 @@ useEffect(() => {
     participationState.status === "eligible" ||
     participationState.status === "join_wait";
   const canSubmit = participationState.status === "eligible";
+  const cooldownKey =
+    participationState.status === "join_wait"
+      ? participationState.joinedAt ?? "unknown-join"
+      : null;
+  const cooldownFinishedLocally =
+    cooldownKey !== null && completedCooldownKey === cooldownKey;
+  const firstConfirmationResponseObserved =
+    cooldownFinishedLocally &&
+    participationAtCooldownCompletionRef.current !== participationState;
   const refreshEligibility = useCallback(() => {
+    lastEligibilityRefreshAtRef.current = Date.now();
     router.refresh();
   }, [router]);
+  const handleCooldownComplete = useCallback(() => {
+    participationAtCooldownCompletionRef.current = participationState;
+    setCompletedCooldownKey(cooldownKey);
+    if (document.visibilityState === "visible") {
+      refreshEligibility();
+    }
+  }, [cooldownKey, participationState, refreshEligibility]);
+
+  useEffect(() => {
+    const isHealthyNotInDiscord =
+      participationState.status === "not_in_discord" &&
+      !showDiscordSyncDelayNotice;
+    const pollIntervalMs = isHealthyNotInDiscord
+      ? NOT_IN_DISCORD_POLL_MS
+      : participationState.status === "membership_pending" ||
+          (participationState.status === "not_in_discord" &&
+            showDiscordSyncDelayNotice)
+        ? MEMBERSHIP_PENDING_POLL_MS
+        : null;
+
+    if (pollIntervalMs === null) return;
+
+    let intervalId: number | null = null;
+
+    const stopPolling = () => {
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const startPolling = () => {
+      stopPolling();
+      if (document.visibilityState !== "visible") return;
+      intervalId = window.setInterval(
+        refreshEligibility,
+        pollIntervalMs
+      );
+    };
+
+    const refreshOnReturn = () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastEligibilityRefreshAtRef.current < 1000) return;
+      refreshEligibility();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshOnReturn();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    const handleFocus = () => {
+      refreshOnReturn();
+    };
+
+    startPolling();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    if (isHealthyNotInDiscord) {
+      window.addEventListener("focus", handleFocus);
+    }
+
+    return () => {
+      stopPolling();
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+      if (isHealthyNotInDiscord) {
+        window.removeEventListener("focus", handleFocus);
+      }
+    };
+  }, [
+    participationState.status,
+    refreshEligibility,
+    showDiscordSyncDelayNotice,
+  ]);
+
+  useEffect(() => {
+    if (
+      participationState.status !== "join_wait" ||
+      !cooldownFinishedLocally
+    ) {
+      return;
+    }
+
+    if (!firstConfirmationResponseObserved) {
+      const refreshWhenVisible = () => {
+        if (document.visibilityState === "visible") {
+          refreshEligibility();
+        }
+      };
+
+      document.addEventListener("visibilitychange", refreshWhenVisible);
+      return () => {
+        document.removeEventListener(
+          "visibilitychange",
+          refreshWhenVisible
+        );
+      };
+    }
+
+    let retryTimeoutIds: number[] = [];
+
+    const clearRetries = () => {
+      retryTimeoutIds.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      retryTimeoutIds = [];
+    };
+
+    const scheduleRetries = () => {
+      clearRetries();
+      if (document.visibilityState !== "visible") return;
+
+      retryTimeoutIds = CONFIRMATION_RETRY_DELAYS_MS.map((delayMs) =>
+        window.setTimeout(() => {
+          if (document.visibilityState === "visible") {
+            refreshEligibility();
+          }
+        }, delayMs)
+      );
+    };
+
+    const handleVisibilityChange = () => {
+      clearRetries();
+      if (document.visibilityState === "visible") {
+        refreshEligibility();
+        scheduleRetries();
+      }
+    };
+
+    scheduleRetries();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearRetries();
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, [
+    cooldownFinishedLocally,
+    firstConfirmationResponseObserved,
+    participationState.status,
+    refreshEligibility,
+  ]);
+
   const walletDisabled = payoutChoice === "donate";
   const walletRequired =
     payoutChoice === "keep" || payoutChoice === "split";
@@ -294,7 +465,10 @@ if (!file) {
     }
   };
 
-  if (!canUseForm) {
+  if (
+    participationState.status === "anonymous" ||
+    participationState.status === "restricted"
+  ) {
     return (
       <div className="px-6 py-28">
         <div className="mx-auto max-w-xl rounded-[2rem] bg-yellow-star px-8 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.16)]">
@@ -310,37 +484,8 @@ if (!file) {
                 To upload or vote, you must be a member of our Discord for at least 10 minutes. This helps us reduce spam and abuse.
               </p>
             </>
-          ) : participationState.status === "not_in_discord" ? (
-            <>
-              {showDiscordSyncDelayNotice ? (
-                <DiscordSyncDelayNotice className="mb-5 text-sm text-[var(--orange-main)]" />
-              ) : null}
-              <a
-                href={DISCORD_INVITE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex rounded-xl bg-black px-6 py-3 text-yellow-300"
-              >
-                Join Discord to participate
-              </a>
-              <p className="mt-5 text-sm text-[var(--orange-main)]/80">
-                After joining, you need 10 minutes of actual Discord membership before uploading or voting.
-              </p>
-            </>
-          ) : participationState.status === "membership_pending" ? (
-            showDiscordSyncDelayNotice ? (
-              <DiscordSyncDelayNotice className="text-sm text-[var(--orange-main)]" />
-            ) : (
-              <p className="text-[var(--orange-main)]">
-                We&apos;re temporarily verifying your Discord membership
-              </p>
-            )
-          ) : participationState.status === "restricted" ? (
-            <p className="text-red-700">Account restricted</p>
           ) : (
-            <p className="text-[var(--orange-main)]">
-              Temporarily unable to verify membership
-            </p>
+            <p className="text-red-700">Account restricted</p>
           )}
         </div>
       </div>
@@ -352,15 +497,74 @@ if (!file) {
     <div className="py-24">
       <div className="max-w-6xl mx-auto px-6 flex flex-col gap-14">
 
-        {participationState.status === "join_wait" ? (
-          <div className="mx-auto flex max-w-xl flex-col items-center gap-2 rounded-2xl bg-black/75 px-6 py-4 text-center text-white">
-            <span>You can prepare your submission while the join wait finishes.</span>
-            <DiscordCooldownTimer
-              joinedAt={participationState.joinedAt}
-              onComplete={refreshEligibility}
-              className="font-mono text-2xl text-orange-400"
-            />
-          </div>
+        {participationState.status !== "eligible" ? (
+          <section
+            aria-live="polite"
+            className="mx-auto flex w-full max-w-xl flex-col items-center gap-4 rounded-[2rem] bg-yellow-star px-8 py-8 text-center shadow-[0_18px_60px_rgba(0,0,0,0.16)]"
+          >
+            {showDiscordSyncDelayNotice &&
+            (participationState.status === "not_in_discord" ||
+              participationState.status === "membership_pending") ? (
+              <>
+                <DiscordSyncDelayNotice className="text-sm text-[var(--orange-main)]" />
+                <a
+                  href={DISCORD_INVITE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex rounded-xl bg-black px-6 py-3 text-yellow-300"
+                >
+                  Open Discord
+                </a>
+              </>
+            ) : participationState.status === "not_in_discord" ? (
+              <>
+                <h2 className="font-[Permanent_Marker] text-3xl text-[var(--orange-dark)]">
+                  Join Discord to upload
+                </h2>
+                <p className="text-sm text-[var(--orange-main)]/80">
+                  You need to be a member of our Discord before participating.
+                  After joining, a 10-minute waiting period applies.
+                </p>
+                <a
+                  href={DISCORD_INVITE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex rounded-xl bg-black px-6 py-3 text-yellow-300"
+                >
+                  Join Discord
+                </a>
+              </>
+            ) : participationState.status === "join_wait" ? (
+              cooldownFinishedLocally ? (
+                <p className="font-semibold text-[var(--orange-main)]">
+                  Confirming your Discord membership&hellip;
+                </p>
+              ) : (
+                <>
+                  <h2 className="font-[Permanent_Marker] text-3xl text-[var(--orange-dark)]">
+                    You’re almost ready
+                  </h2>
+                  <p className="text-sm text-[var(--orange-main)]/80">
+                    You can prepare your submission now. The upload button will
+                    unlock when the countdown ends.
+                  </p>
+                  <DiscordCooldownTimer
+                    joinedAt={participationState.joinedAt}
+                    onComplete={handleCooldownComplete}
+                    className="font-mono text-2xl text-[var(--orange-dark)]"
+                  />
+                </>
+              )
+            ) : participationState.status === "membership_pending" ? (
+              <p className="text-[var(--orange-main)]">
+                We&apos;re temporarily verifying your Discord membership
+              </p>
+            ) : (
+              <p className="text-[var(--orange-main)]">
+                Temporarily unable to verify membership
+              </p>
+            )}
+          </section>
         ) : null}
 
         
@@ -400,7 +604,10 @@ if (!file) {
 
 
             
-            <div className="mx-auto w-full max-w-xl bg-yellow-star rounded-3xl p-8 flex flex-col gap-5">
+            <fieldset
+              disabled={!hasActiveCycle || !canUseForm}
+              className="mx-auto flex w-full max-w-xl flex-col gap-5 rounded-3xl bg-yellow-star p-8 disabled:opacity-60"
+            >
               <div className="flex flex-col items-center gap-3 text-center">
                 <div className="font-[Permanent_Marker] text-[var(--orange-dark)]">
                 {socialSettings.socialCount === 0 ? (
@@ -550,7 +757,7 @@ if (!file) {
 </div>
                 </>
               )}
-            </div>
+            </fieldset>
 
             
 {canSubmit && submitState === "ready" && rulesStatus === "accepted" && (
@@ -579,6 +786,12 @@ if (!file) {
         {!uploadDone && hasActiveCycle ? (
           <div
   onClick={handleSubmit}
+  role="button"
+  aria-disabled={
+    !canSubmit ||
+    submitState !== "ready" ||
+    rulesStatus !== "accepted"
+  }
   className={`mx-auto ${
     hasActiveCycle &&
     canSubmit &&
