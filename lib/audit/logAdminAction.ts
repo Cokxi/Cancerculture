@@ -1,12 +1,14 @@
 import { supabaseAdmin } from "@/lib/db/admin";
 
+type AdminActionMetadataValue = string | number | boolean | null;
+
 type LogParams = {
   actorType: "admin" | "mod" | "system";
   actorId: string;
   action: string;
   targetType?: string;
   targetId?: string | number;
-  meta?: Record<string, any>;
+  meta?: Record<string, AdminActionMetadataValue>;
 };
 
 export async function logAdminAction(params: LogParams) {

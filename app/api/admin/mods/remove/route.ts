@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { AuthError } from "@/lib/auth/AuthError";
 import { requireAdmin } from "@/lib/auth/guards";
 
 export async function POST(req: Request) {
@@ -38,9 +39,12 @@ export async function POST(req: Request) {
     return NextResponse.redirect(
       new URL("/admin/mods", req.url)
     );
-  } catch (error: any) {
+  } catch (error) {
     
-    if (error?.status === 401 || error?.status === 403) {
+    if (
+      error instanceof AuthError &&
+      (error.status === 401 || error.status === 403)
+    ) {
       return NextResponse.json(
         { error: error.message },
         { status: error.status }

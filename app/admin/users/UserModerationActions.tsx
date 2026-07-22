@@ -13,6 +13,15 @@ type Props = {
   role: "admin" | "mod";
 };
 
+type FlagReason =
+  | "trolling_low_effort"
+  | "suspicious_behavior"
+  | "other";
+
+type ModerationActionResult = {
+  success: boolean;
+};
+
 const baseButton: React.CSSProperties = {
   padding: "4px 10px",
   fontSize: 12,
@@ -41,9 +50,9 @@ export default function UserModerationActions({
   const [showFlag, setShowFlag] = useState(false);
   const [showUnflag, setShowUnflag] = useState(false);
 
-  const [flagReason, setFlagReason] = useState<
-    "trolling_low_effort" | "suspicious_behavior" | "other"
-  >("trolling_low_effort");
+  const [flagReason, setFlagReason] = useState<FlagReason>(
+    "trolling_low_effort"
+  );
 
   const [flagNote, setFlagNote] = useState("");
   const [unflagReason, setUnflagReason] = useState("");
@@ -51,7 +60,9 @@ export default function UserModerationActions({
   const [showBan, setShowBan] = useState(false);
   const [banReason, setBanReason] = useState("");
 
-  async function run(action: () => Promise<any>) {
+  async function run(
+    action: () => Promise<ModerationActionResult>
+  ) {
     await action();
     location.reload();
   }
@@ -99,9 +110,17 @@ export default function UserModerationActions({
                 <label>Reason</label>
                 <select
                   value={flagReason}
-                  onChange={(e) =>
-                    setFlagReason(e.target.value as any)
-                  }
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    if (
+                      value === "trolling_low_effort" ||
+                      value === "suspicious_behavior" ||
+                      value === "other"
+                    ) {
+                      setFlagReason(value);
+                    }
+                  }}
                   style={{
                     width: "100%",
                     marginTop: 4,

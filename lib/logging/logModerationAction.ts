@@ -1,5 +1,7 @@
 import { supabaseAdmin } from "@/lib/db/admin";
 
+type ModerationEvidenceValue = string | number | boolean | null;
+
 export async function logModerationAction({
   actorRole,
   actorId,
@@ -27,7 +29,7 @@ export async function logModerationAction({
 
   reasonCode?: string | null;
   reasonText?: string | null;
-  evidence?: Record<string, any>;
+  evidence?: Record<string, ModerationEvidenceValue>;
   cycleId?: number | null;
 }) {
   try {

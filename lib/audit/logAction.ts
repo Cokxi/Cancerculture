@@ -1,5 +1,7 @@
 import { supabase } from "@/lib/db/client";
 
+type AuditMetadataValue = string | number | boolean | null;
+
 export async function logAction({
   actor,
   action,
@@ -11,7 +13,7 @@ export async function logAction({
   action: string;
   targetType: string;
   targetId: number | null;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, AuditMetadataValue>;
 }) {
   const { error } = await supabase.from("audit_logs").insert({
     actor_user_id: actor.id,

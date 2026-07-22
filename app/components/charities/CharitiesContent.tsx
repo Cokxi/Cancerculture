@@ -532,7 +532,7 @@ export default function CharitiesContent() {
         <div className="bg-yellow-star rounded-3xl p-6 flex flex-col items-center gap-8">
           
           <h2 className="font-['Permanent_Marker'] text-2xl text-[var(--orange-main)] text-center">
-            St. Jude Children's Research Hospital
+            St. Jude Children&apos;s Research Hospital
           </h2>
         
           <div className="flex gap-6 items-center">

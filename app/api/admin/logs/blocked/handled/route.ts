@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 
@@ -35,10 +36,13 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Forbidden";
+    const status = getAuthErrorStatus(err) ?? 403;
+
     return NextResponse.json(
-      { error: err.message ?? "Forbidden" },
-      { status: err.status ?? 403 }
+      { error: message },
+      { status }
     );
   }
 }

@@ -25,9 +25,11 @@ export async function GET() {
     return NextResponse.json({
       users: data ?? [],
     });
-  } catch (err: any) {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unauthorized";
+
     return NextResponse.json(
-      { error: err.message ?? "Unauthorized" },
+      { error: message },
       { status: 403 }
     );
   }
