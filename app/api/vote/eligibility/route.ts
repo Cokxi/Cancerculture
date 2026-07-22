@@ -34,9 +34,6 @@ export async function GET() {
         discordBanned: participation.discordBanned,
         sessionValid: true,
         dependencyUnavailable: participation.dependencyUnavailable,
-        usedDegradedGrace:
-          participationResult.discordSyncParticipationGrace
-            ?.usedDegradedGrace === true,
       });
     const response = NextResponse.json({
       participation,

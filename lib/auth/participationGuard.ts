@@ -2,13 +2,7 @@ import "server-only";
 
 import { AuthError } from "@/lib/auth/AuthError";
 import { requireSession } from "@/lib/auth/requireSession";
-import { evaluateDiscordSyncHealth } from "@/lib/discord/discordSyncHealth";
-import { readDiscordSyncHealth } from "@/lib/discord/readDiscordSyncHealth";
 import { getDiscordMembershipEligibility } from "@/lib/eligibility/discordMembership";
-import {
-  decideDiscordSyncParticipationGrace,
-  type DiscordSyncParticipationGraceDecision,
-} from "@/lib/eligibility/discordSyncParticipationGrace";
 import { createParticipationAccessState } from "@/lib/eligibility/participation";
 
 function createAccess(
@@ -31,106 +25,11 @@ export async function getParticipationAccess() {
   const membership = await getDiscordMembershipEligibility(
     session.discord_user_id
   );
-  const access = createAccess(membership);
-
-  if (
-    access.participationEligible ||
-    membership.reason !== "membership_pending" ||
-    !membership.isInDiscord
-  ) {
-    return {
-      access,
-      membership,
-      session,
-      discordSyncParticipationGrace: null,
-    };
-  }
-
-  const now = new Date();
-  let healthRow: Awaited<ReturnType<typeof readDiscordSyncHealth>> = null;
-
-  try {
-    healthRow = await readDiscordSyncHealth();
-  } catch {
-    healthRow = null;
-  }
-
-  if (!healthRow) {
-    return {
-      access,
-      membership,
-      session,
-      discordSyncParticipationGrace: null,
-    };
-  }
-
-  let graceDecision: DiscordSyncParticipationGraceDecision;
-
-  try {
-    const health = evaluateDiscordSyncHealth({
-      now,
-      lastHeartbeatAt: healthRow.last_heartbeat_at,
-      lastFullReconciliationSucceededAt:
-        healthRow.last_full_reconciliation_succeeded_at,
-      lastFailureAt: healthRow.last_failure_at,
-    });
-
-    if (health.reasons.some((reason) => reason.endsWith("_invalid"))) {
-      return {
-        access,
-        membership,
-        session,
-        discordSyncParticipationGrace: null,
-      };
-    }
-
-    graceDecision = decideDiscordSyncParticipationGrace({
-      now,
-      syncHealthStatus: health.status,
-      existingDecision: {
-        allowed: access.participationEligible,
-        reason: membership.reason,
-      },
-      isInDiscord: membership.isInDiscord,
-      membershipObservedAt: membership.membershipObservedAt,
-      joinedAt: membership.joinedAt,
-      websiteBanned: access.websiteBanned,
-      discordBanned: membership.isDiscordBanned,
-      sessionStatus: "valid",
-      dependencyUnavailable: membership.dependencyUnavailable,
-    });
-  } catch {
-    return {
-      access,
-      membership,
-      session,
-      discordSyncParticipationGrace: null,
-    };
-  }
-
-  if (!graceDecision.allowed) {
-    return {
-      access,
-      membership,
-      session,
-      discordSyncParticipationGrace: graceDecision,
-    };
-  }
-
-  const effectiveMembership = {
-    ...membership,
-    isEligible: true,
-    membershipKnown: true,
-    joinedTooRecently: false,
-    retryAfterMs: 0,
-    reason: null,
-  };
 
   return {
-    access: createAccess(effectiveMembership),
-    membership: effectiveMembership,
+    access: createAccess(membership),
+    membership,
     session,
-    discordSyncParticipationGrace: graceDecision,
   };
 }
 

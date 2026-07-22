@@ -91,7 +91,6 @@ test.beforeEach(() => {
       discord_user_id: "discord-user-1",
       session_id: "session-1",
     },
-    discordSyncParticipationGrace: null,
   };
   state.voteEligibility = {
     isBanned: false,
@@ -127,7 +126,6 @@ test("Vote uses the central Participation result and display decision", async ()
       discordBanned: false,
       sessionValid: true,
       dependencyUnavailable: false,
-      usedDegradedGrace: false,
     },
   ]);
 });
@@ -143,7 +141,7 @@ test("the Vote response exposes only the display Boolean, not Health internals",
   assert.match(serialized, /"showDiscordSyncDelayNotice":true/);
 });
 
-test("granted Grace remains eligible and produces no notice", async () => {
+test("eligible membership produces no notice", async () => {
   state.notice = false;
   state.participationResult = {
     ...state.participationResult,
@@ -157,12 +155,6 @@ test("granted Grace remains eligible and produces no notice", async () => {
       isEligible: true,
       reason: null,
     }),
-    discordSyncParticipationGrace: {
-      allowed: true,
-      mode: "degraded_grace",
-      reason: "confirmed_member_sync_stale",
-      usedDegradedGrace: true,
-    },
   };
   state.voteEligibility = {
     ...state.voteEligibility,
@@ -174,7 +166,15 @@ test("granted Grace remains eligible and produces no notice", async () => {
 
   assert.equal(body.participation.status, "eligible");
   assert.equal(body.showDiscordSyncDelayNotice, false);
-  assert.equal(state.noticeContexts[0].usedDegradedGrace, true);
+  assert.deepEqual(Object.keys(state.noticeContexts[0]).sort(), [
+    "authenticated",
+    "dependencyUnavailable",
+    "discordBanned",
+    "membershipReason",
+    "participationEligible",
+    "sessionValid",
+    "websiteBanned",
+  ]);
 });
 
 test("Upload and Vote wire the same central server and display helpers", async () => {

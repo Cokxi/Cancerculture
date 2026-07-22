@@ -74,9 +74,6 @@ export default async function UploadPage() {
         sessionValid: true,
         dependencyUnavailable:
           participationState.dependencyUnavailable,
-        usedDegradedGrace:
-          participationResult.discordSyncParticipationGrace
-            ?.usedDegradedGrace === true,
       });
     } catch (error) {
       const authStatus = getAuthErrorStatus(error);

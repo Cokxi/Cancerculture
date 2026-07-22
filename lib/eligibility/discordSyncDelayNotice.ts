@@ -16,7 +16,6 @@ export type DiscordSyncDelayNoticeContext = {
   discordBanned: boolean;
   sessionValid: boolean;
   dependencyUnavailable: boolean;
-  usedDegradedGrace: boolean;
 };
 
 export type DiscordSyncDelayNoticeInput = DiscordSyncDelayNoticeContext & {
@@ -34,7 +33,6 @@ export function isDiscordSyncDelayNoticeCandidate(
     input.authenticated &&
     input.sessionValid &&
     !input.participationEligible &&
-    !input.usedDegradedGrace &&
     !input.websiteBanned &&
     !input.discordBanned &&
     !input.dependencyUnavailable &&

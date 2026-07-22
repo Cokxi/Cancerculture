@@ -41,7 +41,6 @@ const baseContext = (overrides = {}) => ({
   discordBanned: false,
   sessionValid: true,
   dependencyUnavailable: false,
-  usedDegradedGrace: false,
   ...overrides,
 });
 
@@ -99,13 +98,9 @@ test("anonymous users never receive the notice", () => {
   assert.equal(decide({ authenticated: false }).showDiscordSyncDelayNotice, false);
 });
 
-test("normally eligible and degraded-grace users never receive the notice", () => {
+test("normally eligible users never receive the notice", () => {
   assert.equal(
     decide({ participationEligible: true }).showDiscordSyncDelayNotice,
-    false
-  );
-  assert.equal(
-    decide({ usedDegradedGrace: true }).showDiscordSyncDelayNotice,
     false
   );
 });
@@ -181,7 +176,6 @@ test("the server helper reads Health only for display candidates", async () => {
   const nonCandidates = [
     baseContext({ authenticated: false }),
     baseContext({ participationEligible: true }),
-    baseContext({ usedDegradedGrace: true }),
     baseContext({ membershipReason: "joined_too_recently" }),
     baseContext({ websiteBanned: true }),
     baseContext({ discordBanned: true }),
