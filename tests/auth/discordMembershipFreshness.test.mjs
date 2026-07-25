@@ -73,6 +73,18 @@ test("the join cooldown changes eligibility exactly at ten minutes", () => {
   assert.equal(getDiscordMembershipCooldown("not-a-date", now), null);
 });
 
+test("an offline join observed after four minutes retains six minutes of cooldown", () => {
+  const now = Date.parse("2026-07-17T12:00:00.000Z");
+
+  assert.deepEqual(
+    getDiscordMembershipCooldown(
+      new Date(now - 4 * 60 * 1000).toISOString(),
+      now
+    ),
+    { joinedTooRecently: true, retryAfterMs: 6 * 60 * 1000 }
+  );
+});
+
 test("eligibility checks Freshness before applying the join cooldown and refreshes when it ends", async () => {
   const [membership, submissionsClient] = await Promise.all([
     readRepoFile("lib/eligibility/discordMembership.ts"),

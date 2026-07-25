@@ -13,11 +13,25 @@ import { supabaseAdmin } from "@/lib/db/admin";
 type JsonObject = Record<string, unknown>;
 
 const LIVE_EVENT_RPCS = {
-  member_joined: "apply_discord_member_join",
+  member_joined: "apply_discord_member_join_v2",
   member_removed: "apply_discord_member_remove",
   ban_added: "apply_discord_ban",
   ban_removed: "apply_discord_unban",
 } as const;
+
+type ParsedRecord = {
+  discordUserId: string;
+  discordUsername: string;
+  joinedAt?: string;
+  membershipObservedAt?: string;
+};
+
+type OptionalTimestamp =
+  | { valid: true; value: string | null }
+  | { valid: false; value: null };
+
+const ISO_TIMESTAMP_PATTERN =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 const EVENT_TYPES = new Set([
   ...Object.keys(LIVE_EVENT_RPCS),
@@ -84,12 +98,89 @@ function getObservedAt(payload: JsonObject) {
   return new Date(timestamp).toISOString();
 }
 
-function parseRecords(payload: JsonObject) {
+function getOptionalTimestamp(
+  payload: JsonObject,
+  key: string,
+  latestAllowedAt: string
+): OptionalTimestamp {
+  if (!(key in payload)) {
+    return { valid: true, value: null };
+  }
+
+  if (typeof payload[key] !== "string") {
+    return { valid: false, value: null };
+  }
+
+  const match = ISO_TIMESTAMP_PATTERN.exec(payload[key]);
+  if (!match) {
+    return { valid: false, value: null };
+  }
+
+  const [, yearValue, monthValue, dayValue, hourValue, minuteValue, secondValue] =
+    match;
+  const year = Number(yearValue);
+  const month = Number(monthValue);
+  const day = Number(dayValue);
+  const hour = Number(hourValue);
+  const minute = Number(minuteValue);
+  const second = Number(secondValue);
+  const isLeapYear =
+    year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [
+    31,
+    isLeapYear ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ];
+
+  if (
+    year < 1 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth[month - 1] ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return { valid: false, value: null };
+  }
+
+  const timestamp = Date.parse(payload[key]);
+  const latestAllowedTimestamp = Date.parse(latestAllowedAt);
+
+  if (
+    !Number.isFinite(timestamp) ||
+    !Number.isFinite(latestAllowedTimestamp) ||
+    timestamp > latestAllowedTimestamp
+  ) {
+    return { valid: false, value: null };
+  }
+
+  return {
+    valid: true,
+    value: new Date(timestamp).toISOString(),
+  };
+}
+
+function parseRecords(
+  payload: JsonObject,
+  eventType: "snapshot_members_chunk" | "snapshot_bans_chunk",
+  eventObservedAt: string
+) {
   if (!Array.isArray(payload.records) || payload.records.length > 250) {
     return null;
   }
 
-  const records = payload.records.map((record) => {
+  const records: Array<ParsedRecord | null> = payload.records.map((record) => {
     if (!isObject(record)) {
       return null;
     }
@@ -107,12 +198,55 @@ function parseRecords(payload: JsonObject) {
       100
     );
 
-    return discordUserId && discordUsername
-      ? { discordUserId, discordUsername }
-      : null;
+    if (!discordUserId || !discordUsername) {
+      return null;
+    }
+
+    const parsedRecord: ParsedRecord = {
+      discordUserId,
+      discordUsername,
+    };
+
+    if (eventType === "snapshot_members_chunk") {
+      const membershipObservedAt = getOptionalTimestamp(
+        record,
+        "membershipObservedAt",
+        eventObservedAt
+      );
+
+      if (!membershipObservedAt.valid) {
+        return null;
+      }
+
+      const joinedAt = membershipObservedAt.value
+        ? getOptionalTimestamp(
+            record,
+            "joinedAt",
+            membershipObservedAt.value
+          )
+        : "joinedAt" in record
+          ? { valid: false as const, value: null }
+          : { valid: true as const, value: null };
+
+      if (!joinedAt.valid) {
+        return null;
+      }
+
+      if (membershipObservedAt.value) {
+        parsedRecord.membershipObservedAt = membershipObservedAt.value;
+      }
+
+      if (joinedAt.value) {
+        parsedRecord.joinedAt = joinedAt.value;
+      }
+    }
+
+    return parsedRecord;
   });
 
-  return records.every(Boolean) ? records : null;
+  return records.every((record): record is ParsedRecord => record !== null)
+    ? records
+    : null;
 }
 
 function normalizeRpcResult(data: unknown) {
@@ -206,8 +340,16 @@ export async function POST(req: Request) {
       return response({ error: "INVALID_PAYLOAD" }, 400);
     }
 
-    rpcName =
-      LIVE_EVENT_RPCS[eventType as keyof typeof LIVE_EVENT_RPCS];
+    const joinedAt =
+      eventType === "member_joined"
+        ? getOptionalTimestamp(payload, "joinedAt", observedAt)
+        : { valid: true as const, value: null };
+
+    if (!joinedAt.valid) {
+      return response({ error: "INVALID_PAYLOAD" }, 400);
+    }
+
+    rpcName = LIVE_EVENT_RPCS[eventType as keyof typeof LIVE_EVENT_RPCS];
     rpcParameters = {
       p_event_id: auth.eventId,
       p_observed_at: observedAt,
@@ -215,6 +357,10 @@ export async function POST(req: Request) {
       p_discord_user_id: discordUserId,
       p_discord_username: discordUsername,
     };
+
+    if (eventType === "member_joined") {
+      rpcParameters.p_joined_at = joinedAt.value;
+    }
   } else if (eventType === "snapshot_started") {
     const snapshotId = getString(
       payload,
@@ -256,7 +402,7 @@ export async function POST(req: Request) {
       /^[0-9a-f-]{36}$/i,
       36
     );
-    const records = parseRecords(payload);
+    const records = parseRecords(payload, eventType, observedAt);
 
     if (!snapshotId || !records) {
       return response({ error: "INVALID_PAYLOAD" }, 400);

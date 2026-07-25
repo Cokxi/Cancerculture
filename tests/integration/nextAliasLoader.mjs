@@ -35,6 +35,10 @@ export async function resolve(specifier, context, nextResolve) {
     return nextResolve("next/server.js", context);
   }
 
+  if (specifier === "next/cache") {
+    return nextResolve("next/cache.js", context);
+  }
+
   if (specifier.startsWith("@/")) {
     const resolvedPath = resolveRepoAlias(specifier);
 
