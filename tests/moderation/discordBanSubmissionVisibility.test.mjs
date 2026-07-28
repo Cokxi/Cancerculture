@@ -32,27 +32,26 @@ test("public Submission and wall queries use fail-closed visibility filters", as
   const [
     submissionsPage,
     voteSubmissions,
-    famePage,
-    shamePage,
+    wallHelper,
     publicProfile,
     history,
   ] = await Promise.all([
-    source("app/submissions/page.tsx"),
     source("lib/vote/getVoteSubmissions.ts"),
-    source("app/wall/fame/page.tsx"),
-    source("app/wall/shame/page.tsx"),
+    source("lib/vote/getVoteSubmissions.ts"),
+    source("lib/walls/getPublicWallPage.ts"),
     source("lib/profile/getPublicUserProfileData.ts"),
     source("lib/cycles/getCycleHistoryData.ts"),
   ]);
 
-  assert.match(submissionsPage, /public_submissions_with_votes/);
-  assert.match(voteSubmissions, /public_submissions_with_votes/);
-
-  for (const wallPage of [famePage, shamePage]) {
-    assert.match(wallPage, /SUBMISSION_PUBLIC_VISIBILITY\.visible/);
-    assert.match(wallPage, /visibleSubmissionIds/);
-    assert.match(wallPage, /visibleWinners/);
-  }
+  assert.match(submissionsPage, /\.from\("submissions"\)/);
+  assert.match(voteSubmissions, /public_visibility_status", "visible"/);
+  assert.match(
+    voteSubmissions,
+    /is_disqualified\.is\.null,is_disqualified\.eq\.false/
+  );
+  assert.match(wallHelper, /SUBMISSION_PUBLIC_VISIBILITY\.visible/);
+  assert.match(wallHelper, /visibleSubmissions/);
+  assert.match(wallHelper, /visibleRows/);
 
   assert.match(publicProfile, /if \(visibilityRowsResult\.error\)/);
   assert.match(publicProfile, /if \(!visibility\)/);

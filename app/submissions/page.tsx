@@ -7,8 +7,10 @@ import {
   getLatestCycleState,
 } from "@/lib/cycles/currentCycle";
 import { processDueCycleTransitions } from "@/lib/cycles/phaseAutomation";
-import { supabaseServer } from "@/lib/db/server";
-import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import {
+  getVoteSubmissionById,
+  getVoteSubmissions,
+} from "@/lib/vote/getVoteSubmissions";
 
 export const dynamic = "force-dynamic";
 
@@ -87,27 +89,33 @@ export default async function SubmissionsPage({
     );
   }
 
-  const { data: submissions } = await supabaseServer
-    .from("public_submissions_with_votes")
-    .select("id, r2_key, vote_count, discord_user_id")
-    .eq("cycle_id", currentCycle.id)
-    .order("id", { ascending: true });
-
-  const submissionsWithUrls =
-    submissions?.map((s) => ({
-      ...s,
-      image_url: getPublicImageUrl(s.r2_key) ?? "",
-    })) ?? [];
-  const sponsoredMeta = await getCycleSponsoredMeta(
-    currentCycle.id
-  );
   const requestedSubmissionId = Number(
     resolvedSearchParams.submission
   );
+  const requestedId = Number.isSafeInteger(requestedSubmissionId)
+    ? requestedSubmissionId
+    : null;
+  const [initialPage, sponsoredMeta] = await Promise.all([
+    getVoteSubmissions({ cycleId: currentCycle.id }),
+    getCycleSponsoredMeta(currentCycle.id),
+  ]);
+  const initialActiveSubmission =
+    requestedId &&
+    !initialPage.items.some(
+      (submission) => submission.id === requestedId
+    )
+      ? await getVoteSubmissionById({
+          cycleId: currentCycle.id,
+          submissionId: requestedId,
+        })
+      : null;
+
   return (
     <PageWrapper>
       <SubmissionsClient
-        submissions={submissionsWithUrls}
+        cycleId={currentCycle.id}
+        initialPage={initialPage}
+        initialActiveSubmission={initialActiveSubmission}
         hasVoted={false}
         voteCount={0}
         votesPerUser={
@@ -125,9 +133,7 @@ export default async function SubmissionsPage({
         showDiscordSyncDelayNotice={false}
         sponsoredMeta={sponsoredMeta}
         initialSubmissionId={
-          Number.isInteger(requestedSubmissionId)
-            ? requestedSubmissionId
-            : null
+          requestedId
         }
       />
     </PageWrapper>

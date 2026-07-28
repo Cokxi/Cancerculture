@@ -6,23 +6,24 @@ import { useRouter } from "next/navigation";
 import DiscordCooldownTimer from "@/app/components/DiscordCooldownTimer";
 import DiscordSyncDelayNotice from "@/app/components/DiscordSyncDelayNotice";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
+import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
 import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
+import type { PublicPage } from "@/lib/pagination/publicPagination";
+import { usePublicPagination } from "@/lib/pagination/usePublicPagination";
 import {
   resolveVoteBlockedReason,
   type VoteBlockedReason,
 } from "@/lib/vote/voteEligibilityState";
+import type { VoteSubmission } from "@/lib/vote/publicVoteSubmission";
 
-type Submission = {
-  id: number;
-  image_url: string;
-  vote_count: number;
-  discord_user_id: string;
-};
+type Submission = VoteSubmission;
 
 export default function SubmissionsClient({
-  submissions,
+  cycleId,
+  initialActiveSubmission,
+  initialPage,
   hasVoted,
   voteCount,
   votesPerUser,
@@ -36,7 +37,9 @@ export default function SubmissionsClient({
   sponsoredMeta,
   initialSubmissionId,
 }: {
-  submissions: Submission[];
+  cycleId: number;
+  initialActiveSubmission: Submission | null;
+  initialPage: PublicPage<Submission>;
   hasVoted: boolean;
   voteCount: number;
   votesPerUser: number;
@@ -54,6 +57,41 @@ export default function SubmissionsClient({
   const [showOriginalSize, setShowOriginalSize] = useState(false);
   const lastTapRef = useRef(0);
   const eligibilityLoadedRef = useRef(false);
+  const getSubmissionKey = useCallback(
+    (submission: Submission) => submission.id,
+    []
+  );
+  const fetchPage = useCallback(
+    async (cursor: string) => {
+      const params = new URLSearchParams({
+        cycleId: String(cycleId),
+        cursor,
+      });
+      const response = await fetch(
+        `/api/vote/submissions?${params.toString()}`,
+        { cache: "no-store" }
+      );
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "LOAD_FAILED");
+      }
+
+      return data as PublicPage<Submission>;
+    },
+    [cycleId]
+  );
+  const {
+    error: paginationError,
+    hasMore,
+    isLoading,
+    items: submissions,
+    loadMore,
+  } = usePublicPagination({
+    fetchPage,
+    getKey: getSubmissionKey,
+    initialPage,
+  });
 
   function handleToggleSize() {
     setShowOriginalSize((prev) => !prev);
@@ -69,9 +107,9 @@ export default function SubmissionsClient({
 
   const [active, setActive] = useState<Submission | null>(() =>
     initialSubmissionId
-      ? submissions.find(
+      ? initialPage.items.find(
           (submission) => submission.id === initialSubmissionId
-        ) ?? null
+        ) ?? initialActiveSubmission
       : null
   );
   const [voted, setVoted] = useState(hasVoted);
@@ -88,7 +126,9 @@ export default function SubmissionsClient({
   const [waitingForDiscordJoin, setWaitingForDiscordJoin] =
     useState(false);
   const [localVotes, setLocalVotes] = useState(
-    Object.fromEntries(submissions.map((s) => [s.id, s.vote_count]))
+    Object.fromEntries(
+      initialPage.items.map((s) => [s.id, s.vote_count])
+    )
   );
   const effectiveVoteBlockedReason =
     resolveVoteBlockedReason(
@@ -314,7 +354,12 @@ export default function SubmissionsClient({
     );
     setLocalVotes((v) => ({
       ...v,
-      [submissionId]: v[submissionId] + 1,
+      [submissionId]:
+        (v[submissionId] ??
+          submissions.find(
+            (submission) => submission.id === submissionId
+          )?.vote_count ??
+          0) + 1,
     }));
     setVotedSubmissionIdSet((current) => {
       const next = new Set(current);
@@ -361,7 +406,7 @@ export default function SubmissionsClient({
               />
 
               <div className="absolute bottom-0 w-full bg-black/60 text-white text-sm p-2">
-                Votes: {localVotes[s.id]}
+                Votes: {localVotes[s.id] ?? s.vote_count}
                 {s.discord_user_id === discordUserId && (
                   <span className="ml-2 opacity-70">(you)</span>
                 )}
@@ -370,6 +415,13 @@ export default function SubmissionsClient({
           );
         })}
       </div>
+
+      <LoadMoreButton
+        error={paginationError}
+        hasMore={hasMore}
+        isLoading={isLoading}
+        onLoadMore={() => void loadMore()}
+      />
 
       {active && (
         <div
@@ -406,7 +458,8 @@ export default function SubmissionsClient({
 
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 p-4 text-white">
               <span>
-                Votes: {localVotes[active.id]}
+                Votes:{" "}
+                {localVotes[active.id] ?? active.vote_count}
                 {votingEnabled && votesPerUser > 1 ? (
                   <span className="ml-3 text-white/60">
                     Your votes: {usedVotes}/{votesPerUser}

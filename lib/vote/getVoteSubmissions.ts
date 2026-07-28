@@ -1,75 +1,147 @@
+import "server-only";
 import { supabaseAdmin } from "@/lib/db/admin";
+import {
+  PUBLIC_PAGINATION_CURSOR_VERSION,
+  PUBLIC_PAGINATION_SCOPES,
+  PUBLIC_SUBMISSION_PAGE_SIZE,
+  type PublicPage,
+} from "@/lib/pagination/publicPagination";
+import {
+  decodeServerPublicPaginationCursor,
+  encodeServerPublicPaginationCursor,
+} from "@/lib/pagination/publicPaginationCursor.server";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import type { VoteSubmission } from "./publicVoteSubmission";
 
-export const VOTE_SUBMISSIONS_PAGE_SIZE = 48;
-
-type VoteSubmissionRow = {
+type SubmissionRow = {
   id: number;
   r2_key: string | null;
-  vote_count: number;
   discord_user_id: string;
 };
 
-export type VoteSubmission = {
-  id: number;
-  image_url: string;
-  vote_count: number;
-  discord_user_id: string;
+type VoteRow = {
+  submission_id: number | null;
 };
+
+async function addVoteCounts(
+  cycleId: number,
+  rows: SubmissionRow[]
+): Promise<VoteSubmission[]> {
+  const submissionIds = rows.map((row) => row.id);
+  const voteCounts = new Map<number, number>();
+
+  if (submissionIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("votes")
+      .select("submission_id")
+      .eq("cycle_id", cycleId)
+      .in("submission_id", submissionIds);
+
+    if (error) {
+      throw new Error(`VOTE_COUNTS_QUERY_FAILED:${error.code}`);
+    }
+
+    for (const vote of (data ?? []) as VoteRow[]) {
+      if (vote.submission_id !== null) {
+        voteCounts.set(
+          vote.submission_id,
+          (voteCounts.get(vote.submission_id) ?? 0) + 1
+        );
+      }
+    }
+  }
+
+  return rows.map((submission) => ({
+    id: submission.id,
+    image_url:
+      getPublicImageUrl(submission.r2_key) ?? "",
+    vote_count: voteCounts.get(submission.id) ?? 0,
+    discord_user_id: submission.discord_user_id,
+  }));
+}
 
 export async function getVoteSubmissions({
+  cursor,
   cycleId,
-  limit = VOTE_SUBMISSIONS_PAGE_SIZE,
-  offset = 0,
 }: {
+  cursor?: string | null;
   cycleId: number;
-  limit?: number;
-  offset?: number;
-}): Promise<{
-  submissions: VoteSubmission[];
-  hasMore: boolean;
-  nextOffset: number;
-}> {
-  const pageSize = Math.max(1, Math.min(limit, 100));
-  const fetchSize = pageSize * 3;
+}): Promise<PublicPage<VoteSubmission>> {
+  const context = { cycleId };
+  const decodedCursor = cursor
+    ? decodeServerPublicPaginationCursor(
+        cursor,
+        PUBLIC_PAGINATION_SCOPES.submissions,
+        context
+      )
+    : null;
 
-  const { data, error } = await supabaseAdmin
-    .from("public_submissions_with_votes")
-    .select("id, r2_key, vote_count, discord_user_id")
+  let query = supabaseAdmin
+    .from("submissions")
+    .select("id, r2_key, discord_user_id")
     .eq("cycle_id", cycleId)
+    .eq("public_visibility_status", "visible")
+    .or("is_disqualified.is.null,is_disqualified.eq.false")
     .order("id", { ascending: true })
-    .range(offset, offset + fetchSize - 1);
+    .limit(PUBLIC_SUBMISSION_PAGE_SIZE + 1);
+
+  if (decodedCursor) {
+    query = query.gt("id", decodedCursor.values.id);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
-    console.error("[getVoteSubmissions]", error);
-    return {
-      submissions: [],
-      hasMore: false,
-      nextOffset: offset,
-    };
+    throw new Error(`SUBMISSIONS_QUERY_FAILED:${error.code}`);
   }
 
-  const rows = (data ?? []) as VoteSubmissionRow[];
-
-  if (rows.length === 0) {
-    return {
-      submissions: [],
-      hasMore: false,
-      nextOffset: offset,
-    };
-  }
-
-  const submissions = rows
-    .slice(0, pageSize)
-    .map((submission) => ({
-      ...submission,
-      image_url:
-        getPublicImageUrl(submission.r2_key) ?? "",
-    }));
+  const rows = (data ?? []) as SubmissionRow[];
+  const hasMore = rows.length > PUBLIC_SUBMISSION_PAGE_SIZE;
+  const pageRows = rows.slice(0, PUBLIC_SUBMISSION_PAGE_SIZE);
+  const items = await addVoteCounts(cycleId, pageRows);
+  const lastItem = items.at(-1);
 
   return {
-    submissions,
-    hasMore: rows.length === fetchSize,
-    nextOffset: offset + rows.length,
+    items,
+    hasMore,
+    nextCursor:
+      hasMore && lastItem
+        ? encodeServerPublicPaginationCursor({
+            version: PUBLIC_PAGINATION_CURSOR_VERSION,
+            scope: PUBLIC_PAGINATION_SCOPES.submissions,
+            context,
+            values: { id: lastItem.id },
+          })
+        : null,
   };
+}
+
+export async function getVoteSubmissionById({
+  cycleId,
+  submissionId,
+}: {
+  cycleId: number;
+  submissionId: number;
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("submissions")
+    .select("id, r2_key, discord_user_id")
+    .eq("cycle_id", cycleId)
+    .eq("id", submissionId)
+    .eq("public_visibility_status", "visible")
+    .or("is_disqualified.is.null,is_disqualified.eq.false")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`SUBMISSION_QUERY_FAILED:${error.code}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return (await addVoteCounts(
+    cycleId,
+    [data as SubmissionRow]
+  ))[0] ?? null;
 }

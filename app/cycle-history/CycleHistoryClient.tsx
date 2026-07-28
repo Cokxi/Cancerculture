@@ -1,16 +1,21 @@
 "use client";
 
 import type { KeyboardEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
 import SubmissionSocialLinks from "@/app/components/profile/SubmissionSocialLinks";
 import ProfileLinkButton from "@/app/components/profile/ProfileLinkButton";
+import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
 import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 import type {
-  CycleHistoryCycle,
-  CycleHistoryCycleSummary,
+  CycleHistoryCycleSummaryItem,
   CycleHistorySubmission,
-} from "@/lib/cycles/getCycleHistoryData";
+} from "@/lib/cycles/cycleHistoryTypes";
 import {
   isSubmissionRemovedFromPublic,
   isSubmissionUnderLegalReview,
@@ -19,6 +24,9 @@ import {
 } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
 import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
+import type { PublicPage } from "@/lib/pagination/publicPagination";
+import { mergePublicPageItems } from "@/lib/pagination/mergePublicPageItems";
+import { usePublicPagination } from "@/lib/pagination/usePublicPagination";
 
 const PUBLIC_VISIBILITY_REASONS = [
   "copyright_claim",
@@ -27,6 +35,11 @@ const PUBLIC_VISIBILITY_REASONS = [
   "legal_review",
   "pending_verification",
 ] as const;
+
+type CycleSubmissionPageState = PublicPage<CycleHistorySubmission> & {
+  error: string | null;
+  isLoading: boolean;
+};
 
 function formatPayoutChoice(
   submission: CycleHistorySubmission
@@ -686,29 +699,84 @@ function SubmissionModal({
 
 export default function CycleHistoryClient({
   canModerate,
-  cycles,
+  initialPage,
   isAdmin,
-  sponsoredMetaByCycleId,
 }: {
   canModerate: boolean;
-  cycles: CycleHistoryCycleSummary[];
+  initialPage: PublicPage<CycleHistoryCycleSummaryItem>;
   isAdmin: boolean;
-  sponsoredMetaByCycleId: Record<number, SponsoredCycleMeta | null>;
 }) {
+  const getCycleKey = useCallback(
+    (cycle: CycleHistoryCycleSummaryItem) => cycle.id,
+    []
+  );
+  const fetchCycles = useCallback(async (cursor: string) => {
+    const response = await fetch(
+      `/api/cycle-history?cursor=${encodeURIComponent(cursor)}`,
+      { cache: "no-store" }
+    );
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(data?.error ?? "LOAD_FAILED");
+    }
+
+    return data as PublicPage<CycleHistoryCycleSummaryItem>;
+  }, []);
+  const {
+    error: cyclesError,
+    hasMore: hasMoreCycles,
+    isLoading: isLoadingCycles,
+    items: cycles,
+    loadMore: loadMoreCycles,
+    loadUntil: loadCyclesUntil,
+  } = usePublicPagination({
+    fetchPage: fetchCycles,
+    getKey: getCycleKey,
+    initialPage,
+  });
   const [activeSubmission, setActiveSubmission] =
     useState<CycleHistorySubmission | null>(null);
   const [expandedCycleIds, setExpandedCycleIds] = useState<
     number[]
-  >(cycles.length > 0 ? [cycles[0].id] : []);
+  >(
+    initialPage.items.length > 0
+      ? [initialPage.items[0].id]
+      : []
+  );
   const [deepLinkedSubmissionId, setDeepLinkedSubmissionId] =
     useState<number | null>(null);
-  const [cycleDetails, setCycleDetails] = useState<
-    Record<number, CycleHistoryCycle>
+  const [cyclePages, setCyclePages] = useState<
+    Record<number, CycleSubmissionPageState>
   >({});
-  const [loadingCycleIds, setLoadingCycleIds] = useState<
-    number[]
-  >([]);
+  const loadingCycleIdsRef = useRef(new Set<number>());
   const hasScrolledToDeepLink = useRef(false);
+
+  const fetchCyclePage = useCallback(
+    async (cycleId: number, cursor?: string | null) => {
+      const params = new URLSearchParams();
+
+      if (cursor) {
+        params.set("cursor", cursor);
+      }
+
+      const suffix = params.size > 0 ? `?${params}` : "";
+      const response = await fetch(
+        `/api/cycle-history/${cycleId}${suffix}`,
+        { cache: "no-store" }
+      );
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ?? "Failed to load cycle submissions"
+        );
+      }
+
+      return data as PublicPage<CycleHistorySubmission>;
+    },
+    []
+  );
 
   useEffect(() => {
     if (cycles.length === 0) {
@@ -724,19 +792,33 @@ export default function CycleHistoryClient({
       ? Number(hashMatch[1])
       : null;
 
-    if (
-      Number.isInteger(targetCycleId) &&
-      cycles.some((cycle) => cycle.id === targetCycleId)
-    ) {
+    async function openInitialCycle() {
+      const targetCycle =
+        Number.isSafeInteger(targetCycleId) &&
+        targetCycleId > 0
+          ? cycles.find(
+              (cycle) => cycle.id === targetCycleId
+            ) ??
+            (await loadCyclesUntil(
+              (cycle) => cycle.id === targetCycleId
+            ))
+          : null;
+
+      if (!targetCycle) {
+        void loadCycle(cycles[0].id, null);
+        return;
+      }
+
       setExpandedCycleIds((previous) =>
         previous.includes(targetCycleId)
           ? previous
           : [...previous, targetCycleId]
       );
-      void loadCycle(targetCycleId);
-    } else {
-      void loadCycle(cycles[0].id);
+      setDeepLinkedSubmissionId(targetSubmissionId);
+      void loadCycle(targetCycleId, targetSubmissionId);
     }
+
+    void openInitialCycle();
 
     if (
       targetSubmissionId &&
@@ -744,7 +826,7 @@ export default function CycleHistoryClient({
     ) {
       setDeepLinkedSubmissionId(targetSubmissionId);
     }
-    // We only want the initial cycle to prefetch on first mount.
+    // Initial deep links may traverse bounded pages until their cycle is found.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -766,45 +848,132 @@ export default function CycleHistoryClient({
       behavior: "smooth",
       block: "center",
     });
-  }, [cycleDetails, deepLinkedSubmissionId]);
+  }, [cyclePages, deepLinkedSubmissionId]);
 
-  async function loadCycle(cycleId: number) {
-    if (cycleDetails[cycleId]) {
+  async function loadCycle(
+    cycleId: number,
+    targetSubmissionId: number | null = null
+  ) {
+    if (cyclePages[cycleId] && !cyclePages[cycleId].error) {
       return;
     }
 
-    if (loadingCycleIds.includes(cycleId)) {
+    if (loadingCycleIdsRef.current.has(cycleId)) {
       return;
     }
 
-    setLoadingCycleIds((previous) => [...previous, cycleId]);
+    loadingCycleIdsRef.current.add(cycleId);
+    setCyclePages((previous) => ({
+      ...previous,
+      [cycleId]: {
+        items: previous[cycleId]?.items ?? [],
+        nextCursor: previous[cycleId]?.nextCursor ?? null,
+        hasMore: previous[cycleId]?.hasMore ?? false,
+        error: null,
+        isLoading: true,
+      },
+    }));
 
     try {
-      const response = await fetch(
-        `/api/cycle-history/${cycleId}`
-      );
-      const data = await response.json().catch(() => null);
+      let page = await fetchCyclePage(cycleId);
+      let items = page.items;
 
-      if (!response.ok || !data?.cycle) {
-        throw new Error(
-          data?.error ?? "Failed to load cycle details"
+      while (
+        targetSubmissionId &&
+        !items.some(
+          (submission) =>
+            submission.id === targetSubmissionId
+        ) &&
+        page.hasMore &&
+        page.nextCursor
+      ) {
+        page = await fetchCyclePage(
+          cycleId,
+          page.nextCursor
+        );
+        items = mergePublicPageItems(
+          items,
+          page.items,
+          (submission) => submission.id
         );
       }
 
-      setCycleDetails((previous) => ({
+      setCyclePages((previous) => ({
         ...previous,
-        [cycleId]: data.cycle,
+        [cycleId]: {
+          ...page,
+          items,
+          error: null,
+          isLoading: false,
+        },
       }));
-    } catch (error) {
-      window.alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to load cycle details"
-      );
+    } catch {
+      setCyclePages((previous) => ({
+        ...previous,
+        [cycleId]: {
+          items: previous[cycleId]?.items ?? [],
+          nextCursor: previous[cycleId]?.nextCursor ?? null,
+          hasMore: previous[cycleId]?.hasMore ?? false,
+          error: "Could not load this cycle. Please try again.",
+          isLoading: false,
+        },
+      }));
     } finally {
-      setLoadingCycleIds((previous) =>
-        previous.filter((id) => id !== cycleId)
+      loadingCycleIdsRef.current.delete(cycleId);
+    }
+  }
+
+  async function loadMoreCycle(cycleId: number) {
+    const current = cyclePages[cycleId];
+
+    if (
+      !current?.hasMore ||
+      !current.nextCursor ||
+      loadingCycleIdsRef.current.has(cycleId)
+    ) {
+      return;
+    }
+
+    loadingCycleIdsRef.current.add(cycleId);
+    setCyclePages((previous) => ({
+      ...previous,
+      [cycleId]: {
+        ...previous[cycleId],
+        error: null,
+        isLoading: true,
+      },
+    }));
+
+    try {
+      const page = await fetchCyclePage(
+        cycleId,
+        current.nextCursor
       );
+
+      setCyclePages((previous) => ({
+        ...previous,
+        [cycleId]: {
+          ...page,
+          items: mergePublicPageItems(
+            previous[cycleId]?.items ?? [],
+            page.items,
+            (submission) => submission.id
+          ),
+          error: null,
+          isLoading: false,
+        },
+      }));
+    } catch {
+      setCyclePages((previous) => ({
+        ...previous,
+        [cycleId]: {
+          ...previous[cycleId],
+          error: "Could not load more. Please try again.",
+          isLoading: false,
+        },
+      }));
+    } finally {
+      loadingCycleIdsRef.current.delete(cycleId);
     }
   }
 
@@ -828,12 +997,11 @@ export default function CycleHistoryClient({
     <>
       <div className="space-y-6">
         {cycles.map((cycle) => {
-          const cycleDetail = cycleDetails[cycle.id];
-          const submissions = cycleDetail?.submissions ?? [];
+          const cyclePage = cyclePages[cycle.id];
+          const submissions = cyclePage?.items ?? [];
           const isExpanded = expandedCycleIds.includes(cycle.id);
-          const isLoading = loadingCycleIds.includes(cycle.id);
-          const sponsoredMeta =
-            sponsoredMetaByCycleId[cycle.id] ?? null;
+          const isLoading = cyclePage?.isLoading === true;
+          const sponsoredMeta = cycle.sponsoredMeta;
           const isSponsored =
             sponsoredMeta?.enabled === true &&
             Boolean(sponsoredMeta.bannerUrl);
@@ -893,25 +1061,42 @@ export default function CycleHistoryClient({
 
             {isExpanded && (
               <>
-                {isLoading ? (
+                {isLoading && submissions.length === 0 ? (
                   <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-6 text-center text-sm text-white/70">
                     Loading submissions...
                   </div>
                 ) : submissions.length > 0 ? (
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {submissions.map((submission) => (
-                      <SubmissionCard
-                        key={submission.id}
-                        cycleId={cycle.id}
-                        isDeepLinkTarget={
-                          submission.id === deepLinkedSubmissionId
-                        }
-                        isAdmin={isAdmin}
-                        submission={submission}
-                        onOpen={setActiveSubmission}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {submissions.map((submission) => (
+                        <SubmissionCard
+                          key={submission.id}
+                          cycleId={cycle.id}
+                          isDeepLinkTarget={
+                            submission.id === deepLinkedSubmissionId
+                          }
+                          isAdmin={isAdmin}
+                          submission={submission}
+                          onOpen={setActiveSubmission}
+                        />
+                      ))}
+                    </div>
+                    <LoadMoreButton
+                      error={cyclePage?.error ?? null}
+                      hasMore={cyclePage?.hasMore ?? false}
+                      isLoading={isLoading}
+                      onLoadMore={() =>
+                        void loadMoreCycle(cycle.id)
+                      }
+                    />
+                  </>
+                ) : cyclePage?.error ? (
+                  <LoadMoreButton
+                    error={cyclePage.error}
+                    hasMore
+                    isLoading={false}
+                    onLoadMore={() => void loadCycle(cycle.id)}
+                  />
                 ) : (
                   <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-6 text-center text-sm text-white/70">
                     No submissions available for this cycle.
@@ -924,14 +1109,22 @@ export default function CycleHistoryClient({
         })}
       </div>
 
+      <LoadMoreButton
+        error={cyclesError}
+        hasMore={hasMoreCycles}
+        isLoading={isLoadingCycles}
+        onLoadMore={() => void loadMoreCycles()}
+      />
+
       {activeSubmission && (
         <SubmissionModal
           canModerate={canModerate}
           isAdmin={isAdmin}
           submission={activeSubmission}
           sponsoredMeta={
-            sponsoredMetaByCycleId[activeSubmission.cycleId] ??
-            null
+            cycles.find(
+              (cycle) => cycle.id === activeSubmission.cycleId
+            )?.sponsoredMeta ?? null
           }
           onClose={() => setActiveSubmission(null)}
         />

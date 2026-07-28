@@ -1,15 +1,33 @@
+import "server-only";
 import { supabaseAdmin } from "@/lib/db/admin";
 import {
   isSubmissionListedPublicly,
   normalizeSubmissionPublicVisibilityStatus,
   showsSubmissionImagePublicly,
-  type SubmissionPublicVisibilityStatus,
 } from "@/lib/moderation/submissionPublicVisibility";
+import {
+  PUBLIC_PAGINATION_CURSOR_VERSION,
+  PUBLIC_PAGINATION_SCOPES,
+  PUBLIC_SUBMISSION_PAGE_SIZE,
+  type PaginationView,
+  type PublicPage,
+} from "@/lib/pagination/publicPagination";
+import {
+  decodeServerPublicPaginationCursor,
+  encodeServerPublicPaginationCursor,
+} from "@/lib/pagination/publicPaginationCursor.server";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import {
   getSubmissionSocialLinksBySubmissionIds,
-  type SubmissionSocialLink,
 } from "@/lib/socials/getSubmissionSocialLinks";
+import {
+  getCycleSponsoredMeta,
+} from "./sponsoredCycle";
+import type {
+  CycleHistoryCycleSummaryItem,
+  CycleHistorySubmission,
+  CycleHistoryWinnerProfile,
+} from "./cycleHistoryTypes";
 
 type CycleRow = {
   id: number;
@@ -25,7 +43,7 @@ type SubmissionRow = {
   id: number;
   cycle_id: number;
   r2_key: string | null;
-  is_disqualified: boolean;
+  is_disqualified: boolean | null;
   disqualification_reason_code: string | null;
   disqualification_reason_text: string | null;
   discord_user_id: string;
@@ -34,8 +52,13 @@ type SubmissionRow = {
   public_visibility_reason_code: string | null;
   public_visibility_reason_text: string | null;
   public_visibility_updated_at: string | null;
-  public_visibility_updated_by_discord_user_id: string | null;
   public_visibility_updated_by_discord_username: string | null;
+};
+
+type MinimalSubmissionRow = {
+  id: number;
+  is_disqualified: boolean | null;
+  public_visibility_status: string | null;
 };
 
 type CycleResultRow = {
@@ -44,85 +67,161 @@ type CycleResultRow = {
   vote_count: number | null;
   is_winner: boolean;
   rank: number | null;
+  final_vote_count: number | null;
+  rank_in_cycle: number | null;
 };
 
-type WinnerProfileRow = {
-  cycle_id: number;
-  submission_id: number;
-  wall: string;
-  wallet_address: string;
-  payout_choice: string;
-  split_percent: number | null;
-  charity: string | null;
-};
+type WinnerProfileRow = CycleHistoryWinnerProfile;
 
 type UserLogRow = {
   discord_user_id: string;
   public_profile_id: string | null;
 };
 
-type HistoryOptions = {
+export type HistoryOptions = {
   isAdminView?: boolean;
 };
 
-export type CycleHistorySubmission = {
-  id: number;
-  cycleId: number;
-  imageUrl: string | null;
-  isDisqualified: boolean;
-  disqualificationReasonCode: string | null;
-  disqualificationReasonText: string | null;
-  discordUsername: string;
-  publicProfileId: string | null;
-  voteCount: number;
-  isWinner: boolean;
-  rank: number | null;
-  publicVisibilityStatus: SubmissionPublicVisibilityStatus;
-  publicVisibilityReasonCode: string | null;
-  publicVisibilityReasonText: string | null;
-  publicVisibilityUpdatedAt: string | null;
-  publicVisibilityUpdatedByDiscordUserId: string | null;
-  publicVisibilityUpdatedByDiscordUsername: string | null;
-  winnerProfile: WinnerProfileRow | null;
-  socialLinks: SubmissionSocialLink[];
-};
+function getView(isAdminView: boolean): PaginationView {
+  return isAdminView ? "admin" : "public";
+}
 
-export type CycleHistoryCycleSummary = {
-  id: number;
-  theme: string | null;
-  status: string;
-  startedAt: string | null;
-  endedAt: string | null;
-  finalizedAt: string | null;
-  createdAt: string;
-  submissionCount: number;
-};
+function applyPublicHistoryVisibilityFilter<
+  T extends {
+    or: (
+      filters: string
+    ) => T;
+  },
+>(query: T, isAdminView: boolean) {
+  return isAdminView
+    ? query
+    : query.or(
+        "public_visibility_status.is.null,public_visibility_status.neq.removed"
+      );
+}
 
-export type CycleHistoryCycle = CycleHistoryCycleSummary & {
-  submissions: CycleHistorySubmission[];
-};
+async function getSubmissionCount(
+  cycleId: number,
+  isAdminView: boolean
+) {
+  let query = supabaseAdmin
+    .from("submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("cycle_id", cycleId)
+    .or("is_disqualified.is.null,is_disqualified.eq.false");
 
-function withComputedRanks(
-  submissions: CycleHistorySubmission[]
-): CycleHistorySubmission[] {
-  const sortedSubmissions = [...submissions].sort(
-    (left, right) => {
-      if (left.isWinner !== right.isWinner) {
-        return left.isWinner ? -1 : 1;
-      }
-
-      if (left.voteCount !== right.voteCount) {
-        return right.voteCount - left.voteCount;
-      }
-
-      return left.id - right.id;
-    }
+  query = applyPublicHistoryVisibilityFilter(
+    query,
+    isAdminView
   );
+  const { count, error } = await query;
 
+  if (error) {
+    throw new Error(
+      `HISTORY_COUNT_QUERY_FAILED:${error.code}`
+    );
+  }
+
+  return count ?? 0;
+}
+
+export async function getCycleHistorySummariesPage({
+  cursor,
+  isAdminView = false,
+}: HistoryOptions & {
+  cursor?: string | null;
+}): Promise<PublicPage<CycleHistoryCycleSummaryItem>> {
+  const view = getView(isAdminView);
+  const context = { view };
+  const decodedCursor = cursor
+    ? decodeServerPublicPaginationCursor(
+        cursor,
+        PUBLIC_PAGINATION_SCOPES.historyCycles,
+        context
+      )
+    : null;
+  let query = supabaseAdmin
+    .from("voting_cycles")
+    .select(
+      "id, theme, status, starts_at, ends_at, finalized_at, created_at"
+    )
+    .eq("status", "finished")
+    .order("id", { ascending: false })
+    .limit(PUBLIC_SUBMISSION_PAGE_SIZE + 1);
+
+  if (decodedCursor) {
+    query = query.lt("id", decodedCursor.values.id);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(
+      `HISTORY_CYCLES_QUERY_FAILED:${error.code}`
+    );
+  }
+
+  const rows = (data ?? []) as CycleRow[];
+  const hasMore = rows.length > PUBLIC_SUBMISSION_PAGE_SIZE;
+  const pageRows = rows.slice(0, PUBLIC_SUBMISSION_PAGE_SIZE);
+  const items = await Promise.all(
+    pageRows.map(
+      async (cycle): Promise<CycleHistoryCycleSummaryItem> => ({
+        id: cycle.id,
+        theme: cycle.theme,
+        status: cycle.status,
+        startedAt: cycle.starts_at,
+        endedAt: cycle.ends_at,
+        finalizedAt: cycle.finalized_at,
+        createdAt: cycle.created_at,
+        submissionCount: await getSubmissionCount(
+          cycle.id,
+          isAdminView
+        ),
+        sponsoredMeta: await getCycleSponsoredMeta(cycle.id),
+      })
+    )
+  );
+  const lastItem = items.at(-1);
+
+  return {
+    items,
+    hasMore,
+    nextCursor:
+      hasMore && lastItem
+        ? encodeServerPublicPaginationCursor({
+            version: PUBLIC_PAGINATION_CURSOR_VERSION,
+            scope: PUBLIC_PAGINATION_SCOPES.historyCycles,
+            context,
+            values: { id: lastItem.id },
+          })
+        : null,
+  };
+}
+
+function computeLegacyRanks(
+  submissions: Array<{
+    id: number;
+    voteCount: number;
+    isWinner: boolean;
+  }>
+) {
+  const sorted = [...submissions].sort((left, right) => {
+    if (left.isWinner !== right.isWinner) {
+      return left.isWinner ? -1 : 1;
+    }
+
+    if (left.voteCount !== right.voteCount) {
+      return right.voteCount - left.voteCount;
+    }
+
+    return left.id - right.id;
+  });
+  const ranks = new Map<number, number>();
   let currentRank = 0;
   let lastVoteCount: number | null = null;
 
-  return sortedSubmissions.map((submission) => {
+  for (const submission of sorted) {
     if (
       lastVoteCount === null ||
       submission.voteCount !== lastVoteCount
@@ -131,316 +230,273 @@ function withComputedRanks(
       lastVoteCount = submission.voteCount;
     }
 
-    return {
-      ...submission,
-      // New finalizations persist immutable dense ranks. Only legacy rows
-      // without a stored rank use the historical computed fallback.
-      rank: submission.rank ?? currentRank,
-    };
-  });
+    ranks.set(submission.id, currentRank);
+  }
+
+  return ranks;
 }
 
-async function getFinishedCycleRows() {
-  const { data: cycles, error } = await supabaseAdmin
-    .from("voting_cycles")
-    .select(
-      "id, theme, status, starts_at, ends_at, finalized_at, created_at"
-    )
-    .eq("status", "finished")
-    .order("id", { ascending: false });
-
-  if (error) {
-    console.error("[getCycleHistoryData][cycles]", error);
-    return [];
-  }
-
-  return (cycles ?? []) as CycleRow[];
-}
-
-export async function getCycleHistorySummaries(
-  options?: HistoryOptions
-): Promise<CycleHistoryCycleSummary[]> {
-  const isAdminView = options?.isAdminView ?? false;
-  const cycleRows = await getFinishedCycleRows();
-
-  if (cycleRows.length === 0) {
-    return [];
-  }
-
-  const cycleIds = cycleRows.map((cycle) => cycle.id);
-  const { data: submissions, error } = await supabaseAdmin
-    .from("submissions")
-    .select("cycle_id, is_disqualified, public_visibility_status")
-    .in("cycle_id", cycleIds);
-
-  if (error) {
-    console.error(
-      "[getCycleHistorySummaries][submissions]",
-      error
-    );
-  }
-
-  const countsByCycleId = new Map<number, number>();
-
-  for (const submission of submissions ?? []) {
-    if (submission.is_disqualified) {
-      continue;
-    }
-
-    const publicVisibilityStatus =
-      normalizeSubmissionPublicVisibilityStatus(
-        submission.public_visibility_status
-      );
-
-    if (
-      !isAdminView &&
-      !isSubmissionListedPublicly(publicVisibilityStatus)
-    ) {
-      continue;
-    }
-
-    countsByCycleId.set(
-      submission.cycle_id,
-      (countsByCycleId.get(submission.cycle_id) ?? 0) + 1
-    );
-  }
-
-  return cycleRows.map((cycle) => ({
-    id: cycle.id,
-    theme: cycle.theme,
-    status: cycle.status,
-    startedAt: cycle.starts_at,
-    endedAt: cycle.ends_at,
-    finalizedAt: cycle.finalized_at,
-    createdAt: cycle.created_at,
-    submissionCount: countsByCycleId.get(cycle.id) ?? 0,
-  }));
-}
-
-export async function getCycleHistoryCycleData(
+async function getLegacyFallbackRanks(
   cycleId: number,
-  options?: HistoryOptions
-): Promise<CycleHistoryCycle | null> {
-  const isAdminView = options?.isAdminView ?? false;
+  isAdminView: boolean
+) {
+  const [submissionsResult, resultsResult] = await Promise.all([
+    supabaseAdmin
+      .from("submissions")
+      .select(
+        "id, is_disqualified, public_visibility_status"
+      )
+      .eq("cycle_id", cycleId),
+    supabaseAdmin
+      .from("cycle_results")
+      .select(
+        "cycle_id, submission_id, vote_count, is_winner, rank, final_vote_count, rank_in_cycle"
+      )
+      .eq("cycle_id", cycleId),
+  ]);
 
-  const { data: cycle, error: cycleError } = await supabaseAdmin
-    .from("voting_cycles")
-    .select(
-      "id, theme, status, starts_at, ends_at, finalized_at, created_at"
+  if (submissionsResult.error || resultsResult.error) {
+    throw new Error("HISTORY_LEGACY_RANK_QUERY_FAILED");
+  }
+
+  const resultBySubmissionId = new Map(
+    ((resultsResult.data ?? []) as CycleResultRow[]).map(
+      (result) => [result.submission_id, result]
     )
+  );
+  const eligibleSubmissions = (
+    (submissionsResult.data ?? []) as MinimalSubmissionRow[]
+  ).filter((submission) => {
+    if (submission.is_disqualified === true) {
+      return false;
+    }
+
+    return (
+      isAdminView ||
+      isSubmissionListedPublicly(
+        normalizeSubmissionPublicVisibilityStatus(
+          submission.public_visibility_status
+        )
+      )
+    );
+  });
+
+  return computeLegacyRanks(
+    eligibleSubmissions.map((submission) => {
+      const result =
+        resultBySubmissionId.get(submission.id) ?? null;
+
+      return {
+        id: submission.id,
+        voteCount:
+          result?.final_vote_count ?? result?.vote_count ?? 0,
+        isWinner: result?.is_winner ?? false,
+      };
+    })
+  );
+}
+
+export async function getCycleHistorySubmissionPage({
+  cursor,
+  cycleId,
+  isAdminView = false,
+}: HistoryOptions & {
+  cursor?: string | null;
+  cycleId: number;
+}): Promise<PublicPage<CycleHistorySubmission> | null> {
+  const view = getView(isAdminView);
+  const context = { cycleId, view };
+  const decodedCursor = cursor
+    ? decodeServerPublicPaginationCursor(
+        cursor,
+        PUBLIC_PAGINATION_SCOPES.historySubmissions,
+        context
+      )
+    : null;
+  const cycleResult = await supabaseAdmin
+    .from("voting_cycles")
+    .select("id")
     .eq("id", cycleId)
     .eq("status", "finished")
     .maybeSingle();
 
-  if (cycleError) {
-    console.error(
-      "[getCycleHistoryCycleData][cycle]",
-      cycleError
+  if (cycleResult.error) {
+    throw new Error(
+      `HISTORY_CYCLE_QUERY_FAILED:${cycleResult.error.code}`
     );
+  }
+
+  if (!cycleResult.data) {
     return null;
   }
 
-  if (!cycle) {
-    return null;
+  let submissionsQuery = supabaseAdmin
+    .from("submissions")
+    .select(
+      "id, cycle_id, r2_key, is_disqualified, disqualification_reason_code, disqualification_reason_text, discord_user_id, discord_username_at_upload, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text, public_visibility_updated_at, public_visibility_updated_by_discord_username"
+    )
+    .eq("cycle_id", cycleId)
+    .or("is_disqualified.is.null,is_disqualified.eq.false")
+    .order("id", { ascending: true })
+    .limit(PUBLIC_SUBMISSION_PAGE_SIZE + 1);
+
+  submissionsQuery = applyPublicHistoryVisibilityFilter(
+    submissionsQuery,
+    isAdminView
+  );
+
+  if (decodedCursor) {
+    submissionsQuery = submissionsQuery.gt(
+      "id",
+      decodedCursor.values.id
+    );
   }
 
-  const [submissionsResult, resultsResult, winnersResult] =
-    await Promise.all([
-      supabaseAdmin
-        .from("submissions")
-        .select(
-          "id, cycle_id, r2_key, is_disqualified, disqualification_reason_code, disqualification_reason_text, discord_user_id, discord_username_at_upload, public_visibility_status, public_visibility_reason_code, public_visibility_reason_text, public_visibility_updated_at, public_visibility_updated_by_discord_user_id, public_visibility_updated_by_discord_username"
-        )
-        .eq("cycle_id", cycleId)
-        .order("id", { ascending: true }),
-      supabaseAdmin
-        .from("cycle_results")
-        .select(
-          "cycle_id, submission_id, vote_count, is_winner, rank"
-        )
-        .eq("cycle_id", cycleId),
-      supabaseAdmin
-        .from("winner_public_profiles")
-        .select(
-          "cycle_id, submission_id, wall, wallet_address, payout_choice, split_percent, charity"
-        )
-        .eq("cycle_id", cycleId),
-    ]);
+  const submissionsResult = await submissionsQuery;
 
   if (submissionsResult.error) {
-    console.error(
-      "[getCycleHistoryCycleData][submissions]",
-      submissionsResult.error
-    );
-    return null;
-  }
-
-  if (resultsResult.error) {
-    console.error(
-      "[getCycleHistoryCycleData][results]",
-      resultsResult.error
-    );
-    return null;
-  }
-
-  if (winnersResult.error) {
-    console.error(
-      "[getCycleHistoryCycleData][winners]",
-      winnersResult.error
+    throw new Error(
+      `HISTORY_SUBMISSIONS_QUERY_FAILED:${submissionsResult.error.code}`
     );
   }
 
-  const typedSubmissions =
-    (submissionsResult.data ?? []) as SubmissionRow[];
-  const typedResults =
-    (resultsResult.data ?? []) as CycleResultRow[];
-  const typedWinnerProfiles =
-    (winnersResult.data ?? []) as WinnerProfileRow[];
-
+  const rows = (submissionsResult.data ?? []) as SubmissionRow[];
+  const hasMore = rows.length > PUBLIC_SUBMISSION_PAGE_SIZE;
+  const pageRows = rows.slice(0, PUBLIC_SUBMISSION_PAGE_SIZE);
+  const submissionIds = pageRows.map(
+    (submission) => submission.id
+  );
   const discordUserIds = Array.from(
     new Set(
-      typedSubmissions.map(
-        (submission) => submission.discord_user_id
-      )
+      pageRows.map((submission) => submission.discord_user_id)
     )
   );
+  const [resultsResult, winnersResult, userLogsResult, socialLinks] =
+    await Promise.all([
+      submissionIds.length > 0
+        ? supabaseAdmin
+            .from("cycle_results")
+            .select(
+              "cycle_id, submission_id, vote_count, is_winner, rank, final_vote_count, rank_in_cycle"
+            )
+            .eq("cycle_id", cycleId)
+            .in("submission_id", submissionIds)
+        : Promise.resolve({ data: [], error: null }),
+      submissionIds.length > 0
+        ? supabaseAdmin
+            .from("winner_public_profiles")
+            .select(
+              "cycle_id, submission_id, wall, wallet_address, payout_choice, split_percent, charity"
+            )
+            .eq("cycle_id", cycleId)
+            .in("submission_id", submissionIds)
+        : Promise.resolve({ data: [], error: null }),
+      discordUserIds.length > 0
+        ? supabaseAdmin
+            .from("user_logs")
+            .select("discord_user_id, public_profile_id")
+            .in("discord_user_id", discordUserIds)
+        : Promise.resolve({ data: [], error: null }),
+      getSubmissionSocialLinksBySubmissionIds(submissionIds),
+    ]);
 
-  const userLogsResult =
-    discordUserIds.length > 0
-      ? await supabaseAdmin
-          .from("user_logs")
-          .select("discord_user_id, public_profile_id")
-          .in("discord_user_id", discordUserIds)
-      : { data: [], error: null };
-
-  if (userLogsResult.error) {
-    console.error(
-      "[getCycleHistoryCycleData][user_logs]",
-      userLogsResult.error
-    );
+  if (
+    resultsResult.error ||
+    winnersResult.error ||
+    userLogsResult.error
+  ) {
+    throw new Error("HISTORY_RELATED_QUERY_FAILED");
   }
 
-  const userLogRows =
-    (userLogsResult.data ?? []) as UserLogRow[];
-
   const resultBySubmissionId = new Map(
-    typedResults.map((result) => [
-      result.submission_id,
-      result,
-    ])
+    ((resultsResult.data ?? []) as CycleResultRow[]).map(
+      (result) => [result.submission_id, result]
+    )
   );
-
-  const winnerProfileBySubmissionId = new Map(
-    typedWinnerProfiles.map((winner) => [
-      winner.submission_id,
-      winner,
-    ])
+  const winnerBySubmissionId = new Map(
+    ((winnersResult.data ?? []) as WinnerProfileRow[]).map(
+      (winner) => [winner.submission_id, winner]
+    )
   );
-
   const profileIdByDiscordUserId = new Map(
-    userLogRows.map((userLog) => [
-      userLog.discord_user_id,
-      userLog.public_profile_id,
-    ])
+    ((userLogsResult.data ?? []) as UserLogRow[]).map(
+      (userLog) => [
+        userLog.discord_user_id,
+        userLog.public_profile_id,
+      ]
+    )
   );
-  const socialLinksBySubmissionId =
-    await getSubmissionSocialLinksBySubmissionIds(
-      typedSubmissions.map((submission) => submission.id)
-    );
-
-  const submissions = typedSubmissions.flatMap(
-    (submission): CycleHistorySubmission[] => {
-      if (submission.is_disqualified) {
-        return [];
-      }
-
-      const publicVisibilityStatus =
+  const needsLegacyFallback = pageRows.some((submission) => {
+    const result = resultBySubmissionId.get(submission.id);
+    return !result?.rank_in_cycle && !result?.rank;
+  });
+  const legacyRanks = needsLegacyFallback
+    ? await getLegacyFallbackRanks(cycleId, isAdminView)
+    : new Map<number, number>();
+  const items = pageRows.map(
+    (submission): CycleHistorySubmission => {
+      const result =
+        resultBySubmissionId.get(submission.id) ?? null;
+      const visibility =
         normalizeSubmissionPublicVisibilityStatus(
           submission.public_visibility_status
         );
 
-      if (
-        !isAdminView &&
-        !isSubmissionListedPublicly(publicVisibilityStatus)
-      ) {
-        return [];
-      }
-
-      const result =
-        resultBySubmissionId.get(submission.id) ?? null;
-      const winnerProfile =
-        winnerProfileBySubmissionId.get(submission.id) ?? null;
-
-      return [
-        {
-          id: submission.id,
-          cycleId: submission.cycle_id,
-          imageUrl:
-            isAdminView ||
-            showsSubmissionImagePublicly(publicVisibilityStatus)
-              ? getPublicImageUrl(submission.r2_key) ?? null
-              : null,
-          isDisqualified: submission.is_disqualified,
-          disqualificationReasonCode:
-            submission.disqualification_reason_code,
-          disqualificationReasonText:
-            submission.disqualification_reason_text,
-          discordUsername:
-            submission.discord_username_at_upload ??
-            "unknown",
-          publicProfileId:
-            profileIdByDiscordUserId.get(
-              submission.discord_user_id
-            ) ?? null,
-          voteCount: result?.vote_count ?? 0,
-          isWinner: result?.is_winner ?? false,
-          rank: result?.rank ?? null,
-          publicVisibilityStatus,
-          publicVisibilityReasonCode:
-            submission.public_visibility_reason_code,
-          publicVisibilityReasonText:
-            submission.public_visibility_reason_text,
-          publicVisibilityUpdatedAt:
-            submission.public_visibility_updated_at,
-          publicVisibilityUpdatedByDiscordUserId:
-            submission.public_visibility_updated_by_discord_user_id,
-          publicVisibilityUpdatedByDiscordUsername:
-            submission.public_visibility_updated_by_discord_username,
-          winnerProfile,
-          socialLinks:
-            socialLinksBySubmissionId.get(submission.id) ?? [],
-        },
-      ];
+      return {
+        id: submission.id,
+        cycleId: submission.cycle_id,
+        imageUrl:
+          isAdminView || showsSubmissionImagePublicly(visibility)
+            ? getPublicImageUrl(submission.r2_key) ?? null
+            : null,
+        isDisqualified: submission.is_disqualified === true,
+        disqualificationReasonCode:
+          submission.disqualification_reason_code,
+        disqualificationReasonText:
+          submission.disqualification_reason_text,
+        discordUsername:
+          submission.discord_username_at_upload ?? "unknown",
+        publicProfileId:
+          profileIdByDiscordUserId.get(
+            submission.discord_user_id
+          ) ?? null,
+        voteCount:
+          result?.final_vote_count ?? result?.vote_count ?? 0,
+        isWinner: result?.is_winner ?? false,
+        rank:
+          result?.rank_in_cycle ??
+          result?.rank ??
+          legacyRanks.get(submission.id) ??
+          null,
+        publicVisibilityStatus: visibility,
+        publicVisibilityReasonCode:
+          submission.public_visibility_reason_code,
+        publicVisibilityReasonText:
+          submission.public_visibility_reason_text,
+        publicVisibilityUpdatedAt:
+          submission.public_visibility_updated_at,
+        publicVisibilityUpdatedByDiscordUsername:
+          submission.public_visibility_updated_by_discord_username,
+        winnerProfile:
+          winnerBySubmissionId.get(submission.id) ?? null,
+        socialLinks: socialLinks.get(submission.id) ?? [],
+      };
     }
   );
-
-  const rankedSubmissions = withComputedRanks(submissions);
+  const lastItem = items.at(-1);
 
   return {
-    id: cycle.id,
-    theme: cycle.theme,
-    status: cycle.status,
-    startedAt: cycle.starts_at,
-    endedAt: cycle.ends_at,
-    finalizedAt: cycle.finalized_at,
-    createdAt: cycle.created_at,
-    submissionCount: rankedSubmissions.length,
-    submissions: rankedSubmissions,
+    items,
+    hasMore,
+    nextCursor:
+      hasMore && lastItem
+        ? encodeServerPublicPaginationCursor({
+            version: PUBLIC_PAGINATION_CURSOR_VERSION,
+            scope:
+              PUBLIC_PAGINATION_SCOPES.historySubmissions,
+            context,
+            values: { id: lastItem.id },
+          })
+        : null,
   };
-}
-
-export async function getCycleHistoryData(
-  options?: HistoryOptions
-): Promise<CycleHistoryCycle[]> {
-  const summaries = await getCycleHistorySummaries(options);
-
-  const cycles = await Promise.all(
-    summaries.map((summary) =>
-      getCycleHistoryCycleData(summary.id, options)
-    )
-  );
-
-  return cycles.filter(
-    (cycle): cycle is CycleHistoryCycle => cycle !== null
-  );
 }

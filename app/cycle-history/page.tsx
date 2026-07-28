@@ -1,8 +1,7 @@
 import BackButton from "@/app/components/ui/BackButton";
 import CycleHistoryClient from "./CycleHistoryClient";
 import { getTeamMember } from "@/lib/auth/guards";
-import { getCycleHistorySummaries } from "@/lib/cycles/getCycleHistoryData";
-import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
+import { getCycleHistorySummariesPage } from "@/lib/cycles/getCycleHistoryData";
 
 export default async function CycleHistoryPage() {
   let isAdmin = false;
@@ -15,18 +14,9 @@ export default async function CycleHistoryPage() {
       member.role === "admin" || member.role === "mod";
   } catch {}
 
-  const cycles = await getCycleHistorySummaries({
+  const initialPage = await getCycleHistorySummariesPage({
     isAdminView: isAdmin,
   });
-  const sponsoredMetaEntries = await Promise.all(
-    cycles.map(async (cycle) => [
-      cycle.id,
-      await getCycleSponsoredMeta(cycle.id),
-    ])
-  );
-  const sponsoredMetaByCycleId = Object.fromEntries(
-    sponsoredMetaEntries
-  );
 
   return (
     <>
@@ -39,16 +29,15 @@ export default async function CycleHistoryPage() {
           </h1>
         </div>
 
-        {cycles.length === 0 ? (
+        {initialPage.items.length === 0 ? (
           <div className="rounded-2xl border border-orange-500/30 bg-black/50 p-8 text-center text-white/70">
             No finished cycles yet.
           </div>
         ) : (
           <CycleHistoryClient
             canModerate={canModerate}
-            cycles={cycles}
+            initialPage={initialPage}
             isAdmin={isAdmin}
-            sponsoredMetaByCycleId={sponsoredMetaByCycleId}
           />
         )}
       </div>

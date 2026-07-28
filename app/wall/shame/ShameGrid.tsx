@@ -3,34 +3,24 @@
 import SponsoredBanner from "@/app/components/SponsoredBanner";
 import ProfileLinkButton from "@/app/components/profile/ProfileLinkButton";
 import SubmissionSocialLinks from "@/app/components/profile/SubmissionSocialLinks";
+import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
 import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
-import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
 import { formatReason } from "@/lib/profile/formatReason";
 import {
   SUBMISSION_PUBLIC_VISIBILITY,
   type SubmissionPublicVisibilityStatus,
 } from "@/lib/moderation/submissionPublicVisibility";
-import type { SubmissionSocialLink } from "@/lib/socials/getSubmissionSocialLinks";
-import { useEffect, useRef, useState } from "react";
+import type { PublicPage } from "@/lib/pagination/publicPagination";
+import { usePublicPagination } from "@/lib/pagination/usePublicPagination";
+import type { PublicWallItem } from "@/lib/walls/publicWallTypes";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-type Winner = {
-  id: number;
-  submission_id: number;
-  image_url: string | null;
-  cycle_id: number;
-  created_at: string;
-  discord_username: string;
-  public_profile_id: string | null;
-  wallet_address: string;
-  payout_choice: string;
-  split_percent: number | null;
-  charity: string | null;
-  vote_count: number | null;
-  public_visibility_status: SubmissionPublicVisibilityStatus;
-  public_visibility_reason_code: string | null;
-  public_visibility_reason_text: string | null;
-  social_links: SubmissionSocialLink[];
-};
+type Winner = PublicWallItem;
 
 function getVisibilityTitle(
   status: SubmissionPublicVisibilityStatus
@@ -75,15 +65,41 @@ function VisibilityPlaceholder({
 }
 
 export default function ShameGrid({
-  winners,
-  sponsoredMetaByCycleId,
+  initialPage,
 }: {
-  winners: Winner[];
-  sponsoredMetaByCycleId: Record<number, SponsoredCycleMeta | null>;
+  initialPage: PublicPage<Winner>;
 }) {
   const [active, setActive] = useState<Winner | null>(null);
   const [showOriginalSize, setShowOriginalSize] = useState(false);
   const lastTapRef = useRef(0);
+  const getWinnerKey = useCallback(
+    (winner: Winner) => winner.id,
+    []
+  );
+  const fetchPage = useCallback(async (cursor: string) => {
+    const response = await fetch(
+      `/api/wall/shame?cursor=${encodeURIComponent(cursor)}`,
+      { cache: "no-store" }
+    );
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(data?.error ?? "LOAD_FAILED");
+    }
+
+    return data as PublicPage<Winner>;
+  }, []);
+  const {
+    error,
+    hasMore,
+    isLoading,
+    items: winners,
+    loadMore,
+  } = usePublicPagination({
+    fetchPage,
+    getKey: getWinnerKey,
+    initialPage,
+  });
 
   function handleToggleSize() {
     setShowOriginalSize((prev) => !prev);
@@ -113,7 +129,7 @@ export default function ShameGrid({
     return () => window.removeEventListener("keydown", handler);
   }, [active]);
 
-  if (!winners || winners.length === 0) {
+  if (winners.length === 0 && !hasMore) {
     return (
       <p className="text-center text-lg opacity-60">
         No winners yet.
@@ -123,7 +139,8 @@ export default function ShameGrid({
 
   return (
     <>
-      <div
+      {winners.length > 0 ? (
+        <div
         className="
           grid
           grid-cols-2
@@ -184,13 +201,25 @@ export default function ShameGrid({
                 "
               >
                 <div className="text-[11px] text-red-200/70">
-                  {new Date(winner.created_at).toLocaleDateString("en-GB")}
+                  {winner.created_at
+                    ? new Date(
+                        winner.created_at
+                      ).toLocaleDateString("en-GB")
+                    : "Unknown"}
                 </div>
               </div>
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      ) : null}
+
+      <LoadMoreButton
+        error={error}
+        hasMore={hasMore}
+        isLoading={isLoading}
+        onLoadMore={() => void loadMore()}
+      />
 
       {active && (
         <div
@@ -310,25 +339,21 @@ export default function ShameGrid({
 
                 </div>
 
-                {sponsoredMetaByCycleId[active.cycle_id]?.enabled &&
-                sponsoredMetaByCycleId[active.cycle_id]?.bannerUrl ? (
+                {active.sponsored_meta?.enabled &&
+                active.sponsored_meta.bannerUrl ? (
                   <div className="md:pt-1">
                     <SponsoredBanner
                       bannerUrl={
-                        sponsoredMetaByCycleId[active.cycle_id]
-                          ?.bannerUrl ?? ""
+                        active.sponsored_meta.bannerUrl
                       }
                       companyName={
-                        sponsoredMetaByCycleId[active.cycle_id]
-                          ?.companyName ?? ""
+                        active.sponsored_meta.companyName
                       }
                       sponsorLink={
-                        sponsoredMetaByCycleId[active.cycle_id]
-                          ?.sponsorLink ?? ""
+                        active.sponsored_meta.sponsorLink
                       }
                       sponsorshipId={
-                        sponsoredMetaByCycleId[active.cycle_id]
-                          ?.sponsorshipId ?? null
+                        active.sponsored_meta.sponsorshipId
                       }
                       surface="shame_modal"
                       label="Sponsored by:"
