@@ -21,7 +21,7 @@ test("home hero keeps animated cells in a contained background layer", async () 
   assert.match(home, /w-\[min\(42vw,152px\)\]/);
   assert.match(
     home,
-    /<TelegramCellAnimated \/>\s*<\/div>\s*<\/div>\s*<CycleHud \/>/
+    /<TelegramCellAnimated \/>\s*<\/div>\s*<\/div>\s*<Suspense fallback=\{<CycleHudFallback \/>\}>\s*<HomeCycleHud/
   );
   assert.match(home, /relative z-20 -translate-y-2 animate-breathe/);
   assert.doesNotMatch(home, /scale-\[0\.38\]|gap-\[-20px\]/);

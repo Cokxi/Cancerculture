@@ -28,6 +28,9 @@ type CoinLaunchRow = {
   display_order: number;
 };
 
+const COIN_LAUNCH_SELECT =
+  "id, chain, platform, token_symbol, contract_address, launch_url, explorer_url, is_active, is_primary, display_order";
+
 function mapCoinLaunch(row: CoinLaunchRow): CoinLaunch {
   return {
     id: row.id,
@@ -46,9 +49,7 @@ function mapCoinLaunch(row: CoinLaunchRow): CoinLaunch {
 export async function getActiveCoinLaunches() {
   const { data, error } = await supabaseAdmin
     .from("coin_launches")
-    .select(
-      "id, chain, platform, token_symbol, contract_address, launch_url, explorer_url, is_active, is_primary, display_order"
-    )
+    .select(COIN_LAUNCH_SELECT)
     .eq("is_active", true)
     .order("is_primary", { ascending: false })
     .order("display_order", { ascending: true })
@@ -63,6 +64,23 @@ export async function getActiveCoinLaunches() {
 }
 
 export async function getPrimaryCoinLaunch() {
-  const launches = await getActiveCoinLaunches();
-  return launches[0] ?? null;
+  const { data, error } = await supabaseAdmin
+    .from("coin_launches")
+    .select(COIN_LAUNCH_SELECT)
+    .eq("is_active", true)
+    .order("is_primary", { ascending: false })
+    .order("display_order", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      "[COIN_LAUNCHES] primary launch query failed",
+      error
+    );
+    throw new Error("Failed to load primary coin launch");
+  }
+
+  return data ? mapCoinLaunch(data as CoinLaunchRow) : null;
 }

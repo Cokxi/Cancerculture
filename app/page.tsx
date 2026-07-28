@@ -13,75 +13,54 @@ import { getPrimaryCoinLaunch } from "@/lib/coinLaunches/getActiveCoinLaunches";
 import { processDueCycleTransitions } from "@/lib/cycles/phaseAutomation";
 import { getHomeDesktopNavigationItems } from "@/lib/navigation/homeNavigation";
 
-const HOME_PERF_PREFIX = "[HOME_PERF]";
 const desktopNavigationItems = getHomeDesktopNavigationItems();
 
-function startHomeTimer(label: string) {
-  const startedAt = performance.now();
-
-  return () => {
-    console.log(
-      `${HOME_PERF_PREFIX} ${label}: ${(
-        performance.now() - startedAt
-      ).toFixed(1)}ms`
-    );
-  };
+function CycleHudFallback() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-20"
+      aria-hidden
+    />
+  );
 }
 
-async function timeHomeAsync<T>(
-  label: string,
-  callback: () => Promise<T>
-) {
-  const startedAt = performance.now();
-
-  try {
-    return await callback();
-  } finally {
-    console.log(
-      `${HOME_PERF_PREFIX} ${label}: ${(
-        performance.now() - startedAt
-      ).toFixed(1)}ms`
-    );
-  }
+async function HomeCycleHud({
+  transitionPromise,
+}: {
+  transitionPromise: ReturnType<
+    typeof processDueCycleTransitions
+  >;
+}) {
+  await transitionPromise;
+  return <CycleHud />;
 }
 
-export default async function Home() {
-  const endHomeTimer = startHomeTimer(
-    "home page server render total (Home component before child RSC render)"
-  );
-
-  await timeHomeAsync("home due cycle transitions", () =>
-    processDueCycleTransitions()
-  );
-
-  let primaryCoinLaunch = null;
+async function HomePrimaryCoinLaunch({
+  launchPromise,
+}: {
+  launchPromise: ReturnType<typeof getPrimaryCoinLaunch>;
+}) {
+  let launch;
 
   try {
-    primaryCoinLaunch = await timeHomeAsync(
-      "home primary coin launch loading",
-      () => getPrimaryCoinLaunch()
-    );
-  } catch (error) {
-    console.error("[COIN_LAUNCHES] home launch loading failed", error);
+    launch = await launchPromise;
+  } catch {
+    console.error("[COIN_LAUNCHES] home launch loading failed");
+    return null;
   }
 
-  console.log(
-    `${HOME_PERF_PREFIX} home submissions loading: not used by home route`
-  );
-  console.log(
-    `${HOME_PERF_PREFIX} home user profile loading: not used by home route`
-  );
-  console.log(
-    `${HOME_PERF_PREFIX} home user vote state / vote counts loading: not used by home route`
-  );
-  console.log(
-    `${HOME_PERF_PREFIX} home social links loading: not used by home route`
-  );
-  console.log(
-    `${HOME_PERF_PREFIX} home cycle history / wall preview loading: not used by home route`
-  );
+  return launch ? (
+    <div className="pointer-events-none absolute inset-x-0 bottom-[-1.25rem] z-20 flex justify-center">
+      <div className="pointer-events-auto">
+        <CoinLaunchDisplay launch={launch} />
+      </div>
+    </div>
+  ) : null;
+}
 
-  endHomeTimer();
+export default function Home() {
+  const transitionPromise = processDueCycleTransitions();
+  const launchPromise = getPrimaryCoinLaunch();
 
   return (
     <main className="relative isolate w-full bg-orange-background text-white">
@@ -153,7 +132,11 @@ export default async function Home() {
             </div>
           </div>
 
-          <CycleHud />
+          <Suspense fallback={<CycleHudFallback />}>
+            <HomeCycleHud
+              transitionPromise={transitionPromise}
+            />
+          </Suspense>
         </div>
 
         <div className="relative z-20 -translate-y-2 animate-breathe sm:translate-y-0">
@@ -169,13 +152,11 @@ export default async function Home() {
           />
         </div>
 
-        {primaryCoinLaunch ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-[-1.25rem] z-20 flex justify-center">
-            <div className="pointer-events-auto">
-              <CoinLaunchDisplay launch={primaryCoinLaunch} />
-            </div>
-          </div>
-        ) : null}
+        <Suspense fallback={null}>
+          <HomePrimaryCoinLaunch
+            launchPromise={launchPromise}
+          />
+        </Suspense>
       </section>
 
       <section id="about" className="relative w-full">

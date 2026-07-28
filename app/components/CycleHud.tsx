@@ -8,9 +8,6 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import CycleCountdown from "./CycleCountdown";
 import SponsorImpressionTracker from "./SponsorImpressionTracker";
 
-const HOME_PERF_PREFIX = "[HOME_PERF]";
-const HOME_PERF_JSON_PREFIX = "[HOME_PERF_JSON]";
-
 const RELEVANT_CYCLE_STATUSES = [
   "submission_open",
   "voting_open",
@@ -29,11 +26,7 @@ const CYCLE_HUD_SELECT = `
   theme,
   submission_ends_at,
   voting_ends_at,
-  results_published_at,
-  archived_at,
   votes_per_user,
-  paused_from_status,
-  phase_pause_reason,
   ends_at,
   is_sponsored,
   sponsorship_id,
@@ -50,11 +43,7 @@ type CycleHudRow = {
   theme: string | null;
   submission_ends_at: string | null;
   voting_ends_at: string | null;
-  results_published_at: string | null;
-  archived_at: string | null;
   votes_per_user: number | null;
-  paused_from_status: string | null;
-  phase_pause_reason: string | null;
   ends_at: string | null;
   is_sponsored: boolean | null;
   sponsorship_id: number | null;
@@ -63,59 +52,12 @@ type CycleHudRow = {
   sponsor_banner_url_snapshot: string | null;
 };
 
-type PerfMetrics = {
-  cycleQueryMs: number;
-  appConfigMs: number;
-  sponsorshipMs: number;
-};
-
-function logHomeHudPerf(label: string, durationMs: number) {
-  console.log(
-    `${HOME_PERF_PREFIX} ${label}: ${durationMs.toFixed(1)}ms`
-  );
-}
-
-function startHomeHudTimer(label: string) {
-  const startedAt = performance.now();
-  logHomeHudPerf(`${label} start`, 0);
-
-  return () => {
-    const durationMs = performance.now() - startedAt;
-    logHomeHudPerf(label, durationMs);
-    return durationMs;
-  };
-}
-
-async function timeHomeHudAsync<T>(
-  label: string,
-  callback: () => Promise<T>,
-  onDuration?: (durationMs: number) => void
-) {
-  const startedAt = performance.now();
-  logHomeHudPerf(`${label} start`, 0);
-
-  try {
-    return await callback();
-  } finally {
-    const durationMs = performance.now() - startedAt;
-    onDuration?.(durationMs);
-    logHomeHudPerf(label, durationMs);
-  }
-}
-
-function timeHomeHudSync<T>(label: string, callback: () => T) {
-  const startedAt = performance.now();
-  logHomeHudPerf(`${label} start`, 0);
-
-  try {
-    return callback();
-  } finally {
-    logHomeHudPerf(label, performance.now() - startedAt);
-  }
-}
-
 function normalizeString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function getCurrentTimestamp() {
+  return Date.parse(new Date().toISOString());
 }
 
 function getCyclePriority(status: CycleHudStatus) {
@@ -166,49 +108,28 @@ function sponsorMetaFromSnapshot(
   };
 }
 
-async function getPreferredCycle(metrics: PerfMetrics) {
-  const relevantResult = await timeHomeHudAsync(
-    "home CycleHud relevant phase cycle query",
-    async () =>
-      await supabaseAdmin
-        .from("voting_cycles")
-        .select(CYCLE_HUD_SELECT)
-        .in("status", RELEVANT_CYCLE_STATUSES)
-        .order("id", { ascending: false })
-        .limit(12),
-    (durationMs) => {
-      metrics.cycleQueryMs += durationMs;
-    }
-  );
+async function getPreferredCycle() {
+  const relevantResult = await supabaseAdmin
+    .from("voting_cycles")
+    .select(CYCLE_HUD_SELECT)
+    .in("status", RELEVANT_CYCLE_STATUSES)
+    .order("id", { ascending: false })
+    .limit(12);
 
   const relevantCycles = (relevantResult.data ??
     []) as CycleHudRow[];
-  const relevantCycle = timeHomeHudSync(
-    "home CycleHud relevant cycle selection transform",
-    () => choosePreferredCycle(relevantCycles)
-  );
+  const relevantCycle = choosePreferredCycle(relevantCycles);
 
   if (relevantCycle) {
-    timeHomeHudSync(
-      "home active/open cycle loading (latest cycle fallback skipped)",
-      () => null
-    );
     return relevantCycle;
   }
 
-  const latestResult = await timeHomeHudAsync(
-    "home active/open cycle loading (latest cycle fallback query)",
-    async () =>
-      await supabaseAdmin
-        .from("voting_cycles")
-        .select(CYCLE_HUD_SELECT)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    (durationMs) => {
-      metrics.cycleQueryMs += durationMs;
-    }
-  );
+  const latestResult = await supabaseAdmin
+    .from("voting_cycles")
+    .select(CYCLE_HUD_SELECT)
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   return (latestResult.data as CycleHudRow | null) ?? null;
 }
@@ -363,114 +284,42 @@ function getDisplayState({
 }
 
 export default async function CycleHud() {
-  const metrics: PerfMetrics = {
-    cycleQueryMs: 0,
-    appConfigMs: 0,
-    sponsorshipMs: 0,
-  };
-  const endHudTimer = startHomeHudTimer(
-    "home CycleHud server render total"
-  );
-
-  timeHomeHudSync(
-    "home CycleHud Supabase client creation check (module singleton/no per-render creation)",
-    () => supabaseAdmin
-  );
-  timeHomeHudSync(
-    "home CycleHud auth/session/user/team/admin check (not used)",
-    () => null
-  );
-
-  const nowMs = timeHomeHudSync(
-    "home CycleHud now timestamp transform",
-    () => Date.parse(new Date().toISOString())
-  );
-  const cycle = await getPreferredCycle(metrics);
+  const nowMs = getCurrentTimestamp();
+  const cyclePromise = getPreferredCycle();
+  const nextCycleThemePromise = supabaseAdmin
+    .from("app_config")
+    .select("value")
+    .eq("key", "next_cycle_theme");
+  const cycle = await cyclePromise;
   const snapshotSponsorMeta = cycle
-    ? timeHomeHudSync(
-        "home CycleHud sponsor snapshot transform",
-        () => sponsorMetaFromSnapshot(cycle)
-      )
+    ? sponsorMetaFromSnapshot(cycle)
     : null;
   const shouldUseSponsorFallback =
     cycle?.is_sponsored === true &&
     (!snapshotSponsorMeta ||
       snapshotSponsorMeta.companyName.length === 0 ||
       snapshotSponsorMeta.sponsorLink.length === 0);
-  const fallbackSponsorMeta =
+  const fallbackSponsorMetaPromise =
     cycle && shouldUseSponsorFallback
-      ? await timeHomeHudAsync(
-          "home sponsor/cycle sponsorship loading",
-          () => getCycleSponsoredMeta(cycle.id),
-          (durationMs) => {
-            metrics.sponsorshipMs += durationMs;
-          }
-        )
-      : timeHomeHudSync(
-          cycle
-            ? "home sponsor/cycle sponsorship loading skipped (snapshot or no sponsor)"
-            : "home sponsor/cycle sponsorship loading skipped (no cycle)",
-          () => null
-        );
+      ? getCycleSponsoredMeta(cycle.id)
+      : Promise.resolve(null);
+  const [fallbackSponsorMeta, { data: configRows }] =
+    await Promise.all([
+      fallbackSponsorMetaPromise,
+      nextCycleThemePromise,
+    ]);
   const sponsoredMeta = snapshotSponsorMeta ?? fallbackSponsorMeta;
-
-  const { data: configRows } = await timeHomeHudAsync(
-    "home cycle hud app_config loading (next_cycle_theme only)",
-    async () =>
-      await supabaseAdmin
-        .from("app_config")
-        .select("key,value")
-        .eq("key", "next_cycle_theme"),
-    (durationMs) => {
-      metrics.appConfigMs += durationMs;
-    }
-  );
-
-  const nextCycleTheme = timeHomeHudSync(
-    "home CycleHud app_config next_cycle_theme transform",
-    () => normalizeString(configRows?.[0]?.value)
+  const nextCycleTheme = normalizeString(
+    configRows?.[0]?.value
   );
 
   const displayState = cycle
-    ? timeHomeHudSync(
-        "home CycleHud display state transform",
-        () =>
-          getDisplayState({
-            cycle,
-            sponsoredMeta,
-            nowMs,
-          })
-      )
+    ? getDisplayState({
+        cycle,
+        sponsoredMeta,
+        nowMs,
+      })
     : null;
-
-  timeHomeHudSync(
-    "home CycleHud render readiness transform",
-    () => ({
-      hasCycle: Boolean(cycle),
-      status: cycle?.status ?? null,
-      hasEndAt: Boolean(displayState?.timerEndAt),
-      hasSponsor: Boolean(sponsoredMeta?.enabled),
-      usedSponsorSnapshot: Boolean(snapshotSponsorMeta),
-      usedSponsorFallback: Boolean(fallbackSponsorMeta),
-    })
-  );
-
-  const totalMs = endHudTimer();
-
-  console.log(
-    `${HOME_PERF_JSON_PREFIX} ${JSON.stringify({
-      component: "CycleHud",
-      totalMs: Number(totalMs.toFixed(1)),
-      cycleQueryMs: Number(metrics.cycleQueryMs.toFixed(1)),
-      appConfigMs: Number(metrics.appConfigMs.toFixed(1)),
-      sponsorshipMs: Number(metrics.sponsorshipMs.toFixed(1)),
-      hasCycle: Boolean(cycle),
-      status: cycle?.status ?? null,
-      hasSponsor: Boolean(sponsoredMeta?.enabled),
-      usedSponsorSnapshot: Boolean(snapshotSponsorMeta),
-      usedSponsorFallback: Boolean(fallbackSponsorMeta),
-    })}`
-  );
 
   if (!cycle || !displayState) return null;
 
