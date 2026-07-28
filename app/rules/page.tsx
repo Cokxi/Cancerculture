@@ -1,6 +1,8 @@
 "use client";
 
 import PageWrapper from "@/app/components/ui/PageWrapper";
+import BackToTopButton from "@/app/components/ui/BackToTopButton";
+import SectionNavigation from "@/app/components/navigation/SectionNavigation";
 import {
   standardRulesSections,
   type RuleSection,
@@ -11,6 +13,7 @@ type RuleBlockProps = RuleSection & {
 };
 
 function RuleBlock({
+  id,
   title,
   paragraphs,
   bullets,
@@ -23,7 +26,8 @@ function RuleBlock({
 
   return (
     <section
-      className={`rounded-[24px] border p-6 backdrop-blur-sm sm:p-8 ${toneClasses}`}
+      id={id}
+      className={`scroll-mt-24 rounded-[24px] border p-6 backdrop-blur-sm sm:scroll-mt-28 sm:p-8 ${toneClasses}`}
     >
       <h2 className="font-['Permanent_Marker'] text-2xl tracking-[0.04em] text-[#2b1208] sm:text-[1.8rem]">
         {title}
@@ -72,6 +76,11 @@ export default function RulesPage() {
 </div>
 </section>
 
+        <SectionNavigation
+          ariaLabel="Rules sections"
+          sections={standardRulesSections}
+        />
+
 <section className="rounded-[24px] border border-[rgba(255,232,196,0.56)] bg-[linear-gradient(180deg,rgba(255,196,112,0.95),rgba(255,147,67,0.92))] p-5 text-[rgba(43,18,8,0.9)] shadow-[0_12px_30px_rgba(0,0,0,0.14)]">
   <p className="font-['Permanent_Marker'] text-lg text-[#2b1208]">
     Current Rules
@@ -93,6 +102,7 @@ export default function RulesPage() {
           ))}
         </section>
       </div>
+      <BackToTopButton />
     </PageWrapper>
   );
 }

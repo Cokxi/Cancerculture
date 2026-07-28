@@ -63,7 +63,7 @@ export default async function MyProfilePage() {
 
   return (
     <>
-      <BackButton href="/" label="Back" />
+      <BackButton href="/" label="Home" />
 
       <div className="mx-auto max-w-2xl space-y-10 px-4 py-10 text-white">
         <div className="flex flex-col items-center space-y-4 text-center">

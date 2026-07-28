@@ -477,17 +477,11 @@ export default async function CycleHud() {
   return (
     <div
       className="
-        absolute
-        top-[150px]
-        z-0
-        left-0
-        w-full
-        flex
-        justify-center
-        pointer-events-none
+        pointer-events-none absolute inset-0 z-20 flex items-center justify-center
+        sm:inset-auto sm:left-0 sm:top-[150px] sm:w-full
       "
     >
-      <div className="inline-flex flex-col text-left gap-[2px] leading-tight">
+      <div className="inline-flex max-w-[88vw] flex-col gap-[2px] break-words text-left leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] sm:max-w-none">
         <div
           className="
             text-[1.55rem] tracking-wide

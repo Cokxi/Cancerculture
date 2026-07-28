@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
 import SubmissionSocialLinks from "@/app/components/profile/SubmissionSocialLinks";
 import ProfileLinkButton from "@/app/components/profile/ProfileLinkButton";
+import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 import type {
   CycleHistoryCycle,
   CycleHistoryCycleSummary,
@@ -398,19 +399,12 @@ function SubmissionModal({
       className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/90 p-6"
       onClick={onClose}
     >
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close modal"
-        className="fixed top-4 right-4 z-[60] flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-black/60 text-2xl text-white hover:bg-black/80"
-      >
-        ×
-      </button>
-
       <div
         className="relative mx-auto w-fit rounded-xl bg-black"
         onClick={(event) => event.stopPropagation()}
       >
+        <ModalCloseButton onClick={onClose} />
+
         {submission.imageUrl ? (
           <img
             src={submission.imageUrl}

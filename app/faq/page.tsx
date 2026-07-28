@@ -1,6 +1,8 @@
 "use client";
 
 import PageWrapper from "@/app/components/ui/PageWrapper";
+import BackToTopButton from "@/app/components/ui/BackToTopButton";
+import SectionNavigation from "@/app/components/navigation/SectionNavigation";
 import { faqSections, type FaqSection } from "@/app/content/faq";
 
 type FaqBlockProps = FaqSection & {
@@ -22,7 +24,7 @@ function FaqBlock({
   return (
     <section
       id={id}
-      className={`rounded-[24px] border p-6 backdrop-blur-sm sm:p-8 ${toneClasses}`}
+      className={`scroll-mt-24 rounded-[24px] border p-6 backdrop-blur-sm sm:scroll-mt-28 sm:p-8 ${toneClasses}`}
     >
       <h2 className="font-['Permanent_Marker'] text-2xl tracking-[0.04em] text-[#2b1208] sm:text-[1.8rem]">
         {title}
@@ -115,21 +117,10 @@ export default function FAQPage() {
         </section>
 
         
-        <section className="sticky top-4 z-10 flex flex-wrap gap-3 rounded-[20px] border border-[rgba(255,232,196,0.3)] bg-[linear-gradient(180deg,rgba(255,156,76,0.95),rgba(239,104,38,0.92))] p-3 shadow-[0_10px_25px_rgba(0,0,0,0.25)] backdrop-blur-md">
-          {faqSections.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => {
-                document
-                  .getElementById(section.id)
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-              className="rounded-full border border-[rgba(255,196,112,0.4)] bg-[#140803] px-4 py-2 text-sm font-medium text-[#ffb86b] transition cursor-pointer hover:scale-[1.05] hover:bg-[#1f0d05] hover:text-[#ffc27a] hover:shadow-[0_0_12px_rgba(255,196,112,0.35)]"
-            >
-              {section.title}
-            </button>
-          ))}
-        </section>
+        <SectionNavigation
+          ariaLabel="FAQ sections"
+          sections={faqSections}
+        />
 
         
         
@@ -144,6 +135,7 @@ export default function FAQPage() {
           ))}
         </section>
       </div>
+      <BackToTopButton />
     </PageWrapper>
   );
 }

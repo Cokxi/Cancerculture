@@ -84,7 +84,7 @@ export default async function Home() {
   endHomeTimer();
 
   return (
-    <main className="relative w-full bg-orange-background text-white">
+    <main className="relative isolate w-full bg-orange-background text-white">
       <div className="ticker-wrapper">
         <div className="ticker-track">
           <div className="ticker-text">
@@ -132,28 +132,31 @@ export default async function Home() {
 
       <section
         className="
-          relative flex min-h-[70vh] max-h-[900px] flex-col items-center
-          justify-start gap-3 pt-6 sm:min-h-screen sm:justify-center sm:gap-6 sm:pt-0
+          relative isolate flex min-h-[calc(100svh-7rem)] flex-col items-center
+          justify-start gap-3 pb-8 pt-6
+          sm:min-h-screen sm:max-h-[900px] sm:justify-center sm:gap-6 sm:pb-0 sm:pt-0
         "
       >
-        <div
-          className="
-            relative z-10 mb-[-0.5rem] flex items-center justify-center
-            gap-[-20px] opacity-85 sm:mb-0 sm:gap-6 lg:gap-14
-          "
-        >
-          <div className="scale-[0.38] overflow-visible -mr-20 sm:mr-0 sm:scale-[0.65] lg:scale-[0.75]">
-            <DiscordCellAnimated />
+        <div className="relative w-full sm:static">
+          <div
+            className="
+              relative z-0 mb-[-0.5rem] flex w-full items-center justify-center
+              gap-0 opacity-85 sm:mb-0 sm:gap-6 lg:gap-14
+            "
+          >
+            <div className="w-[min(42vw,152px)] overflow-visible sm:w-[260px] lg:w-[300px]">
+              <DiscordCellAnimated />
+            </div>
+
+            <div className="w-[min(42vw,152px)] overflow-visible sm:w-[260px] lg:w-[300px]">
+              <TelegramCellAnimated />
+            </div>
           </div>
 
-          <div className="scale-[0.38] overflow-visible -ml-20 sm:ml-0 sm:scale-[0.65] lg:scale-[0.75]">
-            <TelegramCellAnimated />
-          </div>
+          <CycleHud />
         </div>
 
-        <CycleHud />
-
-        <div className="relative animate-breathe -translate-y-2 sm:translate-y-0">
+        <div className="relative z-20 -translate-y-2 animate-breathe sm:translate-y-0">
           <Image
             src="https://cdn.cancerculture.fun/webp/logo/logo.webp"
             alt="CancerCulture"

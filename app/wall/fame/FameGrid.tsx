@@ -3,6 +3,7 @@
 import SponsoredBanner from "@/app/components/SponsoredBanner";
 import ProfileLinkButton from "@/app/components/profile/ProfileLinkButton";
 import SubmissionSocialLinks from "@/app/components/profile/SubmissionSocialLinks";
+import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
 import {
   SUBMISSION_PUBLIC_VISIBILITY,
@@ -198,17 +199,12 @@ export default function FameGrid({
           className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/90 p-6"
           onClick={() => setActive(null)}
         >
-          <button
-            onClick={() => setActive(null)}
-            className="fixed top-4 right-4 z-[60] flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-2xl text-white hover:bg-black/80"
-          >
-            ×
-          </button>
-
           <div
             className="relative mx-auto w-fit rounded-xl bg-black"
             onClick={(e) => e.stopPropagation()}
           >
+            <ModalCloseButton onClick={() => setActive(null)} />
+
             {active.image_url ? (
               <img
                 src={active.image_url}

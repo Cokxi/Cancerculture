@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import {
+  navigationMenuItemClassName,
+  navigationTextTriggerClassName,
+} from "@/app/components/navigation/navigationButtonStyles";
 import { HOME_NAVIGATION_ITEMS } from "@/lib/navigation/homeNavigation";
 
 function supportsHoverInteraction() {
@@ -87,7 +91,7 @@ export default function HomeMenu() {
         aria-haspopup="menu"
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((current) => !current)}
-        className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-orange-500/45 bg-black/85 px-4 py-2 font-[var(--font-marker)] text-sm text-orange-400 shadow-lg shadow-black/40 outline-none transition hover:border-orange-400 hover:bg-black focus-visible:ring-2 focus-visible:ring-orange-400"
+        className={`${navigationTextTriggerClassName} font-[var(--font-marker)]`}
       >
         Menu
         <span
@@ -115,7 +119,7 @@ export default function HomeMenu() {
                 href={item.href}
                 role="menuitem"
                 onClick={() => closeMenu()}
-                className={`block w-full cursor-pointer whitespace-nowrap rounded-lg px-3 py-2 text-left font-[var(--font-marker)] text-sm text-white outline-none transition hover:bg-orange-500/15 hover:text-orange-400 focus-visible:bg-orange-500/20 focus-visible:text-orange-300 ${item.showInDesktopBar ? "md:hidden" : ""}`}
+                className={`${navigationMenuItemClassName} ${item.showInDesktopBar ? "md:hidden" : ""}`}
               >
                 {item.label}
               </Link>

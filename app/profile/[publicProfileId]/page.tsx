@@ -41,7 +41,7 @@ export default async function PublicProfilePage({
 
   return (
     <>
-      <BackButton href="/" label="Back" />
+      <BackButton href="/" label="Home" />
 
       <div className="mx-auto max-w-4xl space-y-8 px-4 py-10 text-white">
         <div className="rounded-2xl border border-white/10 bg-black/40 p-6">

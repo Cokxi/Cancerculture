@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import DiscordCooldownTimer from "@/app/components/DiscordCooldownTimer";
 import DiscordSyncDelayNotice from "@/app/components/DiscordSyncDelayNotice";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
+import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
 import {
@@ -375,17 +376,12 @@ export default function SubmissionsClient({
           className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain p-6"
           onClick={() => setActive(null)}
         >
-          <button
-            onClick={() => setActive(null)}
-            className="fixed top-4 right-4 z-[60] text-white text-2xl bg-black/60 rounded-full w-10 h-10 flex items-center justify-center hover:bg-black/80"
-          >
-            x
-          </button>
-
           <div
             className="relative mx-auto w-fit bg-black rounded-lg"
             onClick={(e) => e.stopPropagation()}
           >
+            <ModalCloseButton onClick={() => setActive(null)} />
+
             {/* eslint-disable-next-line @next/next/no-img-element -- The R2 original has unknown intrinsic dimensions, and this modal toggles between viewport-fit and native-size zoom. */}
             <img
               src={active.image_url}

@@ -9,7 +9,7 @@ export default function OrangePlaceholderPage({
 }) {
   return (
     <>
-      <BackButton href="/" label="Back" />
+      <BackButton href="/" label="Home" />
 
       <div className="mx-auto flex min-h-screen max-w-5xl items-start justify-center px-4 py-20 text-white">
         <div className="w-full max-w-3xl">

@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 
 export default function BaseOverlay({
   children,
@@ -109,24 +110,7 @@ export default function BaseOverlay({
           <div className="w-12 h-1.5 rounded-full bg-black/20" />
 
           {!blocking && (
-            <button
-              onClick={handleClose}
-              aria-label="Close overlay"
-              className="
-                absolute right-3 top-2
-                text-2xl leading-none
-                px-3 py-1
-                rounded-xl
-                bg-black/10 backdrop-blur-sm
-                text-[var(--orange-main)]
-                hover:bg-black/20
-                active:scale-95
-                transition
-                cursor-pointer
-              "
-            >
-              <span className="block -translate-y-[1px]">x</span>
-            </button>
+            <ModalCloseButton onClick={handleClose} />
           )}
         </div>
 

@@ -30,7 +30,7 @@ export default async function CycleHistoryPage() {
 
   return (
     <>
-      <BackButton href="/" label="Back" />
+      <BackButton href="/" label="Home" />
 
       <div className="mx-auto max-w-6xl px-4 py-16 text-white">
         <div className="mb-8 text-center">

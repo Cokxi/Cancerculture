@@ -1,4 +1,5 @@
 export type RuleSection = {
+  id: string;
   title: string;
   paragraphs?: string[];
   bullets?: string[];
@@ -6,6 +7,7 @@ export type RuleSection = {
 
 export const standardRulesSections: RuleSection[] = [
   {
+    id: "participation",
     title: "Participation",
     paragraphs: [
       "Participation is voluntary. Each cycle is a standalone competition.",
@@ -15,6 +17,7 @@ export const standardRulesSections: RuleSection[] = [
           ],
   },
   {
+    id: "submissions",
     title: "Submissions",
     paragraphs: [
       "This platform is about memes. Low-effort uploads, such as simple screenshots from social media, may be disqualified.",
@@ -31,6 +34,7 @@ export const standardRulesSections: RuleSection[] = [
     ],
   },
   {
+    id: "fair-play",
     title: "Fair Play",
   paragraphs: [
     "The goal is to reward creativity, not external influence.",
@@ -42,6 +46,7 @@ export const standardRulesSections: RuleSection[] = [
   ],
   },
   {
+    id: "behavior",
     title: "Behavior",
   paragraphs: [
     "Respect other participants and their decisions.",
@@ -54,6 +59,7 @@ export const standardRulesSections: RuleSection[] = [
   ],
   },
   {
+    id: "rewards",
     title: "Rewards",
   paragraphs: [
     "Winners are determined by community voting.",
@@ -69,6 +75,7 @@ export const standardRulesSections: RuleSection[] = [
   },
 
   {
+  id: "charity-public-profiles",
   title: "Charity & Public Profiles",
   paragraphs: [
     "Winners can decide how to handle their reward. Donating is optional.",
@@ -80,6 +87,7 @@ export const standardRulesSections: RuleSection[] = [
   ],
 },
   {
+    id: "moderation",
     title: "Moderation",
     paragraphs: [
       "We reserve the right to remove submissions, disqualify participants, or restrict access to protect platform integrity.",
@@ -90,6 +98,7 @@ export const standardRulesSections: RuleSection[] = [
   },
 
   {
+    id: "technical-limits",
     title: "Technical & Limits",
     paragraphs: [
       "The current maximum file size is 4MB.",
@@ -99,6 +108,7 @@ export const standardRulesSections: RuleSection[] = [
     ],
   },
   {
+    id: "disclaimer",
     title: "Disclaimer",
     paragraphs: [
       "This is not a game of chance. Outcomes are determined by community voting.",
@@ -108,6 +118,7 @@ export const standardRulesSections: RuleSection[] = [
     ],
   },
   {
+    id: "final-note",
     title: "Final Note",
     paragraphs: [
       "Keep it creative. Keep it fair. Don't be an idiot.",

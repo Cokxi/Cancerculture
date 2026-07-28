@@ -133,21 +133,69 @@ test("account menu exposes keyboard, focus, and dismissal contracts", async () =
   assert.match(menu, /supportsHoverInteraction\(\)/);
   assert.match(menu, /onMouseEnter/);
   assert.match(menu, /onMouseLeave/);
-  assert.match(menu, /cursor-pointer/);
+  assert.match(menu, /navigationTriggerBaseClassName/);
 });
 
-test("home menu and shared Back button retain accessible pointer contracts", async () => {
-  const [homeMenu, backButton] = await Promise.all([
-    readRepoFile("app/components/navigation/HomeMenu.tsx"),
-    readRepoFile("app/components/ui/BackButton.tsx"),
-  ]);
+test("global navigation triggers share stable pill interaction styles", async () => {
+  const [homeMenu, accountMenu, backButton, globalAccount, styles] =
+    await Promise.all([
+      readRepoFile("app/components/navigation/HomeMenu.tsx"),
+      readRepoFile("app/components/auth/AccountMenu.tsx"),
+      readRepoFile("app/components/ui/BackButton.tsx"),
+      readRepoFile("app/components/auth/GlobalAccount.tsx"),
+      readRepoFile(
+        "app/components/navigation/navigationButtonStyles.ts"
+      ),
+    ]);
 
   assert.match(homeMenu, /className="fixed left-3 top-\[74px\]/);
   assert.match(homeMenu, /supportsHoverInteraction\(\)/);
   assert.match(homeMenu, /aria-haspopup="menu"/);
   assert.match(homeMenu, /event\.key === "Escape"/);
   assert.match(homeMenu, /document\.addEventListener\("pointerdown"/);
-  assert.match(homeMenu, /cursor-pointer/);
-  assert.match(backButton, /border-orange-500\/45/);
-  assert.match(backButton, /cursor-pointer/);
+  assert.match(homeMenu, /navigationTextTriggerClassName/);
+  assert.match(accountMenu, /navigationTriggerBaseClassName/);
+  assert.match(globalAccount, /navigationTextTriggerClassName/);
+  assert.match(backButton, /navigationTextTriggerClassName/);
+  assert.match(styles, /rounded-full/);
+  assert.match(styles, /border-2 border-orange-500\/70/);
+  assert.match(styles, /cursor-pointer/);
+  assert.match(styles, /focus-visible:ring-2/);
+  assert.match(styles, /active:bg-orange-500\/20/);
+  assert.doesNotMatch(styles, /hover:border|hover:scale|animate-/);
+});
+
+test("account trigger is explicit on mobile and safely ellipses desktop names", async () => {
+  const accountMenu = await readRepoFile(
+    "app/components/auth/AccountMenu.tsx"
+  );
+
+  assert.match(accountMenu, /className="text-sm sm:hidden">Profile</);
+  assert.match(
+    accountMenu,
+    /hidden min-w-0 max-w-\[8rem\] truncate text-sm sm:inline/
+  );
+  assert.match(accountMenu, /title=\{displayName\}/);
+  assert.match(
+    accountMenu,
+    /className="break-words px-3 pb-2 pt-1 text-xs text-white\/55"/
+  );
+  assert.doesNotMatch(accountMenu, /displayName\.(slice|substring)/);
+});
+
+test("homepage links use Home semantics instead of back navigation", async () => {
+  const files = await Promise.all(
+    [
+      "app/components/ui/BackButton.tsx",
+      "app/components/ui/OrangePlaceholderPage.tsx",
+      "app/cycle-history/page.tsx",
+      "app/my-profile/page.tsx",
+      "app/profile/[publicProfileId]/page.tsx",
+    ].map(readRepoFile)
+  );
+
+  for (const source of files) {
+    assert.doesNotMatch(source, /label="Back"|label = "Back"|&larr;/);
+  }
+  assert.match(files[0], /label = "Home"/);
 });

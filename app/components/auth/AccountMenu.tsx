@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import {
+  navigationMenuItemClassName,
+  navigationTriggerBaseClassName,
+} from "@/app/components/navigation/navigationButtonStyles";
 import type {
   AccountNavigationItem,
   AccountNavigationState,
@@ -89,9 +93,6 @@ export default function AccountMenu({
   };
 
   const renderItem = (item: AccountNavigationItem) => {
-    const itemClassName =
-      "block w-full cursor-pointer whitespace-nowrap rounded-lg px-3 py-2 text-left font-[var(--font-marker)] text-sm text-white outline-none transition hover:bg-orange-500/15 hover:text-orange-400 focus-visible:bg-orange-500/20 focus-visible:text-orange-300";
-
     if (item.kind === "logout") {
       return (
         <form
@@ -103,7 +104,7 @@ export default function AccountMenu({
           <button
             type="submit"
             role="menuitem"
-            className={itemClassName}
+            className={navigationMenuItemClassName}
           >
             {item.label}
           </button>
@@ -116,7 +117,7 @@ export default function AccountMenu({
         key={item.id}
         href={item.href}
         role="menuitem"
-        className={itemClassName}
+        className={navigationMenuItemClassName}
         onClick={() => closeMenu()}
       >
         {item.label}
@@ -142,7 +143,7 @@ export default function AccountMenu({
         aria-haspopup="menu"
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((current) => !current)}
-        className="flex max-w-[12rem] cursor-pointer items-center gap-2 rounded-full border border-orange-500/45 bg-black/85 p-1.5 pr-3 text-orange-400 shadow-lg outline-none transition hover:border-orange-400 hover:bg-black focus-visible:ring-2 focus-visible:ring-orange-400"
+        className={`${navigationTriggerBaseClassName} max-w-[calc(100vw-1.5rem)] p-1.5 pr-3 sm:max-w-[13rem]`}
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-500/20">
           {avatarUrl ? (
@@ -156,7 +157,13 @@ export default function AccountMenu({
             <span aria-hidden>?</span>
           )}
         </span>
-        <span className="hidden truncate text-sm sm:inline">{displayName}</span>
+        <span className="text-sm sm:hidden">Profile</span>
+        <span
+          className="hidden min-w-0 max-w-[8rem] truncate text-sm sm:inline"
+          title={displayName}
+        >
+          {displayName}
+        </span>
         <span
           aria-hidden
           className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}
@@ -177,7 +184,7 @@ export default function AccountMenu({
             onKeyDown={handleMenuKeyDown}
             className="flex min-w-[180px] flex-col rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl shadow-black/60 backdrop-blur"
           >
-            <p className="truncate px-3 pb-2 pt-1 text-xs text-white/55 sm:hidden">
+            <p className="break-words px-3 pb-2 pt-1 text-xs text-white/55">
               {displayName}
             </p>
             {navigation.teamAccessUnavailable ? (

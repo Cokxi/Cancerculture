@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AccountMenu from "@/app/components/auth/AccountMenu";
+import { navigationTextTriggerClassName } from "@/app/components/navigation/navigationButtonStyles";
 import {
   createAccountNavigationState,
   type AccountNavigationRole,
@@ -18,7 +19,7 @@ export default async function GlobalAccount() {
     return (
       <Link
         href="/api/auth/discord/login?state=/"
-        className="inline-flex min-h-10 cursor-pointer items-center rounded-full border border-orange-500/45 bg-black/85 px-4 py-2 text-sm text-orange-400 shadow-lg transition hover:border-orange-400 hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+        className={navigationTextTriggerClassName}
       >
         Login with Discord
       </Link>

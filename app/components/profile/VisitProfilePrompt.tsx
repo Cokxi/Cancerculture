@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useOverlay } from "@/app/components/overlay/OverlayProvider";
+import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 
 export default function VisitProfilePrompt({
   currentUsername,
@@ -18,9 +19,11 @@ export default function VisitProfilePrompt({
       onClick={closeOverlay}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-white/10 bg-neutral-950 p-6 text-white"
+        className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-neutral-950 p-6 pt-12 text-white"
         onClick={(event) => event.stopPropagation()}
       >
+        <ModalCloseButton onClick={closeOverlay} />
+
         <h2 className="text-xl font-[Permanent_Marker] text-[var(--orange-dark)]">
           Visit Profile
         </h2>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { navigationTextTriggerClassName } from "@/app/components/navigation/navigationButtonStyles";
 
 type BackButtonProps = {
   href?: string;
@@ -9,34 +10,14 @@ type BackButtonProps = {
 
 export default function BackButton({
   href = "/",
-  label = "Back",
+  label = "Home",
 }: BackButtonProps) {
   return (
     <Link
       href={href}
-      className="
-        fixed
-        top-4
-        left-4
-        z-[70]
-        border
-        border-orange-500/45
-        bg-black/85
-        text-orange-500
-        px-3
-        py-2
-        rounded-full
-        text-sm
-        font-[var(--font-marker)]
-        shadow-lg
-        shadow-black/40
-        hover:border-orange-400
-        hover:bg-black
-        transition
-        cursor-pointer
-      "
+      className={`fixed left-4 top-4 z-[70] font-[var(--font-marker)] ${navigationTextTriggerClassName}`}
     >
-      &larr; {label}
+      {label}
     </Link>
   );
 }

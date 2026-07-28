@@ -8,13 +8,13 @@ export default function TelegramCellAnimated() {
       href={DISCORD_INVITE_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="relative cursor-pointer group"
+      className="group relative block w-full cursor-pointer"
     >
      
 <div
   className="
     relative
-    w-[400px]
+    w-full
     animate-float
     transition-transform
   "

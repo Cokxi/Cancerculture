@@ -6,13 +6,13 @@ export default function DiscordCellAnimated() {
       href="https://x.com/i/communities/1974188909858074899"
       target="_blank"
       rel="noopener noreferrer"
-      className="relative cursor-pointer group"
+      className="group relative block w-full cursor-pointer"
     >
       
 <div
   className="
     relative
-    w-[400px]
+    w-full
     animate-float
     transition-transform
   "
