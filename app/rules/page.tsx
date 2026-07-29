@@ -1,7 +1,6 @@
 "use client";
 
 import PageWrapper from "@/app/components/ui/PageWrapper";
-import BackToTopButton from "@/app/components/ui/BackToTopButton";
 import SectionNavigation from "@/app/components/navigation/SectionNavigation";
 import {
   standardRulesSections,
@@ -102,7 +101,6 @@ export default function RulesPage() {
           ))}
         </section>
       </div>
-      <BackToTopButton />
     </PageWrapper>
   );
 }

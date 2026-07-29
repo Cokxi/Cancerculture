@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createAccountNavigationState } from "../../lib/auth/accountNavigation.ts";
 import {
+  HOME_NAVIGATION_ITEMS,
   getHomeDesktopNavigationItems,
   getHomeMenuItems,
 } from "../../lib/navigation/homeNavigation.ts";
@@ -79,7 +80,7 @@ test("desktop and mobile home navigation expose the intended links", () => {
   assert.deepEqual(
     getHomeMenuItems({ mobile: true }).map((item) => item.id),
     [
-      "about",
+      "info",
       "upload",
       "submissions",
       "faq",
@@ -95,6 +96,12 @@ test("desktop and mobile home navigation expose the intended links", () => {
     ),
     false
   );
+  assert.deepEqual(HOME_NAVIGATION_ITEMS[0], {
+    id: "info",
+    label: "Info",
+    href: "#info",
+    showInDesktopBar: true,
+  });
 });
 
 test("menus are home-only and duplicate floating profile links stay removed", async () => {
@@ -108,6 +115,17 @@ test("menus are home-only and duplicate floating profile links stay removed", as
   assert.match(home, /<GlobalAccount \/>/);
   assert.match(home, /aria-label="Primary navigation"/);
   assert.doesNotMatch(home, />\s*My Profile\s*</);
+});
+
+test("home Info navigation keeps stable pointer, hover, focus, and active states", async () => {
+  const home = await readRepoFile("app/page.tsx");
+
+  assert.match(home, /item\.id === "info"/);
+  assert.match(home, /cursor-pointer/);
+  assert.match(home, /hover:text-orange-200/);
+  assert.match(home, /focus-visible:ring-2/);
+  assert.match(home, /active:text-orange-100/);
+  assert.doesNotMatch(home, /item\.id === "info"[\s\S]*hover:scale/);
 });
 
 test("account menu preserves the existing POST logout flow", async () => {

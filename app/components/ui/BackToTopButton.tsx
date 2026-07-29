@@ -1,19 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { navigationTriggerBaseClassName } from "@/app/components/navigation/navigationButtonStyles";
-
-const SHOW_AFTER_PX = 480;
+import { shouldShowBackToTop } from "@/lib/navigation/backToTopVisibility";
 
 export default function BackToTopButton() {
   const [isVisible, setIsVisible] = useState(false);
+  const pathname = usePathname();
+  const isAdminPath =
+    pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
+    if (isAdminPath) {
+      const resetFrame = window.requestAnimationFrame(() => {
+        setIsVisible(false);
+      });
+
+      return () => {
+        window.cancelAnimationFrame(resetFrame);
+      };
+    }
+
     let animationFrame: number | null = null;
 
     const updateVisibility = () => {
       animationFrame = null;
-      const nextVisibility = window.scrollY >= SHOW_AFTER_PX;
+      const scrollHeight = Math.max(
+        document.documentElement.scrollHeight,
+        document.body?.scrollHeight ?? 0
+      );
+      const nextVisibility = shouldShowBackToTop({
+        scrollY: window.scrollY,
+        scrollHeight,
+        viewportHeight: window.innerHeight,
+      });
 
       setIsVisible((currentVisibility) =>
         currentVisibility === nextVisibility
@@ -30,17 +51,31 @@ export default function BackToTopButton() {
 
     updateVisibility();
     window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(handleScroll);
+
+    resizeObserver?.observe(document.documentElement);
+
+    if (document.body) {
+      resizeObserver?.observe(document.body);
+    }
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+      resizeObserver?.disconnect();
 
       if (animationFrame !== null) {
         window.cancelAnimationFrame(animationFrame);
       }
     };
-  }, []);
+  }, [isAdminPath, pathname]);
 
-  if (!isVisible) return null;
+  if (isAdminPath || !isVisible) return null;
 
   const handleBackToTop = () => {
     const reduceMotion = window.matchMedia(

@@ -70,6 +70,17 @@ export default async function AdminLayout({
             </li>
           )}
 
+          {isAdmin && (
+            <li>
+              <Link
+                href="/admin/homepage-info-blocks"
+                className="block cursor-pointer rounded px-2 py-1 outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-orange-300 active:bg-white/5"
+              >
+                Homepage Info Boxes
+              </Link>
+            </li>
+          )}
+
           <li>
             <Link
               href="/admin/moderation/submissions"

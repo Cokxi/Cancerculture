@@ -6,7 +6,7 @@ export type HomeNavigationItem = {
 };
 
 export const HOME_NAVIGATION_ITEMS: HomeNavigationItem[] = [
-  { id: "about", label: "About", href: "/#about", showInDesktopBar: true },
+  { id: "info", label: "Info", href: "#info", showInDesktopBar: true },
   { id: "upload", label: "Upload", href: "/upload", showInDesktopBar: true },
   {
     id: "submissions",

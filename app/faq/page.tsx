@@ -1,7 +1,6 @@
 "use client";
 
 import PageWrapper from "@/app/components/ui/PageWrapper";
-import BackToTopButton from "@/app/components/ui/BackToTopButton";
 import SectionNavigation from "@/app/components/navigation/SectionNavigation";
 import { faqSections, type FaqSection } from "@/app/content/faq";
 
@@ -135,7 +134,6 @@ export default function FAQPage() {
           ))}
         </section>
       </div>
-      <BackToTopButton />
     </PageWrapper>
   );
 }

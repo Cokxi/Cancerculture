@@ -33,10 +33,10 @@ export default function CoinLaunchDisplay({
     .join(" - ");
 
   return (
-    <div className="fixed bottom-16 left-1/2 z-40 w-[min(92vw,760px)] -translate-x-1/2 md:relative md:bottom-auto md:left-auto md:w-auto md:translate-x-0">
+    <div className="w-full max-w-[760px]">
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-xl border border-orange-500/30 bg-black/80 px-3 py-2 shadow-lg shadow-black/40 backdrop-blur-sm">
         {launch.tokenSymbol || identity ? (
-          <div className="whitespace-nowrap text-xs tracking-wide text-white/65">
+          <div className="min-w-0 break-words text-center text-xs tracking-wide text-white/65">
             {launch.tokenSymbol ? (
               <span className="font-semibold text-orange-400">
                 {launch.tokenSymbol}
