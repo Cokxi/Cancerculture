@@ -1,12 +1,17 @@
 import BackButton from "@/app/components/ui/BackButton";
 import AvatarUpload from "@/app/components/ui/AvatarUpload";
-import { requireSession } from "@/lib/auth/requireSession";
+import { getSessionState } from "@/lib/auth/sessionState";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
 import { getUserProfileData } from "@/lib/profile/getUserProfileData";
 import type { ProfileSubmission } from "@/lib/profile/getUserProfileData";
 import ProfileSocialsSection from "@/app/components/profile/ProfileSocialsSection";
+import { redirect } from "next/navigation";
 import ProfileSections from "./ProfileSections";
+
+const MY_PROFILE_PATH = "/my-profile";
+const MY_PROFILE_LOGIN_PATH =
+  `/api/auth/discord/login?state=${MY_PROFILE_PATH}`;
 
 function renderRank(submission: {
   rank: number | null;
@@ -45,7 +50,45 @@ function renderPublicVisibilityStatus(
 }
 
 export default async function MyProfilePage() {
-  const session = await requireSession();
+  const sessionState = await getSessionState();
+
+  if (sessionState.status === "anonymous") {
+    redirect(MY_PROFILE_LOGIN_PATH);
+  }
+
+  if (sessionState.status === "restricted") {
+    const code =
+      sessionState.reason === "discord_banned"
+        ? "DISCORD_BANNED"
+        : "WEBSITE_BANNED";
+
+    redirect(`/banned?code=${code}`);
+  }
+
+  if (sessionState.status === "dependency_unavailable") {
+    return (
+      <>
+        <BackButton href="/" label="Home" />
+
+        <main className="flex min-h-screen items-center justify-center px-6 text-white">
+          <div
+            className="max-w-xl rounded-2xl border border-white/10 bg-black/70 p-8 text-center"
+            role="status"
+          >
+            <h1 className="text-3xl font-[Permanent_Marker] text-[var(--orange-dark)]">
+              Profile temporarily unavailable
+            </h1>
+            <p className="mt-4 text-white/70">
+              We could not verify your session right now. Please try
+              again shortly.
+            </p>
+          </div>
+        </main>
+      </>
+    );
+  }
+
+  const session = sessionState.session;
   const {
     activeCycleId,
     avatarUrl,

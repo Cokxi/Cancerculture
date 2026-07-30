@@ -70,6 +70,29 @@ test("OAuth start normalizes an external return target to the application root",
   );
 });
 
+test("OAuth round-trip preserves the fixed my-profile return target", async () => {
+  const response = await startDiscordOAuth(
+    new Request(
+      "https://cancerculture.example/api/auth/discord/login" +
+        "?state=/my-profile"
+    )
+  );
+
+  assert.equal(response.status, 307);
+  assert.equal(
+    getCookieValue(getSetCookies(response), "oauth_redirect_path"),
+    "/my-profile"
+  );
+  assert.match(
+    callbackSource,
+    /cookieStore\.get\("oauth_redirect_path"\)\?\.value/
+  );
+  assert.match(
+    callbackSource,
+    /NextResponse\.redirect\(\s*new URL\(redirectPath, applicationOrigin\)/
+  );
+});
+
 test("OAuth callback redirects access denials without route-handler rewrites", () => {
   assert.doesNotMatch(callbackSource, /NextResponse\.rewrite\s*\(/);
   assert.match(
