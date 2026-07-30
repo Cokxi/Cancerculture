@@ -32,7 +32,7 @@ test("the canonical page guards before loading and legacy page redirects after g
   const [page, legacy, navigation] = await Promise.all([
     source("app/admin/team/roles/page.tsx"),
     source("app/admin/mods/page.tsx"),
-    source("app/admin/layout.tsx"),
+    source("lib/admin/teamAreaNavigation.ts"),
   ]);
 
   assert.ok(
@@ -45,7 +45,7 @@ test("the canonical page guards before loading and legacy page redirects after g
     legacy.indexOf("requireAdminPage") <
       legacy.indexOf('redirect("/admin/team/roles")')
   );
-  assert.match(navigation, /Team Roles &amp; Permissions/);
+  assert.match(navigation, /title: "Roles & Permissions"/);
   assert.match(navigation, /\/admin\/team\/roles/);
 });
 

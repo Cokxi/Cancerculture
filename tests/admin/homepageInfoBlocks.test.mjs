@@ -97,12 +97,12 @@ test("Admin list is fresh, editable when inactive, and previews active order", a
 });
 
 test("hard Delete requires explicit confirmation and interactive controls are visible", async () => {
-  const [button, page, layout] = await Promise.all([
+  const [button, page, navigation] = await Promise.all([
     readRepoFile(
       "app/admin/homepage-info-blocks/DeleteHomepageInfoBlockButton.tsx"
     ),
     readRepoFile("app/admin/homepage-info-blocks/page.tsx"),
-    readRepoFile("app/admin/layout.tsx"),
+    readRepoFile("lib/admin/teamAreaNavigation.ts"),
   ]);
 
   assert.match(button, /window\.confirm\(/);
@@ -115,5 +115,5 @@ test("hard Delete requires explicit confirmation and interactive controls are vi
     assert.match(source, /focus-visible:ring-2/);
     assert.match(source, /active:/);
   }
-  assert.match(layout, /href="\/admin\/homepage-info-blocks"/);
+  assert.match(navigation, /href: "\/admin\/homepage-info-blocks"/);
 });
