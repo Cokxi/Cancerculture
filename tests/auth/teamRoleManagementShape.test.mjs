@@ -154,7 +154,9 @@ test("permission rows are semantic, responsive, data-driven, exclude Admin, and 
   assert.match(ui, /data-capability-block/);
   assert.match(ui, /data-capability-layout/);
   assert.match(ui, /data-role-controls/);
-  assert.match(ui, /aria-expanded=\{expanded\}/);
+  assert.match(ui, /aria-expanded=\{detailsExpanded\}/);
+  assert.match(ui, /aria-controls=\{detailsId\}/);
+  assert.match(ui, /hidden=\{!detailsExpanded\}/);
   assert.match(ui, /capability\.mutable/);
   assert.match(ui, /expectedCapabilityImplementationVersion/);
   assert.match(ui, /expectedCapabilityDefinitionHash/);

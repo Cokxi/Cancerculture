@@ -301,55 +301,59 @@ function RoleManagementItem({ role }: { role: TeamRoleAdminRole }) {
 
 function CapabilityDetails({
   capability,
+  detailsId,
+  headingId,
+  hidden,
 }: {
   capability: TeamRoleAdminCapability;
+  detailsId: string;
+  headingId: string;
+  hidden: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   return (
-    <details
-      className="mt-2 text-xs"
-      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    <div
+      id={detailsId}
+      hidden={hidden}
+      role="region"
+      aria-labelledby={headingId}
+      className="mt-3 grid gap-3 rounded-lg border border-white/10 bg-black/15 p-3 text-xs sm:p-4"
     >
-      <summary
-        aria-expanded={expanded}
-        className="inline-flex cursor-pointer rounded-sm py-1 font-medium text-white/55 outline-none hover:text-white/75 focus-visible:ring-2 focus-visible:ring-orange-300"
-      >
-        Technical details
-      </summary>
-      <div className="mt-2 grid gap-3 rounded-lg border border-white/10 bg-black/15 p-3">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-          <dt className="text-white/40">Key</dt>
-          <dd className="break-all font-mono">{capability.key}</dd>
-          <dt className="text-white/40">Category</dt>
-          <dd>{capability.category}</dd>
-          <dt className="text-white/40">Risk</dt>
-          <dd>{capability.riskLevel}</dd>
-          <dt className="text-white/40">Registry / catalog</dt>
-          <dd>{syncLabels[capability.syncStatus]}</dd>
-        </dl>
-        {capability.includedActions.length > 0 ? (
-          <div>
-            <strong className="text-green-300">Included actions</strong>
-            <ul className="mt-1 list-disc pl-5 text-white/60">
-              {capability.includedActions.map((action) => (
-                <li key={action}>{action}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {capability.excludedActions.length > 0 ? (
-          <div>
-            <strong className="text-red-300">Exclusions</strong>
-            <ul className="mt-1 list-disc pl-5 text-white/60">
-              {capability.excludedActions.map((action) => (
-                <li key={action}>{action}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </div>
-    </details>
+      {capability.description.trim().length > 0 ? (
+        <p className="max-w-4xl leading-relaxed text-white/65">
+          {capability.description}
+        </p>
+      ) : null}
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        <dt className="text-white/40">Key</dt>
+        <dd className="break-all font-mono">{capability.key}</dd>
+        <dt className="text-white/40">Category</dt>
+        <dd>{capability.category}</dd>
+        <dt className="text-white/40">Risk</dt>
+        <dd>{capability.riskLevel}</dd>
+        <dt className="text-white/40">Registry / catalog</dt>
+        <dd>{syncLabels[capability.syncStatus]}</dd>
+      </dl>
+      {capability.includedActions.length > 0 ? (
+        <div>
+          <strong className="text-green-300">Included actions</strong>
+          <ul className="mt-1 list-disc pl-5 text-white/60">
+            {capability.includedActions.map((action) => (
+              <li key={action}>{action}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {capability.excludedActions.length > 0 ? (
+        <div>
+          <strong className="text-red-300">Exclusions</strong>
+          <ul className="mt-1 list-disc pl-5 text-white/60">
+            {capability.excludedActions.map((action) => (
+              <li key={action}>{action}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -361,11 +365,13 @@ function CapabilityBlock({
   roles: readonly TeamRoleAdminRole[];
 }) {
   const { review } = useTeamRoleMutation();
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const disabled =
     !capability.mutable ||
     capability.implementationVersion === null ||
     capability.definitionHash === null;
   const headingId = `capability-${capability.key}`;
+  const detailsId = `${headingId}-details`;
 
   return (
     <article
@@ -375,24 +381,30 @@ function CapabilityBlock({
     >
       <div
         data-capability-layout
-        className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,5fr)] lg:items-start lg:gap-4"
+        className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,5fr)] lg:items-center lg:gap-4"
       >
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           <h2
             id={headingId}
             className="text-sm font-semibold leading-snug text-white/90"
           >
             {capability.displayName}
           </h2>
-          <p className="mt-0.5 text-xs leading-relaxed text-white/55">
-            {capability.description}
-          </p>
-          {!capability.mutable ? (
-            <span className="mt-1.5 inline-flex rounded-full bg-red-950 px-2 py-0.5 text-xs text-red-300">
-              {syncLabels[capability.syncStatus]}
+          <button
+            type="button"
+            aria-expanded={detailsExpanded}
+            aria-controls={detailsId}
+            aria-label={`${
+              detailsExpanded ? "Hide" : "Show"
+            } details for ${capability.displayName}`}
+            className="inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-1 text-xs font-medium text-white/55 outline-none hover:bg-white/5 hover:text-white/80 focus-visible:ring-2 focus-visible:ring-orange-300"
+            onClick={() => setDetailsExpanded((expanded) => !expanded)}
+          >
+            <span aria-hidden="true">
+              {detailsExpanded ? "▾" : "▸"}
             </span>
-          ) : null}
-          <CapabilityDetails capability={capability} />
+            Details
+          </button>
         </div>
 
         <div
@@ -473,6 +485,12 @@ function CapabilityBlock({
         </div>
       </div>
 
+      <CapabilityDetails
+        capability={capability}
+        detailsId={detailsId}
+        headingId={headingId}
+        hidden={!detailsExpanded}
+      />
       {disabled ? (
         <p className="mt-2 text-xs text-red-300">
           Mutations are locked while registry and catalog metadata are not

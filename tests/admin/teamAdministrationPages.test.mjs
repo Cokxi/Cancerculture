@@ -191,11 +191,20 @@ test("Roles & Permissions renders three compact responsive rows with active dyna
   assert.match(ui, /builtInRoleLabels\[role\.key\] \?\? role\.displayName/);
   assert.doesNotMatch(ui, /<table|overflow-x-auto|Capability matrix/);
   assert.match(ui, /✓ Saved · Granted/);
-  assert.match(ui, /!capability\.mutable/);
-  assert.doesNotMatch(ui, /capability\.mutable\s*\?\s*"bg-green/);
-  assert.match(ui, /<details[\s\S]*onToggle=/);
-  assert.match(ui, /aria-expanded=\{expanded\}/);
-  assert.doesNotMatch(ui, /<details[^>]*\sopen(?:=|[\s>])/);
+  assert.match(ui, /useState\(false\)/);
+  assert.match(ui, /aria-expanded=\{detailsExpanded\}/);
+  assert.match(ui, /aria-controls=\{detailsId\}/);
+  assert.match(ui, />\s*Details\s*<\/button>/);
+  assert.match(ui, /setDetailsExpanded\(\(expanded\) => !expanded\)/);
+  assert.match(ui, /hidden=\{!detailsExpanded\}/);
+  const capabilityBlock = ui.slice(ui.indexOf("function CapabilityBlock"));
+  assert.doesNotMatch(capabilityBlock, /capability\.description/);
+  assert.match(
+    ui,
+    /capability\.description\.trim\(\)\.length > 0[\s\S]*capability\.description/
+  );
+  assert.match(ui, /capability\.includedActions\.length > 0/);
+  assert.match(ui, /capability\.excludedActions\.length > 0/);
   assert.match(ui, /\{granted \? "Revoke" : "Grant"\}/);
 });
 
