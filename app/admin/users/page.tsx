@@ -8,6 +8,11 @@ import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
 import UserRoleActions from "./UserRoleActions";
+import {
+  hasTeamCapability,
+  normalizeTeamRole,
+  type CanonicalTeamRole,
+} from "@/lib/auth/teamRoles";
 
 
 type UserLog = {
@@ -38,7 +43,7 @@ type UserLog = {
   ban_reason: string | null;
   first_seen_at: string;
   last_seen_at: string;
-  team_role?: "admin" | "mod" | null;
+  team_role?: CanonicalTeamRole | null;
 };
 
 
@@ -126,11 +131,14 @@ export default async function AdminUsersPage({
           .select("discord_user_id, role")
           .in("discord_user_id", discordUserIds)
       : { data: [], error: null };
-  const teamRoleByDiscordUserId = new Map(
-    (teamMembersResult.data ?? []).map((row) => [
-      row.discord_user_id,
-      row.role as "admin" | "mod",
-    ])
+  const teamRoleByDiscordUserId = new Map<
+    string,
+    CanonicalTeamRole
+  >(
+    (teamMembersResult.data ?? []).flatMap((row) => {
+      const role = normalizeTeamRole(row.role);
+      return role ? [[row.discord_user_id, role]] : [];
+    })
   );
 
   return (
@@ -310,7 +318,7 @@ export default async function AdminUsersPage({
   role={member.role}
 />
 
-  {member.role === "admin" && (
+  {hasTeamCapability(member.role, "canManageTeamRoles") && (
     <UserRoleActions
       discordUserId={user.discord_user_id}
       role={

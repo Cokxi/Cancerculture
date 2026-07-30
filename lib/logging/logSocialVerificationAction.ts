@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/db/admin";
+import type { CanonicalTeamRole } from "@/lib/auth/teamRoles";
 import type { SocialPlatform } from "@/lib/socials/types";
 
 export async function logSocialVerificationAction({
@@ -14,7 +15,7 @@ export async function logSocialVerificationAction({
 }: {
   action: "verify_social" | "unverify_social";
   actorDiscordUserId: string;
-  actorRole: "admin" | "mod";
+  actorRole: CanonicalTeamRole;
   targetDiscordUserId: string;
   userSocialLinkId: number;
   platform: SocialPlatform;

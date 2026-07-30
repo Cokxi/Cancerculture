@@ -111,7 +111,7 @@ test("Admin remains authorized while membership sync is unavailable", async () =
   assert.equal(state.participationCalls, 0);
 });
 
-test("Moderator with stale membership receives moderation access", async () => {
+test("Legacy mod is read as Trial Moderator", async () => {
   state.teamResult = {
     data: { discord_user_id: "team-user-1", role: "mod" },
     error: null,
@@ -122,8 +122,40 @@ test("Moderator with stale membership receives moderation access", async () => {
     "MEMBERSHIP_PENDING"
   );
 
-  assert.equal((await requireModOrAdmin()).role, "mod");
+  assert.equal(
+    (await requireModOrAdmin()).role,
+    "trial_moderator"
+  );
   assert.equal(state.participationCalls, 0);
+});
+
+test("all canonical moderation roles retain submission moderation access", async () => {
+  for (const role of [
+    "trial_moderator",
+    "moderator",
+    "super_moderator",
+  ]) {
+    state.teamResult = {
+      data: { discord_user_id: "team-user-1", role },
+      error: null,
+    };
+
+    assert.equal((await requireModOrAdmin()).role, role);
+    await assert.rejects(requireAdmin(), { status: 403 });
+  }
+});
+
+test("unknown team roles fail closed", async () => {
+  state.teamResult = {
+    data: {
+      discord_user_id: "team-user-1",
+      role: "unexpected_role",
+    },
+    error: null,
+  };
+
+  await assert.rejects(requireModOrAdmin(), { status: 503 });
+  await assert.rejects(requireAdmin(), { status: 503 });
 });
 
 test("Normal user with fresh membership receives no team access", async () => {

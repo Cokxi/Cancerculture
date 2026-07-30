@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getTeamMember } from "@/lib/auth/guards";
 import { getCycleHistorySummariesPage } from "@/lib/cycles/getCycleHistoryData";
 import { getPublicPaginationErrorResponse } from "@/lib/pagination/getPublicPaginationErrorResponse";
+import { isAdminTeamRole } from "@/lib/auth/teamRoles";
 
 export async function GET(req: Request) {
   try {
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
 
     try {
       const member = await getTeamMember();
-      isAdminView = member.role === "admin";
+      isAdminView = isAdminTeamRole(member.role);
     } catch {}
 
     const cursor = new URL(req.url).searchParams.get("cursor");
@@ -28,4 +29,3 @@ export async function GET(req: Request) {
     return getPublicPaginationErrorResponse(error);
   }
 }
-

@@ -5,6 +5,7 @@ import { getTeamMember } from "@/lib/auth/guards";
 import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { updateRulesVersion } from "./actions/updateRulesVersion";
+import { isAdminTeamRole } from "@/lib/auth/teamRoles";
 
 export default async function AdminLayout({
   children,
@@ -25,7 +26,7 @@ export default async function AdminLayout({
     throw error;
   }
 
-  const isAdmin = member.role === "admin";
+  const isAdmin = isAdminTeamRole(member.role);
   const legalReviewCount = isAdmin
     ? (
         await supabaseAdmin

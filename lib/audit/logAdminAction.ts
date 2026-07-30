@@ -1,9 +1,10 @@
 import { supabaseAdmin } from "@/lib/db/admin";
+import type { CanonicalTeamRole } from "@/lib/auth/teamRoles";
 
 type AdminActionMetadataValue = string | number | boolean | null;
 
 type LogParams = {
-  actorType: "admin" | "mod" | "system";
+  actorType: CanonicalTeamRole | "system";
   actorId: string;
   action: string;
   targetType?: string;

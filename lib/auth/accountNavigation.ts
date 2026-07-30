@@ -1,4 +1,11 @@
-export type AccountNavigationRole = "admin" | "mod" | null;
+import {
+  hasTeamCapability,
+  type CanonicalTeamRole,
+} from "@/lib/auth/teamRoles";
+
+export type AccountNavigationRole =
+  | CanonicalTeamRole
+  | null;
 
 export type AccountNavigationItem =
   | {
@@ -65,7 +72,13 @@ export function createAccountNavigationState({
     },
   ];
 
-  if (!teamAccessUnavailable && (teamRole === "admin" || teamRole === "mod")) {
+  if (
+    !teamAccessUnavailable &&
+    hasTeamCapability(
+      teamRole,
+      "canModerateSubmissionPhase"
+    )
+  ) {
     items.push({
       id: "moderation",
       label: "Moderation",
@@ -74,7 +87,10 @@ export function createAccountNavigationState({
     });
   }
 
-  if (!teamAccessUnavailable && teamRole === "admin") {
+  if (
+    !teamAccessUnavailable &&
+    hasTeamCapability(teamRole, "canManageTeamRoles")
+  ) {
     items.push({
       id: "admin",
       label: "Admin",

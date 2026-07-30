@@ -8,6 +8,7 @@ import {
   SUBMISSION_PUBLIC_VISIBILITY,
   type SubmissionPublicVisibilityStatus,
 } from "@/lib/moderation/submissionPublicVisibility";
+import { isAdminTeamRole } from "@/lib/auth/teamRoles";
 
 function getErrorResponse(error: unknown) {
   const message =
@@ -61,11 +62,14 @@ export async function POST(req: Request) {
     }
 
     if (
-      actor.role === "mod" &&
+      !isAdminTeamRole(actor.role) &&
       status !== SUBMISSION_PUBLIC_VISIBILITY.legalReview
     ) {
       return NextResponse.json(
-        { error: "Mods can only mark legal review" },
+        {
+          error:
+            "Moderators can only mark submissions for legal review",
+        },
         { status: 403 }
       );
     }

@@ -1,13 +1,12 @@
 import { getActorAuditInfo } from "@/lib/auth/getActorAuditInfo";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { logModerationAction } from "@/lib/logging/logModerationAction";
-
-type ActorRole = "admin" | "mod";
+import type { CanonicalTeamRole } from "@/lib/auth/teamRoles";
 
 type SetSubmissionDisqualificationParams = {
   actor: {
     discord_user_id: string;
-    role: ActorRole;
+    role: CanonicalTeamRole;
   };
   submissionId: number;
   mode: "disqualify" | "reinstate";

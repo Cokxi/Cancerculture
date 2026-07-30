@@ -4,10 +4,16 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import { requireSession } from "@/lib/auth/requireSession";
 import { AuthError } from "@/lib/auth/AuthError";
 import { runAuthQueryWithTimeout } from "@/lib/auth/authQuery";
+import {
+  hasTeamCapability,
+  normalizeTeamRole,
+  type CanonicalTeamRole,
+  type TeamCapability,
+} from "@/lib/auth/teamRoles";
 
-type TeamMember = {
+export type TeamMember = {
   discord_user_id: string;
-  role: "admin" | "mod";
+  role: CanonicalTeamRole;
 };
 
 export async function getTeamMemberForDiscordUserId(
@@ -37,15 +43,20 @@ export async function getTeamMemberForDiscordUserId(
     throw new AuthError(403, "Forbidden");
   }
 
-  if (member.role !== "admin" && member.role !== "mod") {
-    console.error("[ADMIN_AUTH] invalid team-member role", member);
+  const role = normalizeTeamRole(member.role);
+
+  if (!role) {
+    console.error("[ADMIN_AUTH] invalid team-member role");
     throw new AuthError(
       503,
       "Admin authorization service temporarily unavailable"
     );
   }
 
-  return member as TeamMember;
+  return {
+    discord_user_id: member.discord_user_id,
+    role,
+  };
 }
 
 export async function getTeamMember(): Promise<TeamMember> {
@@ -55,22 +66,25 @@ export async function getTeamMember(): Promise<TeamMember> {
 
 
 export async function requireAdmin(): Promise<TeamMember> {
+  return requireTeamCapability(
+    "canManageTeamRoles",
+    "Admin only"
+  );
+}
+
+export async function requireTeamCapability(
+  capability: TeamCapability,
+  deniedMessage = "Forbidden"
+): Promise<TeamMember> {
   const member = await getTeamMember();
 
-  if (member.role !== "admin") {
-    throw new AuthError(403, "Admin only");
+  if (!hasTeamCapability(member.role, capability)) {
+    throw new AuthError(403, deniedMessage);
   }
 
   return member;
 }
 
-
 export async function requireModOrAdmin(): Promise<TeamMember> {
-  const member = await getTeamMember();
-
-  if (member.role !== "admin" && member.role !== "mod") {
-    throw new AuthError(403, "Forbidden");
-  }
-
-  return member;
+  return requireTeamCapability("canModerateSubmissionPhase");
 }

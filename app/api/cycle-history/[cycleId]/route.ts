@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getTeamMember } from "@/lib/auth/guards";
 import { getCycleHistorySubmissionPage } from "@/lib/cycles/getCycleHistoryData";
 import { getPublicPaginationErrorResponse } from "@/lib/pagination/getPublicPaginationErrorResponse";
+import { isAdminTeamRole } from "@/lib/auth/teamRoles";
 
 export async function GET(
   req: Request,
@@ -17,7 +18,7 @@ export async function GET(
 
     try {
       const member = await getTeamMember();
-      isAdminView = member.role === "admin";
+      isAdminView = isAdminTeamRole(member.role);
     } catch {}
 
     const { cycleId: cycleIdRaw } = await context.params;

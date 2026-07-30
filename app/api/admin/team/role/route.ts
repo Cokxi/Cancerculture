@@ -1,83 +1,35 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/db/admin";
 import { requireAdmin } from "@/lib/auth/guards";
-import { logAdminAction } from "@/lib/audit/logAdminAction";
+import {
+  changeTeamMemberRole,
+  TeamRoleChangeError,
+} from "@/lib/auth/changeTeamMemberRole";
+import {
+  parseTeamRoleChangePayload,
+  TeamRolePayloadError,
+} from "@/lib/auth/teamRoleChangePayload";
+import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 
 export async function POST(req: Request) {
   try {
-    
     const admin = await requireAdmin();
-    const actorId = admin.discord_user_id;
+    const payload = parseTeamRoleChangePayload(
+      await req.json().catch(() => null)
+    );
+    const result = await changeTeamMemberRole({
+      actorDiscordUserId: admin.discord_user_id,
+      targetDiscordUserId: payload.targetDiscordId,
+      targetRole: payload.targetRole,
+      reason: payload.reason,
+    });
 
-    
-    const { targetDiscordId, role } = await req.json();
-
+    return NextResponse.json({ success: true, ...result });
+  } catch (error) {
     if (
-      !targetDiscordId ||
-      !["mod", "remove"].includes(role)
-    ) {
-      return NextResponse.json(
-        { error: "Invalid payload" },
-        { status: 400 }
-      );
-    }
-
-    if (role === "mod") {
-      const { data: userLog } = await supabaseAdmin
-        .from("user_logs")
-        .select("current_discord_username")
-        .eq("discord_user_id", targetDiscordId)
-        .maybeSingle();
-
-      const discordUsername: string | null =
-        userLog?.current_discord_username ?? null;
-
-      
-      await supabaseAdmin
-        .from("team_members")
-        .upsert({
-          discord_user_id: targetDiscordId,
-          discord_username: discordUsername,
-          role: "mod",
-        });
-
-      await logAdminAction({
-        actorType: "admin",
-        actorId,
-        action: "make_mod",
-        targetType: "user",
-        targetId: targetDiscordId,
-      });
-    }
-
-    if (role === "remove") {
-      
-      await supabaseAdmin
-        .from("team_members")
-        .delete()
-        .eq("discord_user_id", targetDiscordId)
-        .neq("role", "admin");
-
-      await logAdminAction({
-        actorType: "admin",
-        actorId,
-        action: "remove_mod",
-        targetType: "user",
-        targetId: targetDiscordId,
-      });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      (error.status === 401 || error.status === 403) &&
-      "message" in error &&
-      typeof error.message === "string"
+      error instanceof TeamRolePayloadError ||
+      error instanceof TeamRoleChangeError
     ) {
       return NextResponse.json(
         { error: error.message },
@@ -85,10 +37,23 @@ export async function POST(req: Request) {
       );
     }
 
-    console.error("UPDATE TEAM ROLE ERROR", error);
+    const authStatus = getAuthErrorStatus(error);
 
+    if (authStatus === 401 || authStatus === 403) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Forbidden",
+        },
+        { status: authStatus }
+      );
+    }
+
+    console.error("[team-role] update failed", error);
     return NextResponse.json(
-      { error: "Failed to update role" },
+      { error: "Failed to update team role" },
       { status: 500 }
     );
   }

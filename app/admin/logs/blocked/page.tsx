@@ -4,6 +4,7 @@ import { getTeamMember } from "@/lib/auth/guards";
 import { redirect } from "next/navigation";
 import BlockedCycleLogList from "./blocked-cycle-log-list";
 import SubmissionUploadBlocks from "./SubmissionUploadBlocks";
+import { isAdminTeamRole } from "@/lib/auth/teamRoles";
 
 export default async function BlockedLogsPage() {
   let member;
@@ -14,11 +15,13 @@ export default async function BlockedLogsPage() {
     redirect("/403");
   }
 
+  const isAdmin = isAdminTeamRole(member.role);
+
   return (
     <div>
       <h1 className="text-xl mb-4">Blocked Users</h1>
-      {member.role === "admin" ? <SubmissionUploadBlocks /> : null}
-      <BlockedCycleLogList isAdmin={member.role === "admin"} />
+      {isAdmin ? <SubmissionUploadBlocks /> : null}
+      <BlockedCycleLogList isAdmin={isAdmin} />
     </div>
   );
 }

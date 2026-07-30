@@ -5,11 +5,12 @@ import {
   SUBMISSION_PUBLIC_VISIBILITY,
   type SubmissionPublicVisibilityStatus,
 } from "@/lib/moderation/submissionPublicVisibility";
+import type { CanonicalTeamRole } from "@/lib/auth/teamRoles";
 
 type SetSubmissionPublicVisibilityParams = {
   actor: {
     discord_user_id: string;
-    role: "admin" | "mod";
+    role: CanonicalTeamRole;
   };
   submissionId: number;
   status: SubmissionPublicVisibilityStatus;

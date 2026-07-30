@@ -4,13 +4,17 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import { requireModOrAdminPage } from "@/lib/auth/pageAccess";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import UserProfileLink from "../shared/UserProfileLink";
+import {
+  isAdminTeamRole,
+  type ReadableTeamRole,
+} from "@/lib/auth/teamRoles";
 
 type SocialLogRow = {
   id: number;
   created_at: string;
   action: "verify_social" | "unverify_social";
   actor_discord_user_id: string;
-  actor_role: "admin" | "mod";
+  actor_role: ReadableTeamRole;
   target_discord_user_id: string;
   user_social_link_id: number;
   platform: string;
@@ -107,7 +111,7 @@ export default async function AdminSocialLogsPage() {
                   style={{
                     fontSize: 12,
                     color:
-                      log.actor_role === "admin"
+                      isAdminTeamRole(log.actor_role)
                         ? "#ffb74d"
                         : "#ffe082",
                   }}

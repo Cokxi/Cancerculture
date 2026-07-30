@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/db/admin";
+import type { CanonicalTeamRole } from "@/lib/auth/teamRoles";
 
 type ModerationEvidenceValue = string | number | boolean | null;
 
@@ -16,7 +17,7 @@ export async function logModerationAction({
   evidence,
   cycleId,
 }: {
-  actorRole: "admin" | "mod" | "system";
+  actorRole: CanonicalTeamRole | "system";
   actorId: string;
   actorUsername?: string | null;
 

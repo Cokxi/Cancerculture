@@ -5,12 +5,16 @@ import { flagUser } from "@/app/admin/actions/flagUser";
 import { unflagUser } from "@/app/admin/actions/unflagUser";
 import { banUser } from "@/app/admin/actions/banUser";
 import { unbanUser } from "@/app/admin/actions/unbanUser";
+import {
+  isAdminTeamRole,
+  type CanonicalTeamRole,
+} from "@/lib/auth/teamRoles";
 
 type Props = {
   discordUserId: string;
   isFlagged: boolean;
   isBanned: boolean;
-  role: "admin" | "mod";
+  role: CanonicalTeamRole;
 };
 
 type FlagReason =
@@ -70,7 +74,7 @@ export default function UserModerationActions({
   
 
   if (isBanned) {
-    if (role !== "admin") return null;
+    if (!isAdminTeamRole(role)) return null;
 
     return (
       <div style={{ marginTop: 6 }}>
@@ -190,7 +194,7 @@ export default function UserModerationActions({
         </>
       )}
 
-      {isFlagged && role === "admin" && (
+      {isFlagged && isAdminTeamRole(role) && (
         <>
           <button
             style={{ ...baseButton, marginRight: 6 }}

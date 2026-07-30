@@ -4,6 +4,7 @@ import { getTeamMember } from "@/lib/auth/guards";
 import { getSponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 import CycleControls from "./CycleControls";
+import { isAdminTeamRole } from "@/lib/auth/teamRoles";
 
 export default async function AdminCyclesPage() {
   let member;
@@ -20,7 +21,7 @@ export default async function AdminCyclesPage() {
     throw error;
   }
 
-  const isAdmin = member.role === "admin";
+  const isAdmin = isAdminTeamRole(member.role);
   const { data: nextThemeConfig } = await supabaseAdmin
     .from("app_config")
     .select("value")
