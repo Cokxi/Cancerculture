@@ -83,6 +83,8 @@ test("admin pages and owner actions keep explicit server guards", async () => {
     "app/admin/bans/page.tsx",
     "app/admin/mods/page.tsx",
     "app/admin/team/roles/page.tsx",
+    "app/admin/team/members/page.tsx",
+    "app/admin/team/authorization-history/page.tsx",
     "app/admin/moderation/legal-review/page.tsx",
     "app/admin/coin-launches/page.tsx",
     "app/admin/homepage-info-blocks/page.tsx",

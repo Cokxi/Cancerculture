@@ -37,7 +37,7 @@ test("the canonical page guards before loading and legacy page redirects after g
 
   assert.ok(
     page.indexOf("requireAdminPage") <
-      page.indexOf("loadTeamRoleAdminReadModel")
+      page.indexOf("loadRolesPermissionsAdminReadModel")
   );
   assert.match(page, /getTeamPageAccessRedirect/);
   assert.match(legacy, /requireAdminPage\("\/admin\/mods"\)/);
@@ -141,17 +141,20 @@ test("foundation tables have no direct production mutation", async () => {
   assert.deepEqual(offenders, []);
 });
 
-test("the matrix is data-driven, excludes Admin, and locks registry drift", async () => {
-  const [ui, model] = await Promise.all([
-    source("app/admin/team/roles/TeamRolesAdminClient.tsx"),
+test("permission blocks are data-driven, compact, exclude Admin, and lock registry drift", async () => {
+  const [ui, page, model] = await Promise.all([
+    source("app/admin/team/roles/RolesPermissionsClient.tsx"),
+    source("app/admin/team/roles/page.tsx"),
     source("lib/auth/teamRoleAdminReadModel.ts"),
   ]);
 
-  assert.match(ui, /readModel\.capabilities/);
-  assert.match(ui, /role\.key !== "admin"/);
+  assert.match(ui, /readModel\.capabilities\.map/);
+  assert.match(page, /REGISTERED_TEAM_CAPABILITY_KEYS\.map/);
+  assert.match(ui, /activeNonAdminRoles/);
   assert.match(ui, /capability\.mutable/);
   assert.match(ui, /expectedCapabilityImplementationVersion/);
   assert.match(ui, /expectedCapabilityDefinitionHash/);
+  assert.doesNotMatch(ui, /<table|Capability matrix|overflow-x-auto/);
   assert.doesNotMatch(
     ui,
     /submissions\.submission_phase\.moderate|users\.directory\.basic\.view|users\.flag/
@@ -162,10 +165,13 @@ test("the matrix is data-driven, excludes Admin, and locks registry drift", asyn
   );
 });
 
-test("the UI has explicit confirmations, stable retries, owner separation, and no delete", async () => {
-  const ui = await source(
-    "app/admin/team/roles/TeamRolesAdminClient.tsx"
-  );
+test("the split UI has explicit confirmations, stable retries, owner separation, and no delete", async () => {
+  const [mutation, members, roles] = await Promise.all([
+    source("app/admin/team/TeamRoleMutationClient.tsx"),
+    source("app/admin/team/members/TeamMembersClient.tsx"),
+    source("app/admin/team/roles/RolesPermissionsClient.tsx"),
+  ]);
+  const ui = `${mutation}\n${members}\n${roles}`;
 
   assert.match(ui, /<dialog/);
   assert.match(ui, /autoFocus/);

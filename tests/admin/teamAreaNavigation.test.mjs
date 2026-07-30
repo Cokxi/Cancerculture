@@ -38,7 +38,15 @@ test("the central definition filters unavailable items and empty categories", ()
     (category) => category.id === "team"
   ).items.filter((entry) => !entry.implemented);
   assert.ok(plannedOnly.length > 0);
-  assert.ok(plannedOnly.every((entry) => entry.href === null));
+  assert.equal(
+    plannedOnly.find((entry) => entry.id === "add-team-member")?.href,
+    "/admin/team/members/add"
+  );
+  assert.equal(
+    JSON.stringify(resolveTeamAreaNavigation(context({ isAdmin: true })))
+      .includes("add-team-member"),
+    false
+  );
 });
 
 test("non-admin navigation exposes only explicitly granted routes", () => {
@@ -137,6 +145,13 @@ test("active state and breadcrumbs resolve categorized and nested paths", () => 
       "/admin/moderation/legal-review"
     ),
     ["Team Area", "Moderation", "Legal Review"]
+  );
+  assert.deepEqual(
+    getTeamAreaBreadcrumbs(
+      navigation,
+      "/admin/team/authorization-history"
+    ),
+    ["Team Area", "Team", "Authorization History"]
   );
 });
 

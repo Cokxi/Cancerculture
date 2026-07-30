@@ -96,6 +96,21 @@ export type TeamRoleAdminReadModel = Readonly<{
   currentAdminDiscordUserId: string;
 }>;
 
+export type TeamMembersAdminReadModel = Pick<
+  TeamRoleAdminReadModel,
+  "roles" | "members" | "activeNonAdminRoles"
+>;
+
+export type RolesPermissionsAdminReadModel = Pick<
+  TeamRoleAdminReadModel,
+  "roles" | "capabilities" | "activeNonAdminRoles"
+>;
+
+export type TeamAuthorizationHistoryReadModel = Pick<
+  TeamRoleAdminReadModel,
+  "audit"
+>;
+
 type RoleRow = {
   key: string;
   display_name: string;
@@ -479,4 +494,158 @@ export async function loadTeamRoleAdminReadModel(
     });
     throw readModelUnavailable();
   }
+}
+
+function buildReadModelOrUnavailable(
+  snapshot: TeamRoleAdminSnapshot,
+  scope: string
+) {
+  try {
+    return buildTeamRoleAdminReadModel(snapshot);
+  } catch (error) {
+    console.error("[TEAM_ROLE_ADMIN] invalid read model shape", {
+      scope,
+      errorName:
+        error instanceof Error ? error.name : "UnknownError",
+    });
+    throw readModelUnavailable();
+  }
+}
+
+export async function loadTeamMembersAdminReadModel(
+  currentAdminDiscordUserId: string
+): Promise<TeamMembersAdminReadModel> {
+  const [rolesResult, membersResult] = await Promise.all([
+    supabaseAdmin
+      .from("team_roles")
+      .select(
+        "key, display_name, description, is_system, is_active, sort_order, row_version, created_at, updated_at, created_by_discord_user_id, updated_by_discord_user_id"
+      ),
+    supabaseAdmin
+      .from("team_members")
+      .select("discord_user_id, discord_username, role"),
+  ]);
+
+  if (rolesResult.error || membersResult.error) {
+    console.error("[TEAM_ROLE_ADMIN] members read model unavailable", {
+      roles: rolesResult.error?.code ?? null,
+      members: membersResult.error?.code ?? null,
+    });
+    throw readModelUnavailable();
+  }
+
+  const model = buildReadModelOrUnavailable(
+    {
+      roleRows: (rolesResult.data ?? []) as RoleRow[],
+      capabilityRows: [],
+      grantRows: [],
+      memberRows: (membersResult.data ?? []) as MemberRow[],
+      auditRows: [],
+      currentAdminDiscordUserId,
+    },
+    "members"
+  );
+
+  return {
+    roles: model.roles,
+    members: model.members,
+    activeNonAdminRoles: model.activeNonAdminRoles,
+  };
+}
+
+export async function loadRolesPermissionsAdminReadModel(
+  currentAdminDiscordUserId: string
+): Promise<RolesPermissionsAdminReadModel> {
+  const [
+    rolesResult,
+    capabilitiesResult,
+    grantsResult,
+    membersResult,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("team_roles")
+      .select(
+        "key, display_name, description, is_system, is_active, sort_order, row_version, created_at, updated_at, created_by_discord_user_id, updated_by_discord_user_id"
+      ),
+    supabaseAdmin
+      .from("capability_catalog")
+      .select(
+        "key, display_name, description, category, included_actions, excluded_actions, risk_level, assignable_to_non_admin, is_active, implementation_version, definition_hash, deprecated_at"
+      ),
+    supabaseAdmin
+      .from("team_role_capabilities")
+      .select(
+        "role_key, capability_key, granted_at, granted_by_discord_user_id, grant_reason"
+      ),
+    supabaseAdmin
+      .from("team_members")
+      .select("discord_user_id, discord_username, role"),
+  ]);
+
+  if (
+    rolesResult.error ||
+    capabilitiesResult.error ||
+    grantsResult.error ||
+    membersResult.error
+  ) {
+    console.error("[TEAM_ROLE_ADMIN] roles read model unavailable", {
+      roles: rolesResult.error?.code ?? null,
+      capabilities: capabilitiesResult.error?.code ?? null,
+      grants: grantsResult.error?.code ?? null,
+      members: membersResult.error?.code ?? null,
+    });
+    throw readModelUnavailable();
+  }
+
+  const model = buildReadModelOrUnavailable(
+    {
+      roleRows: (rolesResult.data ?? []) as RoleRow[],
+      capabilityRows:
+        (capabilitiesResult.data ?? []) as CapabilityRow[],
+      grantRows: (grantsResult.data ?? []) as GrantRow[],
+      memberRows: (membersResult.data ?? []) as MemberRow[],
+      auditRows: [],
+      currentAdminDiscordUserId,
+    },
+    "roles-permissions"
+  );
+
+  return {
+    roles: model.roles,
+    capabilities: model.capabilities,
+    activeNonAdminRoles: model.activeNonAdminRoles,
+  };
+}
+
+export async function loadTeamAuthorizationHistoryReadModel(
+  currentAdminDiscordUserId: string
+): Promise<TeamAuthorizationHistoryReadModel> {
+  const auditResult = await supabaseAdmin
+    .from("team_authorization_audit")
+    .select(
+      "id, occurred_at, actor_discord_user_id, actor_role_key, event_type, target_role_key, target_discord_user_id, capability_key, before_state, after_state, reason, request_id"
+    )
+    .order("occurred_at", { ascending: false })
+    .limit(50);
+
+  if (auditResult.error) {
+    console.error("[TEAM_ROLE_ADMIN] history read model unavailable", {
+      audit: auditResult.error.code,
+    });
+    throw readModelUnavailable();
+  }
+
+  const model = buildReadModelOrUnavailable(
+    {
+      roleRows: [],
+      capabilityRows: [],
+      grantRows: [],
+      memberRows: [],
+      auditRows: (auditResult.data ?? []) as AuditRow[],
+      currentAdminDiscordUserId,
+    },
+    "authorization-history"
+  );
+
+  return { audit: model.audit };
 }

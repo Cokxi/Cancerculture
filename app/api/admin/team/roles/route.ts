@@ -31,6 +31,8 @@ export async function POST(request: Request) {
     );
 
     revalidatePath("/admin/team/roles");
+    revalidatePath("/admin/team/members");
+    revalidatePath("/admin/team/authorization-history");
     revalidatePath("/admin/users");
 
     return NextResponse.json({ success: true, result });
