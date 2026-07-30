@@ -29,11 +29,12 @@ test("authenticated users receive profile and safe server logout only", () => {
 test("moderators and admins receive only their intended navigation", () => {
   const moderator = createAccountNavigationState({
     sessionStatus: "authenticated",
-    teamRole: "mod",
+    canModerateSubmissions: true,
   });
   const admin = createAccountNavigationState({
     sessionStatus: "authenticated",
-    teamRole: "admin",
+    canModerateSubmissions: true,
+    isAdmin: true,
   });
 
   assert.deepEqual(itemIds(moderator), ["profile", "moderation", "logout"]);
@@ -57,14 +58,16 @@ test("anonymous and dependency states never disclose team navigation", () => {
   for (const sessionStatus of ["anonymous", "dependency_unavailable"]) {
     const state = createAccountNavigationState({
       sessionStatus,
-      teamRole: "admin",
+      canModerateSubmissions: true,
+      isAdmin: true,
     });
     assert.deepEqual(state.items, []);
   }
 
   const degraded = createAccountNavigationState({
     sessionStatus: "authenticated",
-    teamRole: "admin",
+    canModerateSubmissions: true,
+    isAdmin: true,
     teamAccessUnavailable: true,
   });
   assert.equal(degraded.kind, "authenticated");

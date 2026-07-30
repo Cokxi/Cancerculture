@@ -1,7 +1,7 @@
 "use server";
 
 import { getActorAuditInfo } from "@/lib/auth/getActorAuditInfo";
-import { requireTeamCapability } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function flagUser(params: {
@@ -15,7 +15,7 @@ export async function flagUser(params: {
     throw new Error("Flag reason is required");
   }
 
-  const moderator = await requireTeamCapability("canFlagUsers");
+  const moderator = await requireDynamicTeamCapability("users.flag");
   const moderatorAudit = await getActorAuditInfo(
     moderator.discord_user_id
   );

@@ -1,13 +1,3 @@
-import {
-  hasTeamCapability,
-  isAdminTeamRole,
-  type CanonicalTeamRole,
-} from "@/lib/auth/teamRoles";
-
-export type AccountNavigationRole =
-  | CanonicalTeamRole
-  | null;
-
 export type AccountNavigationItem =
   | {
       id: "profile" | "moderation" | "admin";
@@ -37,7 +27,8 @@ type AccountNavigationInput = {
     | "authenticated"
     | "restricted"
     | "dependency_unavailable";
-  teamRole?: AccountNavigationRole;
+  canModerateSubmissions?: boolean;
+  isAdmin?: boolean;
   teamAccessUnavailable?: boolean;
 };
 
@@ -49,7 +40,8 @@ const logoutItem: AccountNavigationItem = {
 
 export function createAccountNavigationState({
   sessionStatus,
-  teamRole = null,
+  canModerateSubmissions = false,
+  isAdmin = false,
   teamAccessUnavailable = false,
 }: AccountNavigationInput): AccountNavigationState {
   if (sessionStatus === "anonymous") {
@@ -75,10 +67,7 @@ export function createAccountNavigationState({
 
   if (
     !teamAccessUnavailable &&
-    hasTeamCapability(
-      teamRole,
-      "canModerateSubmissionPhase"
-    )
+    canModerateSubmissions
   ) {
     items.push({
       id: "moderation",
@@ -90,7 +79,7 @@ export function createAccountNavigationState({
 
   if (
     !teamAccessUnavailable &&
-    isAdminTeamRole(teamRole)
+    isAdmin
   ) {
     items.push({
       id: "admin",

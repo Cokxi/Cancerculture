@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
-import { requireTeamCapability } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { getUserDirectoryQuery } from "@/lib/admin/userDirectoryAccess";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
@@ -20,10 +20,12 @@ type BasicUserDirectorySource = {
 export async function GET() {
   try {
     
-    const member = await requireTeamCapability(
-      "canViewBasicUserDirectory"
+    const authorization = await requireDynamicTeamCapability(
+      "users.directory.basic.view"
     );
-    const directoryQuery = getUserDirectoryQuery(member.role);
+    const directoryQuery = getUserDirectoryQuery(
+      authorization.isAdmin
+    );
 
     const { data, error } = await supabaseAdmin
       .from(directoryQuery.relation)

@@ -1,10 +1,13 @@
 
 
 import {
-  hasTeamCapability,
   isAdminTeamRole,
   type CanonicalTeamRole,
 } from "@/lib/auth/teamRoles";
+import {
+  hasResolvedTeamCapability,
+  type TeamAuthorizationContext,
+} from "@/lib/auth/teamAuthorization";
 
 export type TeamMemberUI = { role: CanonicalTeamRole };
 
@@ -14,11 +17,16 @@ export function requireAdminUI(member: TeamMemberUI) {
   }
 }
 
-export function requireSubmissionModeratorUI(member: TeamMemberUI) {
+export function requireSubmissionModeratorUI(
+  context: Pick<
+    TeamAuthorizationContext,
+    "isAdmin" | "resolvedCapabilities"
+  >
+) {
   if (
-    !hasTeamCapability(
-      member.role,
-      "canModerateSubmissionPhase"
+    !hasResolvedTeamCapability(
+      context,
+      "submissions.submission_phase.moderate"
     )
   ) {
     throw new Error("Forbidden");

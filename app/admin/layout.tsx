@@ -1,21 +1,24 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { getTeamMember } from "@/lib/auth/guards";
 import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { updateRulesVersion } from "./actions/updateRulesVersion";
-import { isAdminTeamRole } from "@/lib/auth/teamRoles";
+import {
+  getTeamAuthorizationContext,
+  hasResolvedTeamCapability,
+  type TeamAuthorizationContext,
+} from "@/lib/auth/teamAuthorization";
 
 export default async function AdminLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  let member;
+  let authorization: TeamAuthorizationContext;
 
   try {
-    member = await getTeamMember();
+    authorization = await getTeamAuthorizationContext();
   } catch (error) {
     const destination = getTeamPageAccessRedirect(error);
 
@@ -26,7 +29,15 @@ export default async function AdminLayout({
     throw error;
   }
 
-  const isAdmin = isAdminTeamRole(member.role);
+  const isAdmin = authorization.isAdmin;
+  const canModerateSubmissions = hasResolvedTeamCapability(
+    authorization,
+    "submissions.submission_phase.moderate"
+  );
+  const canViewBasicUserDirectory = hasResolvedTeamCapability(
+    authorization,
+    "users.directory.basic.view"
+  );
   const legalReviewCount = isAdmin
     ? (
         await supabaseAdmin
@@ -82,23 +93,27 @@ export default async function AdminLayout({
             </li>
           )}
 
-          <li>
-            <Link
-              href="/admin/moderation/submissions"
-              className="block rounded px-2 py-1 hover:bg-white/10"
-            >
-              <span>Moderation</span>
-            </Link>
-          </li>
+          {canModerateSubmissions && (
+            <li>
+              <Link
+                href="/admin/moderation/submissions"
+                className="block rounded px-2 py-1 hover:bg-white/10"
+              >
+                <span>Moderation</span>
+              </Link>
+            </li>
+          )}
 
-          <li className="ml-3">
-            <Link
-              href="/admin/moderation/disqualified"
-              className="block rounded px-2 py-1 text-yellow-300 hover:bg-white/10"
-            >
-              Disqualified Submissions
-            </Link>
-          </li>
+          {canModerateSubmissions && (
+            <li className="ml-3">
+              <Link
+                href="/admin/moderation/disqualified"
+                className="block rounded px-2 py-1 text-yellow-300 hover:bg-white/10"
+              >
+                Disqualified Submissions
+              </Link>
+            </li>
+          )}
 
           {isAdmin && (
             <li className="ml-3">
@@ -155,14 +170,16 @@ export default async function AdminLayout({
             </li>
           )}
 
-          <li className="ml-3">
-            <Link
-              href="/admin/users"
-              className="block rounded px-2 py-1 hover:bg-white/10"
-            >
-              {isAdmin ? "User Logs" : "Users"}
-            </Link>
-          </li>
+          {canViewBasicUserDirectory && (
+            <li className="ml-3">
+              <Link
+                href="/admin/users"
+                className="block rounded px-2 py-1 hover:bg-white/10"
+              >
+                {isAdmin ? "User Logs" : "Users"}
+              </Link>
+            </li>
+          )}
 
           {isAdmin && (
             <li className="ml-3">

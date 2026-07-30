@@ -67,7 +67,6 @@ mock.module(new URL("../../lib/db/admin.ts", import.meta.url), {
 
 const {
   requireAdmin,
-  requireSubmissionModerator,
   requireTeamCapability,
 } = await import("../../lib/auth/guards.ts");
 
@@ -113,7 +112,7 @@ test("Admin remains authorized while membership sync is unavailable", async () =
   assert.equal(state.participationCalls, 0);
 });
 
-test("Legacy mod is read as Trial Moderator", async () => {
+test("Legacy mod never satisfies the independent admin invariant", async () => {
   state.teamResult = {
     data: { discord_user_id: "team-user-1", role: "mod" },
     error: null,
@@ -124,37 +123,8 @@ test("Legacy mod is read as Trial Moderator", async () => {
     "MEMBERSHIP_PENDING"
   );
 
-  assert.equal(
-    (await requireSubmissionModerator()).role,
-    "trial_moderator"
-  );
   await assert.rejects(requireAdmin(), { status: 403 });
   assert.equal(state.participationCalls, 0);
-});
-
-test("all canonical moderation roles retain submission moderation access", async () => {
-  for (const role of [
-    "trial_moderator",
-    "moderator",
-    "super_moderator",
-    "admin",
-  ]) {
-    state.teamResult = {
-      data: { discord_user_id: "team-user-1", role },
-      error: null,
-    };
-
-    assert.equal(
-      (await requireSubmissionModerator()).role,
-      role
-    );
-
-    if (role === "admin") {
-      assert.equal((await requireAdmin()).role, "admin");
-    } else {
-      await assert.rejects(requireAdmin(), { status: 403 });
-    }
-  }
 });
 
 test("only canonical admin passes the independent admin invariant", async () => {
@@ -212,7 +182,6 @@ test("unknown team roles fail closed", async () => {
     error: null,
   };
 
-  await assert.rejects(requireSubmissionModerator(), { status: 503 });
   await assert.rejects(requireAdmin(), { status: 503 });
   await assert.rejects(
     requireTeamCapability("canFlagUsers"),
@@ -232,12 +201,6 @@ test("Normal user with fresh membership receives no team access", async () => {
     requireTeamCapability("canViewBasicUserDirectory"),
     { status: 403 }
   );
-});
-
-test("Missing team role blocks access", async () => {
-  state.teamResult = { data: null, error: null };
-
-  await assert.rejects(requireSubmissionModerator(), { status: 403 });
 });
 
 test("Website ban blocks before the team-role lookup", async () => {
@@ -300,5 +263,11 @@ test("Real authorization denials still map to the Forbidden page", () => {
   assert.equal(
     getTeamPageAccessRedirect(new AuthError(401, "Not authenticated")),
     "/403"
+  );
+  assert.equal(
+    getTeamPageAccessRedirect(
+      new AuthError(503, "Authorization unavailable")
+    ),
+    "/503"
   );
 });

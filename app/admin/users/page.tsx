@@ -2,15 +2,19 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireTeamCapability } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import { getUserDirectoryQuery } from "@/lib/admin/userDirectoryAccess";
+import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
+import {
+  hasResolvedTeamCapability,
+  requireDynamicTeamCapability,
+  type TeamAuthorizationContext,
+} from "@/lib/auth/teamAuthorization";
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
 import UserRoleActions from "./UserRoleActions";
 import {
-  isAdminTeamRole,
   normalizeTeamRole,
   type CanonicalTeamRole,
 } from "@/lib/auth/teamRoles";
@@ -61,18 +65,30 @@ export default async function AdminUsersPage({
       ? params.q.trim()
       : "";
 
-  let member;
+  let authorization: TeamAuthorizationContext;
 
   try {
-    member = await requireTeamCapability(
-      "canViewBasicUserDirectory"
+    authorization = await requireDynamicTeamCapability(
+      "users.directory.basic.view"
     );
-  } catch {
-    redirect("/403");
+  } catch (error) {
+    const destination = getTeamPageAccessRedirect(error);
+
+    if (destination) {
+      redirect(destination);
+    }
+
+    throw error;
   }
 
-  const directoryQuery = getUserDirectoryQuery(member.role);
+  const directoryQuery = getUserDirectoryQuery(
+    authorization.isAdmin
+  );
   const isAdmin = directoryQuery.isAdminView;
+  const canFlagUsers = hasResolvedTeamCapability(
+    authorization,
+    "users.flag"
+  );
   const { data: users, error } = await supabaseAdmin
     .from(directoryQuery.relation)
     .select(directoryQuery.select)
@@ -330,10 +346,11 @@ export default async function AdminUsersPage({
   discordUserId={user.discord_user_id}
   isFlagged={user.flagged_for_review}
   isBanned={Boolean(user.is_banned)}
-  role={member.role}
+  canFlagUsers={canFlagUsers}
+  isAdmin={isAdmin}
 />
 
-  {isAdminTeamRole(member.role) && (
+  {isAdmin && (
     <UserRoleActions
       discordUserId={user.discord_user_id}
       role={

@@ -1,8 +1,3 @@
-import {
-  isAdminTeamRole,
-  type CanonicalTeamRole,
-} from "@/lib/auth/teamRoles";
-
 export const BASIC_USER_DIRECTORY_SELECT = [
   "discord_user_id",
   "public_profile_id",
@@ -21,9 +16,9 @@ export type UserDirectoryQuery = {
 };
 
 export function getUserDirectoryQuery(
-  role: CanonicalTeamRole
+  isAdmin: boolean
 ): UserDirectoryQuery {
-  if (isAdminTeamRole(role)) {
+  if (isAdmin) {
     return {
       relation: "user_logs_with_stats",
       select: "*",

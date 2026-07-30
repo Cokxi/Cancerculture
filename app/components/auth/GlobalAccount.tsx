@@ -3,12 +3,14 @@ import AccountMenu from "@/app/components/auth/AccountMenu";
 import { navigationTextTriggerClassName } from "@/app/components/navigation/navigationButtonStyles";
 import {
   createAccountNavigationState,
-  type AccountNavigationRole,
 } from "@/lib/auth/accountNavigation";
 import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { runAuthQueryWithTimeout } from "@/lib/auth/authQuery";
-import { getTeamMemberForDiscordUserId } from "@/lib/auth/guards";
 import { getSessionState } from "@/lib/auth/sessionState";
+import {
+  hasResolvedTeamCapability,
+  readTeamAuthorizationContextForDiscordUserId,
+} from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
@@ -68,18 +70,30 @@ export default async function GlobalAccount() {
       console.error("[AUTH] global account profile unavailable", error);
       return { data: null, error: null };
     }),
-    getTeamMemberForDiscordUserId(discordUserId)
-      .then((member) => ({
-        role: member.role as AccountNavigationRole,
+    readTeamAuthorizationContextForDiscordUserId(discordUserId)
+      .then((context) => ({
+        canModerateSubmissions: hasResolvedTeamCapability(
+          context,
+          "submissions.submission_phase.moderate"
+        ),
+        isAdmin: context.isAdmin,
         unavailable: false,
       }))
       .catch((error) => {
         const status = getAuthErrorStatus(error);
         if (status === 403) {
-          return { role: null, unavailable: false };
+          return {
+            canModerateSubmissions: false,
+            isAdmin: false,
+            unavailable: false,
+          };
         }
         if (status !== null) {
-          return { role: null, unavailable: true };
+          return {
+            canModerateSubmissions: false,
+            isAdmin: false,
+            unavailable: true,
+          };
         }
         throw error;
       }),
@@ -98,7 +112,9 @@ export default async function GlobalAccount() {
       : null;
   const navigation = createAccountNavigationState({
     sessionStatus: "authenticated",
-    teamRole: teamAccess.role,
+    canModerateSubmissions:
+      teamAccess.canModerateSubmissions,
+    isAdmin: teamAccess.isAdmin,
     teamAccessUnavailable: teamAccess.unavailable,
   });
 

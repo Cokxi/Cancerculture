@@ -5,21 +5,13 @@ import {
   getUserDirectoryQuery,
 } from "../../lib/admin/userDirectoryAccess.ts";
 
-const lowerTeamRoles = [
-  "trial_moderator",
-  "moderator",
-  "super_moderator",
-];
-
-test("lower team roles use the same explicit minimal user projection", () => {
-  for (const role of lowerTeamRoles) {
-    assert.deepEqual(getUserDirectoryQuery(role), {
-      relation: "user_logs",
-      select: BASIC_USER_DIRECTORY_SELECT,
-      orderBy: "current_discord_username",
-      isAdminView: false,
-    });
-  }
+test("every authorized non-admin uses the explicit minimal user projection", () => {
+  assert.deepEqual(getUserDirectoryQuery(false), {
+    relation: "user_logs",
+    select: BASIC_USER_DIRECTORY_SELECT,
+    orderBy: "current_discord_username",
+    isAdminView: false,
+  });
 });
 
 test("the minimal projection excludes moderation history and sensitive fields", () => {
@@ -48,8 +40,8 @@ test("the minimal projection excludes moderation history and sensitive fields", 
   }
 });
 
-test("admin retains the existing full administrative directory", () => {
-  assert.deepEqual(getUserDirectoryQuery("admin"), {
+test("hard admin retains the existing full administrative directory", () => {
+  assert.deepEqual(getUserDirectoryQuery(true), {
     relation: "user_logs_with_stats",
     select: "*",
     orderBy: "last_seen_at",

@@ -14,10 +14,10 @@ test("authentication and authorization denials map to the Forbidden page", () =>
   );
 });
 
-test("dependency failures are not disguised as a Forbidden response", () => {
+test("dependency failures use the controlled unavailable page", () => {
   assert.equal(
     getTeamPageAccessRedirect(new AuthError(503, "Dependency unavailable")),
-    null
+    "/503"
   );
   assert.equal(getTeamPageAccessRedirect(new Error("Unexpected")), null);
 });

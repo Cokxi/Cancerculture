@@ -2,10 +2,7 @@ import BackButton from "@/app/components/ui/BackButton";
 import CycleHistoryClient from "./CycleHistoryClient";
 import { getTeamMember } from "@/lib/auth/guards";
 import { getCycleHistorySummariesPage } from "@/lib/cycles/getCycleHistoryData";
-import {
-  hasTeamCapability,
-  isAdminTeamRole,
-} from "@/lib/auth/teamRoles";
+import { isAdminTeamRole } from "@/lib/auth/teamRoles";
 
 export default async function CycleHistoryPage() {
   let isAdmin = false;
@@ -14,10 +11,7 @@ export default async function CycleHistoryPage() {
   try {
     const member = await getTeamMember();
     isAdmin = isAdminTeamRole(member.role);
-    canModerate = hasTeamCapability(
-      member.role,
-      "canModerateSubmissionPhase"
-    );
+    canModerate = isAdmin;
   } catch {}
 
   const initialPage = await getCycleHistorySummariesPage({

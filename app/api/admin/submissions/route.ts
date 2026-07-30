@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requireSubmissionModerator } from "@/lib/auth/guards";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 
 export async function GET(req: Request) {
   try {
@@ -68,28 +69,6 @@ export async function GET(req: Request) {
       submissions: submissionsWithUrls,
     });
   } catch (error: unknown) {
-    const status =
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      typeof error.status === "number"
-        ? error.status
-        : null;
-    const message =
-      error instanceof Error ? error.message : "Unauthorized";
-    
-    if (status === 401 || status === 403) {
-      return NextResponse.json(
-        { error: message },
-        { status }
-      );
-    }
-
-    console.error("ADMIN SUBMISSIONS ERROR", error);
-
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 403 }
-    );
+    return getRouteErrorResponse(error);
   }
 }

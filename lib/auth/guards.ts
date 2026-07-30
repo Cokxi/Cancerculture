@@ -11,6 +11,10 @@ import {
   type CanonicalTeamRole,
   type TeamCapability,
 } from "@/lib/auth/teamRoles";
+import {
+  requireDynamicTeamCapability,
+  type TeamAuthorizationContext,
+} from "@/lib/auth/teamAuthorization";
 
 export type TeamMember = {
   discord_user_id: string;
@@ -89,6 +93,8 @@ export async function requireTeamCapability(
   return member;
 }
 
-export async function requireSubmissionModerator(): Promise<TeamMember> {
-  return requireTeamCapability("canModerateSubmissionPhase");
+export async function requireSubmissionModerator(): Promise<TeamAuthorizationContext> {
+  return requireDynamicTeamCapability(
+    "submissions.submission_phase.moderate"
+  );
 }

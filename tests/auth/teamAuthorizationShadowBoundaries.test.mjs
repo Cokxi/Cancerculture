@@ -31,9 +31,10 @@ async function sourceFiles(directory) {
   return files;
 }
 
-test("existing guards remain the sole production authorization authority", async () => {
-  const [guards, teamRoles] = await Promise.all([
+test("dynamic authorization is the production authority for connected capabilities", async () => {
+  const [guards, authorization, teamRoles] = await Promise.all([
     source("lib/auth/guards.ts"),
+    source("lib/auth/teamAuthorization.ts"),
     source("lib/auth/teamRoles.ts"),
   ]);
 
@@ -43,19 +44,24 @@ test("existing guards remain the sole production authorization authority", async
   );
   assert.match(
     guards,
-    /export async function requireTeamCapability[\s\S]*hasTeamCapability\(member\.role, capability\)/
+    /export async function requireSubmissionModerator[\s\S]*requireDynamicTeamCapability\([\s\S]*"submissions\.submission_phase\.moderate"/
+  );
+  assert.match(
+    authorization,
+    /export async function requireDynamicTeamCapability/
+  );
+  assert.match(
+    authorization,
+    /readDynamicTeamAuthorizationForDiscordUserId/
+  );
+  assert.doesNotMatch(
+    authorization,
+    /TEAM_ROLE_CAPABILITIES|hasTeamCapability/
   );
   assert.match(teamRoles, /TEAM_ROLE_CAPABILITIES/);
-
-  for (const sourceText of [guards, teamRoles]) {
-    assert.doesNotMatch(
-      sourceText,
-      /dynamicTeamAuthorization|readDynamicTeamAuthorization|teamAuthorizationShadow/
-    );
-  }
 });
 
-test("no Page, API, Action, navigation, or guard imports the shadow resolver", async () => {
+test("only the central context and shadow modules import the low-level dynamic resolver", async () => {
   const files = [
     ...(await sourceFiles("app")),
     ...(await sourceFiles("lib")),
@@ -64,6 +70,7 @@ test("no Page, API, Action, navigation, or guard imports the shadow resolver", a
     "lib\\auth\\dynamicTeamAuthorization.ts",
     "lib\\auth\\readDynamicTeamAuthorization.ts",
     "lib\\auth\\teamAuthorizationShadow.ts",
+    "lib\\auth\\teamAuthorization.ts",
   ]);
   const offenders = [];
 
@@ -86,7 +93,7 @@ test("no Page, API, Action, navigation, or guard imports the shadow resolver", a
   assert.deepEqual(offenders, []);
 });
 
-test("the dormant database loader is read-only and projects no profile data", async () => {
+test("the production database loader is read-only and projects no profile data", async () => {
   const loader = await source(
     "lib/auth/readDynamicTeamAuthorization.ts"
   );
@@ -112,6 +119,68 @@ test("the dormant database loader is read-only and projects no profile data", as
   assert.doesNotMatch(
     loader,
     /profile|session|email|username|console\./i
+  );
+});
+
+test("target call-sites no longer make static authorization decisions", async () => {
+  const targetFiles = [
+    "lib/auth/accountNavigation.ts",
+    "app/components/auth/GlobalAccount.tsx",
+    "app/admin/layout.tsx",
+    "app/admin/moderation/submissions/page.tsx",
+    "app/admin/moderation/disqualified/page.tsx",
+    "app/api/admin/submissions/route.ts",
+    "app/api/admin/disqualify/route.ts",
+    "app/api/admin/reinstate/route.ts",
+    "app/admin/actions/flagUser.ts",
+    "app/admin/users/UserModerationActions.tsx",
+    "app/admin/users/page.tsx",
+    "app/api/admin/user-logs/route.ts",
+    "lib/admin/userDirectoryAccess.ts",
+  ];
+
+  for (const file of targetFiles) {
+    const contents = await source(file);
+    assert.doesNotMatch(
+      contents,
+      /TEAM_ROLE_CAPABILITIES|hasTeamCapability|isAdminTeamRole/u,
+      file
+    );
+    assert.doesNotMatch(
+      contents,
+      /"canModerateSubmissionPhase"|"canFlagUsers"|"canViewBasicUserDirectory"/u,
+      file
+    );
+  }
+
+  const guards = await source("lib/auth/guards.ts");
+  const submissionGuard =
+    guards.match(
+      /export async function requireSubmissionModerator[\s\S]*?\n\}\n/u
+    )?.[0] ?? "";
+
+  assert.match(
+    submissionGuard,
+    /requireDynamicTeamCapability\([\s\S]*"submissions\.submission_phase\.moderate"/
+  );
+  assert.doesNotMatch(
+    submissionGuard,
+    /requireTeamCapability|hasTeamCapability|canModerateSubmissionPhase/
+  );
+
+  const uiGuards = await source("lib/auth/guards.ui.ts");
+  const submissionUiGuard =
+    uiGuards.match(
+      /export function requireSubmissionModeratorUI[\s\S]*?\n\}\n/u
+    )?.[0] ?? "";
+
+  assert.match(
+    submissionUiGuard,
+    /hasResolvedTeamCapability\([\s\S]*"submissions\.submission_phase\.moderate"/
+  );
+  assert.doesNotMatch(
+    submissionUiGuard,
+    /hasTeamCapability|canModerateSubmissionPhase/
   );
 });
 

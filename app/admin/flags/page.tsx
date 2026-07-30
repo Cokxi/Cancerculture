@@ -119,7 +119,8 @@ export default async function AdminFlaggedUsersPage() {
                       discordUserId={user.discord_user_id}
                       isFlagged={user.flagged_for_review}
                       isBanned={user.is_banned}
-                      role="admin"
+                      canFlagUsers
+                      isAdmin
                     />
                   </div>
 

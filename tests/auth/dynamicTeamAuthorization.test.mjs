@@ -74,6 +74,28 @@ for (const roleKey of nonAdminRoles) {
   });
 }
 
+test("a future active non-admin role resolves only its explicit grants", () => {
+  const roleKey = "future_custom_role";
+  const resolved = resolveDynamicTeamAuthorizationSnapshot(
+    snapshot(roleKey, {
+      roles: [...roles, { key: roleKey, isActive: true }],
+      grants: [
+        {
+          roleKey,
+          capabilityKey: "users.directory.basic.view",
+        },
+      ],
+    })
+  );
+
+  assert.equal(resolved.status, "resolved");
+  assert.equal(resolved.roleKey, roleKey);
+  assert.equal(resolved.isAdmin, false);
+  assert.deepEqual(resolved.resolvedCapabilities, [
+    "users.directory.basic.view",
+  ]);
+});
+
 test("a session without team membership receives no capabilities", () => {
   const resolved = resolveDynamicTeamAuthorizationSnapshot(
     snapshot(null)
