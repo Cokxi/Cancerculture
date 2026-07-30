@@ -140,10 +140,51 @@ test("every operation delegates to its one hardened RPC", async () => {
         ...common,
       },
     ],
+    [
+      "add_team_member",
+      {
+        operation: "add_team_member",
+        targetDiscordUserId: "123456789012345678",
+        initialRoleKey: "custom_reviewers",
+        confirmationWord: "ADD",
+        ...common,
+      },
+    ],
+    [
+      "remove_team_member",
+      {
+        operation: "remove_team_member",
+        targetDiscordUserId: "123456789012345678",
+        expectedPreviousRoleKey: "custom_reviewers",
+        confirmationWord: "REMOVE",
+        ...common,
+      },
+    ],
   ];
 
   for (const [expectedName, payload] of operations) {
     state.rpcCalls = [];
+    if (
+      expectedName === "add_team_member" ||
+      expectedName === "remove_team_member"
+    ) {
+      state.rpcData = {
+        operation: expectedName,
+        changed: true,
+        targetDiscordUserId: payload.targetDiscordUserId,
+        previousRole:
+          expectedName === "remove_team_member"
+            ? payload.expectedPreviousRoleKey
+            : null,
+        newRole:
+          expectedName === "add_team_member"
+            ? payload.initialRoleKey
+            : null,
+        ignoredDatabaseField: "must not reach the browser",
+      };
+    } else {
+      state.rpcData = { changed: true };
+    }
     await executeTeamRoleMutation("owner", payload);
     assert.equal(state.rpcCalls.length, 1);
     assert.equal(state.rpcCalls[0].name, expectedName);
@@ -157,7 +198,45 @@ test("every operation delegates to its one hardened RPC", async () => {
       ),
       false
     );
+    if (expectedName === "add_team_member") {
+      assert.equal(
+        state.rpcCalls[0].parameters.p_expected_absent,
+        true
+      );
+      assert.equal(
+        Object.hasOwn(payload, "expectedAbsent"),
+        false
+      );
+    }
   }
+});
+
+test("member mutation responses are reduced to the typed browser contract", async () => {
+  state.rpcData = {
+    operation: "add_team_member",
+    changed: true,
+    targetDiscordUserId: "123456789012345678",
+    previousRole: null,
+    newRole: "moderator",
+    internalField: "private",
+  };
+
+  assert.deepEqual(
+    await executeTeamRoleMutation("owner", {
+      operation: "add_team_member",
+      targetDiscordUserId: "123456789012345678",
+      initialRoleKey: "moderator",
+      confirmationWord: "ADD",
+      ...common,
+    }),
+    {
+      operation: "add_team_member",
+      changed: true,
+      targetDiscordUserId: "123456789012345678",
+      previousRole: null,
+      newRole: "moderator",
+    }
+  );
 });
 
 test("database conflicts map to safe 409 errors without SQL details", async () => {
@@ -237,4 +316,65 @@ test("unexpected dependency failures map to a generic 503", async () => {
       return true;
     }
   );
+});
+
+test("member mutation errors are specific, safe, and never expose database details", async () => {
+  const cases = [
+    [
+      "TARGET_IDENTITY_UNKNOWN",
+      400,
+      "TARGET_IDENTITY_UNKNOWN",
+    ],
+    [
+      "TEAM_MEMBER_ALREADY_EXISTS",
+      409,
+      "TEAM_MEMBER_ALREADY_EXISTS",
+    ],
+    [
+      "TEAM_MEMBER_NOT_FOUND",
+      404,
+      "TEAM_MEMBER_NOT_FOUND",
+    ],
+    [
+      "TEAM_MEMBER_ROLE_CONFLICT",
+      409,
+      "TEAM_MEMBER_ROLE_CONFLICT",
+    ],
+    [
+      "ADMIN_MEMBER_REMOVE_FORBIDDEN",
+      403,
+      "ADMIN_MEMBER_REMOVE_FORBIDDEN",
+    ],
+    [
+      "TEAM_AUTH_IDEMPOTENCY_CONFLICT",
+      409,
+      "TEAM_AUTH_IDEMPOTENCY_CONFLICT",
+    ],
+  ];
+
+  for (const [databaseMessage, status, code] of cases) {
+    state.rpcError = {
+      code: "P0001",
+      message: `${databaseMessage} private_schema.secret_table`,
+    };
+
+    await assert.rejects(
+      executeTeamRoleMutation("owner", {
+        operation: "remove_team_member",
+        targetDiscordUserId: "123456789012345678",
+        expectedPreviousRoleKey: "moderator",
+        confirmationWord: "REMOVE",
+        ...common,
+      }),
+      (error) => {
+        assert.equal(error.status, status);
+        assert.equal(error.code, code);
+        assert.doesNotMatch(
+          error.message,
+          /private_schema|secret_table/u
+        );
+        return true;
+      }
+    );
+  }
 });

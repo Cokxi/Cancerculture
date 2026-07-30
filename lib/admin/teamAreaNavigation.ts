@@ -254,8 +254,10 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           title: "Add Team Member",
           href: "/admin/team/members/add",
           categoryId: "team",
+          description:
+            "Add a known Discord identity with an active non-Admin role.",
           requirement: adminOnly,
-          implemented: false,
+          implemented: true,
         }),
         item({
           id: "roles-permissions",

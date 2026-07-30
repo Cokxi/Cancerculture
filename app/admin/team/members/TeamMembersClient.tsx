@@ -123,6 +123,56 @@ function MemberRoleControl({
   );
 }
 
+function MemberRemovalControl({
+  member,
+  role,
+}: {
+  member: TeamRoleAdminMember;
+  role: TeamRoleAdminRole | undefined;
+}) {
+  const { review } = useTeamRoleMutation();
+
+  return (
+    <button
+      type="button"
+      className={`${buttonClass} justify-self-start border-red-400/35 text-red-200 sm:justify-self-end`}
+      onClick={() =>
+        review({
+          title: `Remove ${member.displayName} from the team`,
+          successMessage: "Team authorization removed.",
+          confirmationWord: "REMOVE",
+          warning:
+            "This removes only the current Team Area authorization. It does not delete the user, Discord account, logs, sessions, votes, social data, or Discord data. The append-only authorization audit remains.",
+          summary: (
+            <dl className="grid gap-2 sm:grid-cols-[auto_minmax(0,1fr)]">
+              <dt className="text-white/45">Member</dt>
+              <dd className="font-medium">{member.displayName}</dd>
+              <dt className="text-white/45">Discord ID</dt>
+              <dd className="break-all font-mono text-xs">
+                {member.discordUserId}
+              </dd>
+              <dt className="text-white/45">Current role</dt>
+              <dd>
+                {role?.displayName ?? member.roleKey}{" "}
+                <code className="text-xs text-white/45">
+                  {member.roleKey}
+                </code>
+              </dd>
+            </dl>
+          ),
+          payload: {
+            operation: "remove_team_member",
+            targetDiscordUserId: member.discordUserId,
+            expectedPreviousRoleKey: member.roleKey,
+          },
+        })
+      }
+    >
+      Remove Team Member
+    </button>
+  );
+}
+
 function StandardMembers({
   readModel,
 }: {
@@ -169,11 +219,14 @@ function StandardMembers({
                     <RoleBadge role={role} />
                   </div>
                 </div>
-                <MemberRoleControl
-                  key={`${member.discordUserId}:${member.roleKey}`}
-                  member={member}
-                  readModel={readModel}
-                />
+                <div className="grid gap-2">
+                  <MemberRoleControl
+                    key={`${member.discordUserId}:${member.roleKey}`}
+                    member={member}
+                    readModel={readModel}
+                  />
+                  <MemberRemovalControl member={member} role={role} />
+                </div>
               </article>
             );
           })}
@@ -268,7 +321,7 @@ function OwnerAccounts({
                         "Admin account demoted to the selected fallback role.",
                       warning:
                         "This removes full Owner access. The database will reject self-demotion, an inactive fallback, or removal of the last Admin.",
-                      requiresAdminWord: true,
+                      confirmationWord: "ADMIN",
                       summary: (
                         <p>
                           <strong>{member.displayName}</strong>: Admin →{" "}
@@ -341,7 +394,7 @@ function OwnerAccounts({
                     successMessage: "Team member promoted to Admin.",
                     warning:
                       "This grants complete Owner access independently of all capability grants.",
-                    requiresAdminWord: true,
+                    confirmationWord: "ADMIN",
                     summary: (
                       <p>
                         <strong>{member.displayName}</strong>:{" "}
@@ -377,9 +430,6 @@ function TeamMembersContent({
     <div className="grid gap-7">
       <StandardMembers readModel={readModel} />
       <OwnerAccounts readModel={readModel} />
-      <p className="text-xs text-white/40">
-        Team enrollment and removal are intentionally outside this block.
-      </p>
     </div>
   );
 }

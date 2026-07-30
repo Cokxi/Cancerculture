@@ -19,30 +19,39 @@ const admin = {
   resolvedCapabilities: [],
 };
 
-test("all canonical Team routes are registered while enrollment stays planned", () => {
+test("all canonical Team routes including enrollment are registered", () => {
   const team = TEAM_AREA_NAVIGATION.find(
     (category) => category.id === "team"
   );
   const byId = new Map(team.items.map((entry) => [entry.id, entry]));
 
   assert.deepEqual(
-    ["team-members", "roles-permissions", "authorization-history"].map(
+    [
+      "team-members",
+      "add-team-member",
+      "roles-permissions",
+      "authorization-history",
+    ].map(
       (id) => [byId.get(id)?.href, byId.get(id)?.implemented]
     ),
     [
       ["/admin/team/members", true],
+      ["/admin/team/members/add", true],
       ["/admin/team/roles", true],
       ["/admin/team/authorization-history", true],
     ]
   );
-  assert.equal(byId.get("add-team-member")?.href, "/admin/team/members/add");
-  assert.equal(byId.get("add-team-member")?.implemented, false);
 
   const resolved = resolveTeamAreaNavigation(admin);
   const resolvedTeam = resolved.find((category) => category.id === "team");
   assert.deepEqual(
     resolvedTeam.items.map((entry) => entry.id),
-    ["team-members", "roles-permissions", "authorization-history"]
+    [
+      "team-members",
+      "add-team-member",
+      "roles-permissions",
+      "authorization-history",
+    ]
   );
 });
 
@@ -53,6 +62,11 @@ test("Team routes retain breadcrumbs and active state from the central definitio
       "/admin/team/members",
       "team-members",
       ["Team Area", "Team", "Team Members"],
+    ],
+    [
+      "/admin/team/members/add",
+      "add-team-member",
+      ["Team Area", "Team", "Add Team Member"],
     ],
     [
       "/admin/team/roles",
@@ -70,9 +84,10 @@ test("Team routes retain breadcrumbs and active state from the central definitio
   }
 });
 
-test("all three pages guard before loading the existing server read model", async () => {
+test("all four pages guard before loading their server read models", async () => {
   for (const path of [
     "app/admin/team/members/page.tsx",
+    "app/admin/team/members/add/page.tsx",
     "app/admin/team/roles/page.tsx",
     "app/admin/team/authorization-history/page.tsx",
   ]) {
@@ -105,12 +120,12 @@ test("Team Members exposes only the narrow member projection and secure transiti
 
   assert.match(page, /loadTeamMembersAdminReadModel/);
   for (const sensitive of [
-    "sessions",
-    "wallet",
-    "votes",
-    "social",
+    "session_id",
+    "wallet_address",
+    "vote_count",
+    "social_profile",
     "ban_reason",
-    "discord_sync",
+    "discord_sync_state",
   ]) {
     assert.doesNotMatch(`${page}\n${ui}`, new RegExp(sensitive, "iu"));
   }
@@ -119,10 +134,54 @@ test("Team Members exposes only the narrow member projection and secure transiti
   assert.match(ui, /operation: "set_member_non_admin_role"/);
   assert.match(ui, /Owner Accounts/);
   assert.match(ui, /operation: "set_member_admin_role"/);
-  assert.match(ui, /requiresAdminWord: true/);
+  assert.match(ui, /confirmationWord: "ADMIN"/);
   assert.match(ui, /Self-demotion is not offered/);
-  assert.doesNotMatch(ui, /Add Team Member|Remove Team Member/);
+  assert.match(page, /Add Team Member/);
+  assert.match(page, /\/admin\/team\/members\/add/);
+  assert.match(ui, /Remove Team Member/);
+  assert.match(ui, /operation: "remove_team_member"/);
+  assert.match(
+    ui,
+    /expectedPreviousRoleKey: member\.roleKey/
+  );
+  assert.match(ui, /confirmationWord: "REMOVE"/);
+  assert.match(ui, /members\.filter\([\s\S]*!member\.isAdmin/);
   assert.doesNotMatch(ui, /\.(?:insert|update|delete)\(/);
+});
+
+test("Add Team Member uses the narrow role projection and shared safe mutation flow", async () => {
+  const [page, ui, model] = await Promise.all([
+    source("app/admin/team/members/add/page.tsx"),
+    source("app/admin/team/members/add/AddTeamMemberClient.tsx"),
+    source("lib/auth/teamRoleAdminReadModel.ts"),
+  ]);
+
+  assert.match(page, /loadAddTeamMemberAdminReadModel/);
+  assert.match(ui, /name="targetDiscordUserId"/);
+  assert.match(ui, /pattern="\[0-9\]\{5,32\}"/);
+  assert.match(ui, /required/);
+  assert.doesNotMatch(ui, /username/iu);
+  assert.match(ui, /roles\.map/);
+  assert.match(ui, /operation: "add_team_member"/);
+  assert.match(ui, /initialRoleKey: role\.key/);
+  assert.match(ui, /confirmationWord: "ADD"/);
+  assert.match(ui, /redirectOnSuccess/);
+  assert.doesNotMatch(ui, /expected_absent|actorDiscordUserId/);
+  assert.doesNotMatch(ui, /\.(?:insert|update|delete)\(/);
+
+  const addLoader = model.slice(
+    model.indexOf(
+      "export async function loadAddTeamMemberAdminReadModel"
+    ),
+    model.indexOf(
+      "export async function loadRolesPermissionsAdminReadModel"
+    )
+  );
+  assert.match(addLoader, /\.from\("team_roles"\)/);
+  assert.doesNotMatch(
+    addLoader,
+    /team_members|user_logs|discord_member_state|capability_catalog|team_authorization_audit/
+  );
 });
 
 test("page-specific server read models avoid loading unrelated Team data", async () => {
@@ -227,6 +286,7 @@ test("single mutations show pending, refresh only after success, and keep errors
   );
   assert.match(mutation, /setDialogError\(errorMessage|setDialogError\(/);
   assert.match(mutation, /Retry keeps the same idempotency key/);
+  assert.match(mutation, /response\.status === 404/);
   assert.doesNotMatch(
     mutation,
     /Review changes|confirmationWord:\s*"SAVE"|batch/i
@@ -272,6 +332,8 @@ test("Authorization History is a server-rendered read-only projection", async ()
   assert.doesNotMatch(`${page}\n${list}`, /"use client"|fetch\(|<form|<button/);
   assert.doesNotMatch(`${page}\n${list}`, /\.(?:insert|update|delete)\(/);
   assert.doesNotMatch(page, /\.from\("team_authorization_audit"\)/);
+  assert.match(list, /member_added: "Team member added"/);
+  assert.match(list, /member_removed: "Team member removed"/);
 });
 
 test("desktop and mobile remain consumers of one resolved navigation structure", async () => {

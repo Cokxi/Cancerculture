@@ -4,10 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { ResolvedTeamAreaNavigation } from "@/lib/admin/teamAreaNavigation";
-import {
-  findActiveTeamAreaItem,
-  isTeamAreaPathActive,
-} from "@/lib/admin/teamAreaNavigationState";
+import { findActiveTeamAreaItem } from "@/lib/admin/teamAreaNavigationState";
 
 function NavigationGroups({
   navigation,
@@ -18,6 +15,8 @@ function NavigationGroups({
   pathname: string;
   onNavigate?: () => void;
 }) {
+  const activeItem = findActiveTeamAreaItem(navigation, pathname);
+
   return (
     <div className="space-y-5">
       {navigation.map((category) => (
@@ -30,7 +29,8 @@ function NavigationGroups({
           </h2>
           <ul className="mt-1 space-y-0.5">
             {category.items.map((entry) => {
-              const active = isTeamAreaPathActive(pathname, entry.href!);
+              const active =
+                activeItem?.entry.id === entry.id;
               return (
                 <li key={entry.id}>
                   <Link

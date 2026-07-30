@@ -4,6 +4,7 @@ const CAPABILITY_KEY_PATTERN =
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const HASH_PATTERN = /^[0-9a-f]{64}$/u;
+const DISCORD_USER_ID_PATTERN = /^[0-9]{5,32}$/u;
 
 export class TeamRoleMutationPayloadError extends Error {
   readonly status = 400;
@@ -57,6 +58,18 @@ export type TeamRoleMutationPayload =
       expectedPreviousRoleKey: string;
       fallbackRoleKey: string | null;
       confirmationWord: "ADMIN";
+    })
+  | (CommonPayload & {
+      operation: "add_team_member";
+      targetDiscordUserId: string;
+      initialRoleKey: string;
+      confirmationWord: "ADD";
+    })
+  | (CommonPayload & {
+      operation: "remove_team_member";
+      targetDiscordUserId: string;
+      expectedPreviousRoleKey: string;
+      confirmationWord: "REMOVE";
     });
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -167,6 +180,38 @@ function roleKey(
   }
 
   return value;
+}
+
+function discordUserId(
+  payload: Record<string, unknown>,
+  key: string
+) {
+  const value = requiredText(payload, key, 32);
+  if (!DISCORD_USER_ID_PATTERN.test(value)) {
+    throw new TeamRoleMutationPayloadError(`Invalid ${key}`);
+  }
+
+  return value;
+}
+
+function confirmationWord<
+  TExpected extends "ADMIN" | "ADD" | "REMOVE",
+>(
+  payload: Record<string, unknown>,
+  expected: TExpected
+): TExpected {
+  const value = requiredText(
+    payload,
+    "confirmationWord",
+    expected.length
+  );
+  if (value !== expected) {
+    throw new TeamRoleMutationPayloadError(
+      `Type ${expected} to confirm`
+    );
+  }
+
+  return expected;
 }
 
 function common(payload: Record<string, unknown>) {
@@ -368,16 +413,9 @@ export function parseTeamRoleMutationPayload(
       fallbackValue === null
         ? null
         : roleKey(payload, "fallbackRoleKey");
-    const confirmationWord = requiredText(
-      payload,
-      "confirmationWord",
-      5
-    );
+    const confirmed = confirmationWord(payload, "ADMIN");
 
-    if (
-      confirmationWord !== "ADMIN" ||
-      (!isAdmin && fallbackRoleKey === null)
-    ) {
+    if (!isAdmin && fallbackRoleKey === null) {
       throw new TeamRoleMutationPayloadError(
         "ADMIN confirmation and active fallback role are required"
       );
@@ -397,7 +435,52 @@ export function parseTeamRoleMutationPayload(
         true
       ),
       fallbackRoleKey,
-      confirmationWord: "ADMIN",
+      confirmationWord: confirmed,
+      ...common(payload),
+    };
+  }
+
+  if (operation === "add_team_member") {
+    assertOnlyKeys(payload, [
+      "operation",
+      "targetDiscordUserId",
+      "initialRoleKey",
+      "confirmationWord",
+      "reason",
+      "idempotencyKey",
+    ]);
+    return {
+      operation,
+      targetDiscordUserId: discordUserId(
+        payload,
+        "targetDiscordUserId"
+      ),
+      initialRoleKey: roleKey(payload, "initialRoleKey"),
+      confirmationWord: confirmationWord(payload, "ADD"),
+      ...common(payload),
+    };
+  }
+
+  if (operation === "remove_team_member") {
+    assertOnlyKeys(payload, [
+      "operation",
+      "targetDiscordUserId",
+      "expectedPreviousRoleKey",
+      "confirmationWord",
+      "reason",
+      "idempotencyKey",
+    ]);
+    return {
+      operation,
+      targetDiscordUserId: discordUserId(
+        payload,
+        "targetDiscordUserId"
+      ),
+      expectedPreviousRoleKey: roleKey(
+        payload,
+        "expectedPreviousRoleKey"
+      ),
+      confirmationWord: confirmationWord(payload, "REMOVE"),
       ...common(payload),
     };
   }

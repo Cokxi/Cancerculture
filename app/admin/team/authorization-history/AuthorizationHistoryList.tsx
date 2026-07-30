@@ -9,6 +9,8 @@ const eventLabels: Readonly<Record<string, string>> = {
   capability_revoked: "Capability revoked",
   member_role_changed: "Member role changed",
   admin_role_changed: "Owner access changed",
+  member_added: "Team member added",
+  member_removed: "Team member removed",
 };
 
 function formatAuditValue(value: unknown): string {

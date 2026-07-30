@@ -32,6 +32,7 @@ function mapDatabaseMutationError(error: {
     "TEAM_ROLE_VERSION_CONFLICT",
     "TEAM_MEMBER_ROLE_CONFLICT",
     "TEAM_AUTH_IDEMPOTENCY_CONFLICT",
+    "TEAM_MEMBER_ALREADY_EXISTS",
     "TEAM_ROLE_HAS_ASSIGNED_MEMBERS",
     "LAST_ADMIN_PROTECTED",
     "ADMIN_SELF_DEMOTION_FORBIDDEN",
@@ -51,21 +52,33 @@ function mapDatabaseMutationError(error: {
     "ADMIN_ROLE_IMMUTABLE",
     "ADMIN_CAPABILITY_GRANT_FORBIDDEN",
     "ADMIN_ROLE_REQUIRES_OWNER_RPC",
+    "ADMIN_MEMBER_REMOVE_FORBIDDEN",
   ];
 
   const matchedConflict = conflictCodes.find((code) =>
     message.includes(code)
   );
   if (matchedConflict) {
+    const messageByCode: Partial<Record<string, string>> = {
+      TEAM_MEMBER_ALREADY_EXISTS:
+        "This Discord ID is already a current team member.",
+      TEAM_MEMBER_ROLE_CONFLICT:
+        "This team member's role changed. Refresh and review the latest assignment.",
+      TEAM_AUTH_IDEMPOTENCY_CONFLICT:
+        "This request conflicts with a previous authorization change. Review the payload and try again.",
+      TEAM_ROLE_INACTIVE:
+        "The selected role is no longer active.",
+    };
     return new TeamRoleMutationError(
       409,
-      matchedConflict === "TEAM_ROLE_HAS_ASSIGNED_MEMBERS"
-        ? "Move every member to another role before deactivating this role."
-        : matchedConflict === "LAST_ADMIN_PROTECTED"
-          ? "The last Admin account cannot be demoted."
-          : matchedConflict === "ADMIN_SELF_DEMOTION_FORBIDDEN"
-            ? "You cannot demote your own Admin account."
-            : "The authorization state changed. Refresh and review the latest values.",
+      messageByCode[matchedConflict] ??
+        (matchedConflict === "TEAM_ROLE_HAS_ASSIGNED_MEMBERS"
+          ? "Move every member to another role before deactivating this role."
+          : matchedConflict === "LAST_ADMIN_PROTECTED"
+            ? "The last Admin account cannot be demoted."
+            : matchedConflict === "ADMIN_SELF_DEMOTION_FORBIDDEN"
+              ? "You cannot demote your own Admin account."
+              : "The authorization state changed. Refresh and review the latest values."),
       matchedConflict
     );
   }
@@ -74,9 +87,16 @@ function mapDatabaseMutationError(error: {
     message.includes(code)
   );
   if (matchedNotFound) {
+    const messageByCode: Partial<Record<string, string>> = {
+      TEAM_MEMBER_NOT_FOUND:
+        "This team member is no longer present. Refresh and review the current list.",
+      TEAM_ROLE_NOT_FOUND:
+        "The selected role no longer exists.",
+    };
     return new TeamRoleMutationError(
       404,
-      "The requested role, capability, or team member no longer exists.",
+      messageByCode[matchedNotFound] ??
+        "The requested role, capability, or team member no longer exists.",
       matchedNotFound
     );
   }
@@ -85,10 +105,25 @@ function mapDatabaseMutationError(error: {
     message.includes(code)
   );
   if (matchedForbidden) {
+    const messageByCode: Partial<Record<string, string>> = {
+      ADMIN_MEMBER_REMOVE_FORBIDDEN:
+        "Owner accounts cannot be removed from Team Members.",
+      ADMIN_ROLE_REQUIRES_OWNER_RPC:
+        "Admin access can only be changed through Owner Accounts.",
+    };
     return new TeamRoleMutationError(
       403,
-      "This Admin operation is not permitted.",
+      messageByCode[matchedForbidden] ??
+        "This Admin operation is not permitted.",
       matchedForbidden
+    );
+  }
+
+  if (message.includes("TARGET_IDENTITY_UNKNOWN")) {
+    return new TeamRoleMutationError(
+      400,
+      "This Discord ID is not yet available as a known identity.",
+      "TARGET_IDENTITY_UNKNOWN"
     );
   }
 
@@ -216,6 +251,54 @@ async function callMutationRpc(
   return data as Record<string, unknown>;
 }
 
+export type TeamMemberMutationResult = Readonly<{
+  operation: "add_team_member" | "remove_team_member";
+  changed: true;
+  targetDiscordUserId: string;
+  previousRole: string | null;
+  newRole: string | null;
+}>;
+
+function normalizeTeamMemberMutationResult(
+  data: Record<string, unknown>,
+  expectedOperation: TeamMemberMutationResult["operation"]
+): TeamMemberMutationResult {
+  const previousRole =
+    typeof data.previousRole === "string"
+      ? data.previousRole
+      : data.previousRole === null
+        ? null
+        : undefined;
+  const newRole =
+    typeof data.newRole === "string"
+      ? data.newRole
+      : data.newRole === null
+        ? null
+        : undefined;
+
+  if (
+    data.operation !== expectedOperation ||
+    data.changed !== true ||
+    typeof data.targetDiscordUserId !== "string" ||
+    previousRole === undefined ||
+    newRole === undefined
+  ) {
+    throw new TeamRoleMutationError(
+      503,
+      "The authorization service returned an invalid response.",
+      "INVALID_MUTATION_RESPONSE"
+    );
+  }
+
+  return Object.freeze({
+    operation: expectedOperation,
+    changed: true,
+    targetDiscordUserId: data.targetDiscordUserId,
+    previousRole,
+    newRole,
+  });
+}
+
 export async function executeTeamRoleMutation(
   actorDiscordUserId: string,
   payload: TeamRoleMutationPayload
@@ -285,14 +368,44 @@ export async function executeTeamRoleMutation(
     });
   }
 
-  return callMutationRpc("set_team_member_admin_role", {
+  if (payload.operation === "set_member_admin_role") {
+    return callMutationRpc("set_team_member_admin_role", {
+      p_actor_discord_user_id: actorDiscordUserId,
+      p_target_discord_user_id: payload.targetDiscordUserId,
+      p_is_admin: payload.isAdmin,
+      p_expected_previous_role_key:
+        payload.expectedPreviousRoleKey,
+      p_fallback_role_key: payload.fallbackRoleKey,
+      p_reason: payload.reason,
+      p_idempotency_key: payload.idempotencyKey,
+    });
+  }
+
+  if (payload.operation === "add_team_member") {
+    const result = await callMutationRpc("add_team_member", {
+      p_actor_discord_user_id: actorDiscordUserId,
+      p_target_discord_user_id: payload.targetDiscordUserId,
+      p_initial_role_key: payload.initialRoleKey,
+      p_expected_absent: true,
+      p_reason: payload.reason,
+      p_idempotency_key: payload.idempotencyKey,
+    });
+    return normalizeTeamMemberMutationResult(
+      result,
+      "add_team_member"
+    );
+  }
+
+  const result = await callMutationRpc("remove_team_member", {
     p_actor_discord_user_id: actorDiscordUserId,
     p_target_discord_user_id: payload.targetDiscordUserId,
-    p_is_admin: payload.isAdmin,
     p_expected_previous_role_key:
       payload.expectedPreviousRoleKey,
-    p_fallback_role_key: payload.fallbackRoleKey,
     p_reason: payload.reason,
     p_idempotency_key: payload.idempotencyKey,
   });
+  return normalizeTeamMemberMutationResult(
+    result,
+    "remove_team_member"
+  );
 }

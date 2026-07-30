@@ -17,7 +17,8 @@ export type MutationOperation = {
   warning?: string;
   successMessage: string;
   payload: Record<string, unknown>;
-  requiresAdminWord?: boolean;
+  confirmationWord?: "ADMIN" | "ADD" | "REMOVE";
+  redirectOnSuccess?: string;
 };
 
 type MutationContextValue = {
@@ -76,11 +77,11 @@ function MutationDialog({
   busy: boolean;
   error: string | null;
   onCancel: () => void;
-  onConfirm: (reason: string, adminWord: string) => void;
+  onConfirm: (reason: string, confirmationInput: string) => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [reason, setReason] = useState("");
-  const [adminWord, setAdminWord] = useState("");
+  const [confirmationInput, setConfirmationInput] = useState("");
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -91,7 +92,8 @@ function MutationDialog({
 
   const valid =
     reason.trim().length >= 3 &&
-    (!operation.requiresAdminWord || adminWord === "ADMIN");
+    (!operation.confirmationWord ||
+      confirmationInput === operation.confirmationWord);
 
   return (
     <dialog
@@ -110,7 +112,7 @@ function MutationDialog({
         onSubmit={(event) => {
           event.preventDefault();
           if (valid && !busy) {
-            onConfirm(reason.trim(), adminWord);
+            onConfirm(reason.trim(), confirmationInput);
           }
         }}
       >
@@ -153,17 +155,23 @@ function MutationDialog({
           />
         </Field>
 
-        {operation.requiresAdminWord ? (
+        {operation.confirmationWord ? (
           <Field
-            label='Type "ADMIN" to confirm'
-            hint="Owner access is independent from capability grants."
+            label={`Type "${operation.confirmationWord}" to confirm`}
+            hint={
+              operation.confirmationWord === "ADMIN"
+                ? "Owner access is independent from capability grants."
+                : "The confirmation applies only to this reviewed authorization change."
+            }
           >
             <input
               className={inputClass}
-              value={adminWord}
+              value={confirmationInput}
               disabled={busy}
               autoComplete="off"
-              onChange={(event) => setAdminWord(event.target.value)}
+              onChange={(event) =>
+                setConfirmationInput(event.target.value)
+              }
             />
           </Field>
         ) : null}
@@ -231,7 +239,10 @@ export default function TeamRoleMutationProvider({
     setSuccessMessage(null);
   }
 
-  async function confirm(reason: string, adminWord: string) {
+  async function confirm(
+    reason: string,
+    confirmationInput: string
+  ) {
     if (!pending || !idempotencyKey) return;
     setBusy(true);
     setDialogError(null);
@@ -244,8 +255,8 @@ export default function TeamRoleMutationProvider({
           ...pending.payload,
           reason,
           idempotencyKey,
-          ...(pending.requiresAdminWord
-            ? { confirmationWord: adminWord }
+          ...(pending.confirmationWord
+            ? { confirmationWord: confirmationInput }
             : {}),
         }),
       });
@@ -259,6 +270,7 @@ export default function TeamRoleMutationProvider({
         );
         if (
           response.status === 403 ||
+          response.status === 404 ||
           response.status === 409 ||
           response.status === 503
         ) {
@@ -272,8 +284,13 @@ export default function TeamRoleMutationProvider({
           ? ` Technical key: ${body.result.role.key}.`
           : "";
       setSuccessMessage(`${pending.successMessage}${createdKey}`);
+      const redirectOnSuccess = pending.redirectOnSuccess;
       setPending(null);
       setIdempotencyKey(null);
+      if (redirectOnSuccess) {
+        router.push(redirectOnSuccess);
+        return;
+      }
       router.refresh();
     } catch {
       setDialogError(

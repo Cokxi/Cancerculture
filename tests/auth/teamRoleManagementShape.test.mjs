@@ -70,7 +70,7 @@ test("canonical and compatibility mutation routes are guarded and same-origin", 
   }
 });
 
-test("the production mutation adapter calls exactly the six hardened RPCs", async () => {
+test("the production mutation adapter calls exactly the eight hardened RPCs", async () => {
   const adapter = await source("lib/auth/teamRoleMutations.ts");
   const rpcNames = [
     ...adapter.matchAll(
@@ -79,7 +79,9 @@ test("the production mutation adapter calls exactly the six hardened RPCs", asyn
   ].map((match) => match[1]);
 
   assert.deepEqual(rpcNames.sort(), [
+    "add_team_member",
     "create_team_role",
+    "remove_team_member",
     "set_team_member_admin_role",
     "set_team_member_non_admin_role",
     "set_team_role_active",
@@ -185,6 +187,7 @@ test("the split UI has explicit confirmations, stable retries, owner separation,
   assert.match(ui, /Retry keeps the same idempotency key/);
   assert.match(ui, /Owner Accounts/);
   assert.match(ui, /confirmationWord/);
+  assert.match(ui, /confirmationWord: "REMOVE"/);
   assert.match(ui, /activeNonAdminRoles\.map/);
   assert.match(ui, /isCurrentAdmin/);
   assert.doesNotMatch(ui, />\s*Delete\s*</);

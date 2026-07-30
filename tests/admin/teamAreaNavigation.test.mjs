@@ -30,22 +30,23 @@ function context({
   };
 }
 
-test("the central definition filters unavailable items and empty categories", () => {
+test("the central definition exposes implemented Admin items and filters unavailable categories", () => {
   const resolved = resolveTeamAreaNavigation(context());
   assert.deepEqual(resolved, []);
 
-  const plannedOnly = TEAM_AREA_NAVIGATION.find(
+  const team = TEAM_AREA_NAVIGATION.find(
     (category) => category.id === "team"
-  ).items.filter((entry) => !entry.implemented);
-  assert.ok(plannedOnly.length > 0);
-  assert.equal(
-    plannedOnly.find((entry) => entry.id === "add-team-member")?.href,
-    "/admin/team/members/add"
   );
+  const addMember = team.items.find(
+    (entry) => entry.id === "add-team-member"
+  );
+  assert.equal(addMember?.href, "/admin/team/members/add");
+  assert.equal(addMember?.implemented, true);
+  assert.deepEqual(addMember?.requirement, { type: "admin" });
   assert.equal(
     JSON.stringify(resolveTeamAreaNavigation(context({ isAdmin: true })))
       .includes("add-team-member"),
-    false
+    true
   );
 });
 
@@ -153,6 +154,33 @@ test("active state and breadcrumbs resolve categorized and nested paths", () => 
     ),
     ["Team Area", "Team", "Authorization History"]
   );
+  assert.equal(
+    findActiveTeamAreaItem(
+      navigation,
+      "/admin/team/members/add"
+    )?.entry.id,
+    "add-team-member"
+  );
+  assert.equal(
+    navigation
+      .flatMap((category) => category.items)
+      .filter(
+        (entry) =>
+          entry.id ===
+          findActiveTeamAreaItem(
+            navigation,
+            "/admin/team/members/add"
+          )?.entry.id
+      ).length,
+    1
+  );
+  assert.deepEqual(
+    getTeamAreaBreadcrumbs(
+      navigation,
+      "/admin/team/members/add"
+    ),
+    ["Team Area", "Team", "Add Team Member"]
+  );
 });
 
 test("the landing page is real and no longer redirects to logs", async () => {
@@ -171,6 +199,8 @@ test("desktop and mobile render the same resolved navigation", async () => {
   );
   assert.match(shell, /href="\/admin"/);
   assert.match(shell, /href="\/"/);
+  assert.match(shell, /findActiveTeamAreaItem\(navigation, pathname\)/);
+  assert.match(shell, /activeItem\?\.entry\.id === entry\.id/);
   assert.match(shell, /aria-current=\{active \? "page"/);
 });
 

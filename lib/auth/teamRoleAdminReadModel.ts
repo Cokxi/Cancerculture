@@ -101,6 +101,11 @@ export type TeamMembersAdminReadModel = Pick<
   "roles" | "members" | "activeNonAdminRoles"
 >;
 
+export type AddTeamMemberAdminReadModel = Pick<
+  TeamRoleAdminReadModel,
+  "activeNonAdminRoles"
+>;
+
 export type RolesPermissionsAdminReadModel = Pick<
   TeamRoleAdminReadModel,
   "roles" | "capabilities" | "activeNonAdminRoles"
@@ -549,6 +554,39 @@ export async function loadTeamMembersAdminReadModel(
   return {
     roles: model.roles,
     members: model.members,
+    activeNonAdminRoles: model.activeNonAdminRoles,
+  };
+}
+
+export async function loadAddTeamMemberAdminReadModel(
+  currentAdminDiscordUserId: string
+): Promise<AddTeamMemberAdminReadModel> {
+  const rolesResult = await supabaseAdmin
+    .from("team_roles")
+    .select(
+      "key, display_name, description, is_system, is_active, sort_order, row_version, created_at, updated_at, created_by_discord_user_id, updated_by_discord_user_id"
+    );
+
+  if (rolesResult.error) {
+    console.error("[TEAM_ROLE_ADMIN] add member roles unavailable", {
+      roles: rolesResult.error.code,
+    });
+    throw readModelUnavailable();
+  }
+
+  const model = buildReadModelOrUnavailable(
+    {
+      roleRows: (rolesResult.data ?? []) as RoleRow[],
+      capabilityRows: [],
+      grantRows: [],
+      memberRows: [],
+      auditRows: [],
+      currentAdminDiscordUserId,
+    },
+    "add-team-member"
+  );
+
+  return {
     activeNonAdminRoles: model.activeNonAdminRoles,
   };
 }

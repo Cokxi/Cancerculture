@@ -156,6 +156,91 @@ test("owner changes require ADMIN and demotion requires a fallback", () => {
   }
 });
 
+test("member enrollment and removal accept only the reviewed non-Admin payload", () => {
+  const targetDiscordUserId = "123456789012345678";
+
+  assert.deepEqual(
+    parseTeamRoleMutationPayload({
+      operation: "add_team_member",
+      targetDiscordUserId,
+      initialRoleKey: "custom_reviewers",
+      confirmationWord: "ADD",
+      reason: "Approved team enrollment",
+      idempotencyKey,
+    }),
+    {
+      operation: "add_team_member",
+      targetDiscordUserId,
+      initialRoleKey: "custom_reviewers",
+      confirmationWord: "ADD",
+      reason: "Approved team enrollment",
+      idempotencyKey,
+    }
+  );
+
+  assert.deepEqual(
+    parseTeamRoleMutationPayload({
+      operation: "remove_team_member",
+      targetDiscordUserId,
+      expectedPreviousRoleKey: "moderator",
+      confirmationWord: "REMOVE",
+      reason: "Authorization no longer required",
+      idempotencyKey,
+    }).expectedPreviousRoleKey,
+    "moderator"
+  );
+
+  for (const invalid of [
+    {
+      operation: "add_team_member",
+      targetDiscordUserId: "not-a-discord-id",
+      initialRoleKey: "moderator",
+      confirmationWord: "ADD",
+    },
+    {
+      operation: "add_team_member",
+      targetDiscordUserId,
+      initialRoleKey: "admin",
+      confirmationWord: "ADD",
+    },
+    {
+      operation: "add_team_member",
+      targetDiscordUserId,
+      initialRoleKey: "moderator",
+      confirmationWord: "add",
+    },
+    {
+      operation: "add_team_member",
+      targetDiscordUserId,
+      initialRoleKey: "moderator",
+      confirmationWord: "ADD",
+      expectedAbsent: true,
+    },
+    {
+      operation: "remove_team_member",
+      targetDiscordUserId,
+      expectedPreviousRoleKey: "admin",
+      confirmationWord: "REMOVE",
+    },
+    {
+      operation: "remove_team_member",
+      targetDiscordUserId,
+      expectedPreviousRoleKey: "moderator",
+      confirmationWord: "remove",
+    },
+  ]) {
+    assert.throws(
+      () =>
+        parseTeamRoleMutationPayload({
+          ...invalid,
+          reason: "Reviewed request",
+          idempotencyKey,
+        }),
+      TeamRoleMutationPayloadError
+    );
+  }
+});
+
 test("wildcards, malformed idempotency keys, and actor input are rejected", () => {
   for (const payload of [
     {
