@@ -1,4 +1,7 @@
-import { requireAdmin, requireModOrAdmin } from "@/lib/auth/guards";
+import {
+  requireAdmin,
+  requireSubmissionModerator,
+} from "@/lib/auth/guards";
 import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
 import { redirect } from "next/navigation";
 
@@ -17,10 +20,12 @@ export async function requireAdminPage(_statePath?: string) {
   }
 }
 
-export async function requireModOrAdminPage(_statePath?: string) {
+export async function requireSubmissionModeratorPage(
+  _statePath?: string
+) {
   void _statePath;
   try {
-    return await requireModOrAdmin();
+    return await requireSubmissionModerator();
   } catch (error) {
     const destination = getTeamPageAccessRedirect(error);
 

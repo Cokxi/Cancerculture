@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { requireSubmissionModerator } from "@/lib/auth/guards";
 import { setSubmissionDisqualification } from "@/lib/moderation/setSubmissionDisqualification";
 import { NextResponse } from "next/server";
 
@@ -21,7 +21,7 @@ function getErrorResponse(error: unknown) {
 
 export async function POST(req: Request) {
   try {
-    const actor = await requireModOrAdmin();
+    const actor = await requireSubmissionModerator();
 
     const {
       submissionId,

@@ -6,6 +6,7 @@ import { AuthError } from "@/lib/auth/AuthError";
 import { runAuthQueryWithTimeout } from "@/lib/auth/authQuery";
 import {
   hasTeamCapability,
+  isAdminTeamRole,
   normalizeTeamRole,
   type CanonicalTeamRole,
   type TeamCapability,
@@ -66,10 +67,13 @@ export async function getTeamMember(): Promise<TeamMember> {
 
 
 export async function requireAdmin(): Promise<TeamMember> {
-  return requireTeamCapability(
-    "canManageTeamRoles",
-    "Admin only"
-  );
+  const member = await getTeamMember();
+
+  if (!isAdminTeamRole(member.role)) {
+    throw new AuthError(403, "Admin only");
+  }
+
+  return member;
 }
 
 export async function requireTeamCapability(
@@ -85,6 +89,6 @@ export async function requireTeamCapability(
   return member;
 }
 
-export async function requireModOrAdmin(): Promise<TeamMember> {
+export async function requireSubmissionModerator(): Promise<TeamMember> {
   return requireTeamCapability("canModerateSubmissionPhase");
 }

@@ -1,9 +1,10 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { logSocialVerificationAction } from "@/lib/logging/logSocialVerificationAction";
+import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 
 function parseSocialId(value: string) {
   const parsed = Number(value);
@@ -15,7 +16,7 @@ export async function POST(
   context: { params: Promise<{ socialId: string }> }
 ) {
   try {
-    const actor = await requireModOrAdmin();
+    const actor = await requireAdmin();
     const { socialId: socialIdParam } = await context.params;
     const socialId = parseSocialId(socialIdParam);
     const { note } = await req
@@ -91,13 +92,6 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof Response) {
-      throw error;
-    }
-
-    return NextResponse.json(
-      { error: "Failed to unverify social link." },
-      { status: 500 }
-    );
+    return getRouteErrorResponse(error);
   }
 }

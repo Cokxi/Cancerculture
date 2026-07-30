@@ -2,14 +2,15 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { requireTeamCapability } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
+import { getUserDirectoryQuery } from "@/lib/admin/userDirectoryAccess";
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
 import UserRoleActions from "./UserRoleActions";
 import {
-  hasTeamCapability,
+  isAdminTeamRole,
   normalizeTeamRole,
   type CanonicalTeamRole,
 } from "@/lib/auth/teamRoles";
@@ -22,27 +23,27 @@ type UserLog = {
   current_discord_handle?: string | null;
   current_display_name?: string | null;
   current_guild_nickname?: string | null;
-  known_discord_usernames: string[] | null;
-  username_change_count: number;
-  submission_count: number;
+  known_discord_usernames?: string[] | null;
+  username_change_count?: number;
+  submission_count?: number;
 
   
   flagged_for_review: boolean;
-  flag_reason_code: string | null;
-  flag_note: string | null;
-  flagged_at: string | null;
-  flagged_by_discord_username: string | null;
+  flag_reason_code?: string | null;
+  flag_note?: string | null;
+  flagged_at?: string | null;
+  flagged_by_discord_username?: string | null;
 
   
-  unflag_reason: string | null;
-  unflagged_by_discord_username: string | null;
-  unflagged_at: string | null;
+  unflag_reason?: string | null;
+  unflagged_by_discord_username?: string | null;
+  unflagged_at?: string | null;
 
   
-  is_banned: boolean;
-  ban_reason: string | null;
-  first_seen_at: string;
-  last_seen_at: string;
+  is_banned?: boolean;
+  ban_reason?: string | null;
+  first_seen_at?: string;
+  last_seen_at?: string;
   team_role?: CanonicalTeamRole | null;
 };
 
@@ -63,32 +64,44 @@ export default async function AdminUsersPage({
   let member;
 
   try {
-    member = await requireModOrAdmin();
+    member = await requireTeamCapability(
+      "canViewBasicUserDirectory"
+    );
   } catch {
     redirect("/403");
   }
 
-  
+  const directoryQuery = getUserDirectoryQuery(member.role);
+  const isAdmin = directoryQuery.isAdminView;
   const { data: users, error } = await supabaseAdmin
-    .from("user_logs_with_stats")
-    .select("*")
-    .order("last_seen_at", { ascending: false });
+    .from(directoryQuery.relation)
+    .select(directoryQuery.select)
+    .order(directoryQuery.orderBy, { ascending: false });
 
-    const filteredUsers =
-  query === ""
-    ? users
-    : (users ?? []).filter((user: UserLog) => {
+  const typedUsers = (users ?? []) as unknown as UserLog[];
+  const filteredUsers =
+    query === ""
+      ? typedUsers
+      : typedUsers.filter((user) => {
         const qLower = query.toLowerCase();
+        const currentNames = [
+          user.current_discord_username,
+          user.current_discord_handle,
+          user.current_display_name,
+          user.current_guild_nickname,
+        ];
+        const searchableNames = isAdmin
+          ? [
+              ...currentNames,
+              ...(user.known_discord_usernames ?? []),
+            ]
+          : currentNames;
 
         return (
           user.discord_user_id.includes(query) ||
-          user.current_discord_username
-            ?.toLowerCase()
-            .includes(qLower) ||
-          (user.known_discord_usernames ?? [])
-            .join(" ")
-            .toLowerCase()
-            .includes(qLower)
+          searchableNames.some((name) =>
+            name?.toLowerCase().includes(qLower)
+          )
         );
       });
 
@@ -125,7 +138,7 @@ export default async function AdminUsersPage({
     ])
   );
   const teamMembersResult =
-    discordUserIds.length > 0
+    isAdmin && discordUserIds.length > 0
       ? await supabaseAdmin
           .from("team_members")
           .select("discord_user_id, role")
@@ -143,7 +156,7 @@ export default async function AdminUsersPage({
 
   return (
     <div style={{ padding: 24 }}>
-      <h1>Admin – User Logs</h1>
+      <h1>{isAdmin ? "Admin – User Logs" : "Users"}</h1>
 
       <form method="get" style={{ marginTop: 12 }}>
   <input
@@ -179,8 +192,8 @@ export default async function AdminUsersPage({
             <tr>
               <th align="left">User</th>
               <th align="left">Discord ID</th>
-              <th align="left">Stats</th>
-              <th align="left">Activity</th>
+              {isAdmin ? <th align="left">Stats</th> : null}
+              {isAdmin ? <th align="left">Activity</th> : null}
             </tr>
           </thead>
 
@@ -193,13 +206,15 @@ export default async function AdminUsersPage({
     query !== "" &&
     (
       user.discord_user_id.includes(query) ||
-      user.current_discord_username
-        ?.toLowerCase()
-        .includes(query.toLowerCase()) ||
-      (user.known_discord_usernames ?? [])
-        .join(" ")
-        .toLowerCase()
-        .includes(query.toLowerCase())
+      [
+        user.current_discord_username,
+        user.current_discord_handle,
+        user.current_display_name,
+        user.current_guild_nickname,
+        ...(isAdmin ? user.known_discord_usernames ?? [] : []),
+      ].some((name) =>
+        name?.toLowerCase().includes(query.toLowerCase())
+      )
     );
 
   return (
@@ -249,14 +264,14 @@ export default async function AdminUsersPage({
     >
       <strong>FLAGGED</strong>
 
-      {user.flag_reason_code && (
+      {isAdmin && user.flag_reason_code && (
         <div>
           Reason:{" "}
           {user.flag_reason_code.replaceAll("_", " ")}
         </div>
       )}
 
-      {user.flag_note && (
+      {isAdmin && user.flag_note && (
         <div style={{ opacity: 0.8 }}>
           {user.flag_note}
         </div>
@@ -265,7 +280,7 @@ export default async function AdminUsersPage({
   )}
 
   
-{user.is_banned && user.ban_reason && (
+{isAdmin && user.is_banned && user.ban_reason && (
   <div
     style={{
       marginTop: 6,
@@ -286,7 +301,7 @@ export default async function AdminUsersPage({
 
 
   
-  {!user.flagged_for_review && user.unflag_reason && (
+  {isAdmin && !user.flagged_for_review && user.unflag_reason && (
     <div
       style={{
         marginTop: 6,
@@ -314,11 +329,11 @@ export default async function AdminUsersPage({
   <UserModerationActions
   discordUserId={user.discord_user_id}
   isFlagged={user.flagged_for_review}
-  isBanned={user.is_banned}
+  isBanned={Boolean(user.is_banned)}
   role={member.role}
 />
 
-  {hasTeamCapability(member.role, "canManageTeamRoles") && (
+  {isAdminTeamRole(member.role) && (
     <UserRoleActions
       discordUserId={user.discord_user_id}
       role={
@@ -346,7 +361,7 @@ export default async function AdminUsersPage({
                   
 
                 
-                <td style={{ padding: "8px 0" }}>
+                {isAdmin ? <td style={{ padding: "8px 0" }}>
                   <div>
                     Submissions: <strong>{user.submission_count}</strong>
                   </div>
@@ -373,14 +388,14 @@ export default async function AdminUsersPage({
                     )}
 
                   <UserSubmissionsDropdown
-  discordUserId={user.discord_user_id}
-  defaultOpen={focusUserId === user.discord_user_id}
-/>
+                    discordUserId={user.discord_user_id}
+                    defaultOpen={focusUserId === user.discord_user_id}
+                  />
 
-                </td>
+                </td> : null}
 
                 
-                <td
+                {isAdmin ? <td
                   style={{
                     padding: "8px 0",
                     fontSize: 12,
@@ -390,15 +405,19 @@ export default async function AdminUsersPage({
                   <div>
                     First seen:
                     <br />
-                    {new Date(user.first_seen_at).toLocaleString()}
+                    {user.first_seen_at
+                      ? new Date(user.first_seen_at).toLocaleString()
+                      : "—"}
                   </div>
 
                   <div style={{ marginTop: 4 }}>
                     Last seen:
                     <br />
-                    {new Date(user.last_seen_at).toLocaleString()}
+                    {user.last_seen_at
+                      ? new Date(user.last_seen_at).toLocaleString()
+                      : "—"}
                   </div>
-                </td>
+                </td> : null}
                            </tr>
             );
           })}

@@ -1,13 +1,13 @@
 export const runtime = "nodejs";
 
 import { getUploadLogs } from "@/lib/admin/logs";
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/auth/guards";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    await requireModOrAdmin();
+    await requireAdmin();
 
     const { data, error } = await getUploadLogs();
 

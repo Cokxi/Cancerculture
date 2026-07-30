@@ -127,9 +127,11 @@ export default async function AdminLayout({
             </li>
           )}
 
-          <li className="mt-4 text-xs uppercase text-white/50">
-            Logs
-          </li>
+          {isAdmin && (
+            <li className="mt-4 text-xs uppercase text-white/50">
+              Logs
+            </li>
+          )}
 
           {isAdmin && (
             <li className="ml-3">
@@ -142,68 +144,80 @@ export default async function AdminLayout({
             </li>
           )}
 
-          <li className="ml-3">
-            <Link
-              href="/admin/logs/blocked"
-              className="block rounded px-2 py-1 text-orange-300 hover:bg-white/10"
-            >
-              Blocked Users
-            </Link>
-          </li>
+          {isAdmin && (
+            <li className="ml-3">
+              <Link
+                href="/admin/logs/blocked"
+                className="block rounded px-2 py-1 text-orange-300 hover:bg-white/10"
+              >
+                Blocked Users
+              </Link>
+            </li>
+          )}
 
           <li className="ml-3">
             <Link
               href="/admin/users"
               className="block rounded px-2 py-1 hover:bg-white/10"
             >
-              User Logs
+              {isAdmin ? "User Logs" : "Users"}
             </Link>
           </li>
 
-          <li className="ml-3">
-            <Link
-              href="/admin/logs/cycles"
-              className="block rounded px-2 py-1 hover:bg-white/10"
-            >
-              Cycle Logs
-            </Link>
-          </li>
+          {isAdmin && (
+            <li className="ml-3">
+              <Link
+                href="/admin/logs/cycles"
+                className="block rounded px-2 py-1 hover:bg-white/10"
+              >
+                Cycle Logs
+              </Link>
+            </li>
+          )}
 
-          <li className="ml-3">
-            <Link
-              href="/admin/logs/uploads"
-              className="block rounded px-2 py-1 hover:bg-white/10"
-            >
-              Upload Logs
-            </Link>
-          </li>
+          {isAdmin && (
+            <li className="ml-3">
+              <Link
+                href="/admin/logs/uploads"
+                className="block rounded px-2 py-1 hover:bg-white/10"
+              >
+                Upload Logs
+              </Link>
+            </li>
+          )}
 
-          <li className="ml-3">
-            <Link
-              href="/admin/logs/avatar-uploads"
-              className="block rounded px-2 py-1 hover:bg-white/10"
-            >
-              Avatar Upload Logs
-            </Link>
-          </li>
+          {isAdmin && (
+            <li className="ml-3">
+              <Link
+                href="/admin/logs/avatar-uploads"
+                className="block rounded px-2 py-1 hover:bg-white/10"
+              >
+                Avatar Upload Logs
+              </Link>
+            </li>
+          )}
 
-          <li className="ml-3">
-            <Link
-              href="/admin/logs/votes"
-              className="block rounded px-2 py-1 hover:bg-white/10"
-            >
-              Vote Logs
-            </Link>
-          </li>
+          {isAdmin && (
+            <li className="ml-3">
+              <Link
+                href="/admin/logs/votes"
+                className="block rounded px-2 py-1 hover:bg-white/10"
+              >
+                Vote Logs
+              </Link>
+            </li>
+          )}
 
-          <li className="ml-3">
-            <Link
-              href="/admin/logs/socials"
-              className="block rounded px-2 py-1 hover:bg-white/10"
-            >
-              Social Logs
-            </Link>
-          </li>
+          {isAdmin && (
+            <li className="ml-3">
+              <Link
+                href="/admin/logs/socials"
+                className="block rounded px-2 py-1 hover:bg-white/10"
+              >
+                Social Logs
+              </Link>
+            </li>
+          )}
 
           {isAdmin && (
             <li className="ml-3">

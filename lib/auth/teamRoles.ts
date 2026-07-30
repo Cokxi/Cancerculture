@@ -22,6 +22,8 @@ export const TEAM_CAPABILITIES = [
   "canDisqualifyDuringVoting",
   "canReinstateDuringVoting",
   "canRefundDisqualifiedVotes",
+  "canFlagUsers",
+  "canViewBasicUserDirectory",
   "canManageTeamRoles",
 ] as const;
 
@@ -37,6 +39,8 @@ const NO_CAPABILITIES: TeamCapabilitySet = {
   canDisqualifyDuringVoting: false,
   canReinstateDuringVoting: false,
   canRefundDisqualifiedVotes: false,
+  canFlagUsers: false,
+  canViewBasicUserDirectory: false,
   canManageTeamRoles: false,
 };
 
@@ -46,11 +50,15 @@ export const TEAM_ROLE_CAPABILITIES: Readonly<
   trial_moderator: {
     ...NO_CAPABILITIES,
     canModerateSubmissionPhase: true,
+    canFlagUsers: true,
+    canViewBasicUserDirectory: true,
   },
   moderator: {
     ...NO_CAPABILITIES,
     canModerateSubmissionPhase: true,
     canDisqualifyDuringVoting: true,
+    canFlagUsers: true,
+    canViewBasicUserDirectory: true,
   },
   super_moderator: {
     ...NO_CAPABILITIES,
@@ -58,12 +66,16 @@ export const TEAM_ROLE_CAPABILITIES: Readonly<
     canDisqualifyDuringVoting: true,
     canReinstateDuringVoting: true,
     canRefundDisqualifiedVotes: true,
+    canFlagUsers: true,
+    canViewBasicUserDirectory: true,
   },
   admin: {
     canModerateSubmissionPhase: true,
     canDisqualifyDuringVoting: true,
     canReinstateDuringVoting: true,
     canRefundDisqualifiedVotes: true,
+    canFlagUsers: true,
+    canViewBasicUserDirectory: true,
     canManageTeamRoles: true,
   },
 };

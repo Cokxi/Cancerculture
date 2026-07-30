@@ -39,10 +39,34 @@ test("unknown and empty role values fail closed", () => {
 
 test("the complete capability matrix matches the role contract", () => {
   const expected = {
-    trial_moderator: [true, false, false, false, false],
-    moderator: [true, true, false, false, false],
-    super_moderator: [true, true, true, true, false],
-    admin: [true, true, true, true, true],
+    trial_moderator: [
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+    ],
+    moderator: [
+      true,
+      true,
+      false,
+      false,
+      true,
+      true,
+      false,
+    ],
+    super_moderator: [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+    ],
+    admin: [true, true, true, true, true, true, true],
   };
 
   for (const [role, values] of Object.entries(expected)) {

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { supabaseAdmin } from "@/lib/db/admin";
-import { requireModOrAdminPage } from "@/lib/auth/pageAccess";
+import { requireAdminPage } from "@/lib/auth/pageAccess";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import UserProfileLink from "../shared/UserProfileLink";
 import {
@@ -24,7 +24,7 @@ type SocialLogRow = {
 };
 
 export default async function AdminSocialLogsPage() {
-  await requireModOrAdminPage("/admin/logs/socials");
+  await requireAdminPage("/admin/logs/socials");
 
   const { data: logs, error } = await supabaseAdmin
     .from("social_verification_logs")

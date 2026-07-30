@@ -2,12 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
-import { requireModOrAdminPage } from "@/lib/auth/pageAccess";
+import { requireSubmissionModeratorPage } from "@/lib/auth/pageAccess";
 import ReinstateButton from "./reinstate-button";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export default async function DisqualifiedSubmissionsPage() {
-  await requireModOrAdminPage(
+  await requireSubmissionModeratorPage(
     "/admin/moderation/disqualified"
   );
 

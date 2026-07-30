@@ -1,5 +1,6 @@
 import {
   hasTeamCapability,
+  isAdminTeamRole,
   type CanonicalTeamRole,
 } from "@/lib/auth/teamRoles";
 
@@ -89,7 +90,7 @@ export function createAccountNavigationState({
 
   if (
     !teamAccessUnavailable &&
-    hasTeamCapability(teamRole, "canManageTeamRoles")
+    isAdminTeamRole(teamRole)
   ) {
     items.push({
       id: "admin",

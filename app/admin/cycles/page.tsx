@@ -1,27 +1,10 @@
-import { redirect } from "next/navigation";
-import { getAuthErrorStatus } from "@/lib/auth/AuthError";
-import { getTeamMember } from "@/lib/auth/guards";
+import { requireAdminPage } from "@/lib/auth/pageAccess";
 import { getSponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 import CycleControls from "./CycleControls";
-import { isAdminTeamRole } from "@/lib/auth/teamRoles";
 
 export default async function AdminCyclesPage() {
-  let member;
-
-  try {
-    member = await getTeamMember();
-  } catch (error) {
-    const status = getAuthErrorStatus(error);
-
-    if (status === 401 || status === 403) {
-      redirect("/403");
-    }
-
-    throw error;
-  }
-
-  const isAdmin = isAdminTeamRole(member.role);
+  await requireAdminPage("/admin/cycles");
   const { data: nextThemeConfig } = await supabaseAdmin
     .from("app_config")
     .select("value")
@@ -93,21 +76,15 @@ export default async function AdminCyclesPage() {
     <div style={{ padding: 24 }}>
       <h1>Admin - Voting Cycles</h1>
 
-      {isAdmin ? (
-        <CycleControls
-          initialNextTheme={initialNextTheme}
-          initialSponsoredDraft={initialSponsoredDraft}
-          currentCycleId={currentCycle?.id ?? null}
-          currentPhaseStatus={currentCycle?.status ?? null}
-          pausedFromStatus={currentCycle?.paused_from_status ?? null}
-          initialVotesPerUser={currentCycle?.votes_per_user ?? 2}
-          resetPreview={resetPreview}
-        />
-      ) : (
-        <p style={{ opacity: 0.7 }}>
-          Only admins can start or end cycles.
-        </p>
-      )}
+      <CycleControls
+        initialNextTheme={initialNextTheme}
+        initialSponsoredDraft={initialSponsoredDraft}
+        currentCycleId={currentCycle?.id ?? null}
+        currentPhaseStatus={currentCycle?.status ?? null}
+        pausedFromStatus={currentCycle?.paused_from_status ?? null}
+        initialVotesPerUser={currentCycle?.votes_per_user ?? 2}
+        resetPreview={resetPreview}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
@@ -9,7 +9,7 @@ import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 export async function GET(request: Request) {
   try {
     
-    await requireModOrAdmin();
+    await requireAdmin();
 
     
     const { searchParams } = new URL(request.url);

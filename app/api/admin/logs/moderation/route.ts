@@ -1,14 +1,14 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/auth/guards";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 
 export async function GET() {
   try {
    
-    await requireModOrAdmin();
+    await requireAdmin();
 
     const { data, error } = await supabaseAdmin
       .from("moderation_action_logs")

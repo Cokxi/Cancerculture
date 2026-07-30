@@ -1,10 +1,10 @@
 "use server";
 
 import { supabaseAdmin } from "@/lib/db/admin";
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/auth/guards";
 
 export async function updateRulesVersion() {
-  await requireModOrAdmin();
+  await requireAdmin();
 
   const { data: rules } = await supabaseAdmin
     .from("rules_meta")

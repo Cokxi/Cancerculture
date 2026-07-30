@@ -1,13 +1,13 @@
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
-import { requireModOrAdminPage } from "@/lib/auth/pageAccess";
+import { requireSubmissionModeratorPage } from "@/lib/auth/pageAccess";
 import ModerationGrid from "./ModerationGrid";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminModerationSubmissionsPage() {
-  await requireModOrAdminPage(
+  await requireSubmissionModeratorPage(
     "/admin/moderation/submissions"
   );
 

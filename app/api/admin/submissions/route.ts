@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { requireSubmissionModerator } from "@/lib/auth/guards";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export async function GET(req: Request) {
   try {
     
-    await requireModOrAdmin();
+    await requireSubmissionModerator();
 
     const { searchParams } = new URL(req.url);
     const cycleId = searchParams.get("cycle_id");

@@ -65,9 +65,11 @@ mock.module(new URL("../../lib/db/admin.ts", import.meta.url), {
   },
 });
 
-const { requireAdmin, requireModOrAdmin } = await import(
-  "../../lib/auth/guards.ts"
-);
+const {
+  requireAdmin,
+  requireSubmissionModerator,
+  requireTeamCapability,
+} = await import("../../lib/auth/guards.ts");
 
 function resetState() {
   state.participationCalls = 0;
@@ -123,9 +125,10 @@ test("Legacy mod is read as Trial Moderator", async () => {
   );
 
   assert.equal(
-    (await requireModOrAdmin()).role,
+    (await requireSubmissionModerator()).role,
     "trial_moderator"
   );
+  await assert.rejects(requireAdmin(), { status: 403 });
   assert.equal(state.participationCalls, 0);
 });
 
@@ -134,14 +137,69 @@ test("all canonical moderation roles retain submission moderation access", async
     "trial_moderator",
     "moderator",
     "super_moderator",
+    "admin",
   ]) {
     state.teamResult = {
       data: { discord_user_id: "team-user-1", role },
       error: null,
     };
 
-    assert.equal((await requireModOrAdmin()).role, role);
-    await assert.rejects(requireAdmin(), { status: 403 });
+    assert.equal(
+      (await requireSubmissionModerator()).role,
+      role
+    );
+
+    if (role === "admin") {
+      assert.equal((await requireAdmin()).role, "admin");
+    } else {
+      await assert.rejects(requireAdmin(), { status: 403 });
+    }
+  }
+});
+
+test("only canonical admin passes the independent admin invariant", async () => {
+  for (const role of [
+    "trial_moderator",
+    "moderator",
+    "super_moderator",
+    "mod",
+  ]) {
+    state.teamResult = {
+      data: { discord_user_id: "team-user-1", role },
+      error: null,
+    };
+
+    await assert.rejects(requireAdmin(), {
+      status: 403,
+      message: "Admin only",
+    });
+  }
+});
+
+test("all canonical team roles can flag users and load the basic directory", async () => {
+  for (const role of [
+    "trial_moderator",
+    "moderator",
+    "super_moderator",
+    "admin",
+  ]) {
+    state.teamResult = {
+      data: { discord_user_id: "team-user-1", role },
+      error: null,
+    };
+
+    assert.equal(
+      (await requireTeamCapability("canFlagUsers")).role,
+      role
+    );
+    assert.equal(
+      (
+        await requireTeamCapability(
+          "canViewBasicUserDirectory"
+        )
+      ).role,
+      role
+    );
   }
 });
 
@@ -154,20 +212,32 @@ test("unknown team roles fail closed", async () => {
     error: null,
   };
 
-  await assert.rejects(requireModOrAdmin(), { status: 503 });
+  await assert.rejects(requireSubmissionModerator(), { status: 503 });
   await assert.rejects(requireAdmin(), { status: 503 });
+  await assert.rejects(
+    requireTeamCapability("canFlagUsers"),
+    { status: 503 }
+  );
 });
 
 test("Normal user with fresh membership receives no team access", async () => {
   state.teamResult = { data: null, error: null };
 
   await assert.rejects(requireAdmin(), { status: 403 });
+  await assert.rejects(
+    requireTeamCapability("canFlagUsers"),
+    { status: 403 }
+  );
+  await assert.rejects(
+    requireTeamCapability("canViewBasicUserDirectory"),
+    { status: 403 }
+  );
 });
 
 test("Missing team role blocks access", async () => {
   state.teamResult = { data: null, error: null };
 
-  await assert.rejects(requireModOrAdmin(), { status: 403 });
+  await assert.rejects(requireSubmissionModerator(), { status: 403 });
 });
 
 test("Website ban blocks before the team-role lookup", async () => {

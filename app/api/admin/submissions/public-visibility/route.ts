@@ -2,13 +2,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireModOrAdmin } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/auth/guards";
 import { setSubmissionPublicVisibility } from "@/lib/moderation/setSubmissionPublicVisibility";
 import {
   SUBMISSION_PUBLIC_VISIBILITY,
   type SubmissionPublicVisibilityStatus,
 } from "@/lib/moderation/submissionPublicVisibility";
-import { isAdminTeamRole } from "@/lib/auth/teamRoles";
 
 function getErrorResponse(error: unknown) {
   const message =
@@ -36,7 +35,7 @@ function isAllowedStatus(
 
 export async function POST(req: Request) {
   try {
-    const actor = await requireModOrAdmin();
+    const actor = await requireAdmin();
     const {
       submissionId,
       status,
@@ -58,19 +57,6 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Reason required" },
         { status: 400 }
-      );
-    }
-
-    if (
-      !isAdminTeamRole(actor.role) &&
-      status !== SUBMISSION_PUBLIC_VISIBILITY.legalReview
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Moderators can only mark submissions for legal review",
-        },
-        { status: 403 }
       );
     }
 

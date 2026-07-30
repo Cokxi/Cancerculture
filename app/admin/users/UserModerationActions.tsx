@@ -6,6 +6,7 @@ import { unflagUser } from "@/app/admin/actions/unflagUser";
 import { banUser } from "@/app/admin/actions/banUser";
 import { unbanUser } from "@/app/admin/actions/unbanUser";
 import {
+  hasTeamCapability,
   isAdminTeamRole,
   type CanonicalTeamRole,
 } from "@/lib/auth/teamRoles";
@@ -99,7 +100,7 @@ export default function UserModerationActions({
 
   return (
     <div style={{ marginTop: 6 }}>
-      {!isFlagged && (
+      {!isFlagged && hasTeamCapability(role, "canFlagUsers") && (
         <>
           <button
             style={baseButton}
