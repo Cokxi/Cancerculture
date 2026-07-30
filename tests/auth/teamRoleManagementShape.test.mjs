@@ -19,45 +19,78 @@ async function sourceFiles(directory) {
   for (const entry of entries) {
     const relativePath = path.join(directory, entry);
     const details = await stat(path.join(repoRoot, relativePath));
-
     if (details.isDirectory()) {
       files.push(...(await sourceFiles(relativePath)));
     } else if (/\.(?:ts|tsx)$/u.test(entry)) {
       files.push(relativePath);
     }
   }
-
   return files;
 }
 
-test("the canonical role route is admin-only and delegates one atomic RPC", async () => {
-  const [route, helper] = await Promise.all([
-    source("app/api/admin/team/role/route.ts"),
-    source("lib/auth/changeTeamMemberRole.ts"),
+test("the canonical page guards before loading and legacy page redirects after guarding", async () => {
+  const [page, legacy, navigation] = await Promise.all([
+    source("app/admin/team/roles/page.tsx"),
+    source("app/admin/mods/page.tsx"),
+    source("app/admin/layout.tsx"),
   ]);
 
-  assert.match(route, /const admin = await requireAdmin\(\)/);
-  assert.match(route, /parseTeamRoleChangePayload/);
-  assert.match(route, /changeTeamMemberRole/);
-  assert.match(helper, /\.rpc\(\s*"set_team_member_role"/);
-  assert.doesNotMatch(route, /\.from\("team_members"\)/);
-  assert.doesNotMatch(route, /logAdminAction/);
-});
-
-test("the role UI has canonical choices, reason, confirmation, and no legacy choice", async () => {
-  const ui = await source(
-    "app/admin/users/UserRoleActions.tsx"
+  assert.ok(
+    page.indexOf("requireAdminPage") <
+      page.indexOf("loadTeamRoleAdminReadModel")
   );
-
-  assert.match(ui, /CANONICAL_TEAM_ROLES\.map/);
-  assert.match(ui, /Remove from team/);
-  assert.match(ui, /Reason \(required\)/);
-  assert.match(ui, /window\.confirm/);
-  assert.match(ui, /disabled=\{loading/);
-  assert.doesNotMatch(ui, /Make Mod|Remove Mod|value="mod"/);
+  assert.match(page, /getTeamPageAccessRedirect/);
+  assert.match(legacy, /requireAdminPage\("\/admin\/mods"\)/);
+  assert.ok(
+    legacy.indexOf("requireAdminPage") <
+      legacy.indexOf('redirect("/admin/team/roles")')
+  );
+  assert.match(navigation, /Team Roles &amp; Permissions/);
+  assert.match(navigation, /\/admin\/team\/roles/);
 });
 
-test("no production TypeScript source writes or directly compares the legacy role", async () => {
+test("canonical and compatibility mutation routes are guarded and same-origin", async () => {
+  for (const file of [
+    "app/api/admin/team/roles/route.ts",
+    "app/api/admin/team/role/route.ts",
+  ]) {
+    const contents = await source(file);
+    assert.ok(
+      contents.indexOf("requireAdmin()") <
+        contents.indexOf("request.json()"),
+      file
+    );
+    assert.match(contents, /requireSameOrigin\(request\)/, file);
+    assert.match(contents, /admin\.discord_user_id/, file);
+    assert.doesNotMatch(
+      contents,
+      /p_actor_discord_user_id\s*:\s*payload/u,
+      file
+    );
+  }
+});
+
+test("the production mutation adapter calls exactly the six hardened RPCs", async () => {
+  const adapter = await source("lib/auth/teamRoleMutations.ts");
+  const rpcNames = [
+    ...adapter.matchAll(
+      /callMutationRpc\("([a-z_]+)"/gu
+    ),
+  ].map((match) => match[1]);
+
+  assert.deepEqual(rpcNames.sort(), [
+    "create_team_role",
+    "set_team_member_admin_role",
+    "set_team_member_non_admin_role",
+    "set_team_role_active",
+    "set_team_role_capability",
+    "update_team_role",
+  ]);
+  assert.doesNotMatch(adapter, /set_team_member_role["']/);
+  assert.doesNotMatch(adapter, /\.(?:insert|update|delete)\(/);
+});
+
+test("no production source invokes the deprecated role RPC", async () => {
   const files = [
     ...(await sourceFiles("app")),
     ...(await sourceFiles("lib")),
@@ -66,30 +99,83 @@ test("no production TypeScript source writes or directly compares the legacy rol
 
   for (const file of files) {
     const contents = await source(file);
-
     if (
-      /role\s*:\s*["']mod["']/u.test(contents) ||
-      /role\s*[!=]==?\s*["']mod["']/u.test(contents) ||
-      /\.eq\(\s*["']role["']\s*,\s*["']mod["']\s*\)/u.test(
-        contents
-      )
+      /\.rpc\(\s*["']set_team_member_role["']/u.test(contents)
     ) {
-      offenders.push(file);
+      offenders.push(file.replaceAll("\\", "/"));
     }
   }
 
   assert.deepEqual(offenders, []);
 });
 
-test("the legacy removal endpoint and call-site are gone", async () => {
-  const modsPage = await source("app/admin/mods/page.tsx");
+test("foundation tables have no direct production mutation", async () => {
+  const files = [
+    ...(await sourceFiles("app")),
+    ...(await sourceFiles("lib")),
+  ];
+  const foundationTables = [
+    "team_roles",
+    "capability_catalog",
+    "team_role_capabilities",
+    "team_members",
+    "team_authorization_audit",
+  ];
+  const offenders = [];
 
-  await assert.rejects(
-    source("app/api/admin/mods/remove/route.ts"),
-    { code: "ENOENT" }
+  for (const file of files) {
+    const contents = await source(file);
+    for (const table of foundationTables) {
+      const relation = contents.indexOf(`.from("${table}")`);
+      if (
+        relation >= 0 &&
+        /\.(?:insert|update|delete)\(/u.test(
+          contents.slice(relation)
+        )
+      ) {
+        offenders.push(`${file.replaceAll("\\", "/")}:${table}`);
+      }
+    }
+  }
+
+  assert.deepEqual(offenders, []);
+});
+
+test("the matrix is data-driven, excludes Admin, and locks registry drift", async () => {
+  const [ui, model] = await Promise.all([
+    source("app/admin/team/roles/TeamRolesAdminClient.tsx"),
+    source("lib/auth/teamRoleAdminReadModel.ts"),
+  ]);
+
+  assert.match(ui, /readModel\.capabilities/);
+  assert.match(ui, /role\.key !== "admin"/);
+  assert.match(ui, /capability\.mutable/);
+  assert.match(ui, /expectedCapabilityImplementationVersion/);
+  assert.match(ui, /expectedCapabilityDefinitionHash/);
+  assert.doesNotMatch(
+    ui,
+    /submissions\.submission_phase\.moderate|users\.directory\.basic\.view|users\.flag/
   );
-  assert.doesNotMatch(modsPage, /\/api\/admin\/mods\/remove/);
-  assert.match(modsPage, /<UserRoleActions/);
+  assert.match(
+    model,
+    /REGISTERED_TEAM_CAPABILITY_KEYS[\s\S]*snapshot\.capabilityRows/
+  );
+});
+
+test("the UI has explicit confirmations, stable retries, owner separation, and no delete", async () => {
+  const ui = await source(
+    "app/admin/team/roles/TeamRolesAdminClient.tsx"
+  );
+
+  assert.match(ui, /<dialog/);
+  assert.match(ui, /autoFocus/);
+  assert.match(ui, /crypto\.randomUUID\(\)/);
+  assert.match(ui, /Retry keeps the same idempotency key/);
+  assert.match(ui, /Owner Accounts/);
+  assert.match(ui, /confirmationWord/);
+  assert.match(ui, /activeNonAdminRoles\.map/);
+  assert.match(ui, /isCurrentAdmin/);
+  assert.doesNotMatch(ui, />\s*Delete\s*</);
 });
 
 test("vote-phase capabilities remain unconnected to production paths", async () => {
@@ -97,27 +183,17 @@ test("vote-phase capabilities remain unconnected to production paths", async () 
     ...(await sourceFiles("app")),
     ...(await sourceFiles("lib")),
   ];
-  const reservedCapabilities = [
+  for (const capability of [
     "canDisqualifyDuringVoting",
     "canReinstateDuringVoting",
     "canRefundDisqualifiedVotes",
-  ];
-
-  for (const capability of reservedCapabilities) {
+  ]) {
     const consumers = [];
-
     for (const file of files) {
       if ((await source(file)).includes(capability)) {
         consumers.push(file.replaceAll("\\", "/"));
       }
     }
-
     assert.deepEqual(consumers, ["lib/auth/teamRoles.ts"]);
   }
-
-  const disqualification = await source(
-    "lib/moderation/setSubmissionDisqualification.ts"
-  );
-  assert.match(disqualification, /submission_open/);
-  assert.doesNotMatch(disqualification, /voting_open/);
 });

@@ -43,6 +43,7 @@ const adminOnlyRoutes = [
   "app/api/admin/socials/[socialId]/unverify/route.ts",
   "app/api/admin/submissions/public-visibility/route.ts",
   "app/api/admin/team/role/route.ts",
+  "app/api/admin/team/roles/route.ts",
   "app/api/admin/upload-blocks/route.ts",
   "app/api/admin/discord-sync/route.ts",
   "app/api/admin/cycles/start/route.ts",
@@ -81,6 +82,7 @@ test("admin pages and owner actions keep explicit server guards", async () => {
     "app/admin/flags/page.tsx",
     "app/admin/bans/page.tsx",
     "app/admin/mods/page.tsx",
+    "app/admin/team/roles/page.tsx",
     "app/admin/moderation/legal-review/page.tsx",
     "app/admin/coin-launches/page.tsx",
     "app/admin/homepage-info-blocks/page.tsx",
@@ -169,7 +171,8 @@ test("user page and API share the minimal-directory capability and projection", 
 
   assert.match(page, /isAdmin && user\.flag_reason_code/);
   assert.match(page, /isAdmin && user\.is_banned/);
-  assert.match(page, /\{isAdmin && \(/);
+  assert.match(page, /\{isAdmin && user\.flag_reason_code/);
+  assert.match(page, /\{isAdmin \? <th align="left">Stats/);
   assert.match(
     route,
     /directoryQuery\.isAdminView[\s\S]*display_name: formatDiscordUserLabel\(user\)/

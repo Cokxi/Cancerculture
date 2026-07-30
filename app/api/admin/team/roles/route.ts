@@ -1,20 +1,18 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { requireAdmin } from "@/lib/auth/guards";
 import {
-  parseTeamRoleCompatibilityPayload,
-  TeamRoleCompatibilityPayloadError,
-} from "@/lib/auth/teamRoleCompatibilityPayload";
+  parseTeamRoleMutationPayload,
+  TeamRoleMutationPayloadError,
+} from "@/lib/auth/teamRoleMutationPayload";
 import {
   executeTeamRoleMutation,
   TeamRoleMutationError,
 } from "@/lib/auth/teamRoleMutations";
-import { supabaseAdmin } from "@/lib/db/admin";
 import {
   requireSameOrigin,
   SameOriginError,
@@ -24,62 +22,21 @@ export async function POST(request: Request) {
   try {
     const admin = await requireAdmin();
     requireSameOrigin(request);
-    const payload = parseTeamRoleCompatibilityPayload(
+    const payload = parseTeamRoleMutationPayload(
       await request.json().catch(() => null)
     );
-    const { data: member, error } = await supabaseAdmin
-      .from("team_members")
-      .select("role")
-      .eq("discord_user_id", payload.targetDiscordId)
-      .maybeSingle();
-
-    if (error) {
-      throw new TeamRoleMutationError(
-        503,
-        "Team roles and permissions are temporarily unavailable.",
-        "TEAM_ROLE_MUTATION_UNAVAILABLE"
-      );
-    }
-
-    if (!member) {
-      throw new TeamRoleMutationError(
-        404,
-        "The requested team member no longer exists.",
-        "TEAM_MEMBER_NOT_FOUND"
-      );
-    }
-
-    if (member.role === "admin") {
-      throw new TeamRoleMutationError(
-        409,
-        "Use the Owner Accounts area for Admin changes.",
-        "ADMIN_ROLE_REQUIRES_OWNER_RPC"
-      );
-    }
-
     const result = await executeTeamRoleMutation(
       admin.discord_user_id,
-      {
-        operation: "set_member_non_admin_role",
-        targetDiscordUserId: payload.targetDiscordId,
-        newRoleKey: payload.targetRole,
-        expectedPreviousRoleKey: member.role,
-        reason: payload.reason,
-        idempotencyKey: randomUUID(),
-      }
+      payload
     );
 
     revalidatePath("/admin/team/roles");
     revalidatePath("/admin/users");
 
-    return NextResponse.json({
-      success: true,
-      result,
-      canonicalEndpoint: "/api/admin/team/roles",
-    });
+    return NextResponse.json({ success: true, result });
   } catch (error) {
     if (
-      error instanceof TeamRoleCompatibilityPayloadError ||
+      error instanceof TeamRoleMutationPayloadError ||
       error instanceof TeamRoleMutationError ||
       error instanceof SameOriginError
     ) {
@@ -103,12 +60,16 @@ export async function POST(request: Request) {
             authStatus === 401
               ? "Authentication required"
               : "Admin access required",
+          code:
+            authStatus === 401
+              ? "NOT_AUTHENTICATED"
+              : "ADMIN_REQUIRED",
         },
         { status: authStatus }
       );
     }
 
-    console.error("[TEAM_ROLE_COMPATIBILITY] unexpected failure", {
+    console.error("[TEAM_ROLE_MUTATION] unexpected failure", {
       errorName:
         error instanceof Error ? error.name : "UnknownError",
     });
@@ -116,6 +77,7 @@ export async function POST(request: Request) {
       {
         error:
           "Team roles and permissions are temporarily unavailable.",
+        code: "TEAM_ROLE_MUTATION_UNAVAILABLE",
       },
       { status: 503 }
     );

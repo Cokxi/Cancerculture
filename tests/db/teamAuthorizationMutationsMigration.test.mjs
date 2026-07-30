@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -293,40 +293,23 @@ test("the legacy four-text jsonb RPC remains a deprecated compatibility wrapper"
   assert.match(migration, /Deprecated compatibility wrapper/u);
 });
 
-test("no UI or application call site for the new RPCs is introduced", async () => {
-  const sourceRoots = ["app", "lib"];
+test("the application adapter uses every hardened RPC and never the legacy wrapper", async () => {
   const newRpcNames = functions
     .map((entry) => entry.name)
     .filter((name) => name !== "set_team_member_role");
+  const adapter = await readFile(
+    path.join(repoRoot, "lib/auth/teamRoleMutations.ts"),
+    "utf8"
+  );
 
-  async function walk(directory) {
-    const entries = await readdir(directory, {
-      withFileTypes: true,
-    });
-    const files = [];
-
-    for (const entry of entries) {
-      const fullPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        files.push(...(await walk(fullPath)));
-      } else if (/\.(?:ts|tsx|js|mjs)$/u.test(entry.name)) {
-        files.push(fullPath);
-      }
-    }
-
-    return files;
+  for (const rpcName of newRpcNames) {
+    assert.match(
+      adapter,
+      new RegExp(`callMutationRpc\\("${rpcName}"`)
+    );
   }
-
-  for (const root of sourceRoots) {
-    for (const file of await walk(path.join(repoRoot, root))) {
-      const source = await readFile(file, "utf8");
-      for (const rpcName of newRpcNames) {
-        assert.equal(
-          source.includes(rpcName),
-          false,
-          `${path.relative(repoRoot, file)} references ${rpcName}`
-        );
-      }
-    }
-  }
+  assert.doesNotMatch(
+    adapter,
+    /\.rpc\(\s*["']set_team_member_role["']/u
+  );
 });

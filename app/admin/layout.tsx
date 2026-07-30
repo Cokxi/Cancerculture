@@ -271,10 +271,10 @@ export default async function AdminLayout({
 
               <li>
                 <Link
-                  href="/admin/mods"
+                  href="/admin/team/roles"
                   className="block rounded px-2 py-1 hover:bg-white/10"
                 >
-                  Mods
+                  Team Roles &amp; Permissions
                 </Link>
               </li>
 

@@ -13,11 +13,6 @@ import {
 } from "@/lib/auth/teamAuthorization";
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
-import UserRoleActions from "./UserRoleActions";
-import {
-  normalizeTeamRole,
-  type CanonicalTeamRole,
-} from "@/lib/auth/teamRoles";
 
 
 type UserLog = {
@@ -48,7 +43,6 @@ type UserLog = {
   ban_reason?: string | null;
   first_seen_at?: string;
   last_seen_at?: string;
-  team_role?: CanonicalTeamRole | null;
 };
 
 
@@ -153,23 +147,6 @@ export default async function AdminUsersPage({
       row.public_profile_id,
     ])
   );
-  const teamMembersResult =
-    isAdmin && discordUserIds.length > 0
-      ? await supabaseAdmin
-          .from("team_members")
-          .select("discord_user_id, role")
-          .in("discord_user_id", discordUserIds)
-      : { data: [], error: null };
-  const teamRoleByDiscordUserId = new Map<
-    string,
-    CanonicalTeamRole
-  >(
-    (teamMembersResult.data ?? []).flatMap((row) => {
-      const role = normalizeTeamRole(row.role);
-      return role ? [[row.discord_user_id, role]] : [];
-    })
-  );
-
   return (
     <div style={{ padding: 24 }}>
       <h1>{isAdmin ? "Admin – User Logs" : "Users"}</h1>
@@ -349,16 +326,6 @@ export default async function AdminUsersPage({
   canFlagUsers={canFlagUsers}
   isAdmin={isAdmin}
 />
-
-  {isAdmin && (
-    <UserRoleActions
-      discordUserId={user.discord_user_id}
-      role={
-        teamRoleByDiscordUserId.get(user.discord_user_id) ??
-        null
-      }
-    />
-  )}
 
 </td>
 
