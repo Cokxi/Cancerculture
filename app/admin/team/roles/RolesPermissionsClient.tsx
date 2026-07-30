@@ -304,12 +304,20 @@ function CapabilityDetails({
 }: {
   capability: TeamRoleAdminCapability;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <details className="mt-3 rounded-lg border border-white/10 p-3">
-      <summary className="cursor-pointer rounded-sm text-xs font-medium text-white/60 outline-none focus-visible:ring-2 focus-visible:ring-orange-300">
+    <details
+      className="mt-2 text-xs"
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
+      <summary
+        aria-expanded={expanded}
+        className="inline-flex cursor-pointer rounded-sm py-1 font-medium text-white/55 outline-none hover:text-white/75 focus-visible:ring-2 focus-visible:ring-orange-300"
+      >
         Technical details
       </summary>
-      <div className="mt-3 grid gap-3 text-xs">
+      <div className="mt-2 grid gap-3 rounded-lg border border-white/10 bg-black/15 p-3">
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
           <dt className="text-white/40">Key</dt>
           <dd className="break-all font-mono">{capability.key}</dd>
@@ -357,105 +365,120 @@ function CapabilityBlock({
     !capability.mutable ||
     capability.implementationVersion === null ||
     capability.definitionHash === null;
+  const headingId = `capability-${capability.key}`;
 
   return (
-    <article className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-semibold text-white/90">
+    <article
+      aria-labelledby={headingId}
+      data-capability-block
+      className="rounded-lg border border-white/10 bg-white/[0.025] p-3 sm:p-3.5"
+    >
+      <div
+        data-capability-layout
+        className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,5fr)] lg:items-start lg:gap-4"
+      >
+        <div className="min-w-0">
+          <h2
+            id={headingId}
+            className="text-sm font-semibold leading-snug text-white/90"
+          >
             {capability.displayName}
           </h2>
-          <p className="mt-1 max-w-3xl text-sm text-white/55">
+          <p className="mt-0.5 text-xs leading-relaxed text-white/55">
             {capability.description}
           </p>
+          {!capability.mutable ? (
+            <span className="mt-1.5 inline-flex rounded-full bg-red-950 px-2 py-0.5 text-xs text-red-300">
+              {syncLabels[capability.syncStatus]}
+            </span>
+          ) : null}
+          <CapabilityDetails capability={capability} />
         </div>
-        <span
-          className={`rounded-full px-2 py-1 text-xs ${
-            capability.mutable
-              ? "bg-green-950 text-green-300"
-              : "bg-red-950 text-red-300"
-          }`}
-        >
-          {syncLabels[capability.syncStatus]}
-        </span>
-      </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        {roles.map((role) => {
-          const granted = role.grantedCapabilityKeys.includes(
-            capability.key
-          );
-          return (
-            <div
-              key={role.key}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 p-3"
-            >
-              <div>
-                <strong className="text-sm">{roleLabel(role)}</strong>
-                {!role.isSystem ? (
-                  <span className="ml-2 text-xs text-white/40">
-                    Custom
-                  </span>
-                ) : null}
-                <div className="mt-1 text-xs text-white/55">
-                  {granted ? "✓ Saved · Granted" : "Not granted"}
-                </div>
-              </div>
-              <button
-                type="button"
-                className={`${buttonClass} ${
-                  granted ? "text-red-200" : "text-green-200"
-                }`}
-                disabled={disabled}
-                aria-label={`${granted ? "Revoke" : "Grant"} ${
-                  capability.displayName
-                } for ${role.displayName}`}
-                onClick={() =>
-                  review({
-                    title: `${granted ? "Revoke" : "Grant"} capability`,
-                    successMessage: granted
-                      ? "Capability revoked."
-                      : "Capability granted.",
-                    warning:
-                      capability.riskLevel === "high" ||
-                      capability.riskLevel === "critical"
-                        ? `This is a ${capability.riskLevel}-risk capability. Review every included and excluded action.`
-                        : undefined,
-                    summary: (
-                      <p>
-                        <strong>{role.displayName}</strong>:{" "}
-                        {granted ? "granted" : "not granted"} →{" "}
-                        {granted ? "not granted" : "granted"}
-                      </p>
-                    ),
-                    payload: {
-                      operation: "set_role_capability",
-                      roleKey: role.key,
-                      capabilityKey: capability.key,
-                      granted: !granted,
-                      expectedRoleRowVersion: role.rowVersion,
-                      expectedCapabilityImplementationVersion:
-                        capability.implementationVersion,
-                      expectedCapabilityDefinitionHash:
-                        capability.definitionHash,
-                    },
-                  })
-                }
+        <div
+          data-role-controls
+          className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          {roles.map((role) => {
+            const granted = role.grantedCapabilityKeys.includes(
+              capability.key
+            );
+            return (
+              <div
+                key={role.key}
+                data-role-control
+                className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-white/10 bg-black/15 px-2.5 py-2"
               >
-                {granted ? "Revoke" : "Grant"}
-              </button>
-            </div>
-          );
-        })}
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+                    <strong className="break-words text-xs leading-snug">
+                      {roleLabel(role)}
+                    </strong>
+                    {!role.isSystem ? (
+                      <span className="text-[0.6875rem] text-white/40">
+                        Custom
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-0.5 text-[0.6875rem] leading-snug text-white/55">
+                    {granted ? "✓ Saved · Granted" : "Not granted"}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={`${buttonClass} shrink-0 px-2.5 py-1.5 text-xs ${
+                    granted ? "text-red-200" : "text-green-200"
+                  }`}
+                  disabled={disabled}
+                  aria-label={`${granted ? "Revoke" : "Grant"} ${
+                    capability.displayName
+                  } for ${role.displayName}`}
+                  onClick={() =>
+                    review({
+                      title: `${granted ? "Revoke" : "Grant"} capability`,
+                      successMessage: granted
+                        ? "Capability revoked."
+                        : "Capability granted.",
+                      warning:
+                        capability.riskLevel === "high" ||
+                        capability.riskLevel === "critical"
+                          ? `This is a ${capability.riskLevel}-risk capability. Review every included and excluded action.`
+                          : undefined,
+                      summary: (
+                        <p>
+                          <strong>{role.displayName}</strong>:{" "}
+                          {granted ? "granted" : "not granted"} →{" "}
+                          {granted ? "not granted" : "granted"}
+                        </p>
+                      ),
+                      payload: {
+                        operation: "set_role_capability",
+                        roleKey: role.key,
+                        capabilityKey: capability.key,
+                        granted: !granted,
+                        expectedRoleRowVersion: role.rowVersion,
+                        expectedCapabilityImplementationVersion:
+                          capability.implementationVersion,
+                        expectedCapabilityDefinitionHash:
+                          capability.definitionHash,
+                      },
+                    })
+                  }
+                >
+                  {granted ? "Revoke" : "Grant"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {disabled ? (
-        <p className="mt-3 text-xs text-red-300">
+        <p className="mt-2 text-xs text-red-300">
           Mutations are locked while registry and catalog metadata are not
           synchronized.
         </p>
       ) : null}
-      <CapabilityDetails capability={capability} />
     </article>
   );
 }

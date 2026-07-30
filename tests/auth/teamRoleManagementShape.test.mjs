@@ -141,7 +141,7 @@ test("foundation tables have no direct production mutation", async () => {
   assert.deepEqual(offenders, []);
 });
 
-test("permission blocks are data-driven, compact, exclude Admin, and lock registry drift", async () => {
+test("permission rows are semantic, responsive, data-driven, exclude Admin, and lock registry drift", async () => {
   const [ui, page, model] = await Promise.all([
     source("app/admin/team/roles/RolesPermissionsClient.tsx"),
     source("app/admin/team/roles/page.tsx"),
@@ -151,6 +151,10 @@ test("permission blocks are data-driven, compact, exclude Admin, and lock regist
   assert.match(ui, /readModel\.capabilities\.map/);
   assert.match(page, /REGISTERED_TEAM_CAPABILITY_KEYS\.map/);
   assert.match(ui, /activeNonAdminRoles/);
+  assert.match(ui, /data-capability-block/);
+  assert.match(ui, /data-capability-layout/);
+  assert.match(ui, /data-role-controls/);
+  assert.match(ui, /aria-expanded=\{expanded\}/);
   assert.match(ui, /capability\.mutable/);
   assert.match(ui, /expectedCapabilityImplementationVersion/);
   assert.match(ui, /expectedCapabilityDefinitionHash/);

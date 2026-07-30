@@ -163,7 +163,7 @@ test("page-specific server read models avoid loading unrelated Team data", async
   );
 });
 
-test("Roles & Permissions renders three compact blocks with active dynamic role controls", async () => {
+test("Roles & Permissions renders three compact responsive rows with active dynamic role controls", async () => {
   const [page, ui, registry] = await Promise.all([
     source("app/admin/team/roles/page.tsx"),
     source("app/admin/team/roles/RolesPermissionsClient.tsx"),
@@ -181,12 +181,21 @@ test("Roles & Permissions renders three compact blocks with active dynamic role 
   );
   assert.match(ui, /readModel\.capabilities\.map/);
   assert.match(ui, /roles=\{readModel\.activeNonAdminRoles\}/);
+  assert.match(ui, /<article[\s\S]*aria-labelledby=\{headingId\}/);
+  assert.match(ui, /data-capability-layout/);
+  assert.match(ui, /data-role-controls/);
+  assert.match(ui, /data-role-control/);
   assert.match(ui, /trial_moderator: "T Mod"/);
   assert.match(ui, /moderator: "Mod"/);
   assert.match(ui, /super_moderator: "S Mod"/);
   assert.match(ui, /builtInRoleLabels\[role\.key\] \?\? role\.displayName/);
   assert.doesNotMatch(ui, /<table|overflow-x-auto|Capability matrix/);
   assert.match(ui, /✓ Saved · Granted/);
+  assert.match(ui, /!capability\.mutable/);
+  assert.doesNotMatch(ui, /capability\.mutable\s*\?\s*"bg-green/);
+  assert.match(ui, /<details[\s\S]*onToggle=/);
+  assert.match(ui, /aria-expanded=\{expanded\}/);
+  assert.doesNotMatch(ui, /<details[^>]*\sopen(?:=|[\s>])/);
   assert.match(ui, /\{granted \? "Revoke" : "Grant"\}/);
 });
 
