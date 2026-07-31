@@ -197,7 +197,7 @@ test("the split UI has explicit confirmations, stable retries, owner separation,
   assert.doesNotMatch(ui, />\s*Delete\s*</);
 });
 
-test("staged capability keys and voting actions remain unconnected to production paths", async () => {
+test("new capability keys and voting actions remain unconnected to production paths", async () => {
   const files = [
     ...(await sourceFiles("app")),
     ...(await sourceFiles("lib")),

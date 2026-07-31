@@ -255,7 +255,7 @@ const expectedRoles = [
   "super_moderator",
   "trial_moderator",
 ];
-const expectedStagedCapabilityKeys = [
+const expectedActivatedCapabilityKeys = [
   "submissions.submission_phase.disqualify",
   "submissions.submission_phase.reinstate",
   "submissions.voting_phase.disqualify",
@@ -292,21 +292,9 @@ for (const entry of snapshot.catalog) {
   );
   assert.equal(entry.definitionHash, registered.definitionHash);
 
-  if (registered.lifecycle === "active") {
-    assert.equal(entry.isActive, true);
-    assert.equal(entry.assignableToNonAdmin, true);
-  } else {
-    assert.equal(registered.lifecycle, "staged");
-    assert.equal(expectedStagedCapabilityKeys.includes(entry.key), true);
-    assert.equal(entry.isActive, false);
-    assert.equal(entry.assignableToNonAdmin, false);
-    assert.equal(
-      snapshot.grants.some(
-        (grant) => grant.capabilityKey === entry.key
-      ),
-      false
-    );
-  }
+  assert.equal(registered.lifecycle, "active");
+  assert.equal(entry.isActive, true);
+  assert.equal(entry.assignableToNonAdmin, true);
 }
 
 assert.equal(snapshot.grants.length, 0);
@@ -326,6 +314,14 @@ assert.equal(
 );
 assert.equal(snapshot.members.length, 4);
 assert.equal(snapshot.adminCount, 1);
+assert.equal(snapshot.auditCount, 22);
+assert.equal(snapshot.batchLedgerCount, 4);
+for (const key of expectedActivatedCapabilityKeys) {
+  assert.equal(
+    snapshot.grants.some((grant) => grant.capabilityKey === key),
+    false
+  );
+}
 
 let trialModeratorResult = null;
 let adminResult = null;
@@ -468,8 +464,8 @@ const draftFingerprint = permissionSnapshotFingerprint(
   roleReadModel.roles,
   roleReadModel.capabilities
 );
-for (const stagedKey of expectedStagedCapabilityKeys) {
-  assert.equal(draftFingerprint.includes(stagedKey), false);
+for (const activatedKey of expectedActivatedCapabilityKeys) {
+  assert.equal(draftFingerprint.includes(activatedKey), true);
 }
 
 console.log(
@@ -480,7 +476,8 @@ console.log(
     registryEntries: REGISTERED_TEAM_CAPABILITY_KEYS.length,
     catalogEntries: snapshot.catalog.length,
     activePairs: ACTIVE_TEAM_CAPABILITY_KEYS.length,
-    stagedTombstones: expectedStagedCapabilityKeys.length,
+    stagedTombstones: 0,
+    activatedCapabilities: expectedActivatedCapabilityKeys.length,
     grants: snapshot.grants.length,
     adminGrants: 0,
     seedRoleShadowMatches: shadowMatchCount,

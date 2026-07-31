@@ -7,6 +7,7 @@ import {
   summarizeCapabilityDraft,
   toggleCapabilityDraft,
 } from "../../lib/auth/teamCapabilityBatchDraft.ts";
+import { TEAM_CAPABILITY_REGISTRY } from "../../lib/auth/teamCapabilityRegistry.ts";
 
 const role = (key, overrides = {}) => ({
   key,
@@ -61,6 +62,48 @@ test("the draft stores only deviations and toggling back removes the pair", () =
     originalGranted: false,
   });
   assert.equal(draft[0].desiredGranted, true);
+});
+
+test("all four newly active capabilities support zero-grant local drafts and reviews", () => {
+  for (const capabilityKey of [
+    "submissions.submission_phase.disqualify",
+    "submissions.submission_phase.reinstate",
+    "submissions.voting_phase.disqualify",
+    "submissions.voting_phase.reinstate",
+  ]) {
+    const definition = TEAM_CAPABILITY_REGISTRY[capabilityKey];
+    const draft = toggleCapabilityDraft([], {
+      roleKey: "moderator",
+      capabilityKey,
+      originalGranted: false,
+    });
+    const review = buildCapabilityBatchReview(
+      draft,
+      [role("moderator", { grantedCapabilityKeys: [] })],
+      [
+        capability(capabilityKey, {
+          displayName: definition.displayName,
+          implementationVersion: definition.implementationVersion,
+          definitionHash: definition.definitionHash,
+        }),
+      ]
+    );
+
+    assert.deepEqual(review.changes, [
+      {
+        role_key: "moderator",
+        capability_key: capabilityKey,
+        desired_granted: true,
+      },
+    ]);
+    assert.deepEqual(review.capabilitySnapshots, [
+      {
+        capability_key: capabilityKey,
+        expected_implementation_version: 2,
+        expected_definition_hash: definition.definitionHash,
+      },
+    ]);
+  }
 });
 
 test("the draft summary counts grants, revocations, roles, and capabilities", () => {

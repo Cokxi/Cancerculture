@@ -107,11 +107,11 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
       "Finalized or archived cycles and historical repairs.",
     ],
     riskLevel: "high",
-    lifecycle: "staged",
-    assignableToNonAdmin: false,
-    implementationVersion: 1,
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 2,
     definitionHash:
-      "c1353c1e75a0c9db90d798677deebd61f0a350e8c731fdc1ab2288f3da967cc0",
+      "3eec3024438e68d08891e147a1d770ad812af935732b6e60a804baa6a28b1732",
   }),
   "submissions.submission_phase.reinstate": defineCapability({
     key: "submissions.submission_phase.reinstate",
@@ -131,11 +131,11 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
       "Finalized or archived cycles and historical repairs.",
     ],
     riskLevel: "high",
-    lifecycle: "staged",
-    assignableToNonAdmin: false,
-    implementationVersion: 1,
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 2,
     definitionHash:
-      "a6c71a89139e91598e94ef77bd3951fd07f06d45ce76d7af0e2dd537c37ef889",
+      "7c0cfbaf53b08c43633f75c025ccf729ae3dbc9d4320c90b11117415ee304dd2",
   }),
   "submissions.voting_phase.disqualify": defineCapability({
     key: "submissions.voting_phase.disqualify",
@@ -155,11 +155,11 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
       "Legal review.",
     ],
     riskLevel: "critical",
-    lifecycle: "staged",
-    assignableToNonAdmin: false,
-    implementationVersion: 1,
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 2,
     definitionHash:
-      "0a502187ae8a63f322119c19f8c880bc745902e110afae1b8d4a46388b8f3275",
+      "cb6ad152ee22b164b6c864f26dcaab25f10be3483bfa5b1f3a7b265c66a142de",
   }),
   "submissions.voting_phase.reinstate": defineCapability({
     key: "submissions.voting_phase.reinstate",
@@ -179,11 +179,11 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
       "Legal review.",
     ],
     riskLevel: "critical",
-    lifecycle: "staged",
-    assignableToNonAdmin: false,
-    implementationVersion: 1,
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 2,
     definitionHash:
-      "01733447007f7df2532c87a9ecd19042a1d02a687123cebd4bf57f2a7df976fe",
+      "4e4f1d199d4eb008d768676796bcf8ec34c2472c90d323fecbf7b247d7a36fe0",
   }),
   "users.flag": defineCapability({
     key: "users.flag",

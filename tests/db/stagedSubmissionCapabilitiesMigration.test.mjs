@@ -212,12 +212,10 @@ test("the legacy moderation capability and every security boundary stay unchange
   );
 });
 
-test("the registry reproduces every staged migration definition exactly", () => {
+test("the immutable staged definitions remain the exact predecessor of the active registry", () => {
   for (const definition of definitions) {
     const registered = TEAM_CAPABILITY_REGISTRY[definition.key];
     assert.ok(registered);
-    assert.equal(registered.lifecycle, "staged");
-    assert.equal(registered.assignableToNonAdmin, false);
     assert.deepEqual(
       {
         key: registered.key,
@@ -227,17 +225,23 @@ test("the registry reproduces every staged migration definition exactly", () => 
         included_actions: [...registered.includedActions],
         excluded_actions: [...registered.excludedActions],
         risk_level: registered.riskLevel,
-        assignable_to_non_admin:
-          registered.assignableToNonAdmin,
-        implementation_version:
-          registered.implementationVersion,
       },
-      definition
+      {
+        key: definition.key,
+        display_name: definition.display_name,
+        description: definition.description,
+        category: definition.category,
+        included_actions: definition.included_actions,
+        excluded_actions: definition.excluded_actions,
+        risk_level: definition.risk_level,
+      }
     );
-    assert.equal(
-      registered.definitionHash,
-      expectedHashes.get(definition.key)
-    );
+    assert.equal(definition.assignable_to_non_admin, false);
+    assert.equal(definition.implementation_version, 1);
+    assert.equal(registered.lifecycle, "active");
+    assert.equal(registered.assignableToNonAdmin, true);
+    assert.equal(registered.implementationVersion, 2);
+    assert.notEqual(registered.definitionHash, expectedHashes.get(definition.key));
   }
 
   const registeredKeysBlock = registry.match(
@@ -249,7 +253,7 @@ test("the registry reproduces every staged migration definition exactly", () => 
     7
   );
   assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 7);
-  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 3);
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 7);
   assert.match(
     registry,
     /submissions\.submission_phase\.moderate[\s\S]*89d9d8794cc2a15772f869cf6670802b89afd00b8adafbbd1229db1d6d29f116/u

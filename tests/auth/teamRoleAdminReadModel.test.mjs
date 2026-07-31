@@ -170,20 +170,20 @@ test("a safe database-only tombstone is absent from Roles & Permissions and draf
   );
 });
 
-test("registered staged tombstones stay absent from Roles & Permissions and drafts", () => {
+test("all seven active registered capabilities appear in Roles & Permissions and drafts", () => {
   const model = buildTeamRoleAdminReadModel(snapshot());
-  const serialized = JSON.stringify(model.capabilities);
 
   assert.deepEqual(
     model.capabilities.map((entry) => entry.key).sort(),
     [...ACTIVE_TEAM_CAPABILITY_KEYS].sort()
   );
-  for (const key of REGISTERED_TEAM_CAPABILITY_KEYS.filter(
-    (capabilityKey) =>
-      TEAM_CAPABILITY_REGISTRY[capabilityKey].lifecycle === "staged"
-  )) {
-    assert.equal(serialized.includes(key), false);
-  }
+  assert.equal(model.capabilities.length, 7);
+  assert.equal(
+    model.capabilities.every(
+      (capability) => capability.mutable && capability.isActive
+    ),
+    true
+  );
 });
 
 test("every registry and catalog drift state disables mutation", () => {

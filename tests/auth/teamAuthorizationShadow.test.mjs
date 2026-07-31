@@ -176,12 +176,16 @@ test("an unknown role fails closed even when both value sets are false", () => {
   );
 });
 
-test("staged capabilities are absent from the shadow contract", () => {
+test("new active capabilities remain absent from the static shadow contract", () => {
   assert.deepEqual(
     CONNECTED_TEAM_CAPABILITY_SHADOW_MAP.map(
       (entry) => entry.capabilityKey
     ),
-    ACTIVE_TEAM_CAPABILITY_KEYS
+    [
+      "submissions.submission_phase.moderate",
+      "users.flag",
+      "users.directory.basic.view",
+    ]
   );
 
   const serialized = JSON.stringify(
@@ -195,6 +199,20 @@ test("staged capabilities are absent from the shadow contract", () => {
   ]) {
     assert.equal(serialized.includes(capability), false);
   }
+});
+
+test("new active zero-grant capabilities create no shadow mismatch", () => {
+  const roleKey = "future_custom_role";
+  const shadow = compareTeamAuthorizationShadow(
+    resolve(roleKey, {
+      roles: [...roles, { key: roleKey, isActive: true }],
+      grants: [],
+    })
+  );
+
+  assert.equal(shadow.dynamicStatus, "resolved");
+  assert.equal(shadow.isMatch, true);
+  assert.deepEqual(shadow.mismatches, []);
 });
 
 test("shadow mismatch objects expose no person or session fields", () => {

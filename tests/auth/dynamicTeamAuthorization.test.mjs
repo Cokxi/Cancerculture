@@ -38,9 +38,12 @@ const grants = nonAdminRoles.flatMap((roleKey) =>
     capabilityKey,
   }))
 );
-const stagedKeys = REGISTERED_TEAM_CAPABILITY_KEYS.filter(
-  (key) => TEAM_CAPABILITY_REGISTRY[key].lifecycle === "staged"
-);
+const newlyActivatedKeys = [
+  "submissions.submission_phase.disqualify",
+  "submissions.submission_phase.reinstate",
+  "submissions.voting_phase.disqualify",
+  "submissions.voting_phase.reinstate",
+];
 
 function snapshot(roleKey, overrides = {}) {
   return {
@@ -65,7 +68,7 @@ test("admin resolves as the hard owner without capability grants", () => {
 });
 
 for (const roleKey of nonAdminRoles) {
-  test(`${roleKey} resolves exactly the three active capabilities`, () => {
+  test(`${roleKey} resolves exactly all seven active capabilities`, () => {
     const resolved = resolveDynamicTeamAuthorizationSnapshot(
       snapshot(roleKey)
     );
@@ -154,10 +157,10 @@ test("a missing grant denies exactly that capability without static fallback", (
   );
 
   assert.equal(resolved.status, "resolved");
-  assert.deepEqual(resolved.resolvedCapabilities, [
-    "submissions.submission_phase.moderate",
-    "users.directory.basic.view",
-  ]);
+  assert.deepEqual(
+    resolved.resolvedCapabilities,
+    ACTIVE_TEAM_CAPABILITY_KEYS.filter((key) => key !== deniedKey)
+  );
   assert.deepEqual(
     resolved.diagnostics.map((entry) => entry.code),
     ["grant_missing"]
@@ -175,7 +178,7 @@ test("no grants means no dynamic rights even for a statically privileged role", 
     resolved.diagnostics.filter(
       (entry) => entry.code === "grant_missing"
     ).length,
-    3
+    ACTIVE_TEAM_CAPABILITY_KEYS.length
   );
 });
 
@@ -245,9 +248,15 @@ test("a safe unknown database tombstone is ignored without registry drift", () =
     resolved.resolvedCapabilities,
     ["users.directory.basic.view"]
   );
-  assert.deepEqual(
-    resolved.diagnostics.map((entry) => entry.code),
-    ["grant_missing", "grant_missing"]
+  assert.equal(
+    resolved.diagnostics.length,
+    ACTIVE_TEAM_CAPABILITY_KEYS.length - 1
+  );
+  assert.equal(
+    resolved.diagnostics.every(
+      (entry) => entry.code === "grant_missing"
+    ),
+    true
   );
   assert.equal(
     resolved.diagnostics.some((entry) => entry.kind === "drift"),
@@ -276,58 +285,25 @@ test("a safe unknown database tombstone is ignored without registry drift", () =
   );
 });
 
-test("known staged registry and catalog pairs never authorize or drift", () => {
+test("new active registry and catalog pairs with zero grants never authorize or drift", () => {
   const resolved = resolveDynamicTeamAuthorizationSnapshot(
     snapshot("trial_moderator", {
       grants: grants.filter(
-        (grant) =>
-          grant.roleKey !== "trial_moderator" ||
-          grant.capabilityKey === "users.directory.basic.view"
+        (grant) => grant.roleKey !== "trial_moderator"
       ),
     })
   );
 
   assert.equal(resolved.status, "resolved");
-  assert.deepEqual(resolved.resolvedCapabilities, [
-    "users.directory.basic.view",
-  ]);
+  assert.deepEqual(resolved.resolvedCapabilities, []);
   assert.equal(
     resolved.diagnostics.some((entry) => entry.kind === "drift"),
     false
   );
-  for (const key of stagedKeys) {
+  for (const key of newlyActivatedKeys) {
     assert.equal(resolved.resolvedCapabilities.includes(key), false);
   }
 });
-
-for (const roleKey of [
-  "moderator",
-  "unused_custom_role",
-  "inactive_custom_role",
-]) {
-  test(`a staged grant on ${roleKey} remains dangerous registry drift`, () => {
-    const stagedKey = stagedKeys[0];
-    const resolved = resolveDynamicTeamAuthorizationSnapshot(
-      snapshot("moderator", {
-        grants: [
-          ...grants,
-          { roleKey, capabilityKey: stagedKey },
-        ],
-      })
-    );
-
-    assert.equal(resolved.status, "registry_drift");
-    assert.equal(resolved.resolvedCapabilities.includes(stagedKey), false);
-    assert.equal(
-      resolved.diagnostics.some(
-        (entry) =>
-          entry.code === "inactive_registry_key_granted" &&
-          entry.capabilityKey === stagedKey
-      ),
-      true
-    );
-  });
-}
 
 for (const [name, catalogOverrides, extraGrant, expectedCode] of [
   ["active", { isActive: true }, null, "unknown_catalog_key_active"],
