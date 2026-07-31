@@ -64,7 +64,16 @@ function readFoundationSnapshot(databaseUrl) {
             select jsonb_agg(
               jsonb_build_object(
                 'key', key,
-                'isActive', is_active
+                'displayName', display_name,
+                'description', description,
+                'isSystem', is_system,
+                'isActive', is_active,
+                'sortOrder', sort_order,
+                'rowVersion', row_version,
+                'createdAt', created_at,
+                'updatedAt', updated_at,
+                'createdByDiscordUserId', created_by_discord_user_id,
+                'updatedByDiscordUserId', updated_by_discord_user_id
               )
               order by key
             )
@@ -78,12 +87,19 @@ function readFoundationSnapshot(databaseUrl) {
             select jsonb_agg(
               jsonb_build_object(
                 'key', key,
+                'displayName', display_name,
+                'description', description,
+                'category', category,
+                'includedActions', included_actions,
+                'excludedActions', excluded_actions,
+                'riskLevel', risk_level,
                 'isActive', is_active,
                 'assignableToNonAdmin',
                   assignable_to_non_admin,
                 'implementationVersion',
                   implementation_version,
-                'definitionHash', definition_hash
+                'definitionHash', definition_hash,
+                'deprecatedAt', deprecated_at
               )
               order by key
             )
@@ -97,7 +113,10 @@ function readFoundationSnapshot(databaseUrl) {
             select jsonb_agg(
               jsonb_build_object(
                 'roleKey', role_key,
-                'capabilityKey', capability_key
+                'capabilityKey', capability_key,
+                'grantedAt', granted_at,
+                'grantedByDiscordUserId', granted_by_discord_user_id,
+                'grantReason', grant_reason
               )
               order by role_key, capability_key
             )
@@ -120,6 +139,21 @@ function readFoundationSnapshot(databaseUrl) {
               from public.team_members
               group by role
             ) role_counts
+          ),
+          '[]'::jsonb
+        ),
+      'members',
+        coalesce(
+          (
+            select jsonb_agg(
+              jsonb_build_object(
+                'discordUserId', discord_user_id,
+                'discordUsername', discord_username,
+                'role', role
+              )
+              order by discord_user_id
+            )
+            from public.team_members
           ),
           '[]'::jsonb
         )
@@ -182,6 +216,11 @@ if (!databaseUrl.includes(approvedDevProjectRef)) {
   );
 }
 
+process.env.NEXT_PUBLIC_SUPABASE_URL ??=
+  "https://staged-capability-smoke.invalid";
+process.env.SUPABASE_SERVICE_ROLE_KEY ??=
+  "staged-capability-smoke-service-key";
+
 const [
   {
     REGISTERED_TEAM_CAPABILITY_KEYS,
@@ -189,10 +228,18 @@ const [
   },
   { resolveDynamicTeamAuthorizationSnapshot },
   { compareTeamAuthorizationShadow },
+  { resolveTeamAreaNavigation },
+  { createAccountNavigationState },
+  { buildTeamRoleAdminReadModel },
+  { permissionSnapshotFingerprint },
 ] = await Promise.all([
   import("../../lib/auth/teamCapabilityRegistry.ts"),
   import("../../lib/auth/dynamicTeamAuthorization.ts"),
   import("../../lib/auth/teamAuthorizationShadow.ts"),
+  import("../../lib/admin/teamAreaNavigation.ts"),
+  import("../../lib/auth/accountNavigation.ts"),
+  import("../../lib/auth/teamRoleAdminReadModel.ts"),
+  import("../../lib/auth/teamCapabilityBatchDraft.ts"),
 ]);
 const snapshot = readFoundationSnapshot(databaseUrl);
 const expectedRoles = [
@@ -200,6 +247,12 @@ const expectedRoles = [
   "moderator",
   "super_moderator",
   "trial_moderator",
+];
+const expectedStagedCapabilityKeys = [
+  "submissions.submission_phase.disqualify",
+  "submissions.submission_phase.reinstate",
+  "submissions.voting_phase.disqualify",
+  "submissions.voting_phase.reinstate",
 ];
 
 assert.equal(snapshot.transactionReadOnly, "on");
@@ -213,32 +266,49 @@ assert.equal(
 );
 assert.deepEqual(
   snapshot.catalog.map((entry) => entry.key),
-  [...REGISTERED_TEAM_CAPABILITY_KEYS].sort()
+  [
+    ...REGISTERED_TEAM_CAPABILITY_KEYS,
+    ...expectedStagedCapabilityKeys,
+  ].sort()
 );
 
 for (const entry of snapshot.catalog) {
   const registered = TEAM_CAPABILITY_REGISTRY[entry.key];
 
-  assert.ok(registered);
-  assert.equal(entry.isActive, true);
-  assert.equal(entry.assignableToNonAdmin, true);
-  assert.equal(
-    entry.implementationVersion,
-    registered.implementationVersion
-  );
-  assert.equal(
-    entry.definitionHash,
-    registered.definitionHash
-  );
+  if (registered) {
+    assert.equal(entry.isActive, true);
+    assert.equal(entry.assignableToNonAdmin, true);
+    assert.equal(
+      entry.implementationVersion,
+      registered.implementationVersion
+    );
+    assert.equal(
+      entry.definitionHash,
+      registered.definitionHash
+    );
+  } else {
+    assert.equal(expectedStagedCapabilityKeys.includes(entry.key), true);
+    assert.equal(entry.isActive, false);
+    assert.equal(entry.assignableToNonAdmin, false);
+    assert.equal(
+      snapshot.grants.some(
+        (grant) => grant.capabilityKey === entry.key
+      ),
+      false
+    );
+  }
 }
 
-assert.equal(snapshot.grants.length, 9);
+assert.equal(snapshot.grants.length, 7);
 assert.equal(
   snapshot.grants.some(
     (grant) => grant.roleKey === "admin"
   ),
   false
 );
+
+let trialModeratorResult = null;
+let shadowMatchCount = 0;
 
 for (const roleKey of expectedRoles) {
   const dynamicResult =
@@ -252,7 +322,10 @@ for (const roleKey of expectedRoles) {
     compareTeamAuthorizationShadow(dynamicResult);
 
   assert.equal(dynamicResult.status, "resolved");
-  assert.equal(shadow.isMatch, true);
+  assert.equal(shadow.dynamicStatus, "resolved");
+  if (shadow.isMatch) {
+    shadowMatchCount += 1;
+  }
 
   if (roleKey === "admin") {
     assert.equal(dynamicResult.isAdmin, true);
@@ -262,17 +335,105 @@ for (const roleKey of expectedRoles) {
     );
   } else {
     assert.equal(dynamicResult.isAdmin, false);
+    const roleGrantKeys = new Set(
+      snapshot.grants
+        .filter((grant) => grant.roleKey === roleKey)
+        .map((grant) => grant.capabilityKey)
+    );
     assert.deepEqual(
       dynamicResult.resolvedCapabilities,
-      REGISTERED_TEAM_CAPABILITY_KEYS
+      REGISTERED_TEAM_CAPABILITY_KEYS.filter((capabilityKey) =>
+        roleGrantKeys.has(capabilityKey)
+      )
     );
-    assert.equal(
-      snapshot.grants.filter(
-        (grant) => grant.roleKey === roleKey
-      ).length,
-      3
-    );
+    if (roleKey === "trial_moderator") {
+      trialModeratorResult = dynamicResult;
+    }
   }
+}
+
+assert.ok(trialModeratorResult);
+assert.deepEqual(
+  trialModeratorResult.resolvedCapabilities,
+  ["users.directory.basic.view"]
+);
+const trialNavigation = resolveTeamAreaNavigation({
+  role: trialModeratorResult.roleKey,
+  isAdmin: trialModeratorResult.isAdmin,
+  resolvedCapabilities: trialModeratorResult.resolvedCapabilities,
+});
+assert.equal(
+  trialNavigation.some((category) =>
+    category.items.some((entry) => entry.id === "user-logs")
+  ),
+  true
+);
+const trialAccount = createAccountNavigationState({
+  sessionStatus: "authenticated",
+  hasVisibleTeamAreaItems: trialNavigation.length > 0,
+});
+assert.equal(
+  trialAccount.items.some((entry) => entry.id === "team_area"),
+  true
+);
+
+const adminMember = snapshot.members.find(
+  (member) => member.role === "admin"
+);
+assert.ok(adminMember);
+const roleReadModel = buildTeamRoleAdminReadModel({
+  roleRows: snapshot.roles.map((role) => ({
+    key: role.key,
+    display_name: role.displayName,
+    description: role.description,
+    is_system: role.isSystem,
+    is_active: role.isActive,
+    sort_order: role.sortOrder,
+    row_version: role.rowVersion,
+    created_at: role.createdAt,
+    updated_at: role.updatedAt,
+    created_by_discord_user_id: role.createdByDiscordUserId,
+    updated_by_discord_user_id: role.updatedByDiscordUserId,
+  })),
+  capabilityRows: snapshot.catalog.map((entry) => ({
+    key: entry.key,
+    display_name: entry.displayName,
+    description: entry.description,
+    category: entry.category,
+    included_actions: entry.includedActions,
+    excluded_actions: entry.excludedActions,
+    risk_level: entry.riskLevel,
+    assignable_to_non_admin: entry.assignableToNonAdmin,
+    is_active: entry.isActive,
+    implementation_version: entry.implementationVersion,
+    definition_hash: entry.definitionHash,
+    deprecated_at: entry.deprecatedAt,
+  })),
+  grantRows: snapshot.grants.map((grant) => ({
+    role_key: grant.roleKey,
+    capability_key: grant.capabilityKey,
+    granted_at: grant.grantedAt,
+    granted_by_discord_user_id: grant.grantedByDiscordUserId,
+    grant_reason: grant.grantReason,
+  })),
+  memberRows: snapshot.members.map((member) => ({
+    discord_user_id: member.discordUserId,
+    discord_username: member.discordUsername,
+    role: member.role,
+  })),
+  auditRows: [],
+  currentAdminDiscordUserId: adminMember.discordUserId,
+});
+assert.deepEqual(
+  roleReadModel.capabilities.map((entry) => entry.key).sort(),
+  [...REGISTERED_TEAM_CAPABILITY_KEYS].sort()
+);
+const draftFingerprint = permissionSnapshotFingerprint(
+  roleReadModel.roles,
+  roleReadModel.capabilities
+);
+for (const stagedKey of expectedStagedCapabilityKeys) {
+  assert.equal(draftFingerprint.includes(stagedKey), false);
 }
 
 console.log(
@@ -281,9 +442,14 @@ console.log(
     transactionReadOnly: true,
     roles: snapshot.roles.length,
     catalogEntries: snapshot.catalog.length,
+    stagedTombstones: expectedStagedCapabilityKeys.length,
     grants: snapshot.grants.length,
     adminGrants: 0,
-    seedRoleShadowMatches: expectedRoles.length,
+    seedRoleShadowMatches: shadowMatchCount,
+    teamAreaVisible: trialNavigation.length > 0,
+    accountTeamAreaLinkVisible: true,
+    rolesPermissionBlocks: roleReadModel.capabilities.length,
+    draftCapabilityKeys: roleReadModel.capabilities.length,
     memberRoleCounts: snapshot.memberRoleCounts,
   })
 );
