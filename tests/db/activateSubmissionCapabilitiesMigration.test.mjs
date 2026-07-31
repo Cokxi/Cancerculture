@@ -160,12 +160,9 @@ test("security, audit, ledger and mutation surfaces remain unchanged", () => {
   );
 });
 
-test("the registry exposes exactly seven active definitions and preserves the original three", () => {
+test("the registry preserves seven known definitions after the later tombstone", () => {
   assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 7);
-  assert.deepEqual(
-    [...ACTIVE_TEAM_CAPABILITY_KEYS],
-    [...REGISTERED_TEAM_CAPABILITY_KEYS]
-  );
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 6);
   assert.equal(
     Object.values(TEAM_CAPABILITY_REGISTRY).some(
       (definition) => definition.lifecycle === "staged"
@@ -182,9 +179,15 @@ test("the registry exposes exactly seven active definitions and preserves the or
         .definitionHash,
     ],
     [
-      "89d9d8794cc2a15772f869cf6670802b89afd00b8adafbbd1229db1d6d29f116",
+      "7d62383086022588673bb5c6cc7156851f99a7815d6f305d72bbfa2e0064789b",
       "802eb6c05cdeb7721a068262675b740f3208609eb0355632da09f607f5ec676b",
       "5d0d0ab97601631a43f7ba87ba04d0007bf6534449774ac859f838e370cede48",
     ]
+  );
+  assert.equal(
+    TEAM_CAPABILITY_REGISTRY[
+      "submissions.submission_phase.moderate"
+    ].lifecycle,
+    "deprecated"
   );
 });

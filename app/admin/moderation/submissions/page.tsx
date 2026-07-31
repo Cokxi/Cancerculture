@@ -1,62 +1,90 @@
-import { supabaseAdmin } from "@/lib/db/admin";
-import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
-import { requireSubmissionModeratorPage } from "@/lib/auth/pageAccess";
+import { redirect } from "next/navigation";
+import { getTeamAuthorizationContext } from "@/lib/auth/teamAuthorization";
+import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
+import {
+  canModerateSubmission,
+  requireLiveModerationPage,
+} from "@/lib/moderation/submissionModerationAuthorization";
+import {
+  getCurrentModerationCycle,
+  getLiveModerationSubmissions,
+} from "@/lib/moderation/submissionModerationReadModel";
 import ModerationGrid from "./ModerationGrid";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminModerationSubmissionsPage() {
-  await requireSubmissionModeratorPage(
-    "/admin/moderation/submissions"
-  );
+  let authorization;
+  let currentCycle;
+  let submissions;
 
-  const activeCycle = await getActiveCycle();
+  try {
+    authorization = await getTeamAuthorizationContext();
+    currentCycle = await getCurrentModerationCycle();
+    requireLiveModerationPage(
+      authorization,
+      currentCycle?.status ?? null
+    );
+    submissions = currentCycle
+      ? await getLiveModerationSubmissions(currentCycle.id)
+      : [];
+  } catch (error) {
+    const destination = getTeamPageAccessRedirect(error);
+    if (destination) redirect(destination);
+    throw error;
+  }
 
-  if (!activeCycle) {
+  if (!currentCycle) {
     return (
       <div style={{ padding: 24 }}>
         <h1>Admin – Moderation (Submissions)</h1>
-        <p>No active cycle.</p>
+        <p>No current submission or voting phase.</p>
       </div>
     );
   }
 
-  
-  const { data: submissions } = await supabaseAdmin
-    .from("submissions")
-    .select(`
-      id,
-      cycle_id,
-      r2_key,
-      is_disqualified,
-      discord_user_id
-    `)
-    .eq("cycle_id", activeCycle.id)
-    .order("id", { ascending: false })
-    .limit(50);
-
-  const submissionsWithUrls =
-    submissions?.map((s) => ({
-      ...s,
-      image_url: getPublicImageUrl(s.r2_key) ?? "",
-      thumb_url: s.r2_key
-        ? `${new URL(
-            getPublicImageUrl(s.r2_key) ?? ""
-          ).origin}/cdn-cgi/image/w=400,q=75/${s.r2_key}`
-        : "",
-    })) ?? [];
+  const submissionsWithUrls = submissions.map((submission) => {
+    const imageUrl = getPublicImageUrl(submission.r2_key) ?? "";
+    return {
+      ...submission,
+      is_disqualified: submission.is_disqualified === true,
+      image_url: imageUrl,
+      thumb_url:
+        submission.r2_key && imageUrl
+          ? `${new URL(imageUrl).origin}/cdn-cgi/image/w=400,q=75/${submission.r2_key}`
+          : "",
+    };
+  });
+  const canDisqualify = canModerateSubmission(
+    authorization,
+    currentCycle.status,
+    "disqualify"
+  );
+  const canReinstate = canModerateSubmission(
+    authorization,
+    currentCycle.status,
+    "reinstate"
+  );
 
   return (
     <div style={{ padding: 24 }}>
       <h1>Admin – Moderation (Submissions)</h1>
+      <p style={{ marginTop: 8, opacity: 0.7 }}>
+        Cycle #{currentCycle.id} · {currentCycle.status}
+      </p>
 
-      {!submissions || submissions.length === 0 ? (
+      {submissions.length === 0 ? (
         <p style={{ marginTop: 16, opacity: 0.7 }}>
-          No submissions found for the active cycle.
+          No submissions found for the current cycle.
         </p>
       ) : (
-        <ModerationGrid submissions={submissionsWithUrls} />
+        <ModerationGrid
+          submissions={submissionsWithUrls}
+          phase={currentCycle.status}
+          canDisqualify={canDisqualify}
+          canReinstate={canReinstate}
+        />
       )}
     </div>
   );

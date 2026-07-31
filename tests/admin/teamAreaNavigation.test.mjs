@@ -53,7 +53,7 @@ test("the central definition exposes implemented Admin items and filters unavail
 test("non-admin navigation exposes only explicitly granted routes", () => {
   const resolved = resolveTeamAreaNavigation(
     context({
-      capabilities: ["submissions.submission_phase.moderate"],
+      capabilities: ["submissions.submission_phase.reinstate"],
     })
   );
 
@@ -87,7 +87,7 @@ test("admin remains a hard role requirement rather than a capability grant", () 
       context({
         role: "moderator",
         capabilities: [
-          "submissions.submission_phase.moderate",
+          "submissions.submission_phase.disqualify",
           "users.flag",
           "users.directory.basic.view",
         ],
@@ -236,7 +236,7 @@ test("the general shell does not load legal review metadata", async () => {
   );
 });
 
-test("existing direct page guards remain in place", async () => {
+test("phase-aware direct page guards remain in place", async () => {
   const [moderation, disqualified, users, legal] = await Promise.all([
     source("app/admin/moderation/submissions/page.tsx"),
     source("app/admin/moderation/disqualified/page.tsx"),
@@ -244,8 +244,8 @@ test("existing direct page guards remain in place", async () => {
     source("app/admin/moderation/legal-review/page.tsx"),
   ]);
 
-  assert.match(moderation, /requireSubmissionModeratorPage/);
-  assert.match(disqualified, /requireSubmissionModeratorPage/);
+  assert.match(moderation, /requireLiveModerationPage/);
+  assert.match(disqualified, /requireDisqualifiedSubmissionsPage/);
   assert.match(
     users,
     /requireDynamicTeamCapability\(\s*"users\.directory\.basic\.view"/

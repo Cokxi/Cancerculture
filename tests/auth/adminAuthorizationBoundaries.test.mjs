@@ -117,28 +117,26 @@ test("all log pages are protected by a server admin layout", async () => {
   assert.match(logsLayout, /await requireAdminPage\("\/admin\/logs"\)/);
 });
 
-test("submission moderation uses only the submission capability guard", async () => {
+test("submission moderation uses only the exact phase and operation capability guard", async () => {
   for (const file of [
     "app/api/admin/disqualify/route.ts",
     "app/api/admin/reinstate/route.ts",
-    "app/api/admin/submissions/route.ts",
   ]) {
     const contents = await source(file);
 
-    assert.match(contents, /requireSubmissionModerator\(\)/, file);
+    assert.match(contents, /requireSubmissionModerationAction\(/, file);
+    assert.match(contents, /getTeamAuthorizationContext\(\)/, file);
     assert.doesNotMatch(contents, /requireAdmin\(\)/, file);
   }
 
-  for (const file of [
-    "app/admin/moderation/submissions/page.tsx",
-    "app/admin/moderation/disqualified/page.tsx",
-  ]) {
-    assert.match(
-      await source(file),
-      /requireSubmissionModeratorPage\(/,
-      file
-    );
-  }
+  assert.match(
+    await source("app/admin/moderation/submissions/page.tsx"),
+    /requireLiveModerationPage\(/
+  );
+  assert.match(
+    await source("app/admin/moderation/disqualified/page.tsx"),
+    /requireDisqualifiedSubmissionsPage\(/
+  );
 });
 
 test("flagging and unflagging have distinct server capabilities", async () => {

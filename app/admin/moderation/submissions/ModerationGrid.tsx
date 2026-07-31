@@ -30,8 +30,14 @@ const ILLEGAL_CONTENT_REASONS = [
 
 export default function ModerationGrid({
   submissions,
+  phase,
+  canDisqualify,
+  canReinstate,
 }: {
   submissions: Submission[];
+  phase: "submission_open" | "voting_open";
+  canDisqualify: boolean;
+  canReinstate: boolean;
 }) {
   const [openFor, setOpenFor] = useState<number | null>(null);
   const [disqualificationType, setDisqualificationType] =
@@ -51,15 +57,25 @@ export default function ModerationGrid({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        cycleId: submissions.find((submission) => submission.id === id)
+          ?.cycle_id,
         submissionId: id,
+        expectedPhase: phase,
+        expectedIsDisqualified: false,
         disqualificationType,
         reasonCode,
         reasonText: reasonText || null,
+        idempotencyKey: crypto.randomUUID(),
       }),
     });
 
     if (!res.ok) {
-      alert("Disqualify failed");
+      const error = await res.json().catch(() => null);
+      alert(
+        res.status === 409
+          ? "The phase or submission status changed. Refresh and try again."
+          : error?.error ?? "Disqualify failed"
+      );
       return;
     }
 
@@ -71,21 +87,34 @@ export default function ModerationGrid({
   }
 
   async function handleReinstate(id: number) {
-    const confirmed = confirm(
-      "Are you sure you want to reinstate this submission?"
+    const reason = prompt(
+      "Reason for reinstating this submission:"
     );
-    if (!confirmed) return;
+    if (!reason?.trim() || reason.trim().length < 3) return;
 
     const res = await fetch("/api/admin/reinstate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        cycleId: submissions.find((submission) => submission.id === id)
+          ?.cycle_id,
         submissionId: id,
+        expectedPhase: phase,
+        expectedIsDisqualified: true,
+        disqualificationType: null,
+        reasonCode: "manual_review",
+        reasonText: reason.trim(),
+        idempotencyKey: crypto.randomUUID(),
       }),
     });
 
     if (!res.ok) {
-      alert("Reinstate failed");
+      const error = await res.json().catch(() => null);
+      alert(
+        res.status === 409
+          ? "The phase or submission status changed. Refresh and try again."
+          : error?.error ?? "Reinstate failed"
+      );
       return;
     }
 
@@ -166,7 +195,7 @@ export default function ModerationGrid({
             {submission.is_disqualified ? "Disqualified" : "Active"}
           </div>
 
-          {!submission.is_disqualified ? (
+          {!submission.is_disqualified && canDisqualify ? (
             <>
               <button
                 style={{
@@ -296,7 +325,7 @@ export default function ModerationGrid({
                 </div>
               )}
             </>
-          ) : (
+          ) : submission.is_disqualified && canReinstate ? (
             <button
               style={{
                 padding: "6px 10px",
@@ -313,7 +342,7 @@ export default function ModerationGrid({
             >
               Reinstate
             </button>
-          )}
+          ) : null}
         </div>
       ))}
     </div>

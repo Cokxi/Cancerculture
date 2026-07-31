@@ -42,10 +42,7 @@ test("dynamic authorization is the production authority for connected capabiliti
     guards,
     /export async function requireAdmin[\s\S]*isAdminTeamRole\(member\.role\)/
   );
-  assert.match(
-    guards,
-    /export async function requireSubmissionModerator[\s\S]*requireDynamicTeamCapability\([\s\S]*"submissions\.submission_phase\.moderate"/
-  );
+  assert.doesNotMatch(guards, /requireSubmissionModerator/u);
   assert.match(
     authorization,
     /export async function requireDynamicTeamCapability/
@@ -134,7 +131,6 @@ test("target call-sites no longer make static authorization decisions", async ()
     "app/admin/layout.tsx",
     "app/admin/moderation/submissions/page.tsx",
     "app/admin/moderation/disqualified/page.tsx",
-    "app/api/admin/submissions/route.ts",
     "app/api/admin/disqualify/route.ts",
     "app/api/admin/reinstate/route.ts",
     "app/admin/actions/flagUser.ts",
@@ -158,38 +154,27 @@ test("target call-sites no longer make static authorization decisions", async ()
     );
   }
 
-  const guards = await source("lib/auth/guards.ts");
-  const submissionGuard =
-    guards.match(
-      /export async function requireSubmissionModerator[\s\S]*?\n\}\n/u
-    )?.[0] ?? "";
-
+  const [guards, uiGuards, moderationAuthorization] =
+    await Promise.all([
+      source("lib/auth/guards.ts"),
+      source("lib/auth/guards.ui.ts"),
+      source(
+        "lib/moderation/submissionModerationAuthorization.ts"
+      ),
+    ]);
+  assert.doesNotMatch(guards, /requireSubmissionModerator/u);
+  assert.doesNotMatch(uiGuards, /requireSubmissionModeratorUI/u);
   assert.match(
-    submissionGuard,
-    /requireDynamicTeamCapability\([\s\S]*"submissions\.submission_phase\.moderate"/
+    moderationAuthorization,
+    /SUBMISSION_MODERATION_CAPABILITIES/u
   );
   assert.doesNotMatch(
-    submissionGuard,
-    /requireTeamCapability|hasTeamCapability|canModerateSubmissionPhase/
-  );
-
-  const uiGuards = await source("lib/auth/guards.ui.ts");
-  const submissionUiGuard =
-    uiGuards.match(
-      /export function requireSubmissionModeratorUI[\s\S]*?\n\}\n/u
-    )?.[0] ?? "";
-
-  assert.match(
-    submissionUiGuard,
-    /hasResolvedTeamCapability\([\s\S]*"submissions\.submission_phase\.moderate"/
-  );
-  assert.doesNotMatch(
-    submissionUiGuard,
-    /hasTeamCapability|canModerateSubmissionPhase/
+    moderationAuthorization,
+    /hasTeamCapability|canModerateSubmissionPhase/u
   );
 });
 
-test("reserved voting capabilities remain static-only and outside the registry", async () => {
+test("legacy static voting booleans remain disconnected from granular registry keys", async () => {
   const [teamRoles, registry, shadow] = await Promise.all([
     source("lib/auth/teamRoles.ts"),
     source("lib/auth/teamCapabilityRegistry.ts"),

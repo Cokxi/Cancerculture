@@ -154,7 +154,7 @@ test("permission rows are semantic, responsive, data-driven, exclude Admin, and 
 
   assert.match(shell, /capabilities=\{readModel\.capabilities\}/);
   assert.match(ui, /baseCapabilities\.map/);
-  assert.match(page, /REGISTERED_TEAM_CAPABILITY_KEYS\.map/);
+  assert.match(page, /ACTIVE_TEAM_CAPABILITY_KEYS\.map/);
   assert.match(shell, /activeNonAdminRoles/);
   assert.match(ui, /data-capability-block/);
   assert.match(ui, /data-capability-layout/);
@@ -197,7 +197,7 @@ test("the split UI has explicit confirmations, stable retries, owner separation,
   assert.doesNotMatch(ui, />\s*Delete\s*</);
 });
 
-test("new capability keys and voting actions remain unconnected to production paths", async () => {
+test("granular moderation capabilities use only the central registry, navigation, and authorization resolver", async () => {
   const files = [
     ...(await sourceFiles("app")),
     ...(await sourceFiles("lib")),
@@ -215,7 +215,9 @@ test("new capability keys and voting actions remain unconnected to production pa
       }
     }
     assert.deepEqual(consumers, [
+      "lib/admin/teamAreaNavigation.ts",
       "lib/auth/teamCapabilityRegistry.ts",
+      "lib/moderation/submissionModerationAuthorization.ts",
     ]);
   }
 

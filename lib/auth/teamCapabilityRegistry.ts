@@ -83,11 +83,11 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
       "Finalized or archived cycles.",
     ],
     riskLevel: "high",
-    lifecycle: "active",
-    assignableToNonAdmin: true,
-    implementationVersion: 1,
+    lifecycle: "deprecated",
+    assignableToNonAdmin: false,
+    implementationVersion: 2,
     definitionHash:
-      "89d9d8794cc2a15772f869cf6670802b89afd00b8adafbbd1229db1d6d29f116",
+      "7d62383086022588673bb5c6cc7156851f99a7815d6f305d72bbfa2e0064789b",
   }),
   "submissions.submission_phase.disqualify": defineCapability({
     key: "submissions.submission_phase.disqualify",

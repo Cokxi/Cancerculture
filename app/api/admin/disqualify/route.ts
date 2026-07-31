@@ -1,53 +1,32 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { requireSubmissionModerator } from "@/lib/auth/guards";
-import { setSubmissionDisqualification } from "@/lib/moderation/setSubmissionDisqualification";
+import { getTeamAuthorizationContext } from "@/lib/auth/teamAuthorization";
+import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
+import { moderateSubmission } from "@/lib/moderation/moderateSubmission";
+import { requireSubmissionModerationAction } from "@/lib/moderation/submissionModerationAuthorization";
+import { parseSubmissionModerationRequest } from "@/lib/moderation/submissionModerationRequest";
 import { NextResponse } from "next/server";
-
-function getErrorResponse(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : "Forbidden";
-  const status =
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof error.status === "number"
-      ? error.status
-      : 403;
-
-  return NextResponse.json({ error: message }, { status });
-}
 
 export async function POST(req: Request) {
   try {
-    const actor = await requireSubmissionModerator();
-
-    const {
-      submissionId,
-      disqualificationType,
-      reasonCode,
-      reasonText,
-    } = await req.json();
-
-    if (!submissionId || !reasonCode) {
-      return NextResponse.json(
-        { error: "Invalid payload" },
-        { status: 400 }
-      );
-    }
-
-    await setSubmissionDisqualification({
-      actor,
-      submissionId,
-      mode: "disqualify",
-      disqualificationType,
-      reasonCode,
-      reasonText,
+    const authorization = await getTeamAuthorizationContext();
+    const payload = parseSubmissionModerationRequest(
+      await req.json(),
+      "disqualify"
+    );
+    requireSubmissionModerationAction(
+      authorization,
+      payload.expectedPhase,
+      payload.operation
+    );
+    const result = await moderateSubmission({
+      actorDiscordUserId: authorization.discord_user_id,
+      ...payload,
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, result });
   } catch (error) {
-    return getErrorResponse(error);
+    return getRouteErrorResponse(error);
   }
 }

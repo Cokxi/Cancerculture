@@ -253,9 +253,9 @@ test("the immutable staged definitions remain the exact predecessor of the activ
     7
   );
   assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 7);
-  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 7);
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 6);
   assert.match(
     registry,
-    /submissions\.submission_phase\.moderate[\s\S]*89d9d8794cc2a15772f869cf6670802b89afd00b8adafbbd1229db1d6d29f116/u
+    /submissions\.submission_phase\.moderate[\s\S]*7d62383086022588673bb5c6cc7156851f99a7815d6f305d72bbfa2e0064789b/u
   );
 });

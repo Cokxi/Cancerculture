@@ -222,7 +222,7 @@ test("page-specific server read models avoid loading unrelated Team data", async
   );
 });
 
-test("Roles & Permissions renders three compact responsive rows with active dynamic role controls", async () => {
+test("Roles & Permissions renders six compact responsive rows with active dynamic role controls", async () => {
   const [page, shell, ui, registry] = await Promise.all([
     source("app/admin/team/roles/page.tsx"),
     source("app/admin/team/roles/RolesPermissionsClient.tsx"),
@@ -230,14 +230,17 @@ test("Roles & Permissions renders three compact responsive rows with active dyna
     source("lib/auth/teamCapabilityRegistry.ts"),
   ]);
 
-  assert.match(page, /REGISTERED_TEAM_CAPABILITY_KEYS\.map/);
+  assert.match(page, /ACTIVE_TEAM_CAPABILITY_KEYS\.map/);
   assert.equal(
     [
-      "submissions.submission_phase.moderate",
+      "submissions.submission_phase.disqualify",
+      "submissions.submission_phase.reinstate",
+      "submissions.voting_phase.disqualify",
+      "submissions.voting_phase.reinstate",
       "users.flag",
       "users.directory.basic.view",
     ].filter((key) => registry.includes(`"${key}"`)).length,
-    3
+    6
   );
   assert.match(shell, /capabilities=\{readModel\.capabilities\}/);
   assert.match(ui, /baseCapabilities\.map/);

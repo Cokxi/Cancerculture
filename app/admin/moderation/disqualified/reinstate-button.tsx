@@ -4,16 +4,19 @@ import { useState } from "react";
 
 export default function ReinstateButton({
   submissionId,
+  cycleId,
+  phase,
 }: {
   submissionId: number;
+  cycleId: number;
+  phase: "submission_open" | "voting_open";
 }) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
   async function handleReinstate() {
-    if (!confirm("Reinstate this submission?")) {
-      return;
-    }
+    const reason = prompt("Reason for reinstating this submission:");
+    if (!reason?.trim() || reason.trim().length < 3) return;
 
     setLoading(true);
 
@@ -22,7 +25,16 @@ export default function ReinstateButton({
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ submissionId }),
+      body: JSON.stringify({
+        cycleId,
+        submissionId,
+        expectedPhase: phase,
+        expectedIsDisqualified: true,
+        disqualificationType: null,
+        reasonCode: "manual_review",
+        reasonText: reason.trim(),
+        idempotencyKey: crypto.randomUUID(),
+      }),
     });
 
     setLoading(false);
@@ -32,7 +44,12 @@ export default function ReinstateButton({
       
       window.location.reload();
     } else {
-      alert("Failed to reinstate submission");
+      const error = await res.json().catch(() => null);
+      alert(
+        res.status === 409
+          ? "The phase or submission status changed. Refresh and try again."
+          : error?.error ?? "Failed to reinstate submission"
+      );
     }
   }
 

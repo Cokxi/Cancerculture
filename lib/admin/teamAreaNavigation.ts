@@ -40,8 +40,20 @@ export type ResolvedTeamAreaNavigation = readonly TeamAreaNavigationCategory[];
 
 const adminOnly = Object.freeze({ type: "admin" } as const);
 const submissionModeration = Object.freeze({
-  type: "capability",
-  capability: "submissions.submission_phase.moderate",
+  type: "anyCapability",
+  capabilities: Object.freeze([
+    "submissions.submission_phase.disqualify",
+    "submissions.submission_phase.reinstate",
+    "submissions.voting_phase.disqualify",
+    "submissions.voting_phase.reinstate",
+  ] as const),
+} as const);
+const submissionReinstatement = Object.freeze({
+  type: "anyCapability",
+  capabilities: Object.freeze([
+    "submissions.submission_phase.reinstate",
+    "submissions.voting_phase.reinstate",
+  ] as const),
 } as const);
 const basicUserDirectory = Object.freeze({
   type: "capability",
@@ -92,7 +104,7 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           title: "Live Moderation",
           href: "/admin/moderation/submissions",
           categoryId: "moderation",
-          description: "Moderate submissions in the active submission phase.",
+          description: "Moderate submissions in the current open phase.",
           requirement: submissionModeration,
           implemented: true,
         }),
@@ -102,7 +114,7 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/moderation/disqualified",
           categoryId: "moderation",
           description: "Review disqualified submissions in the active cycle.",
-          requirement: submissionModeration,
+          requirement: submissionReinstatement,
           implemented: true,
         }),
         item({

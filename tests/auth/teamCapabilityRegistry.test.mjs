@@ -38,7 +38,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains exactly seven active capability keys", () => {
+test("the server registry contains seven known and six active capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -50,7 +50,9 @@ test("the server registry contains exactly seven active capability keys", () => 
   );
   assert.deepEqual(
     [...ACTIVE_TEAM_CAPABILITY_KEYS],
-    expectedKeys
+    expectedKeys.filter(
+      (key) => key !== "submissions.submission_phase.moderate"
+    )
   );
   assert.deepEqual(
     expectedKeys.filter(
@@ -65,7 +67,7 @@ test("the server registry contains exactly seven active capability keys", () => 
 test("registry metadata is complete and hashes match canonical definitions", () => {
   const expectedHashes = {
     "submissions.submission_phase.moderate":
-      "89d9d8794cc2a15772f869cf6670802b89afd00b8adafbbd1229db1d6d29f116",
+      "7d62383086022588673bb5c6cc7156851f99a7815d6f305d72bbfa2e0064789b",
     "submissions.submission_phase.disqualify":
       "3eec3024438e68d08891e147a1d770ad812af935732b6e60a804baa6a28b1732",
     "submissions.submission_phase.reinstate":
@@ -95,12 +97,13 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     assert.ok(definition.category.length > 0);
     assert.ok(definition.includedActions.length > 0);
     assert.ok(definition.excludedActions.length > 0);
-    const newlyActivated = activatedKeys.includes(key);
-    assert.equal(definition.assignableToNonAdmin, true);
-    assert.equal(definition.lifecycle, "active");
+    const deprecated = key === "submissions.submission_phase.moderate";
+    const versionTwo = deprecated || activatedKeys.includes(key);
+    assert.equal(definition.assignableToNonAdmin, !deprecated);
+    assert.equal(definition.lifecycle, deprecated ? "deprecated" : "active");
     assert.equal(
       definition.implementationVersion,
-      newlyActivated ? 2 : 1
+      versionTwo ? 2 : 1
     );
     assert.equal(definition.definitionHash, expectedHashes[key]);
     assert.equal(hash, expectedHashes[key]);

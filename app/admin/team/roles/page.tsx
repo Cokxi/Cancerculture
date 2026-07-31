@@ -7,7 +7,7 @@ import {
   loadRolesPermissionsAdminReadModel,
   type TeamRoleAdminCapability,
 } from "@/lib/auth/teamRoleAdminReadModel";
-import { REGISTERED_TEAM_CAPABILITY_KEYS } from "@/lib/auth/teamCapabilityRegistry";
+import { ACTIVE_TEAM_CAPABILITY_KEYS } from "@/lib/auth/teamCapabilityRegistry";
 import RolesPermissionsClient, {
   type RolesPermissionsViewModel,
 } from "./RolesPermissionsClient";
@@ -29,7 +29,7 @@ export default async function TeamRolesAdminPage() {
     throw error;
   }
 
-  const capabilities = REGISTERED_TEAM_CAPABILITY_KEYS.map((key) =>
+  const capabilities = ACTIVE_TEAM_CAPABILITY_KEYS.map((key) =>
     fullReadModel.capabilities.find(
       (capability) => capability.key === key
     )

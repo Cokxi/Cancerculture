@@ -50,13 +50,13 @@ function resolve(roleKey, overrides = {}) {
 }
 
 for (const roleKey of nonAdminRoles) {
-  test(`${roleKey} matches all three connected static capabilities`, () => {
+  test(`${roleKey} matches both remaining connected static capabilities`, () => {
     const shadow = compareTeamAuthorizationShadow(
       resolve(roleKey)
     );
 
     assert.equal(shadow.isMatch, true);
-    assert.equal(shadow.comparisons.length, 3);
+    assert.equal(shadow.comparisons.length, 2);
     assert.equal(
       shadow.comparisons.every(
         (comparison) =>
@@ -164,7 +164,7 @@ test("an unknown role fails closed even when both value sets are false", () => {
 
   assert.equal(shadow.isMatch, false);
   assert.equal(shadow.dynamicStatus, "unknown_role");
-  assert.equal(shadow.mismatches.length, 3);
+  assert.equal(shadow.mismatches.length, 2);
   assert.equal(
     shadow.mismatches.every(
       (mismatch) =>
@@ -176,16 +176,12 @@ test("an unknown role fails closed even when both value sets are false", () => {
   );
 });
 
-test("new active capabilities remain absent from the static shadow contract", () => {
+test("granular moderation capabilities remain absent from the static shadow contract", () => {
   assert.deepEqual(
     CONNECTED_TEAM_CAPABILITY_SHADOW_MAP.map(
       (entry) => entry.capabilityKey
     ),
-    [
-      "submissions.submission_phase.moderate",
-      "users.flag",
-      "users.directory.basic.view",
-    ]
+    ["users.flag", "users.directory.basic.view"]
   );
 
   const serialized = JSON.stringify(
