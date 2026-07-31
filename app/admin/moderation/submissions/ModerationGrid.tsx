@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import {
+  finishModerationRequest,
+  performModerationClientRequest,
+  tryBeginModerationRequest,
+} from "@/lib/moderation/moderationClientRequest";
+import { useRef, useState } from "react";
 
 type Submission = {
   id: number;
@@ -46,79 +51,81 @@ export default function ModerationGrid({
     );
   const [reasonCode, setReasonCode] = useState("");
   const [reasonText, setReasonText] = useState("");
+  const requestPendingRef = useRef(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(
+    null
+  );
 
   async function handleDisqualify(id: number) {
+    if (!tryBeginModerationRequest(requestPendingRef)) return;
+
     if (!reasonCode) {
       alert("Please select a reason");
+      finishModerationRequest(requestPendingRef);
       return;
     }
 
-    const res = await fetch("/api/admin/disqualify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cycleId: submissions.find((submission) => submission.id === id)
-          ?.cycle_id,
-        submissionId: id,
-        expectedPhase: phase,
-        expectedIsDisqualified: false,
-        disqualificationType,
-        reasonCode,
-        reasonText: reasonText || null,
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    });
+    setPendingAction(`disqualify:${id}`);
+    try {
+      const outcome = await performModerationClientRequest({
+        endpoint: "/api/admin/disqualify",
+        body: {
+          cycleId: submissions.find(
+            (submission) => submission.id === id
+          )?.cycle_id,
+          submissionId: id,
+          expectedPhase: phase,
+          expectedIsDisqualified: false,
+          disqualificationType,
+          reasonCode,
+          reasonText: reasonText || null,
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
 
-    if (!res.ok) {
-      const error = await res.json().catch(() => null);
-      alert(
-        res.status === 409
-          ? "The phase or submission status changed. Refresh and try again."
-          : error?.error ?? "Disqualify failed"
-      );
-      return;
+      if (outcome === "success") {
+        setOpenFor(null);
+        setReasonCode("");
+        setReasonText("");
+      }
+    } finally {
+      finishModerationRequest(requestPendingRef);
+      setPendingAction(null);
     }
-
-    setOpenFor(null);
-    setReasonCode("");
-    setReasonText("");
-
-    location.reload();
   }
 
   async function handleReinstate(id: number) {
+    if (!tryBeginModerationRequest(requestPendingRef)) return;
+
     const reason = prompt(
       "Reason for reinstating this submission:"
     );
-    if (!reason?.trim() || reason.trim().length < 3) return;
-
-    const res = await fetch("/api/admin/reinstate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cycleId: submissions.find((submission) => submission.id === id)
-          ?.cycle_id,
-        submissionId: id,
-        expectedPhase: phase,
-        expectedIsDisqualified: true,
-        disqualificationType: null,
-        reasonCode: "manual_review",
-        reasonText: reason.trim(),
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    });
-
-    if (!res.ok) {
-      const error = await res.json().catch(() => null);
-      alert(
-        res.status === 409
-          ? "The phase or submission status changed. Refresh and try again."
-          : error?.error ?? "Reinstate failed"
-      );
+    if (!reason?.trim() || reason.trim().length < 3) {
+      finishModerationRequest(requestPendingRef);
       return;
     }
 
-    location.reload();
+    setPendingAction(`reinstate:${id}`);
+    try {
+      await performModerationClientRequest({
+        endpoint: "/api/admin/reinstate",
+        body: {
+          cycleId: submissions.find(
+            (submission) => submission.id === id
+          )?.cycle_id,
+          submissionId: id,
+          expectedPhase: phase,
+          expectedIsDisqualified: true,
+          disqualificationType: null,
+          reasonCode: "manual_review",
+          reasonText: reason.trim(),
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+    } finally {
+      finishModerationRequest(requestPendingRef);
+      setPendingAction(null);
+    }
   }
 
   return (
@@ -306,6 +313,7 @@ export default function ModerationGrid({
                   />
 
                   <button
+                    disabled={pendingAction === `disqualify:${submission.id}`}
                     style={{
                       marginTop: 6,
                       padding: "6px 10px",
@@ -313,34 +321,45 @@ export default function ModerationGrid({
                       color: "#fff",
                       border: "none",
                       borderRadius: 4,
-                      cursor: "pointer",
+                      cursor:
+                        pendingAction === `disqualify:${submission.id}`
+                          ? "not-allowed"
+                          : "pointer",
                       fontSize: 13,
                     }}
                     onClick={() =>
                       handleDisqualify(submission.id)
                     }
                   >
-                    Confirm Disqualify
+                    {pendingAction === `disqualify:${submission.id}`
+                      ? "Disqualifyingâ€¦"
+                      : "Confirm Disqualify"}
                   </button>
                 </div>
               )}
             </>
           ) : submission.is_disqualified && canReinstate ? (
             <button
+              disabled={pendingAction === `reinstate:${submission.id}`}
               style={{
                 padding: "6px 10px",
                 background: "#df2323",
                 color: "#ffffff",
                 border: "1px solid #d3430b",
                 borderRadius: 4,
-                cursor: "pointer",
+                cursor:
+                  pendingAction === `reinstate:${submission.id}`
+                    ? "not-allowed"
+                    : "pointer",
                 fontSize: 13,
               }}
               onClick={() =>
                 handleReinstate(submission.id)
               }
             >
-              Reinstate
+              {pendingAction === `reinstate:${submission.id}`
+                ? "Reinstatingâ€¦"
+                : "Reinstate"}
             </button>
           ) : null}
         </div>

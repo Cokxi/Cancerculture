@@ -62,8 +62,22 @@ test("pages and buttons carry phase, expected state and idempotency", async () =
     assert.match(client, /expectedPhase/u);
     assert.match(client, /expectedIsDisqualified/u);
     assert.match(client, /crypto\.randomUUID\(\)/u);
-    assert.match(client, /res\.status === 409/u);
+    assert.match(client, /performModerationClientRequest/u);
+    assert.match(client, /tryBeginModerationRequest/u);
   }
+});
+
+test("stale UX changes no database, RPC, registry, audit, or guard contract", async () => {
+  const helper = await source(
+    "lib/moderation/moderationClientRequest.ts"
+  );
+  assert.match(helper, /response\.status === 409/u);
+  assert.match(helper, /STALE_MODERATION_MESSAGE/u);
+  assert.match(helper, /refresh\(\)/u);
+  assert.doesNotMatch(
+    helper,
+    /supabase|moderate_submission|capability|grant|audit|ledger|\.rpc\(/iu
+  );
 });
 
 test("no production authorization path uses the deprecated key", async () => {

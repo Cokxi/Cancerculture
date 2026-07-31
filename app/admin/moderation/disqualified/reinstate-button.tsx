@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import {
+  finishModerationRequest,
+  performModerationClientRequest,
+  tryBeginModerationRequest,
+} from "@/lib/moderation/moderationClientRequest";
+import { useRef, useState } from "react";
 
 export default function ReinstateButton({
   submissionId,
@@ -13,43 +18,36 @@ export default function ReinstateButton({
 }) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const requestPendingRef = useRef(false);
 
   async function handleReinstate() {
+    if (!tryBeginModerationRequest(requestPendingRef)) return;
+
     const reason = prompt("Reason for reinstating this submission:");
-    if (!reason?.trim() || reason.trim().length < 3) return;
+    if (!reason?.trim() || reason.trim().length < 3) {
+      finishModerationRequest(requestPendingRef);
+      return;
+    }
 
     setLoading(true);
-
-    const res = await fetch("/api/admin/reinstate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        cycleId,
-        submissionId,
-        expectedPhase: phase,
-        expectedIsDisqualified: true,
-        disqualificationType: null,
-        reasonCode: "manual_review",
-        reasonText: reason.trim(),
-        idempotencyKey: crypto.randomUUID(),
-      }),
-    });
-
-    setLoading(false);
-
-    if (res.ok) {
-      setDone(true);
-      
-      window.location.reload();
-    } else {
-      const error = await res.json().catch(() => null);
-      alert(
-        res.status === 409
-          ? "The phase or submission status changed. Refresh and try again."
-          : error?.error ?? "Failed to reinstate submission"
-      );
+    try {
+      const outcome = await performModerationClientRequest({
+        endpoint: "/api/admin/reinstate",
+        body: {
+          cycleId,
+          submissionId,
+          expectedPhase: phase,
+          expectedIsDisqualified: true,
+          disqualificationType: null,
+          reasonCode: "manual_review",
+          reasonText: reason.trim(),
+          idempotencyKey: crypto.randomUUID(),
+        },
+      });
+      if (outcome === "success") setDone(true);
+    } finally {
+      finishModerationRequest(requestPendingRef);
+      setLoading(false);
     }
   }
 
