@@ -15,6 +15,23 @@ type CommonPayload = {
   idempotencyKey: string;
 };
 
+export type TeamCapabilityBatchRoleSnapshot = Readonly<{
+  role_key: string;
+  expected_row_version: number;
+}>;
+
+export type TeamCapabilityBatchCapabilitySnapshot = Readonly<{
+  capability_key: string;
+  expected_implementation_version: number;
+  expected_definition_hash: string;
+}>;
+
+export type TeamCapabilityBatchChange = Readonly<{
+  role_key: string;
+  capability_key: string;
+  desired_granted: boolean;
+}>;
+
 export type TeamRoleMutationPayload =
   | (CommonPayload & {
       operation: "create_role";
@@ -44,6 +61,13 @@ export type TeamRoleMutationPayload =
       expectedRoleRowVersion: number;
       expectedCapabilityImplementationVersion: number;
       expectedCapabilityDefinitionHash: string;
+    })
+  | (CommonPayload & {
+      operation: "apply_team_role_capability_changes";
+      roleSnapshots: readonly TeamCapabilityBatchRoleSnapshot[];
+      capabilitySnapshots: readonly TeamCapabilityBatchCapabilitySnapshot[];
+      changes: readonly TeamCapabilityBatchChange[];
+      confirmationWord: "SAVE";
     })
   | (CommonPayload & {
       operation: "set_member_non_admin_role";
@@ -195,7 +219,7 @@ function discordUserId(
 }
 
 function confirmationWord<
-  TExpected extends "ADMIN" | "ADD" | "REMOVE",
+  TExpected extends "ADMIN" | "ADD" | "REMOVE" | "SAVE",
 >(
   payload: Record<string, unknown>,
   expected: TExpected
@@ -235,6 +259,42 @@ function common(payload: Record<string, unknown>) {
   }
 
   return { reason, idempotencyKey };
+}
+
+function requiredArray(
+  payload: Record<string, unknown>,
+  key: string
+) {
+  const value = payload[key];
+  if (!Array.isArray(value)) {
+    throw new TeamRoleMutationPayloadError(`Invalid ${key}`);
+  }
+  return value;
+}
+
+function capabilityKey(
+  payload: Record<string, unknown>,
+  key: string
+) {
+  const value = requiredText(payload, key, 128);
+  if (
+    !CAPABILITY_KEY_PATTERN.test(value) ||
+    value.includes("*")
+  ) {
+    throw new TeamRoleMutationPayloadError(`Invalid ${key}`);
+  }
+  return value;
+}
+
+function definitionHash(
+  payload: Record<string, unknown>,
+  key: string
+) {
+  const value = requiredText(payload, key, 64);
+  if (!HASH_PATTERN.test(value)) {
+    throw new TeamRoleMutationPayloadError(`Invalid ${key}`);
+  }
+  return value;
 }
 
 export function parseTeamRoleMutationPayload(
@@ -367,6 +427,172 @@ export function parseTeamRoleMutationPayload(
         Number.MAX_SAFE_INTEGER
       ),
       expectedCapabilityDefinitionHash: definitionHash,
+      ...common(payload),
+    };
+  }
+
+  if (operation === "apply_team_role_capability_changes") {
+    assertOnlyKeys(payload, [
+      "operation",
+      "roleSnapshots",
+      "capabilitySnapshots",
+      "changes",
+      "confirmationWord",
+      "reason",
+      "idempotencyKey",
+    ]);
+    const rawRoles = requiredArray(payload, "roleSnapshots");
+    const rawCapabilities = requiredArray(
+      payload,
+      "capabilitySnapshots"
+    );
+    const rawChanges = requiredArray(payload, "changes");
+
+    if (
+      rawChanges.length === 0 ||
+      rawChanges.length > 500 ||
+      rawRoles.length > 500 ||
+      rawCapabilities.length > 500
+    ) {
+      throw new TeamRoleMutationPayloadError(
+        "Capability batch is empty or too large"
+      );
+    }
+
+    const roleKeys = new Set<string>();
+    const roleSnapshots = rawRoles.map((value) => {
+      const snapshot = asRecord(value);
+      assertOnlyKeys(snapshot, [
+        "role_key",
+        "expected_row_version",
+      ]);
+      const parsed = {
+        role_key: roleKey(snapshot, "role_key"),
+        expected_row_version: integer(
+          snapshot,
+          "expected_row_version",
+          1,
+          Number.MAX_SAFE_INTEGER
+        ),
+      };
+      if (roleKeys.has(parsed.role_key)) {
+        throw new TeamRoleMutationPayloadError(
+          "Duplicate role snapshot"
+        );
+      }
+      roleKeys.add(parsed.role_key);
+      return Object.freeze(parsed);
+    });
+
+    const capabilityKeys = new Set<string>();
+    const capabilitySnapshots = rawCapabilities.map((value) => {
+      const snapshot = asRecord(value);
+      assertOnlyKeys(snapshot, [
+        "capability_key",
+        "expected_implementation_version",
+        "expected_definition_hash",
+      ]);
+      const parsed = {
+        capability_key: capabilityKey(
+          snapshot,
+          "capability_key"
+        ),
+        expected_implementation_version: integer(
+          snapshot,
+          "expected_implementation_version",
+          1,
+          Number.MAX_SAFE_INTEGER
+        ),
+        expected_definition_hash: definitionHash(
+          snapshot,
+          "expected_definition_hash"
+        ),
+      };
+      if (capabilityKeys.has(parsed.capability_key)) {
+        throw new TeamRoleMutationPayloadError(
+          "Duplicate capability snapshot"
+        );
+      }
+      capabilityKeys.add(parsed.capability_key);
+      return Object.freeze(parsed);
+    });
+
+    const changeRoleKeys = new Set<string>();
+    const changeCapabilityKeys = new Set<string>();
+    const pairKeys = new Set<string>();
+    const changes = rawChanges.map((value) => {
+      const change = asRecord(value);
+      assertOnlyKeys(change, [
+        "role_key",
+        "capability_key",
+        "desired_granted",
+      ]);
+      const parsed = {
+        role_key: roleKey(change, "role_key"),
+        capability_key: capabilityKey(
+          change,
+          "capability_key"
+        ),
+        desired_granted: booleanValue(
+          change,
+          "desired_granted"
+        ),
+      };
+      const pairKey = `${parsed.role_key}\u0000${parsed.capability_key}`;
+      if (pairKeys.has(pairKey)) {
+        throw new TeamRoleMutationPayloadError(
+          "Duplicate capability change"
+        );
+      }
+      pairKeys.add(pairKey);
+      changeRoleKeys.add(parsed.role_key);
+      changeCapabilityKeys.add(parsed.capability_key);
+      return Object.freeze(parsed);
+    });
+
+    if (
+      roleKeys.size !== changeRoleKeys.size ||
+      [...roleKeys].some((key) => !changeRoleKeys.has(key))
+    ) {
+      throw new TeamRoleMutationPayloadError(
+        "Role snapshots do not match changes"
+      );
+    }
+    if (
+      capabilityKeys.size !== changeCapabilityKeys.size ||
+      [...capabilityKeys].some(
+        (key) => !changeCapabilityKeys.has(key)
+      )
+    ) {
+      throw new TeamRoleMutationPayloadError(
+        "Capability snapshots do not match changes"
+      );
+    }
+
+    return {
+      operation,
+      roleSnapshots: Object.freeze(
+        roleSnapshots.sort((left, right) =>
+          left.role_key.localeCompare(right.role_key)
+        )
+      ),
+      capabilitySnapshots: Object.freeze(
+        capabilitySnapshots.sort((left, right) =>
+          left.capability_key.localeCompare(
+            right.capability_key
+          )
+        )
+      ),
+      changes: Object.freeze(
+        changes.sort(
+          (left, right) =>
+            left.role_key.localeCompare(right.role_key) ||
+            left.capability_key.localeCompare(
+              right.capability_key
+            )
+        )
+      ),
+      confirmationWord: confirmationWord(payload, "SAVE"),
       ...common(payload),
     };
   }

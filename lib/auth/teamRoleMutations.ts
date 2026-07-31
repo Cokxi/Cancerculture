@@ -25,8 +25,40 @@ export class TeamRoleMutationError extends Error {
 function mapDatabaseMutationError(error: {
   code?: string;
   message?: string;
-}) {
+}, rpcName?: string) {
   const message = error.message ?? "";
+
+  if (rpcName === "apply_team_role_capability_changes") {
+    for (const code of [
+      "CAPABILITY_IMPLEMENTATION_VERSION_CONFLICT",
+      "CAPABILITY_DEFINITION_CONFLICT",
+      "CAPABILITY_INACTIVE",
+      "CAPABILITY_NOT_ASSIGNABLE",
+    ]) {
+      if (message.includes(code)) {
+        return new TeamRoleMutationError(
+          409,
+          code === "CAPABILITY_INACTIVE" ||
+            code === "CAPABILITY_NOT_ASSIGNABLE"
+            ? "A reviewed capability is no longer active or assignable. Reload the latest permissions."
+            : "A capability definition changed after this review. Reload the latest permissions.",
+          code
+        );
+      }
+    }
+
+    if (
+      message.includes("CAPABILITY_BATCH_") ||
+      message.includes("DUPLICATE_") ||
+      message.includes("SNAPSHOT_MISMATCH")
+    ) {
+      return new TeamRoleMutationError(
+        400,
+        "The capability batch request is invalid.",
+        "INVALID_CAPABILITY_BATCH"
+      );
+    }
+  }
 
   const conflictCodes = [
     "TEAM_ROLE_VERSION_CONFLICT",
@@ -237,7 +269,7 @@ async function callMutationRpc(
   );
 
   if (error) {
-    throw mapDatabaseMutationError(error);
+    throw mapDatabaseMutationError(error, name);
   }
 
   if (!data || typeof data !== "object") {
@@ -249,6 +281,134 @@ async function callMutationRpc(
   }
 
   return data as Record<string, unknown>;
+}
+
+export type TeamCapabilityBatchMutationResult = Readonly<{
+  operation: "apply_team_role_capability_changes";
+  batchId: string;
+  replayed: boolean;
+  submittedCount: number;
+  changedCount: number;
+  noopCount: number;
+  grantCount: number;
+  revokeCount: number;
+  affectedRoles: readonly Readonly<{
+    roleKey: string;
+    rowVersion: number;
+  }>[];
+}>;
+
+const UUID_RESULT_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+function safeCount(value: unknown) {
+  return typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+    ? value
+    : null;
+}
+
+function normalizeTeamCapabilityBatchResult(
+  data: Record<string, unknown>
+): TeamCapabilityBatchMutationResult {
+  const submittedCount = safeCount(data.submittedCount);
+  const changedCount = safeCount(data.changedCount);
+  const noopCount = safeCount(data.noopCount);
+  const grantCount = safeCount(data.grantCount);
+  const revokeCount = safeCount(data.revokeCount);
+  const rawAffectedRoles = Array.isArray(data.affectedRoles)
+    ? data.affectedRoles
+    : null;
+  const affectedRoles = rawAffectedRoles?.map((value) => {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value)
+    ) {
+      return null;
+    }
+    const role = value as Record<string, unknown>;
+    const rowVersion = safeCount(role.rowVersion);
+    if (
+      typeof role.roleKey !== "string" ||
+      role.roleKey === "admin" ||
+      rowVersion === null ||
+      rowVersion < 1
+    ) {
+      return null;
+    }
+    return Object.freeze({
+      roleKey: role.roleKey,
+      rowVersion,
+    });
+  });
+
+  if (
+    data.operation !== "apply_team_role_capability_changes" ||
+    typeof data.batchId !== "string" ||
+    !UUID_RESULT_PATTERN.test(data.batchId) ||
+    typeof data.replayed !== "boolean" ||
+    submittedCount === null ||
+    submittedCount < 1 ||
+    changedCount === null ||
+    noopCount === null ||
+    grantCount === null ||
+    revokeCount === null ||
+    changedCount + noopCount !== submittedCount ||
+    grantCount + revokeCount !== changedCount ||
+    !affectedRoles ||
+    affectedRoles.some((role) => role === null)
+  ) {
+    throw new TeamRoleMutationError(
+      503,
+      "The authorization service returned an invalid response.",
+      "INVALID_MUTATION_RESPONSE"
+    );
+  }
+
+  return Object.freeze({
+    operation: "apply_team_role_capability_changes",
+    batchId: data.batchId,
+    replayed: data.replayed,
+    submittedCount,
+    changedCount,
+    noopCount,
+    grantCount,
+    revokeCount,
+    affectedRoles: Object.freeze(
+      affectedRoles as Array<{
+        roleKey: string;
+        rowVersion: number;
+      }>
+    ),
+  });
+}
+
+function assertBatchCapabilitiesRegistered(
+  payload: Extract<
+    TeamRoleMutationPayload,
+    { operation: "apply_team_role_capability_changes" }
+  >
+) {
+  for (const snapshot of payload.capabilitySnapshots) {
+    const registered = getRegisteredTeamCapability(
+      snapshot.capability_key
+    );
+    if (
+      !registered ||
+      snapshot.expected_implementation_version !==
+        registered.implementationVersion ||
+      snapshot.expected_definition_hash !==
+        registered.definitionHash
+    ) {
+      throw new TeamRoleMutationError(
+        503,
+        "The capability registry and database catalog are not synchronized.",
+        "CAPABILITY_REGISTRY_DRIFT"
+      );
+    }
+  }
 }
 
 export type TeamMemberMutationResult = Readonly<{
@@ -354,6 +514,26 @@ export async function executeTeamRoleMutation(
       p_reason: payload.reason,
       p_idempotency_key: payload.idempotencyKey,
     });
+  }
+
+  if (
+    payload.operation ===
+    "apply_team_role_capability_changes"
+  ) {
+    assertBatchCapabilitiesRegistered(payload);
+    const result = await callMutationRpc(
+      "apply_team_role_capability_changes",
+      {
+        p_actor_discord_user_id: actorDiscordUserId,
+        p_role_snapshots: payload.roleSnapshots,
+        p_capability_snapshots:
+          payload.capabilitySnapshots,
+        p_changes: payload.changes,
+        p_reason: payload.reason,
+        p_idempotency_key: payload.idempotencyKey,
+      }
+    );
+    return normalizeTeamCapabilityBatchResult(result);
   }
 
   if (payload.operation === "set_member_non_admin_role") {

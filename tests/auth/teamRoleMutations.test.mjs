@@ -119,6 +119,35 @@ test("every operation delegates to its one hardened RPC", async () => {
       },
     ],
     [
+      "apply_team_role_capability_changes",
+      {
+        operation: "apply_team_role_capability_changes",
+        roleSnapshots: [
+          {
+            role_key: "custom_reviewers",
+            expected_row_version: 2,
+          },
+        ],
+        capabilitySnapshots: [
+          {
+            capability_key: flag.key,
+            expected_implementation_version:
+              flag.implementationVersion,
+            expected_definition_hash: flag.definitionHash,
+          },
+        ],
+        changes: [
+          {
+            role_key: "custom_reviewers",
+            capability_key: flag.key,
+            desired_granted: true,
+          },
+        ],
+        confirmationWord: "SAVE",
+        ...common,
+      },
+    ],
+    [
       "set_team_member_non_admin_role",
       {
         operation: "set_member_non_admin_role",
@@ -182,6 +211,23 @@ test("every operation delegates to its one hardened RPC", async () => {
             : null,
         ignoredDatabaseField: "must not reach the browser",
       };
+    } else if (
+      expectedName === "apply_team_role_capability_changes"
+    ) {
+      state.rpcData = {
+        operation: expectedName,
+        batchId: "223e4567-e89b-42d3-a456-426614174000",
+        replayed: false,
+        submittedCount: 1,
+        changedCount: 1,
+        noopCount: 0,
+        grantCount: 1,
+        revokeCount: 0,
+        affectedRoles: [
+          { roleKey: "custom_reviewers", rowVersion: 3 },
+        ],
+        ignoredDatabaseField: "must not reach the browser",
+      };
     } else {
       state.rpcData = { changed: true };
     }
@@ -209,6 +255,164 @@ test("every operation delegates to its one hardened RPC", async () => {
       );
     }
   }
+});
+
+test("the batch wrapper calls only the exact RPC parameters and normalizes replay results", async () => {
+  const flag = TEAM_CAPABILITY_REGISTRY["users.flag"];
+  const roleSnapshots = [
+    { role_key: "moderator", expected_row_version: 4 },
+  ];
+  const capabilitySnapshots = [
+    {
+      capability_key: flag.key,
+      expected_implementation_version: flag.implementationVersion,
+      expected_definition_hash: flag.definitionHash,
+    },
+  ];
+  const changes = [
+    {
+      role_key: "moderator",
+      capability_key: flag.key,
+      desired_granted: false,
+    },
+  ];
+  state.rpcData = {
+    operation: "apply_team_role_capability_changes",
+    batchId: "223e4567-e89b-42d3-a456-426614174000",
+    replayed: true,
+    submittedCount: 1,
+    changedCount: 1,
+    noopCount: 0,
+    grantCount: 0,
+    revokeCount: 1,
+    affectedRoles: [{ roleKey: "moderator", rowVersion: 5 }],
+    requestPayload: { actorDiscordUserId: "must-not-leak" },
+    ledgerRow: "must-not-leak",
+  };
+
+  const result = await executeTeamRoleMutation("owner", {
+    operation: "apply_team_role_capability_changes",
+    roleSnapshots,
+    capabilitySnapshots,
+    changes,
+    confirmationWord: "SAVE",
+    ...common,
+  });
+
+  assert.deepEqual(state.rpcCalls, [
+    {
+      name: "apply_team_role_capability_changes",
+      parameters: {
+        p_actor_discord_user_id: "owner",
+        p_role_snapshots: roleSnapshots,
+        p_capability_snapshots: capabilitySnapshots,
+        p_changes: changes,
+        p_reason: common.reason,
+        p_idempotency_key: common.idempotencyKey,
+      },
+    },
+  ]);
+  assert.deepEqual(result, {
+    operation: "apply_team_role_capability_changes",
+    batchId: "223e4567-e89b-42d3-a456-426614174000",
+    replayed: true,
+    submittedCount: 1,
+    changedCount: 1,
+    noopCount: 0,
+    grantCount: 0,
+    revokeCount: 1,
+    affectedRoles: [{ roleKey: "moderator", rowVersion: 5 }],
+  });
+});
+
+test("batch conflicts are specific and never expose database details", async () => {
+  const flag = TEAM_CAPABILITY_REGISTRY["users.flag"];
+  const payload = {
+    operation: "apply_team_role_capability_changes",
+    roleSnapshots: [
+      { role_key: "moderator", expected_row_version: 4 },
+    ],
+    capabilitySnapshots: [
+      {
+        capability_key: flag.key,
+        expected_implementation_version: flag.implementationVersion,
+        expected_definition_hash: flag.definitionHash,
+      },
+    ],
+    changes: [
+      {
+        role_key: "moderator",
+        capability_key: flag.key,
+        desired_granted: false,
+      },
+    ],
+    confirmationWord: "SAVE",
+    ...common,
+  };
+  const cases = [
+    ["TEAM_ROLE_VERSION_CONFLICT", 409],
+    ["CAPABILITY_IMPLEMENTATION_VERSION_CONFLICT", 409],
+    ["CAPABILITY_DEFINITION_CONFLICT", 409],
+    ["CAPABILITY_INACTIVE", 409],
+    ["CAPABILITY_NOT_ASSIGNABLE", 409],
+    ["TEAM_ROLE_INACTIVE", 409],
+    ["TEAM_AUTH_IDEMPOTENCY_CONFLICT", 409],
+    ["ACTOR_NOT_ADMIN", 403],
+    ["INVALID_CAPABILITY_BATCH_SHAPE", 400],
+  ];
+
+  for (const [databaseCode, status] of cases) {
+    state.rpcError = {
+      code: "P0001",
+      message: `${databaseCode} private_schema.secret_table constraint`,
+    };
+    await assert.rejects(
+      executeTeamRoleMutation("owner", payload),
+      (error) => {
+        assert.equal(error.status, status);
+        assert.doesNotMatch(
+          error.message,
+          /private_schema|secret_table|constraint/u,
+        );
+        return true;
+      },
+    );
+  }
+});
+
+test("batch registry drift fails closed without an RPC", async () => {
+  const flag = TEAM_CAPABILITY_REGISTRY["users.flag"];
+  await assert.rejects(
+    executeTeamRoleMutation("owner", {
+      operation: "apply_team_role_capability_changes",
+      roleSnapshots: [
+        { role_key: "moderator", expected_row_version: 4 },
+      ],
+      capabilitySnapshots: [
+        {
+          capability_key: flag.key,
+          expected_implementation_version:
+            flag.implementationVersion,
+          expected_definition_hash: "0".repeat(64),
+        },
+      ],
+      changes: [
+        {
+          role_key: "moderator",
+          capability_key: flag.key,
+          desired_granted: true,
+        },
+      ],
+      confirmationWord: "SAVE",
+      ...common,
+    }),
+    (error) => {
+      assert.equal(error.status, 503);
+      assert.equal(error.code, "CAPABILITY_REGISTRY_DRIFT");
+      return true;
+    },
+  );
+  assert.deepEqual(state.rpcCalls, []);
 });
 
 test("member mutation responses are reduced to the typed browser contract", async () => {

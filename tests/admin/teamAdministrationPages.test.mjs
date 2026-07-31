@@ -223,9 +223,10 @@ test("page-specific server read models avoid loading unrelated Team data", async
 });
 
 test("Roles & Permissions renders three compact responsive rows with active dynamic role controls", async () => {
-  const [page, ui, registry] = await Promise.all([
+  const [page, shell, ui, registry] = await Promise.all([
     source("app/admin/team/roles/page.tsx"),
     source("app/admin/team/roles/RolesPermissionsClient.tsx"),
+    source("app/admin/team/roles/CapabilityDraftWorkflow.tsx"),
     source("lib/auth/teamCapabilityRegistry.ts"),
   ]);
 
@@ -238,8 +239,9 @@ test("Roles & Permissions renders three compact responsive rows with active dyna
     ].filter((key) => registry.includes(`"${key}"`)).length,
     3
   );
-  assert.match(ui, /readModel\.capabilities\.map/);
-  assert.match(ui, /roles=\{readModel\.activeNonAdminRoles\}/);
+  assert.match(shell, /capabilities=\{readModel\.capabilities\}/);
+  assert.match(ui, /baseCapabilities\.map/);
+  assert.match(shell, /roles=\{readModel\.activeNonAdminRoles\}/);
   assert.match(ui, /<article[\s\S]*aria-labelledby=\{headingId\}/);
   assert.match(ui, /data-capability-layout/);
   assert.match(ui, /data-role-controls/);
@@ -264,7 +266,9 @@ test("Roles & Permissions renders three compact responsive rows with active dyna
   );
   assert.match(ui, /capability\.includedActions\.length > 0/);
   assert.match(ui, /capability\.excludedActions\.length > 0/);
-  assert.match(ui, /\{granted \? "Revoke" : "Grant"\}/);
+  assert.match(ui, /draftEntry\.desiredGranted/);
+  assert.match(ui, /\+ Grant/);
+  assert.match(ui, /− Revoke/);
 });
 
 test("single mutations show pending, refresh only after success, and keep errors in the dialog", async () => {
@@ -273,7 +277,7 @@ test("single mutations show pending, refresh only after success, and keep errors
   );
 
   assert.match(mutation, /setBusy\(true\)/);
-  assert.match(mutation, /\{busy \? "Applying…" : "Confirm change"\}/);
+  assert.match(mutation, /\{busy \? "Applying…" : confirmLabel\}/);
   const errorBranch = mutation.indexOf("if (!response.ok)");
   const confirmedSuccess = mutation.indexOf(
     "setSuccessMessage(",
@@ -289,7 +293,7 @@ test("single mutations show pending, refresh only after success, and keep errors
   assert.match(mutation, /response\.status === 404/);
   assert.doesNotMatch(
     mutation,
-    /Review changes|confirmationWord:\s*"SAVE"|batch/i
+    /operation:\s*"apply_team_role_capability_changes"|Review changes/i
   );
 });
 

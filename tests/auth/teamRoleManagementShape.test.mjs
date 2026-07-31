@@ -70,16 +70,17 @@ test("canonical and compatibility mutation routes are guarded and same-origin", 
   }
 });
 
-test("the production mutation adapter calls exactly the eight hardened RPCs", async () => {
+test("the production mutation adapter calls exactly the nine hardened RPCs", async () => {
   const adapter = await source("lib/auth/teamRoleMutations.ts");
   const rpcNames = [
     ...adapter.matchAll(
-      /callMutationRpc\("([a-z_]+)"/gu
+      /callMutationRpc\(\s*"([a-z_]+)"/gu
     ),
   ].map((match) => match[1]);
 
   assert.deepEqual(rpcNames.sort(), [
     "add_team_member",
+    "apply_team_role_capability_changes",
     "create_team_role",
     "remove_team_member",
     "set_team_member_admin_role",
@@ -144,15 +145,17 @@ test("foundation tables have no direct production mutation", async () => {
 });
 
 test("permission rows are semantic, responsive, data-driven, exclude Admin, and lock registry drift", async () => {
-  const [ui, page, model] = await Promise.all([
+  const [shell, ui, page, model] = await Promise.all([
     source("app/admin/team/roles/RolesPermissionsClient.tsx"),
+    source("app/admin/team/roles/CapabilityDraftWorkflow.tsx"),
     source("app/admin/team/roles/page.tsx"),
     source("lib/auth/teamRoleAdminReadModel.ts"),
   ]);
 
-  assert.match(ui, /readModel\.capabilities\.map/);
+  assert.match(shell, /capabilities=\{readModel\.capabilities\}/);
+  assert.match(ui, /baseCapabilities\.map/);
   assert.match(page, /REGISTERED_TEAM_CAPABILITY_KEYS\.map/);
-  assert.match(ui, /activeNonAdminRoles/);
+  assert.match(shell, /activeNonAdminRoles/);
   assert.match(ui, /data-capability-block/);
   assert.match(ui, /data-capability-layout/);
   assert.match(ui, /data-role-controls/);
@@ -160,8 +163,8 @@ test("permission rows are semantic, responsive, data-driven, exclude Admin, and 
   assert.match(ui, /aria-controls=\{detailsId\}/);
   assert.match(ui, /hidden=\{!detailsExpanded\}/);
   assert.match(ui, /capability\.mutable/);
-  assert.match(ui, /expectedCapabilityImplementationVersion/);
-  assert.match(ui, /expectedCapabilityDefinitionHash/);
+  assert.match(ui, /capability\.implementationVersion/);
+  assert.match(ui, /capability\.definitionHash/);
   assert.doesNotMatch(ui, /<table|Capability matrix|overflow-x-auto/);
   assert.doesNotMatch(
     ui,
@@ -174,12 +177,13 @@ test("permission rows are semantic, responsive, data-driven, exclude Admin, and 
 });
 
 test("the split UI has explicit confirmations, stable retries, owner separation, and no delete", async () => {
-  const [mutation, members, roles] = await Promise.all([
+  const [mutation, members, roles, workflow] = await Promise.all([
     source("app/admin/team/TeamRoleMutationClient.tsx"),
     source("app/admin/team/members/TeamMembersClient.tsx"),
     source("app/admin/team/roles/RolesPermissionsClient.tsx"),
+    source("app/admin/team/roles/CapabilityDraftWorkflow.tsx"),
   ]);
-  const ui = `${mutation}\n${members}\n${roles}`;
+  const ui = `${mutation}\n${members}\n${roles}\n${workflow}`;
 
   assert.match(ui, /<dialog/);
   assert.match(ui, /autoFocus/);

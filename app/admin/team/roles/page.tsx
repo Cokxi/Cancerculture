@@ -54,8 +54,8 @@ export default async function TeamRolesAdminPage() {
           Roles &amp; Permissions
         </h1>
         <p className="mt-2 max-w-3xl text-sm text-white/60">
-          Manage compact role metadata and one registered permission at a
-          time.
+          Draft permission differences locally, review the complete set, and
+          save the batch atomically.
         </p>
       </header>
       <RolesPermissionsClient readModel={readModel} />

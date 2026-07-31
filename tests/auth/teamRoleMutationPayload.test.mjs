@@ -278,3 +278,141 @@ test("wildcards, malformed idempotency keys, and actor input are rejected", () =
     );
   }
 });
+
+const validBatch = () => ({
+  operation: "apply_team_role_capability_changes",
+  roleSnapshots: [
+    { role_key: "moderator", expected_row_version: 4 },
+    { role_key: "custom_reviewers", expected_row_version: 7 },
+  ],
+  capabilitySnapshots: [
+    {
+      capability_key: "users.flag",
+      expected_implementation_version: 2,
+      expected_definition_hash: definitionHash,
+    },
+  ],
+  changes: [
+    {
+      role_key: "moderator",
+      capability_key: "users.flag",
+      desired_granted: false,
+    },
+    {
+      role_key: "custom_reviewers",
+      capability_key: "users.flag",
+      desired_granted: true,
+    },
+  ],
+  confirmationWord: "SAVE",
+  reason: " Atomic access review ",
+  idempotencyKey,
+});
+
+test("capability batches are trimmed, strictly shaped, and deterministically sorted", () => {
+  const parsed = parseTeamRoleMutationPayload(validBatch());
+  assert.deepEqual(parsed.roleSnapshots, [
+    { role_key: "custom_reviewers", expected_row_version: 7 },
+    { role_key: "moderator", expected_row_version: 4 },
+  ]);
+  assert.deepEqual(parsed.changes, [
+    {
+      role_key: "custom_reviewers",
+      capability_key: "users.flag",
+      desired_granted: true,
+    },
+    {
+      role_key: "moderator",
+      capability_key: "users.flag",
+      desired_granted: false,
+    },
+  ]);
+  assert.equal(parsed.reason, "Atomic access review");
+  assert.equal(parsed.confirmationWord, "SAVE");
+  assert.equal(Object.hasOwn(parsed, "actorDiscordUserId"), false);
+});
+
+test("capability batches reject extras, Admin, duplicates, snapshot mismatches, bad SAVE, and invalid limits", () => {
+  const cases = [
+    { ...validBatch(), actorDiscordUserId: "attacker" },
+    { ...validBatch(), confirmationWord: "save" },
+    { ...validBatch(), changes: [] },
+    {
+      ...validBatch(),
+      changes: Array.from({ length: 501 }, (_, index) => ({
+        role_key: `custom_role_${index}`,
+        capability_key: "users.flag",
+        desired_granted: true,
+      })),
+    },
+    {
+      ...validBatch(),
+      roleSnapshots: [
+        { role_key: "admin", expected_row_version: 1 },
+        { role_key: "moderator", expected_row_version: 4 },
+      ],
+      changes: [
+        ...validBatch().changes,
+        {
+          role_key: "admin",
+          capability_key: "users.flag",
+          desired_granted: true,
+        },
+      ],
+    },
+    {
+      ...validBatch(),
+      changes: [
+        validBatch().changes[0],
+        validBatch().changes[0],
+      ],
+      roleSnapshots: [
+        { role_key: "moderator", expected_row_version: 4 },
+      ],
+    },
+    {
+      ...validBatch(),
+      roleSnapshots: [
+        ...validBatch().roleSnapshots,
+        { role_key: "unused_role", expected_row_version: 1 },
+      ],
+    },
+    {
+      ...validBatch(),
+      capabilitySnapshots: [
+        ...validBatch().capabilitySnapshots,
+        {
+          capability_key: "users.directory.basic.view",
+          expected_implementation_version: 1,
+          expected_definition_hash: "b".repeat(64),
+        },
+      ],
+    },
+    {
+      ...validBatch(),
+      changes: [
+        {
+          ...validBatch().changes[0],
+          desired_granted: "true",
+        },
+        validBatch().changes[1],
+      ],
+    },
+    {
+      ...validBatch(),
+      capabilitySnapshots: [
+        {
+          ...validBatch().capabilitySnapshots[0],
+          unexpected: true,
+        },
+      ],
+    },
+  ];
+
+  for (const payload of cases) {
+    assert.throws(
+      () => parseTeamRoleMutationPayload(payload),
+      TeamRoleMutationPayloadError,
+    );
+  }
+});

@@ -17,12 +17,13 @@ export type MutationOperation = {
   warning?: string;
   successMessage: string;
   payload: Record<string, unknown>;
-  confirmationWord?: "ADMIN" | "ADD" | "REMOVE";
+  confirmationWord?: "ADMIN" | "ADD" | "REMOVE" | "SAVE";
   redirectOnSuccess?: string;
 };
 
 type MutationContextValue = {
   review: (operation: MutationOperation) => void;
+  mutationPending: boolean;
 };
 
 const MutationContext = createContext<MutationContextValue | null>(
@@ -66,18 +67,22 @@ export function Field({
   );
 }
 
-function MutationDialog({
+export function TeamMutationDialog({
   operation,
   busy,
   error,
   onCancel,
   onConfirm,
+  confirmLabel = "Confirm change",
+  confirmDisabled = false,
 }: {
   operation: MutationOperation;
   busy: boolean;
   error: string | null;
   onCancel: () => void;
   onConfirm: (reason: string, confirmationInput: string) => void;
+  confirmLabel?: string;
+  confirmDisabled?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [reason, setReason] = useState("");
@@ -91,6 +96,7 @@ function MutationDialog({
   }, []);
 
   const valid =
+    !confirmDisabled &&
     reason.trim().length >= 3 &&
     (!operation.confirmationWord ||
       confirmationInput === operation.confirmationWord);
@@ -142,7 +148,11 @@ function MutationDialog({
 
         <Field
           label="Reason"
-          hint="Required. Stored in the append-only authorization audit."
+          hint={
+            operation.confirmationWord === "SAVE"
+              ? "Required. Stored in the immutable authorization audit and batch ledger."
+              : "Required. Stored in the append-only authorization audit."
+          }
         >
           <textarea
             autoFocus
@@ -161,7 +171,9 @@ function MutationDialog({
             hint={
               operation.confirmationWord === "ADMIN"
                 ? "Owner access is independent from capability grants."
-                : "The confirmation applies only to this reviewed authorization change."
+                : operation.confirmationWord === "SAVE"
+                  ? "This applies the complete reviewed permission batch atomically."
+                  : "The confirmation applies only to this reviewed authorization change."
             }
           >
             <input
@@ -196,7 +208,7 @@ function MutationDialog({
             className={`${buttonClass} border-orange-400/60 bg-orange-500/15 text-orange-200`}
             disabled={busy || !valid}
           >
-            {busy ? "Applying…" : "Confirm change"}
+            {busy ? "Applying…" : confirmLabel}
           </button>
         </div>
       </form>
@@ -302,7 +314,9 @@ export default function TeamRoleMutationProvider({
   }
 
   return (
-    <MutationContext.Provider value={{ review }}>
+    <MutationContext.Provider
+      value={{ review, mutationPending: pending !== null }}
+    >
       {successMessage ? (
         <div
           role="status"
@@ -313,7 +327,7 @@ export default function TeamRoleMutationProvider({
       ) : null}
       {children}
       {pending ? (
-        <MutationDialog
+        <TeamMutationDialog
           key={idempotencyKey}
           operation={pending}
           busy={busy}
