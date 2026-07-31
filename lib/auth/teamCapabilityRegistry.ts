@@ -7,6 +7,9 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "submissions.voting_phase.disqualify",
   "submissions.voting_phase.reinstate",
   "users.flag",
+  "users.flag.create",
+  "users.flag.view",
+  "users.flag.review",
   "users.directory.basic.view",
 ] as const);
 
@@ -187,24 +190,87 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
   }),
   "users.flag": defineCapability({
     key: "users.flag",
-    displayName: "Flag Users",
-    description: "Internally flag a user for later review.",
+    displayName: "Flag Users (Legacy)",
+    description:
+      "Legacy combined user-flag permission retained only as a deprecated tombstone.",
+    category: "User Moderation",
+    includedActions: ["No active application actions."],
+    excludedActions: [
+      "Creating user flag cases.",
+      "Viewing flagged-user lists or history.",
+      "Reviewing or closing user flag cases.",
+      "Website bans or other sanctions.",
+    ],
+    riskLevel: "moderate",
+    lifecycle: "deprecated",
+    assignableToNonAdmin: false,
+    implementationVersion: 2,
+    definitionHash:
+      "4ec252dadafc8d9e149df225825f850fd90666e444fff4edaca43bd5d02b553c",
+  }),
+  "users.flag.create": defineCapability({
+    key: "users.flag.create",
+    displayName: "Create User Flag Cases",
+    description:
+      "Create a new auditable user flag case for a known user when no other open case exists.",
     category: "User Moderation",
     includedActions: [
-      "Internally mark a user for later review.",
+      "Create a new auditable user flag case for a known user.",
     ],
     excludedActions: [
-      "Read flag details for other users.",
-      "Review or resolve flags.",
-      "Manage website bans.",
-      "Apply any other sanction.",
+      "Viewing flagged-user lists or history.",
+      "Reviewing or closing flag cases.",
+      "Website bans or other sanctions.",
     ],
     riskLevel: "moderate",
     lifecycle: "active",
     assignableToNonAdmin: true,
     implementationVersion: 1,
     definitionHash:
-      "802eb6c05cdeb7721a068262675b740f3208609eb0355632da09f607f5ec676b",
+      "bf758cdf0fa93e88b27a40582916efbea56d5d25d708d02f9889ed3a3cbe5dbf",
+  }),
+  "users.flag.view": defineCapability({
+    key: "users.flag.view",
+    displayName: "View User Flag Cases",
+    description:
+      "View flagged-user lists, case details, and complete user flag history without changing case state.",
+    category: "User Moderation",
+    includedActions: [
+      "View flagged-user lists, case details, and complete user flag history.",
+    ],
+    excludedActions: [
+      "Creating flag cases.",
+      "Reviewing or closing flag cases.",
+      "Website bans or other sanctions.",
+    ],
+    riskLevel: "moderate",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "8cbde5054432fc6630bbec66c68ce98393f6c37744eb8452b28ea67dfdbc431c",
+  }),
+  "users.flag.review": defineCapability({
+    key: "users.flag.review",
+    displayName: "Review User Flag Cases",
+    description:
+      "Load a specifically addressed user flag case and resolve or dismiss it without general list access.",
+    category: "User Moderation",
+    includedActions: [
+      "Load and review a specifically addressed user flag case.",
+      "Resolve or dismiss an open user flag case.",
+    ],
+    excludedActions: [
+      "General flagged-user lists or free history searches.",
+      "Creating flag cases.",
+      "Website bans or other sanctions.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "d43a7db86453e3432b04b65bad4cb7b01555c77f18cd4c26bd58a626d5508dbe",
   }),
   "users.directory.basic.view": defineCapability({
     key: "users.directory.basic.view",

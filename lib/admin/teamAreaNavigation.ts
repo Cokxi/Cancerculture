@@ -56,8 +56,16 @@ const submissionReinstatement = Object.freeze({
   ] as const),
 } as const);
 const basicUserDirectory = Object.freeze({
+  type: "anyCapability",
+  capabilities: Object.freeze([
+    "users.directory.basic.view",
+    "users.flag.create",
+    "users.flag.view",
+  ] as const),
+} as const);
+const userFlagView = Object.freeze({
   type: "capability",
-  capability: "users.directory.basic.view",
+  capability: "users.flag.view",
 } as const);
 
 function item(
@@ -132,7 +140,7 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/flags",
           categoryId: "moderation",
           description: "Review users flagged for follow-up.",
-          requirement: adminOnly,
+          requirement: userFlagView,
           implemented: true,
         }),
         item({

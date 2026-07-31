@@ -50,13 +50,13 @@ function resolve(roleKey, overrides = {}) {
 }
 
 for (const roleKey of nonAdminRoles) {
-  test(`${roleKey} matches both remaining connected static capabilities`, () => {
+test(`${roleKey} matches the remaining connected static capability`, () => {
     const shadow = compareTeamAuthorizationShadow(
       resolve(roleKey)
     );
 
     assert.equal(shadow.isMatch, true);
-    assert.equal(shadow.comparisons.length, 2);
+    assert.equal(shadow.comparisons.length, 1);
     assert.equal(
       shadow.comparisons.every(
         (comparison) =>
@@ -94,7 +94,7 @@ test("a missing grant produces one structured mismatch", () => {
         (grant) =>
           !(
             grant.roleKey === "moderator" &&
-            grant.capabilityKey === "users.flag"
+            grant.capabilityKey === "users.directory.basic.view"
           )
       ),
     })
@@ -104,7 +104,7 @@ test("a missing grant produces one structured mismatch", () => {
   assert.deepEqual(shadow.mismatches, [
     {
       roleKey: "moderator",
-      capabilityKey: "users.flag",
+      capabilityKey: "users.directory.basic.view",
       staticValue: true,
       dynamicValue: false,
       reasonCode: "grant_missing",
@@ -118,7 +118,7 @@ test("definition drift produces an explicit affected-capability mismatch", () =>
   const shadow = compareTeamAuthorizationShadow(
     resolve("super_moderator", {
       catalog: catalog.map((entry) =>
-        entry.key === "users.flag"
+        entry.key === "users.directory.basic.view"
           ? { ...entry, definitionHash: "0".repeat(64) }
           : entry
       ),
@@ -164,7 +164,7 @@ test("an unknown role fails closed even when both value sets are false", () => {
 
   assert.equal(shadow.isMatch, false);
   assert.equal(shadow.dynamicStatus, "unknown_role");
-  assert.equal(shadow.mismatches.length, 2);
+  assert.equal(shadow.mismatches.length, 1);
   assert.equal(
     shadow.mismatches.every(
       (mismatch) =>
@@ -181,7 +181,7 @@ test("granular moderation capabilities remain absent from the static shadow cont
     CONNECTED_TEAM_CAPABILITY_SHADOW_MAP.map(
       (entry) => entry.capabilityKey
     ),
-    ["users.flag", "users.directory.basic.view"]
+    ["users.directory.basic.view"]
   );
 
   const serialized = JSON.stringify(

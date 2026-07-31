@@ -5,14 +5,16 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import { getUserDirectoryQuery } from "@/lib/admin/userDirectoryAccess";
+import { listUserFlagCases } from "@/lib/admin/userFlagCases";
 import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
 import {
+  getTeamAuthorizationContext,
   hasResolvedTeamCapability,
-  requireDynamicTeamCapability,
   type TeamAuthorizationContext,
 } from "@/lib/auth/teamAuthorization";
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
+import UserFlagCaseCreateForm from "./UserFlagCaseCreateForm";
 
 
 type UserLog = {
@@ -25,18 +27,6 @@ type UserLog = {
   known_discord_usernames?: string[] | null;
   username_change_count?: number;
   submission_count?: number;
-
-  
-  flagged_for_review: boolean;
-  flag_reason_code?: string | null;
-  flag_note?: string | null;
-  flagged_at?: string | null;
-  flagged_by_discord_username?: string | null;
-
-  
-  unflag_reason?: string | null;
-  unflagged_by_discord_username?: string | null;
-  unflagged_at?: string | null;
 
   
   is_banned?: boolean;
@@ -62,9 +52,7 @@ export default async function AdminUsersPage({
   let authorization: TeamAuthorizationContext;
 
   try {
-    authorization = await requireDynamicTeamCapability(
-      "users.directory.basic.view"
-    );
+    authorization = await getTeamAuthorizationContext();
   } catch (error) {
     const destination = getTeamPageAccessRedirect(error);
 
@@ -75,20 +63,55 @@ export default async function AdminUsersPage({
     throw error;
   }
 
-  const directoryQuery = getUserDirectoryQuery(
-    authorization.isAdmin
-  );
-  const isAdmin = directoryQuery.isAdminView;
-  const canFlagUsers = hasResolvedTeamCapability(
+  const canViewDirectory = hasResolvedTeamCapability(
     authorization,
-    "users.flag"
+    "users.directory.basic.view"
   );
+  const canCreateFlags = hasResolvedTeamCapability(
+    authorization,
+    "users.flag.create"
+  );
+  const canViewFlags = hasResolvedTeamCapability(
+    authorization,
+    "users.flag.view"
+  );
+
+  if (!canViewDirectory && !canCreateFlags && !canViewFlags) {
+    redirect("/403");
+  }
+
+  if (!canViewDirectory) {
+    return (
+      <div style={{ padding: 24 }}>
+        <h1>User flag access</h1>
+        {canCreateFlags ? <UserFlagCaseCreateForm /> : null}
+        {canViewFlags ? (
+          <p style={{ marginTop: 16 }}>
+            <Link href="/admin/flags">Open user flag cases and history</Link>
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  const directoryQuery = getUserDirectoryQuery(authorization.isAdmin);
+  const isAdmin = directoryQuery.isAdminView;
   const { data: users, error } = await supabaseAdmin
     .from(directoryQuery.relation)
     .select(directoryQuery.select)
     .order(directoryQuery.orderBy, { ascending: false });
 
   const typedUsers = (users ?? []) as unknown as UserLog[];
+  const flagCases = canViewFlags ? await listUserFlagCases() : [];
+  const flagCasesByUser = new Map<string, typeof flagCases>();
+
+  for (const flagCase of flagCases) {
+    const existing = flagCasesByUser.get(flagCase.discordUserId) ?? [];
+    flagCasesByUser.set(
+      flagCase.discordUserId,
+      Object.freeze([...existing, flagCase])
+    );
+  }
   const filteredUsers =
     query === ""
       ? typedUsers
@@ -243,34 +266,30 @@ export default async function AdminUsersPage({
   )}
 
   
-  {user.flagged_for_review && (
-    <div
-      style={{
-        marginTop: 6,
-        fontSize: 12,
-        background: "#181818",
-        border: "1px solid #333",
-        borderRadius: 4,
-        padding: "6px 8px",
-        color: "#ff9800",
-      }}
-    >
-      <strong>FLAGGED</strong>
-
-      {isAdmin && user.flag_reason_code && (
-        <div>
-          Reason:{" "}
-          {user.flag_reason_code.replaceAll("_", " ")}
+  {canViewFlags && (flagCasesByUser.get(user.discord_user_id)?.length ?? 0) > 0 ? (
+    <details style={{ marginTop: 6, fontSize: 12 }}>
+      <summary>User flag history</summary>
+      {(flagCasesByUser.get(user.discord_user_id) ?? []).map((flagCase) => (
+        <div
+          key={flagCase.caseId}
+          style={{
+            marginTop: 6,
+            border: "1px solid #333",
+            borderRadius: 4,
+            padding: "6px 8px",
+          }}
+        >
+          <Link href={`/admin/flags/${flagCase.caseId}`}>
+            {flagCase.status} · {flagCase.category ?? "legacy category unavailable"}
+          </Link>
+          <div>{flagCase.reason ?? "Legacy reason unavailable"}</div>
+          <div style={{ opacity: 0.7 }}>
+            {flagCase.events.length} history event(s)
+          </div>
         </div>
-      )}
-
-      {isAdmin && user.flag_note && (
-        <div style={{ opacity: 0.8 }}>
-          {user.flag_note}
-        </div>
-      )}
-    </div>
-  )}
+      ))}
+    </details>
+  ) : null}
 
   
 {isAdmin && user.is_banned && user.ban_reason && (
@@ -294,38 +313,12 @@ export default async function AdminUsersPage({
 
 
   
-  {isAdmin && !user.flagged_for_review && user.unflag_reason && (
-    <div
-      style={{
-        marginTop: 6,
-        fontSize: 12,
-        background: "#141414",
-        border: "1px solid #2f2f2f",
-        borderRadius: 4,
-        padding: "6px 8px",
-        color: "#8bc34a",
-      }}
-    >
-      <strong>Reviewed</strong>
-
-      <div style={{ marginTop: 2 }}>
-        {user.unflag_reason}
-      </div>
-
-      <div style={{ marginTop: 2, opacity: 0.7 }}>
-        by {user.unflagged_by_discord_username}{" "}
-        {user.unflagged_at &&
-          `(${new Date(user.unflagged_at).toLocaleString()})`}
-      </div>
-    </div>
-  )}
   <UserModerationActions
-  discordUserId={user.discord_user_id}
-  isFlagged={user.flagged_for_review}
-  isBanned={Boolean(user.is_banned)}
-  canFlagUsers={canFlagUsers}
-  isAdmin={isAdmin}
-/>
+    discordUserId={user.discord_user_id}
+    isBanned={Boolean(user.is_banned)}
+    canCreateFlags={canCreateFlags}
+    isAdmin={isAdmin}
+  />
 
 </td>
 

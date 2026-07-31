@@ -68,7 +68,7 @@ test("admin resolves as the hard owner without capability grants", () => {
 });
 
 for (const roleKey of nonAdminRoles) {
-  test(`${roleKey} resolves exactly all seven active capabilities`, () => {
+  test(`${roleKey} resolves exactly all eight active capabilities`, () => {
     const resolved = resolveDynamicTeamAuthorizationSnapshot(
       snapshot(roleKey)
     );
@@ -143,7 +143,7 @@ test("an inactive role receives no capabilities", () => {
 });
 
 test("a missing grant denies exactly that capability without static fallback", () => {
-  const deniedKey = "users.flag";
+  const deniedKey = "users.flag.create";
   const resolved = resolveDynamicTeamAuthorizationSnapshot(
     snapshot("moderator", {
       grants: grants.filter(
@@ -200,7 +200,7 @@ for (const [name, property, value, code] of [
     const resolved = resolveDynamicTeamAuthorizationSnapshot(
       snapshot("trial_moderator", {
         catalog: catalog.map((entry) =>
-          entry.key === "users.flag"
+          entry.key === "users.flag.create"
             ? { ...entry, [property]: value }
             : entry
         ),
@@ -208,14 +208,14 @@ for (const [name, property, value, code] of [
     );
 
     assert.equal(
-      resolved.resolvedCapabilities.includes("users.flag"),
+      resolved.resolvedCapabilities.includes("users.flag.create"),
       false
     );
     assert.equal(
       resolved.diagnostics.some(
         (entry) =>
           entry.code === code &&
-          entry.capabilityKey === "users.flag"
+          entry.capabilityKey === "users.flag.create"
       ),
       true
     );
@@ -366,14 +366,14 @@ test("a missing catalog entry is denied and reported as drift", () => {
   const resolved = resolveDynamicTeamAuthorizationSnapshot(
     snapshot("moderator", {
       catalog: catalog.filter(
-        (entry) => entry.key !== "users.flag"
+        (entry) => entry.key !== "users.flag.create"
       ),
     })
   );
 
   assert.equal(resolved.status, "registry_drift");
   assert.equal(
-    resolved.resolvedCapabilities.includes("users.flag"),
+    resolved.resolvedCapabilities.includes("users.flag.create"),
     false
   );
   assert.equal(
@@ -402,7 +402,7 @@ for (const [name, property, value, code] of [
     const resolved = resolveDynamicTeamAuthorizationSnapshot(
       snapshot("super_moderator", {
         catalog: catalog.map((entry) =>
-          entry.key === "users.flag"
+          entry.key === "users.flag.create"
             ? { ...entry, [property]: value }
             : entry
         ),
@@ -411,7 +411,7 @@ for (const [name, property, value, code] of [
 
     assert.equal(resolved.status, "registry_drift");
     assert.equal(
-      resolved.resolvedCapabilities.includes("users.flag"),
+      resolved.resolvedCapabilities.includes("users.flag.create"),
       false
     );
     assert.equal(

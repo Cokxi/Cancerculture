@@ -136,9 +136,8 @@ export default async function AdminBannedUsersPage() {
                   <div style={{ marginTop: 6 }}>
                     <UserModerationActions
                       discordUserId={user.discord_user_id}
-                      isFlagged={false}
                       isBanned={true}
-                      canFlagUsers
+                      canCreateFlags={false}
                       isAdmin
                     />
                   </div>

@@ -212,7 +212,7 @@ test("the legacy moderation capability and every security boundary stay unchange
   );
 });
 
-test("the immutable staged definitions remain the exact predecessor of the active registry", () => {
+test("the immutable staged definitions remain predecessors within the later flag registry", () => {
   for (const definition of definitions) {
     const registered = TEAM_CAPABILITY_REGISTRY[definition.key];
     assert.ok(registered);
@@ -250,10 +250,10 @@ test("the immutable staged definitions remain the exact predecessor of the activ
   assert.ok(registeredKeysBlock);
   assert.equal(
     [...registeredKeysBlock.matchAll(/"[a-z][a-z0-9_.]+"/gu)].length,
-    7
+    10
   );
-  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 7);
-  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 6);
+  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 10);
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 8);
   assert.match(
     registry,
     /submissions\.submission_phase\.moderate[\s\S]*7d62383086022588673bb5c6cc7156851f99a7815d6f305d72bbfa2e0064789b/u

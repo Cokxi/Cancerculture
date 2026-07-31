@@ -19,6 +19,9 @@ const expectedKeys = [
   "submissions.submission_phase.moderate",
   ...activatedKeys,
   "users.flag",
+  "users.flag.create",
+  "users.flag.view",
+  "users.flag.review",
   "users.directory.basic.view",
 ];
 
@@ -38,7 +41,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains seven known and six active capability keys", () => {
+test("the server registry contains ten known and eight active capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -51,7 +54,11 @@ test("the server registry contains seven known and six active capability keys", 
   assert.deepEqual(
     [...ACTIVE_TEAM_CAPABILITY_KEYS],
     expectedKeys.filter(
-      (key) => key !== "submissions.submission_phase.moderate"
+      (key) =>
+        ![
+          "submissions.submission_phase.moderate",
+          "users.flag",
+        ].includes(key)
     )
   );
   assert.deepEqual(
@@ -60,7 +67,7 @@ test("the server registry contains seven known and six active capability keys", 
     ),
     []
   );
-  assert.equal(expectedKeys.includes("users.flag.create"), false);
+  assert.equal(expectedKeys.includes("users.flag.create"), true);
   assert.equal(expectedKeys.includes("votes.refund_disqualified"), false);
 });
 
@@ -77,7 +84,13 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "submissions.voting_phase.reinstate":
       "4e4f1d199d4eb008d768676796bcf8ec34c2472c90d323fecbf7b247d7a36fe0",
     "users.flag":
-      "802eb6c05cdeb7721a068262675b740f3208609eb0355632da09f607f5ec676b",
+      "4ec252dadafc8d9e149df225825f850fd90666e444fff4edaca43bd5d02b553c",
+    "users.flag.create":
+      "bf758cdf0fa93e88b27a40582916efbea56d5d25d708d02f9889ed3a3cbe5dbf",
+    "users.flag.view":
+      "8cbde5054432fc6630bbec66c68ce98393f6c37744eb8452b28ea67dfdbc431c",
+    "users.flag.review":
+      "d43a7db86453e3432b04b65bad4cb7b01555c77f18cd4c26bd58a626d5508dbe",
     "users.directory.basic.view":
       "5d0d0ab97601631a43f7ba87ba04d0007bf6534449774ac859f838e370cede48",
   };
@@ -97,7 +110,10 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     assert.ok(definition.category.length > 0);
     assert.ok(definition.includedActions.length > 0);
     assert.ok(definition.excludedActions.length > 0);
-    const deprecated = key === "submissions.submission_phase.moderate";
+    const deprecated = [
+      "submissions.submission_phase.moderate",
+      "users.flag",
+    ].includes(key);
     const versionTwo = deprecated || activatedKeys.includes(key);
     assert.equal(definition.assignableToNonAdmin, !deprecated);
     assert.equal(definition.lifecycle, deprecated ? "deprecated" : "active");

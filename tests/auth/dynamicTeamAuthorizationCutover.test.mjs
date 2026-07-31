@@ -62,7 +62,9 @@ test.beforeEach(() => {
   state.sessionError = null;
   state.result = resolved("trial_moderator", [
     "submissions.submission_phase.moderate",
-    "users.flag",
+    "users.flag.create",
+    "users.flag.view",
+    "users.flag.review",
     "users.directory.basic.view",
   ]);
 });
@@ -76,7 +78,9 @@ test("admin is a hard owner for every registered capability without grants", asy
 
   for (const capabilityKey of [
     "submissions.submission_phase.moderate",
-    "users.flag",
+    "users.flag.create",
+    "users.flag.view",
+    "users.flag.review",
     "users.directory.basic.view",
   ]) {
     assert.equal(
@@ -97,9 +101,9 @@ test("seed and future active non-admin roles are authorized only by explicit gra
     "super_moderator",
     "future_custom_role",
   ]) {
-    state.result = resolved(roleKey, ["users.flag"]);
+    state.result = resolved(roleKey, ["users.flag.create"]);
 
-    const context = await requireDynamicTeamCapability("users.flag");
+    const context = await requireDynamicTeamCapability("users.flag.create");
     assert.equal(context.role, roleKey);
     assert.equal(context.isAdmin, false);
     assert.equal(

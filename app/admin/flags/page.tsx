@@ -1,187 +1,89 @@
 export const dynamic = "force-dynamic";
 
-import { getFlaggedUsersWithStats } from "@/lib/admin/getUserLogsWithStats";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth/guards";
-import { supabaseAdmin } from "@/lib/db/admin";
-import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
+import { listUserFlagCases } from "@/lib/admin/userFlagCases";
+import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
+import {
+  hasResolvedTeamCapability,
+  requireDynamicTeamCapability,
+} from "@/lib/auth/teamAuthorization";
 
-import UserModerationActions from "../users/UserModerationActions";
-import UserSubmissionsDropdown from "../users/UserSubmissionsDropdown";
+function formatTime(value: string | null) {
+  return value ? new Date(value).toLocaleString() : "Legacy time unavailable";
+}
 
-type FlaggedUser = {
-  discord_user_id: string;
-  current_discord_username: string | null;
-  current_discord_handle?: string | null;
-  current_display_name?: string | null;
-  current_guild_nickname?: string | null;
-
-  flagged_for_review: boolean;
-  is_banned: boolean;
-
-  flag_reason_code: string | null;
-  flag_note: string | null;
-  flagged_at: string | null;
-  flagged_by_discord_username: string | null;
-
-  submission_count: number;
-};
+async function loadFlagCasesPage() {
+  try {
+    const authorization = await requireDynamicTeamCapability(
+      "users.flag.view"
+    );
+    const canReview = hasResolvedTeamCapability(
+      authorization,
+      "users.flag.review"
+    );
+    const cases = await listUserFlagCases();
+    return { canReview, cases };
+  } catch (error) {
+    const destination = getTeamPageAccessRedirect(error);
+    if (destination) redirect(destination);
+    throw error;
+  }
+}
 
 export default async function AdminFlaggedUsersPage() {
-  
-  try {
-    await requireAdmin();
-  } catch {
-    redirect("/403");
-  }
-
-  const { data: users, error } = await getFlaggedUsersWithStats();
-
-  if (error) {
-    console.error("FLAGGED USERS VIEW ERROR", error);
-    return <div style={{ padding: 24 }}>Failed to load flagged users</div>;
-  }
-
-  const discordUserIds = (users ?? []).map(
-    (user: FlaggedUser) => user.discord_user_id
-  );
-  const { data: userNames } =
-    discordUserIds.length > 0
-      ? await supabaseAdmin
-          .from("user_logs")
-          .select(
-            "discord_user_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
-          )
-          .in("discord_user_id", discordUserIds)
-      : { data: [] };
-  const userLabelByDiscordUserId = new Map(
-    (userNames ?? []).map((user) => [
-      user.discord_user_id,
-      formatDiscordUserLabel(user),
-    ])
-  );
+  const { canReview, cases } = await loadFlagCasesPage();
 
   return (
     <div style={{ padding: 24 }}>
-      <h1>Admin – Flagged Users</h1>
-
-      {!users || users.length === 0 ? (
-        <p style={{ marginTop: 16, opacity: 0.7 }}>
-          No flagged users 🎉
-        </p>
+      <h1>User flag cases</h1>
+      <p style={{ marginTop: 8, opacity: 0.75 }}>
+        Read-only case list and append-only history.
+      </p>
+      {cases.length === 0 ? (
+        <p style={{ marginTop: 16 }}>No user flag cases.</p>
       ) : (
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginTop: 16,
-          }}
-        >
-          <thead>
-            <tr>
-              <th align="left">User</th>
-              <th align="left">Reason</th>
-              <th align="left">Context</th>
-              <th align="left">Stats</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {users.map((user: FlaggedUser) => (
-              <tr
-                key={user.discord_user_id}
-                style={{
-                  borderTop: "1px solid #333",
-                  verticalAlign: "top",
-                }}
-              >
-                
-                <td style={{ padding: "8px 0" }}>
-                  <strong>
-                    {userLabelByDiscordUserId.get(
-                      user.discord_user_id
-                    ) ?? formatDiscordUserLabel(user)}
-                  </strong>
-
-                  <div
-                    style={{
-                      fontSize: 12,
-                      opacity: 0.7,
-                      marginTop: 2,
-                    }}
-                  >
-                    {user.discord_user_id}
-                  </div>
-
-                  
-                  <div style={{ marginTop: 6 }}>
-                    <UserModerationActions
-                      discordUserId={user.discord_user_id}
-                      isFlagged={user.flagged_for_review}
-                      isBanned={user.is_banned}
-                      canFlagUsers
-                      isAdmin
-                    />
-                  </div>
-
-                  
-                  <div style={{ marginTop: 6 }}>
-                    <UserSubmissionsDropdown
-                      discordUserId={user.discord_user_id}
-                    />
-                  </div>
-                </td>
-
-                
-<td style={{ padding: "8px 0", fontSize: 12 }}>
-  {user.flag_reason_code ? (
-    <div>
-      <strong style={{ color: "#ff9800" }}>
-        {user.flag_reason_code.replaceAll("_", " ")}
-      </strong>
-    </div>
-  ) : (
-    <div style={{ opacity: 0.6 }}>—</div>
-  )}
-
-  {user.flag_note && (
-    <div style={{ marginTop: 4, opacity: 0.85 }}>
-      {user.flag_note}
-    </div>
-  )}
-</td>
-
-
-                
-                <td
-                  style={{
-                    padding: "8px 0",
-                    fontSize: 12,
-                    opacity: 0.8,
-                  }}
-                >
-                  <div>
-                    Flagged by:{" "}
-                    <strong>
-                      {user.flagged_by_discord_username ?? "—"}
-                    </strong>
-                  </div>
-
-                  <div style={{ marginTop: 2 }}>
-                    {user.flagged_at &&
-                      new Date(user.flagged_at).toLocaleString()}
-                  </div>
-                </td>
-
-                
-                <td style={{ padding: "8px 0", fontSize: 12 }}>
-                  Submissions:{" "}
-                  <strong>{user.submission_count}</strong>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+          {cases.map((flagCase) => (
+            <article
+              key={flagCase.caseId}
+              style={{ border: "1px solid #333", borderRadius: 6, padding: 12 }}
+            >
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <strong>{flagCase.userDisplayName}</strong>
+                <span>{flagCase.status}</span>
+                <span>{flagCase.category ?? "legacy category unavailable"}</span>
+                <span>Version {flagCase.rowVersion}</span>
+              </div>
+              <p style={{ marginTop: 8 }}>
+                {flagCase.reason ?? "Legacy reason unavailable"}
+              </p>
+              {flagCase.comment ? <p>{flagCase.comment}</p> : null}
+              <p style={{ marginTop: 8, fontSize: 12, opacity: 0.75 }}>
+                Created: {formatTime(flagCase.createdAt)}
+              </p>
+              <details style={{ marginTop: 8 }}>
+                <summary>History ({flagCase.events.length})</summary>
+                <ol>
+                  {flagCase.events.map((event) => (
+                    <li key={event.eventId} style={{ marginTop: 6 }}>
+                      {event.eventType}: {event.previousStatus ?? "none"} -&gt;{" "}
+                      {event.newStatus} - {formatTime(event.occurredAt)}
+                      {event.reason ? ` - ${event.reason}` : ""}
+                    </li>
+                  ))}
+                </ol>
+              </details>
+              <div style={{ marginTop: 10 }}>
+                <Link href={`/admin/flags/${flagCase.caseId}`}>
+                  {canReview && flagCase.status === "open"
+                    ? "Open review"
+                    : "Open case details"}
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
       )}
     </div>
   );

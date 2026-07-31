@@ -5,7 +5,6 @@ export const BASIC_USER_DIRECTORY_SELECT = [
   "current_discord_handle",
   "current_display_name",
   "current_guild_nickname",
-  "flagged_for_review",
 ].join(", ");
 
 export type UserDirectoryQuery = {

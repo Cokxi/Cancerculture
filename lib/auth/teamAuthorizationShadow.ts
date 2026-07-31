@@ -20,10 +20,6 @@ export type ConnectedTeamCapabilityShadowMapping =
 export const CONNECTED_TEAM_CAPABILITY_SHADOW_MAP: readonly ConnectedTeamCapabilityShadowMapping[] =
   Object.freeze([
     Object.freeze({
-      capabilityKey: "users.flag",
-      staticCapability: "canFlagUsers",
-    }),
-    Object.freeze({
       capabilityKey: "users.directory.basic.view",
       staticCapability: "canViewBasicUserDirectory",
     }),

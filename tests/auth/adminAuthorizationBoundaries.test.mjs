@@ -79,7 +79,6 @@ test("rules and social administration are server-side admin-only", async () => {
 test("admin pages and owner actions keep explicit server guards", async () => {
   for (const file of [
     "app/admin/cycles/page.tsx",
-    "app/admin/flags/page.tsx",
     "app/admin/bans/page.tsx",
     "app/admin/mods/page.tsx",
     "app/admin/team/roles/page.tsx",
@@ -98,7 +97,6 @@ test("admin pages and owner actions keep explicit server guards", async () => {
   }
 
   for (const file of [
-    "app/admin/actions/unflagUser.ts",
     "app/admin/actions/banUser.ts",
     "app/admin/actions/unbanUser.ts",
     "app/admin/actions/updateRulesVersion.ts",
@@ -139,41 +137,47 @@ test("submission moderation uses only the exact phase and operation capability g
   );
 });
 
-test("flagging and unflagging have distinct server capabilities", async () => {
-  const [flag, unflag] = await Promise.all([
+test("flag cases use distinct create, view, and review capabilities", async () => {
+  const [flag, review, model, listPage, detailPage] = await Promise.all([
     source("app/admin/actions/flagUser.ts"),
-    source("app/admin/actions/unflagUser.ts"),
+    source("app/admin/actions/reviewUserFlagCase.ts"),
+    source("lib/admin/userFlagCases.ts"),
+    source("app/admin/flags/page.tsx"),
+    source("app/admin/flags/[caseId]/page.tsx"),
   ]);
 
-  assert.match(
-    flag,
-    /requireDynamicTeamCapability\("users\.flag"\)/
-  );
-  assert.doesNotMatch(flag, /requireAdmin\(\)/);
-  assert.match(unflag, /requireAdmin\(\)/);
+  assert.match(flag, /createUserFlagCase\(params\)/);
+  assert.match(review, /reviewCase\(params\)/);
+  assert.match(model, /"users\.flag\.create"/);
+  assert.match(model, /"users\.flag\.view"/);
+  assert.match(model, /"users\.flag\.review"/);
+  assert.match(model, /\.rpc\(\s*"create_user_flag_case"/);
+  assert.match(model, /\.rpc\(\s*"list_user_flag_cases"/);
+  assert.match(model, /\.rpc\(\s*"get_user_flag_case"/);
+  assert.match(model, /\.rpc\(\s*"review_user_flag_case"/);
+  assert.doesNotMatch(`${flag}\n${review}\n${model}`, /\.from\("user_flag_/);
+  assert.match(listPage, /"users\.flag\.view"/);
+  assert.match(detailPage, /"users\.flag\.review"/);
 });
 
-test("user page and API share the minimal-directory capability and projection", async () => {
+test("user page composes narrow rights while the API keeps the minimal-directory projection", async () => {
   const [page, route] = await Promise.all([
     source("app/admin/users/page.tsx"),
     source("app/api/admin/user-logs/route.ts"),
   ]);
 
+  assert.match(page, /getTeamAuthorizationContext\(\)/);
+  assert.match(page, /"users\.directory\.basic\.view"/);
+  assert.match(page, /"users\.flag\.create"/);
+  assert.match(page, /"users\.flag\.view"/);
+  assert.match(route, /requireDynamicTeamCapability\(\s*"users\.directory\.basic\.view"/);
   for (const contents of [page, route]) {
-    assert.match(
-      contents,
-      /requireDynamicTeamCapability\(\s*"users\.directory\.basic\.view"/
-    );
-    assert.match(
-      contents,
-      /getUserDirectoryQuery\(\s*authorization\.isAdmin/
-    );
+    assert.match(contents, /getUserDirectoryQuery\(\s*authorization\.isAdmin/);
   }
 
-  assert.match(page, /isAdmin && user\.flag_reason_code/);
   assert.match(page, /isAdmin && user\.is_banned/);
-  assert.match(page, /\{isAdmin && user\.flag_reason_code/);
   assert.match(page, /\{isAdmin \? <th align="left">Stats/);
+  assert.doesNotMatch(`${page}\n${route}`, /flagged_for_review|flag_reason_code|flagged_by_discord_user_id/);
   assert.match(
     route,
     /directoryQuery\.isAdminView[\s\S]*display_name: formatDiscordUserLabel\(user\)/

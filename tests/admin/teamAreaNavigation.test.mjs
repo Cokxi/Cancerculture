@@ -88,7 +88,7 @@ test("admin remains a hard role requirement rather than a capability grant", () 
         role: "moderator",
         capabilities: [
           "submissions.submission_phase.disqualify",
-          "users.flag",
+          "users.flag.create",
           "users.directory.basic.view",
         ],
       }),
@@ -107,11 +107,11 @@ test("admin remains a hard role requirement rather than a capability grant", () 
 test("any-capability requirements resolve without static fallback", () => {
   const requirement = {
     type: "anyCapability",
-    capabilities: ["users.flag", "users.directory.basic.view"],
+    capabilities: ["users.flag.create", "users.directory.basic.view"],
   };
   assert.equal(
     meetsTeamAreaRequirement(
-      context({ capabilities: ["users.flag"] }),
+      context({ capabilities: ["users.flag.create"] }),
       requirement
     ),
     true
@@ -248,7 +248,11 @@ test("phase-aware direct page guards remain in place", async () => {
   assert.match(disqualified, /requireDisqualifiedSubmissionsPage/);
   assert.match(
     users,
-    /requireDynamicTeamCapability\(\s*"users\.directory\.basic\.view"/
+    /getTeamAuthorizationContext\(\)/
   );
+  assert.match(users, /hasResolvedTeamCapability/);
+  assert.match(users, /"users\.directory\.basic\.view"/);
+  assert.match(users, /"users\.flag\.create"/);
+  assert.match(users, /"users\.flag\.view"/);
   assert.match(legal, /requireAdminPage/);
 });

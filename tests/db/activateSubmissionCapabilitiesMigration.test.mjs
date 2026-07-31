@@ -160,9 +160,9 @@ test("security, audit, ledger and mutation surfaces remain unchanged", () => {
   );
 });
 
-test("the registry preserves seven known definitions after the later tombstone", () => {
-  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 7);
-  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 6);
+test("the registry preserves ten known definitions after the later flag cutover", () => {
+  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 10);
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 8);
   assert.equal(
     Object.values(TEAM_CAPABILITY_REGISTRY).some(
       (definition) => definition.lifecycle === "staged"
@@ -180,7 +180,7 @@ test("the registry preserves seven known definitions after the later tombstone",
     ],
     [
       "7d62383086022588673bb5c6cc7156851f99a7815d6f305d72bbfa2e0064789b",
-      "802eb6c05cdeb7721a068262675b740f3208609eb0355632da09f607f5ec676b",
+      "4ec252dadafc8d9e149df225825f850fd90666e444fff4edaca43bd5d02b553c",
       "5d0d0ab97601631a43f7ba87ba04d0007bf6534449774ac859f838e370cede48",
     ]
   );
@@ -190,4 +190,5 @@ test("the registry preserves seven known definitions after the later tombstone",
     ].lifecycle,
     "deprecated"
   );
+  assert.equal(TEAM_CAPABILITY_REGISTRY["users.flag"].lifecycle, "deprecated");
 });

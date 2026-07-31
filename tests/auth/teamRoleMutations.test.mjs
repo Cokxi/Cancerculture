@@ -63,7 +63,7 @@ test.beforeEach(() => {
 });
 
 test("every operation delegates to its one hardened RPC", async () => {
-  const flag = TEAM_CAPABILITY_REGISTRY["users.flag"];
+  const flag = TEAM_CAPABILITY_REGISTRY["users.flag.create"];
   state.catalogData = {
     key: flag.key,
     is_active: true,
@@ -258,7 +258,7 @@ test("every operation delegates to its one hardened RPC", async () => {
 });
 
 test("the batch wrapper calls only the exact RPC parameters and normalizes replay results", async () => {
-  const flag = TEAM_CAPABILITY_REGISTRY["users.flag"];
+  const flag = TEAM_CAPABILITY_REGISTRY["users.flag.create"];
   const roleSnapshots = [
     { role_key: "moderator", expected_row_version: 4 },
   ];
@@ -326,7 +326,7 @@ test("the batch wrapper calls only the exact RPC parameters and normalizes repla
 });
 
 test("batch conflicts are specific and never expose database details", async () => {
-  const flag = TEAM_CAPABILITY_REGISTRY["users.flag"];
+  const flag = TEAM_CAPABILITY_REGISTRY["users.flag.create"];
   const payload = {
     operation: "apply_team_role_capability_changes",
     roleSnapshots: [
@@ -381,7 +381,7 @@ test("batch conflicts are specific and never expose database details", async () 
 });
 
 test("batch registry drift fails closed without an RPC", async () => {
-  const flag = TEAM_CAPABILITY_REGISTRY["users.flag"];
+  const flag = TEAM_CAPABILITY_REGISTRY["users.flag.create"];
   await assert.rejects(
     executeTeamRoleMutation("owner", {
       operation: "apply_team_role_capability_changes",
@@ -469,7 +469,7 @@ test("database conflicts map to safe 409 errors without SQL details", async () =
 });
 
 test("registry drift fails closed before a capability RPC", async () => {
-  const flag = TEAM_CAPABILITY_REGISTRY["users.flag"];
+  const flag = TEAM_CAPABILITY_REGISTRY["users.flag.create"];
   state.catalogData = {
     key: flag.key,
     is_active: true,

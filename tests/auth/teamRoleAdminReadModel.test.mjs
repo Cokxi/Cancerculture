@@ -68,7 +68,7 @@ function snapshot(overrides = {}) {
     grantRows: [
       {
         role_key: "moderator",
-        capability_key: "users.flag",
+        capability_key: "users.flag.create",
         granted_at: now,
         granted_by_discord_user_id: "owner",
         grant_reason: "Fixture grant",
@@ -107,7 +107,7 @@ test("roles are sorted, counted, and Admin remains immutable", () => {
   assert.equal(admin.memberCount, 1);
   assert.equal(moderator.memberCount, 1);
   assert.equal(moderator.canDeactivate, false);
-  assert.deepEqual(moderator.grantedCapabilityKeys, ["users.flag"]);
+  assert.deepEqual(moderator.grantedCapabilityKeys, ["users.flag.create"]);
   assert.deepEqual(
     model.activeNonAdminRoles.map((entry) => entry.key),
     ["trial_moderator", "moderator"]
@@ -118,7 +118,7 @@ test("roles are sorted, counted, and Admin remains immutable", () => {
 
 test("capabilities are data-driven and a database-only fixture stays visible", () => {
   const fixtureCapability = {
-    ...catalog("users.flag"),
+    ...catalog("users.flag.create"),
     key: "future.fixture.capability",
     display_name: "Future Fixture",
     definition_hash: "f".repeat(64),
@@ -144,7 +144,7 @@ test("capabilities are data-driven and a database-only fixture stays visible", (
 
 test("a safe database-only tombstone is absent from Roles & Permissions and drafts", () => {
   const tombstone = {
-    ...catalog("users.flag"),
+    ...catalog("users.flag.create"),
     key: "test.compatibility.tombstone",
     display_name: "Compatibility Tombstone",
     is_active: false,
@@ -170,14 +170,14 @@ test("a safe database-only tombstone is absent from Roles & Permissions and draf
   );
 });
 
-test("all six active registered capabilities appear in Roles & Permissions and drafts", () => {
+test("all eight active registered capabilities appear in Roles & Permissions and drafts", () => {
   const model = buildTeamRoleAdminReadModel(snapshot());
 
   assert.deepEqual(
     model.capabilities.map((entry) => entry.key).sort(),
     [...ACTIVE_TEAM_CAPABILITY_KEYS].sort()
   );
-  assert.equal(model.capabilities.length, 6);
+  assert.equal(model.capabilities.length, 8);
   assert.equal(
     model.capabilities.every(
       (capability) => capability.mutable && capability.isActive
@@ -191,12 +191,12 @@ test("every registry and catalog drift state disables mutation", () => {
     ["catalog_missing", []],
     [
       "inactive",
-      [catalog("users.flag", { is_active: false })],
+      [catalog("users.flag.create", { is_active: false })],
     ],
     [
       "not_assignable",
       [
-        catalog("users.flag", {
+        catalog("users.flag.create", {
           assignable_to_non_admin: false,
         }),
       ],
@@ -204,7 +204,7 @@ test("every registry and catalog drift state disables mutation", () => {
     [
       "version_mismatch",
       [
-        catalog("users.flag", {
+        catalog("users.flag.create", {
           implementation_version: 999,
         }),
       ],
@@ -212,7 +212,7 @@ test("every registry and catalog drift state disables mutation", () => {
     [
       "definition_mismatch",
       [
-        catalog("users.flag", {
+        catalog("users.flag.create", {
           definition_hash: "0".repeat(64),
         }),
       ],
@@ -224,7 +224,7 @@ test("every registry and catalog drift state disables mutation", () => {
       snapshot({ capabilityRows })
     );
     const capability = model.capabilities.find(
-      (entry) => entry.key === "users.flag"
+      (entry) => entry.key === "users.flag.create"
     );
     assert.equal(capability.syncStatus, expectedStatus);
     assert.equal(capability.mutable, false);
@@ -232,9 +232,9 @@ test("every registry and catalog drift state disables mutation", () => {
 
   const synchronized = buildTeamRoleAdminReadModel(
     snapshot({
-      capabilityRows: [catalog("users.flag")],
+      capabilityRows: [catalog("users.flag.create")],
     })
-  ).capabilities.find((entry) => entry.key === "users.flag");
+  ).capabilities.find((entry) => entry.key === "users.flag.create");
   assert.equal(synchronized.syncStatus, "synchronized");
   assert.equal(synchronized.mutable, true);
 });

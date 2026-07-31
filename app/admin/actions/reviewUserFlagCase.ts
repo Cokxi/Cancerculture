@@ -1,23 +1,23 @@
 "use server";
 
 import {
-  createUserFlagCase,
+  reviewUserFlagCase as reviewCase,
   UserFlagDatabaseError,
 } from "@/lib/admin/userFlagCases";
 
-export async function flagUser(params: {
-  targetDiscordUserId: string;
-  category: "trolling_low_effort" | "suspicious_behavior" | "other";
-  reason: string;
-  comment?: string;
+export async function reviewUserFlagCase(params: {
+  caseId: string;
+  expectedRowVersion: number;
+  status: "resolved" | "dismissed";
+  reviewReason: string;
   idempotencyKey: string;
 }) {
   try {
-    const result = await createUserFlagCase(params);
+    const result = await reviewCase(params);
     return {
       success: true as const,
-      caseId: result.caseId,
       status: result.status,
+      rowVersion: result.rowVersion,
     };
   } catch (error) {
     if (
@@ -26,9 +26,9 @@ export async function flagUser(params: {
     ) {
       return {
         success: false as const,
-        conflict: true as const,
+        stale: true as const,
         message:
-          "This user already has an open flag case. No case details were disclosed.",
+          "This flag case was already updated. The view will now be refreshed.",
       };
     }
 

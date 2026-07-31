@@ -14,7 +14,6 @@ type BasicUserDirectorySource = {
   current_discord_handle: string | null;
   current_display_name: string | null;
   current_guild_nickname: string | null;
-  flagged_for_review: boolean;
 };
 
 export async function GET() {
@@ -48,7 +47,6 @@ export async function GET() {
           discord_user_id: user.discord_user_id,
           public_profile_id: user.public_profile_id,
           display_name: formatDiscordUserLabel(user),
-          flagged_for_review: user.flagged_for_review,
         }));
 
     return NextResponse.json({ users });
