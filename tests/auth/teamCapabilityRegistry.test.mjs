@@ -9,8 +9,20 @@ import {
   isRegisteredTeamCapabilityKey,
 } from "../../lib/auth/teamCapabilityRegistry.ts";
 
+const expectedActiveKeys = [
+  "submissions.submission_phase.moderate",
+  "users.flag",
+  "users.directory.basic.view",
+];
+const expectedStagedKeys = [
+  "submissions.submission_phase.disqualify",
+  "submissions.submission_phase.reinstate",
+  "submissions.voting_phase.disqualify",
+  "submissions.voting_phase.reinstate",
+];
 const expectedKeys = [
   "submissions.submission_phase.moderate",
+  ...expectedStagedKeys,
   "users.flag",
   "users.directory.basic.view",
 ];
@@ -31,7 +43,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains exactly the three connected capability keys", () => {
+test("the server registry contains exactly three active and four staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -41,19 +53,32 @@ test("the server registry contains exactly the three connected capability keys",
     Object.keys(TEAM_CAPABILITY_REGISTRY),
     expectedKeys
   );
-  assert.deepEqual([...ACTIVE_TEAM_CAPABILITY_KEYS], expectedKeys);
-  assert.equal(
-    expectedKeys.some(
-      (key) => key.includes("*") || key.includes("voting")
-    ),
-    false
+  assert.deepEqual(
+    [...ACTIVE_TEAM_CAPABILITY_KEYS],
+    expectedActiveKeys
   );
+  assert.deepEqual(
+    expectedKeys.filter(
+      (key) => TEAM_CAPABILITY_REGISTRY[key].lifecycle === "staged"
+    ),
+    expectedStagedKeys
+  );
+  assert.equal(expectedKeys.includes("users.flag.create"), false);
+  assert.equal(expectedKeys.includes("votes.refund_disqualified"), false);
 });
 
-test("registry metadata is complete and hashes match canonical Foundation definitions", () => {
+test("registry metadata is complete and hashes match canonical definitions", () => {
   const expectedHashes = {
     "submissions.submission_phase.moderate":
       "89d9d8794cc2a15772f869cf6670802b89afd00b8adafbbd1229db1d6d29f116",
+    "submissions.submission_phase.disqualify":
+      "c1353c1e75a0c9db90d798677deebd61f0a350e8c731fdc1ab2288f3da967cc0",
+    "submissions.submission_phase.reinstate":
+      "a6c71a89139e91598e94ef77bd3951fd07f06d45ce76d7af0e2dd537c37ef889",
+    "submissions.voting_phase.disqualify":
+      "0a502187ae8a63f322119c19f8c880bc745902e110afae1b8d4a46388b8f3275",
+    "submissions.voting_phase.reinstate":
+      "01733447007f7df2532c87a9ecd19042a1d02a687123cebd4bf57f2a7df976fe",
     "users.flag":
       "802eb6c05cdeb7721a068262675b740f3208609eb0355632da09f607f5ec676b",
     "users.directory.basic.view":
@@ -75,8 +100,9 @@ test("registry metadata is complete and hashes match canonical Foundation defini
     assert.ok(definition.category.length > 0);
     assert.ok(definition.includedActions.length > 0);
     assert.ok(definition.excludedActions.length > 0);
-    assert.equal(definition.assignableToNonAdmin, true);
-    assert.equal(definition.lifecycle, "active");
+    const staged = expectedStagedKeys.includes(key);
+    assert.equal(definition.assignableToNonAdmin, !staged);
+    assert.equal(definition.lifecycle, staged ? "staged" : "active");
     assert.equal(definition.implementationVersion, 1);
     assert.equal(definition.definitionHash, expectedHashes[key]);
     assert.equal(hash, expectedHashes[key]);

@@ -4,6 +4,7 @@ import {
   resolveDynamicTeamAuthorizationSnapshot,
 } from "../../lib/auth/dynamicTeamAuthorization.ts";
 import {
+  ACTIVE_TEAM_CAPABILITY_KEYS,
   REGISTERED_TEAM_CAPABILITY_KEYS,
   TEAM_CAPABILITY_REGISTRY,
 } from "../../lib/auth/teamCapabilityRegistry.ts";
@@ -23,15 +24,16 @@ const roles = [
 ];
 const catalog = REGISTERED_TEAM_CAPABILITY_KEYS.map((key) => ({
   key,
-  isActive: true,
-  assignableToNonAdmin: true,
+  isActive: TEAM_CAPABILITY_REGISTRY[key].lifecycle === "active",
+  assignableToNonAdmin:
+    TEAM_CAPABILITY_REGISTRY[key].lifecycle === "active",
   implementationVersion:
     TEAM_CAPABILITY_REGISTRY[key].implementationVersion,
   definitionHash:
     TEAM_CAPABILITY_REGISTRY[key].definitionHash,
 }));
 const grants = nonAdminRoles.flatMap((roleKey) =>
-  REGISTERED_TEAM_CAPABILITY_KEYS.map((capabilityKey) => ({
+  ACTIVE_TEAM_CAPABILITY_KEYS.map((capabilityKey) => ({
     roleKey,
     capabilityKey,
   }))
@@ -174,12 +176,12 @@ test("an unknown role fails closed even when both value sets are false", () => {
   );
 });
 
-test("reserved voting capabilities are absent from the shadow contract", () => {
+test("staged capabilities are absent from the shadow contract", () => {
   assert.deepEqual(
     CONNECTED_TEAM_CAPABILITY_SHADOW_MAP.map(
       (entry) => entry.capabilityKey
     ),
-    REGISTERED_TEAM_CAPABILITY_KEYS
+    ACTIVE_TEAM_CAPABILITY_KEYS
   );
 
   const serialized = JSON.stringify(

@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import {
+  ACTIVE_TEAM_CAPABILITY_KEYS,
+  REGISTERED_TEAM_CAPABILITY_KEYS,
+  TEAM_CAPABILITY_REGISTRY,
+} from "../../lib/auth/teamCapabilityRegistry.ts";
 
 const repoRoot = new URL("../../", import.meta.url);
 const migration = await readFile(
@@ -207,18 +212,44 @@ test("the legacy moderation capability and every security boundary stay unchange
   );
 });
 
-test("the production registry remains exactly the original three-key contract", () => {
+test("the registry reproduces every staged migration definition exactly", () => {
   for (const definition of definitions) {
-    assert.doesNotMatch(registry, new RegExp(definition.key, "u"));
+    const registered = TEAM_CAPABILITY_REGISTRY[definition.key];
+    assert.ok(registered);
+    assert.equal(registered.lifecycle, "staged");
+    assert.equal(registered.assignableToNonAdmin, false);
+    assert.deepEqual(
+      {
+        key: registered.key,
+        display_name: registered.displayName,
+        description: registered.description,
+        category: registered.category,
+        included_actions: [...registered.includedActions],
+        excluded_actions: [...registered.excludedActions],
+        risk_level: registered.riskLevel,
+        assignable_to_non_admin:
+          registered.assignableToNonAdmin,
+        implementation_version:
+          registered.implementationVersion,
+      },
+      definition
+    );
+    assert.equal(
+      registered.definitionHash,
+      expectedHashes.get(definition.key)
+    );
   }
+
   const registeredKeysBlock = registry.match(
     /REGISTERED_TEAM_CAPABILITY_KEYS = Object\.freeze\(\[([\s\S]*?)\] as const\)/u
   )?.[1];
   assert.ok(registeredKeysBlock);
   assert.equal(
     [...registeredKeysBlock.matchAll(/"[a-z][a-z0-9_.]+"/gu)].length,
-    3
+    7
   );
+  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 7);
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 3);
   assert.match(
     registry,
     /submissions\.submission_phase\.moderate[\s\S]*89d9d8794cc2a15772f869cf6670802b89afd00b8adafbbd1229db1d6d29f116/u

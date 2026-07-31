@@ -6,6 +6,7 @@ process.env.NEXT_PUBLIC_SUPABASE_URL =
 process.env.SUPABASE_SERVICE_ROLE_KEY = "read-model-test-key";
 
 const {
+  ACTIVE_TEAM_CAPABILITY_KEYS,
   REGISTERED_TEAM_CAPABILITY_KEYS,
   TEAM_CAPABILITY_REGISTRY,
 } = await import("../../lib/auth/teamCapabilityRegistry.ts");
@@ -41,7 +42,7 @@ const catalog = (key, overrides = {}) => {
     excluded_actions: [...registered.excludedActions],
     risk_level: registered.riskLevel,
     assignable_to_non_admin: registered.assignableToNonAdmin,
-    is_active: true,
+    is_active: registered.lifecycle === "active",
     implementation_version: registered.implementationVersion,
     definition_hash: registered.definitionHash,
     deprecated_at: null,
@@ -167,6 +168,22 @@ test("a safe database-only tombstone is absent from Roles & Permissions and draf
     JSON.stringify(model.capabilities).includes(tombstone.key),
     false
   );
+});
+
+test("registered staged tombstones stay absent from Roles & Permissions and drafts", () => {
+  const model = buildTeamRoleAdminReadModel(snapshot());
+  const serialized = JSON.stringify(model.capabilities);
+
+  assert.deepEqual(
+    model.capabilities.map((entry) => entry.key).sort(),
+    [...ACTIVE_TEAM_CAPABILITY_KEYS].sort()
+  );
+  for (const key of REGISTERED_TEAM_CAPABILITY_KEYS.filter(
+    (capabilityKey) =>
+      TEAM_CAPABILITY_REGISTRY[capabilityKey].lifecycle === "staged"
+  )) {
+    assert.equal(serialized.includes(key), false);
+  }
 });
 
 test("every registry and catalog drift state disables mutation", () => {

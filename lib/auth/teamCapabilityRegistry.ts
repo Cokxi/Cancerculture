@@ -2,6 +2,10 @@ import "server-only";
 
 export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "submissions.submission_phase.moderate",
+  "submissions.submission_phase.disqualify",
+  "submissions.submission_phase.reinstate",
+  "submissions.voting_phase.disqualify",
+  "submissions.voting_phase.reinstate",
   "users.flag",
   "users.directory.basic.view",
 ] as const);
@@ -84,6 +88,102 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "89d9d8794cc2a15772f869cf6670802b89afd00b8adafbbd1229db1d6d29f116",
+  }),
+  "submissions.submission_phase.disqualify": defineCapability({
+    key: "submissions.submission_phase.disqualify",
+    displayName: "Disqualify Submission-Phase Submissions",
+    description:
+      "Disqualify a submission only during the currently permitted submission phase.",
+    category: "Submission Moderation",
+    includedActions: [
+      "Disqualify a submission during the currently allowed submission phase.",
+    ],
+    excludedActions: [
+      "Reinstating submissions.",
+      "Voting-phase moderation.",
+      "Vote refunds.",
+      "Public visibility changes.",
+      "Legal review.",
+      "Finalized or archived cycles and historical repairs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "staged",
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash:
+      "c1353c1e75a0c9db90d798677deebd61f0a350e8c731fdc1ab2288f3da967cc0",
+  }),
+  "submissions.submission_phase.reinstate": defineCapability({
+    key: "submissions.submission_phase.reinstate",
+    displayName: "Reinstate Submission-Phase Submissions",
+    description:
+      "Reinstate a previously disqualified submission only during the currently permitted submission phase under the existing moderation policy.",
+    category: "Submission Moderation",
+    includedActions: [
+      "Reinstate a previously disqualified submission during the currently allowed submission phase.",
+    ],
+    excludedActions: [
+      "Disqualifying submissions.",
+      "Voting-phase moderation.",
+      "Vote refunds.",
+      "Public visibility changes.",
+      "Legal review.",
+      "Finalized or archived cycles and historical repairs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "staged",
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash:
+      "a6c71a89139e91598e94ef77bd3951fd07f06d45ce76d7af0e2dd537c37ef889",
+  }),
+  "submissions.voting_phase.disqualify": defineCapability({
+    key: "submissions.voting_phase.disqualify",
+    displayName: "Disqualify Voting-Phase Submissions",
+    description:
+      "Disqualify a submission only during an open voting phase.",
+    category: "Submission Moderation",
+    includedActions: [
+      "Disqualify a submission during the open voting phase.",
+    ],
+    excludedActions: [
+      "Reinstating submissions.",
+      "Submission-phase moderation.",
+      "Vote refunds.",
+      "Historical result repairs.",
+      "Public visibility changes.",
+      "Legal review.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "staged",
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash:
+      "0a502187ae8a63f322119c19f8c880bc745902e110afae1b8d4a46388b8f3275",
+  }),
+  "submissions.voting_phase.reinstate": defineCapability({
+    key: "submissions.voting_phase.reinstate",
+    displayName: "Reinstate Voting-Phase Submissions",
+    description:
+      "Reinstate a previously disqualified submission only during an open voting phase under the voting-phase reinstatement policy.",
+    category: "Submission Moderation",
+    includedActions: [
+      "Reinstate a previously disqualified submission during the open voting phase.",
+    ],
+    excludedActions: [
+      "Disqualifying submissions.",
+      "Submission-phase moderation.",
+      "Vote refunds.",
+      "Historical result repairs.",
+      "Public visibility changes.",
+      "Legal review.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "staged",
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash:
+      "01733447007f7df2532c87a9ecd19042a1d02a687123cebd4bf57f2a7df976fe",
   }),
   "users.flag": defineCapability({
     key: "users.flag",

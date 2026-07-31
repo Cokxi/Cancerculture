@@ -156,7 +156,13 @@ function readFoundationSnapshot(databaseUrl) {
             from public.team_members
           ),
           '[]'::jsonb
-        )
+        ),
+      'adminCount',
+        (select count(*)::integer from public.team_members where role = 'admin'),
+      'auditCount',
+        (select count(*)::integer from public.team_authorization_audit),
+      'batchLedgerCount',
+        (select count(*)::integer from public.team_authorization_batches)
     );
 
     rollback;
@@ -223,6 +229,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ??=
 
 const [
   {
+    ACTIVE_TEAM_CAPABILITY_KEYS,
     REGISTERED_TEAM_CAPABILITY_KEYS,
     TEAM_CAPABILITY_REGISTRY,
   },
@@ -266,27 +273,30 @@ assert.equal(
 );
 assert.deepEqual(
   snapshot.catalog.map((entry) => entry.key),
-  [
-    ...REGISTERED_TEAM_CAPABILITY_KEYS,
-    ...expectedStagedCapabilityKeys,
-  ].sort()
+  [...REGISTERED_TEAM_CAPABILITY_KEYS].sort()
 );
 
 for (const entry of snapshot.catalog) {
   const registered = TEAM_CAPABILITY_REGISTRY[entry.key];
 
-  if (registered) {
+  assert.ok(registered);
+  assert.equal(entry.displayName, registered.displayName);
+  assert.equal(entry.description, registered.description);
+  assert.equal(entry.category, registered.category);
+  assert.deepEqual(entry.includedActions, registered.includedActions);
+  assert.deepEqual(entry.excludedActions, registered.excludedActions);
+  assert.equal(entry.riskLevel, registered.riskLevel);
+  assert.equal(
+    entry.implementationVersion,
+    registered.implementationVersion
+  );
+  assert.equal(entry.definitionHash, registered.definitionHash);
+
+  if (registered.lifecycle === "active") {
     assert.equal(entry.isActive, true);
     assert.equal(entry.assignableToNonAdmin, true);
-    assert.equal(
-      entry.implementationVersion,
-      registered.implementationVersion
-    );
-    assert.equal(
-      entry.definitionHash,
-      registered.definitionHash
-    );
   } else {
+    assert.equal(registered.lifecycle, "staged");
     assert.equal(expectedStagedCapabilityKeys.includes(entry.key), true);
     assert.equal(entry.isActive, false);
     assert.equal(entry.assignableToNonAdmin, false);
@@ -299,15 +309,26 @@ for (const entry of snapshot.catalog) {
   }
 }
 
-assert.equal(snapshot.grants.length, 7);
+assert.equal(snapshot.grants.length, 0);
 assert.equal(
   snapshot.grants.some(
     (grant) => grant.roleKey === "admin"
   ),
   false
 );
+assert.equal(
+  snapshot.grants.some(
+    (grant) =>
+      grant.capabilityKey ===
+      "submissions.submission_phase.moderate"
+  ),
+  false
+);
+assert.equal(snapshot.members.length, 4);
+assert.equal(snapshot.adminCount, 1);
 
 let trialModeratorResult = null;
+let adminResult = null;
 let shadowMatchCount = 0;
 
 for (const roleKey of expectedRoles) {
@@ -328,6 +349,7 @@ for (const roleKey of expectedRoles) {
   }
 
   if (roleKey === "admin") {
+    adminResult = dynamicResult;
     assert.equal(dynamicResult.isAdmin, true);
     assert.deepEqual(
       dynamicResult.resolvedCapabilities,
@@ -342,7 +364,7 @@ for (const roleKey of expectedRoles) {
     );
     assert.deepEqual(
       dynamicResult.resolvedCapabilities,
-      REGISTERED_TEAM_CAPABILITY_KEYS.filter((capabilityKey) =>
+      ACTIVE_TEAM_CAPABILITY_KEYS.filter((capabilityKey) =>
         roleGrantKeys.has(capabilityKey)
       )
     );
@@ -355,7 +377,7 @@ for (const roleKey of expectedRoles) {
 assert.ok(trialModeratorResult);
 assert.deepEqual(
   trialModeratorResult.resolvedCapabilities,
-  ["users.directory.basic.view"]
+  []
 );
 const trialNavigation = resolveTeamAreaNavigation({
   role: trialModeratorResult.roleKey,
@@ -363,10 +385,8 @@ const trialNavigation = resolveTeamAreaNavigation({
   resolvedCapabilities: trialModeratorResult.resolvedCapabilities,
 });
 assert.equal(
-  trialNavigation.some((category) =>
-    category.items.some((entry) => entry.id === "user-logs")
-  ),
-  true
+  trialNavigation.length,
+  0
 );
 const trialAccount = createAccountNavigationState({
   sessionStatus: "authenticated",
@@ -374,6 +394,22 @@ const trialAccount = createAccountNavigationState({
 });
 assert.equal(
   trialAccount.items.some((entry) => entry.id === "team_area"),
+  false
+);
+
+assert.ok(adminResult);
+const adminNavigation = resolveTeamAreaNavigation({
+  role: adminResult.roleKey,
+  isAdmin: adminResult.isAdmin,
+  resolvedCapabilities: adminResult.resolvedCapabilities,
+});
+const adminAccount = createAccountNavigationState({
+  sessionStatus: "authenticated",
+  hasVisibleTeamAreaItems: adminNavigation.length > 0,
+});
+assert.equal(adminNavigation.length > 0, true);
+assert.equal(
+  adminAccount.items.some((entry) => entry.id === "team_area"),
   true
 );
 
@@ -426,7 +462,7 @@ const roleReadModel = buildTeamRoleAdminReadModel({
 });
 assert.deepEqual(
   roleReadModel.capabilities.map((entry) => entry.key).sort(),
-  [...REGISTERED_TEAM_CAPABILITY_KEYS].sort()
+  [...ACTIVE_TEAM_CAPABILITY_KEYS].sort()
 );
 const draftFingerprint = permissionSnapshotFingerprint(
   roleReadModel.roles,
@@ -441,15 +477,20 @@ console.log(
     devProjectValidated: true,
     transactionReadOnly: true,
     roles: snapshot.roles.length,
+    registryEntries: REGISTERED_TEAM_CAPABILITY_KEYS.length,
     catalogEntries: snapshot.catalog.length,
+    activePairs: ACTIVE_TEAM_CAPABILITY_KEYS.length,
     stagedTombstones: expectedStagedCapabilityKeys.length,
     grants: snapshot.grants.length,
     adminGrants: 0,
     seedRoleShadowMatches: shadowMatchCount,
-    teamAreaVisible: trialNavigation.length > 0,
+    teamAreaVisible: adminNavigation.length > 0,
     accountTeamAreaLinkVisible: true,
     rolesPermissionBlocks: roleReadModel.capabilities.length,
     draftCapabilityKeys: roleReadModel.capabilities.length,
+    admins: snapshot.adminCount,
+    audits: snapshot.auditCount,
+    batchLedger: snapshot.batchLedgerCount,
     memberRoleCounts: snapshot.memberRoleCounts,
   })
 );

@@ -197,11 +197,28 @@ test("the split UI has explicit confirmations, stable retries, owner separation,
   assert.doesNotMatch(ui, />\s*Delete\s*</);
 });
 
-test("vote-phase capabilities remain unconnected to production paths", async () => {
+test("staged capability keys and voting actions remain unconnected to production paths", async () => {
   const files = [
     ...(await sourceFiles("app")),
     ...(await sourceFiles("lib")),
   ];
+  for (const capabilityKey of [
+    "submissions.submission_phase.disqualify",
+    "submissions.submission_phase.reinstate",
+    "submissions.voting_phase.disqualify",
+    "submissions.voting_phase.reinstate",
+  ]) {
+    const consumers = [];
+    for (const file of files) {
+      if ((await source(file)).includes(capabilityKey)) {
+        consumers.push(file.replaceAll("\\", "/"));
+      }
+    }
+    assert.deepEqual(consumers, [
+      "lib/auth/teamCapabilityRegistry.ts",
+    ]);
+  }
+
   for (const capability of [
     "canDisqualifyDuringVoting",
     "canReinstateDuringVoting",

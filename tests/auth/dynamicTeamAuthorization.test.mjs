@@ -5,6 +5,7 @@ import {
   resolveDynamicTeamAuthorizationWithLoader,
 } from "../../lib/auth/dynamicTeamAuthorization.ts";
 import {
+  ACTIVE_TEAM_CAPABILITY_KEYS,
   REGISTERED_TEAM_CAPABILITY_KEYS,
   TEAM_CAPABILITY_REGISTRY,
 } from "../../lib/auth/teamCapabilityRegistry.ts";
@@ -25,17 +26,20 @@ const catalog = REGISTERED_TEAM_CAPABILITY_KEYS.map((key) => {
 
   return {
     key,
-    isActive: true,
-    assignableToNonAdmin: true,
+    isActive: definition.lifecycle === "active",
+    assignableToNonAdmin: definition.lifecycle === "active",
     implementationVersion: definition.implementationVersion,
     definitionHash: definition.definitionHash,
   };
 });
 const grants = nonAdminRoles.flatMap((roleKey) =>
-  REGISTERED_TEAM_CAPABILITY_KEYS.map((capabilityKey) => ({
+  ACTIVE_TEAM_CAPABILITY_KEYS.map((capabilityKey) => ({
     roleKey,
     capabilityKey,
   }))
+);
+const stagedKeys = REGISTERED_TEAM_CAPABILITY_KEYS.filter(
+  (key) => TEAM_CAPABILITY_REGISTRY[key].lifecycle === "staged"
 );
 
 function snapshot(roleKey, overrides = {}) {
@@ -61,7 +65,7 @@ test("admin resolves as the hard owner without capability grants", () => {
 });
 
 for (const roleKey of nonAdminRoles) {
-  test(`${roleKey} resolves exactly the three registered capabilities`, () => {
+  test(`${roleKey} resolves exactly the three active capabilities`, () => {
     const resolved = resolveDynamicTeamAuthorizationSnapshot(
       snapshot(roleKey)
     );
@@ -70,7 +74,7 @@ for (const roleKey of nonAdminRoles) {
     assert.equal(resolved.isAdmin, false);
     assert.deepEqual(
       [...resolved.resolvedCapabilities],
-      [...REGISTERED_TEAM_CAPABILITY_KEYS]
+      [...ACTIVE_TEAM_CAPABILITY_KEYS]
     );
     assert.deepEqual(resolved.diagnostics, []);
   });
@@ -271,6 +275,59 @@ test("a safe unknown database tombstone is ignored without registry drift", () =
     true
   );
 });
+
+test("known staged registry and catalog pairs never authorize or drift", () => {
+  const resolved = resolveDynamicTeamAuthorizationSnapshot(
+    snapshot("trial_moderator", {
+      grants: grants.filter(
+        (grant) =>
+          grant.roleKey !== "trial_moderator" ||
+          grant.capabilityKey === "users.directory.basic.view"
+      ),
+    })
+  );
+
+  assert.equal(resolved.status, "resolved");
+  assert.deepEqual(resolved.resolvedCapabilities, [
+    "users.directory.basic.view",
+  ]);
+  assert.equal(
+    resolved.diagnostics.some((entry) => entry.kind === "drift"),
+    false
+  );
+  for (const key of stagedKeys) {
+    assert.equal(resolved.resolvedCapabilities.includes(key), false);
+  }
+});
+
+for (const roleKey of [
+  "moderator",
+  "unused_custom_role",
+  "inactive_custom_role",
+]) {
+  test(`a staged grant on ${roleKey} remains dangerous registry drift`, () => {
+    const stagedKey = stagedKeys[0];
+    const resolved = resolveDynamicTeamAuthorizationSnapshot(
+      snapshot("moderator", {
+        grants: [
+          ...grants,
+          { roleKey, capabilityKey: stagedKey },
+        ],
+      })
+    );
+
+    assert.equal(resolved.status, "registry_drift");
+    assert.equal(resolved.resolvedCapabilities.includes(stagedKey), false);
+    assert.equal(
+      resolved.diagnostics.some(
+        (entry) =>
+          entry.code === "inactive_registry_key_granted" &&
+          entry.capabilityKey === stagedKey
+      ),
+      true
+    );
+  });
+}
 
 for (const [name, catalogOverrides, extraGrant, expectedCode] of [
   ["active", { isActive: true }, null, "unknown_catalog_key_active"],
