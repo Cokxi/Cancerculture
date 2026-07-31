@@ -1,9 +1,11 @@
 "use client";
 
 import {
+  createModerationIdempotencyKey,
   finishModerationRequest,
   performModerationClientRequest,
   tryBeginModerationRequest,
+  waitForModerationPendingPaint,
 } from "@/lib/moderation/moderationClientRequest";
 import { useRef, useState } from "react";
 
@@ -30,8 +32,11 @@ export default function ReinstateButton({
     }
 
     setLoading(true);
+    let outcome: Awaited<
+      ReturnType<typeof performModerationClientRequest>
+    >;
     try {
-      const outcome = await performModerationClientRequest({
+      outcome = await performModerationClientRequest({
         endpoint: "/api/admin/reinstate",
         body: {
           cycleId,
@@ -41,14 +46,21 @@ export default function ReinstateButton({
           disqualificationType: null,
           reasonCode: "manual_review",
           reasonText: reason.trim(),
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: createModerationIdempotencyKey(),
+        },
+        finishPending: async () => {
+          finishModerationRequest(requestPendingRef);
+          setLoading(false);
+          await waitForModerationPendingPaint();
         },
       });
-      if (outcome === "success") setDone(true);
     } finally {
-      finishModerationRequest(requestPendingRef);
-      setLoading(false);
+      if (requestPendingRef.current) {
+        finishModerationRequest(requestPendingRef);
+        setLoading(false);
+      }
     }
+    if (outcome === "changed") setDone(true);
   }
 
   if (done) {
@@ -75,7 +87,7 @@ export default function ReinstateButton({
         opacity: loading ? 0.6 : 1,
       }}
     >
-      {loading ? "Reinstating…" : "Reinstate"}
+      {loading ? "Reinstating..." : "Reinstate"}
     </button>
   );
 }

@@ -170,7 +170,7 @@ begin
     );
     raise exception 'IDEMPOTENCY_CONFLICT_NOT_REJECTED';
   exception
-    when sqlstate '40001' then
+    when sqlstate 'PT409' then
       if sqlerrm <> 'SUBMISSION_MODERATION_IDEMPOTENCY_CONFLICT' then
         raise;
       end if;
@@ -221,7 +221,7 @@ begin
     );
     raise exception 'STALE_EXPECTED_STATE_NOT_REJECTED';
   exception
-    when sqlstate '40001' then
+    when sqlstate 'PT409' then
       if sqlerrm <> 'MODERATION_EXPECTED_STATE_CONFLICT' then
         raise;
       end if;
@@ -311,7 +311,7 @@ begin
     );
     raise exception 'STALE_PHASE_NOT_REJECTED';
   exception
-    when sqlstate '40001' then
+    when sqlstate 'PT409' then
       if sqlerrm <> 'MODERATION_PHASE_CONFLICT' then raise; end if;
   end;
 
@@ -327,7 +327,7 @@ begin
     );
     raise exception 'CLOSED_PHASE_NOT_REJECTED';
   exception
-    when sqlstate '40001' then
+    when sqlstate 'PT409' then
       if sqlerrm <> 'MODERATION_PHASE_CLOSED' then raise; end if;
   end;
 
@@ -343,7 +343,7 @@ begin
     );
     raise exception 'UNKNOWN_CYCLE_NOT_REJECTED';
   exception
-    when sqlstate '40001' then
+    when sqlstate 'PT409' then
       if sqlerrm <> 'MODERATION_CYCLE_NOT_FOUND' then raise; end if;
   end;
 
@@ -364,7 +364,7 @@ begin
       );
       raise exception 'WRONG_CYCLE_SUBMISSION_NOT_REJECTED';
     exception
-      when sqlstate '40001' then
+      when sqlstate 'PT409' then
         if sqlerrm <> 'MODERATION_SUBMISSION_CYCLE_CONFLICT' then raise; end if;
     end;
   end if;
@@ -378,7 +378,7 @@ begin
     );
     raise exception 'UNKNOWN_SUBMISSION_NOT_REJECTED';
   exception
-    when sqlstate '40001' then
+    when sqlstate 'PT409' then
       if sqlerrm <> 'MODERATION_SUBMISSION_NOT_FOUND' then raise; end if;
   end;
 end;

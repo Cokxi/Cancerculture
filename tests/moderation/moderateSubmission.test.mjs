@@ -81,17 +81,18 @@ test("the adapter calls only the single atomic RPC with server-owned actor data"
 
 test("database authorization, conflicts, validation and dependency failures stay distinct", async () => {
   const cases = [
-    ["SUBMISSION_MODERATION_FORBIDDEN", 403],
-    ["MODERATION_PHASE_CONFLICT", 409],
-    ["MODERATION_EXPECTED_STATE_CONFLICT", 409],
-    ["SUBMISSION_MODERATION_IDEMPOTENCY_CONFLICT", 409],
-    ["INVALID_SUBMISSION_MODERATION_REQUEST", 422],
-    ["MODERATION_AUTHORIZATION_DEPENDENCY_UNAVAILABLE", 503],
-    ["private SQL table detail", 503],
+    ["P0001", "SUBMISSION_MODERATION_FORBIDDEN", 403],
+    ["PT409", "MODERATION_PHASE_CONFLICT", 409],
+    ["PT409", "MODERATION_EXPECTED_STATE_CONFLICT", 409],
+    ["PT409", "SUBMISSION_MODERATION_IDEMPOTENCY_CONFLICT", 409],
+    ["22023", "INVALID_SUBMISSION_MODERATION_REQUEST", 422],
+    ["55000", "MODERATION_AUTHORIZATION_DEPENDENCY_UNAVAILABLE", 503],
+    [null, "private SQL table detail", 503],
   ];
 
-  for (const [message, expectedStatus] of cases) {
-    state.error = { code: "P0001", message };
+  const consoleError = mock.method(console, "error", () => {});
+  for (const [code, message, expectedStatus] of cases) {
+    state.error = { code, message };
     await assert.rejects(moderateSubmission(params), (error) => {
       assert.ok(error instanceof SubmissionModerationError);
       assert.equal(error.status, expectedStatus);
@@ -99,6 +100,40 @@ test("database authorization, conflicts, validation and dependency failures stay
       return true;
     });
   }
+  consoleError.mock.restore();
+});
+
+test("a code-less dependency failure logs safe request diagnostics", async () => {
+  const entries = [];
+  const consoleError = mock.method(console, "error", (...args) => {
+    entries.push(args);
+  });
+  state.error = { code: null, message: "private transport detail" };
+
+  await assert.rejects(moderateSubmission(params), (error) => {
+    assert.equal(error.status, 503);
+    return true;
+  });
+
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0][0], "[SUBMISSION_MODERATION] RPC failed");
+  assert.deepEqual(
+    {
+      requestId: entries[0][1].requestId,
+      operation: entries[0][1].operation,
+      errorClass: entries[0][1].errorClass,
+      databaseCode: entries[0][1].databaseCode,
+    },
+    {
+      requestId,
+      operation: "disqualify",
+      errorClass: "transport",
+      databaseCode: null,
+    }
+  );
+  assert.equal(Number.isInteger(entries[0][1].durationMs), true);
+  assert.doesNotMatch(JSON.stringify(entries), /private transport detail/u);
+  consoleError.mock.restore();
 });
 
 test("an invalid RPC response fails closed as 503", async () => {

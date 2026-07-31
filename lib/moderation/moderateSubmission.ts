@@ -34,7 +34,35 @@ export type SubmissionModerationResult = Readonly<{
   replayed: boolean;
 }>;
 
-function mapRpcError(error: { code?: string; message?: string }) {
+type RpcFailureContext = Readonly<{
+  requestId: string;
+  operation: SubmissionModerationOperation;
+  startedAt: number;
+}>;
+
+function logRpcDependencyFailure(
+  error: { code?: string; message?: string },
+  context: RpcFailureContext
+) {
+  const databaseCode = error.code ?? null;
+  console.error("[SUBMISSION_MODERATION] RPC failed", {
+    requestId: context.requestId,
+    operation: context.operation,
+    durationMs: Math.round(performance.now() - context.startedAt),
+    errorClass:
+      databaseCode === null
+        ? "transport"
+        : databaseCode.startsWith("PGRST")
+          ? "postgrest"
+          : "database-contract",
+    databaseCode,
+  });
+}
+
+function mapRpcError(
+  error: { code?: string; message?: string },
+  context: RpcFailureContext
+) {
   const message = error.message ?? "";
   if (message.includes("SUBMISSION_MODERATION_FORBIDDEN")) {
     return new SubmissionModerationError(
@@ -74,9 +102,7 @@ function mapRpcError(error: { code?: string; message?: string }) {
     );
   }
 
-  console.error("[SUBMISSION_MODERATION] RPC failed", {
-    databaseCode: error.code ?? null,
-  });
+  logRpcDependencyFailure(error, context);
   return new SubmissionModerationError(
     503,
     "Submission moderation is temporarily unavailable.",
@@ -116,9 +142,14 @@ export async function moderateSubmission(params: {
   reasonText: string | null;
   idempotencyKey: string;
 }): Promise<SubmissionModerationResult> {
-  const { data, error } = await supabaseAdmin.rpc(
-    "moderate_submission",
-    {
+  const context: RpcFailureContext = {
+    requestId: params.idempotencyKey,
+    operation: params.operation,
+    startedAt: performance.now(),
+  };
+  let response;
+  try {
+    response = await supabaseAdmin.rpc("moderate_submission", {
       p_actor_discord_user_id: params.actorDiscordUserId,
       p_cycle_id: params.cycleId,
       p_submission_id: params.submissionId,
@@ -130,10 +161,19 @@ export async function moderateSubmission(params: {
       p_reason_code: params.reasonCode,
       p_reason_text: params.reasonText,
       p_idempotency_key: params.idempotencyKey,
-    }
-  );
+    });
+  } catch {
+    logRpcDependencyFailure({}, context);
+    throw new SubmissionModerationError(
+      503,
+      "Submission moderation is temporarily unavailable.",
+      "SUBMISSION_MODERATION_UNAVAILABLE"
+    );
+  }
 
-  if (error) throw mapRpcError(error);
+  const { data, error } = response;
+
+  if (error) throw mapRpcError(error, context);
   if (!isResult(data)) {
     throw new SubmissionModerationError(
       503,

@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ALREADY_CURRENT_MODERATION_MESSAGE,
   NETWORK_MODERATION_MESSAGE,
   STALE_MODERATION_MESSAGE,
+  createModerationIdempotencyKey,
   finishModerationRequest,
   performModerationClientRequest,
   tryBeginModerationRequest,
@@ -15,15 +17,18 @@ function response(status, payload = {}) {
   });
 }
 
+function successfulResult({ changed, replayed }) {
+  return response(200, {
+    success: true,
+    result: { changed, replayed },
+  });
+}
+
 function harness(fetcher) {
-  const messages = [];
-  let refreshes = 0;
+  const events = [];
   let requests = 0;
   return {
-    messages,
-    get refreshes() {
-      return refreshes;
-    },
+    events,
     get requests() {
       return requests;
     },
@@ -35,16 +40,15 @@ function harness(fetcher) {
           requests += 1;
           return fetcher(...args);
         },
-        showMessage: (message) => messages.push(message),
-        refresh: () => {
-          refreshes += 1;
-        },
+        finishPending: () => events.push("pending-finished"),
+        showMessage: (message) => events.push(`alert:${message}`),
+        refresh: () => events.push("reload"),
       });
     },
   };
 }
 
-test("stale Disqualify and Reinstate show feedback, refresh, and never retry", async () => {
+test("stale Disqualify and Reinstate finish pending, alert, then refresh without retry", async () => {
   for (const endpoint of [
     "/api/admin/disqualify",
     "/api/admin/reinstate",
@@ -52,52 +56,97 @@ test("stale Disqualify and Reinstate show feedback, refresh, and never retry", a
     const client = harness(async () => response(409));
 
     assert.equal(await client.run(endpoint), "stale");
-    assert.deepEqual(client.messages, [STALE_MODERATION_MESSAGE]);
-    assert.equal(client.refreshes, 1);
+    assert.deepEqual(client.events, [
+      "pending-finished",
+      `alert:${STALE_MODERATION_MESSAGE}`,
+      "reload",
+    ]);
     assert.equal(client.requests, 1);
   }
 });
 
-test("a successful mutation retains the full refresh convention", async () => {
-  const client = harness(async () => response(200, { success: true }));
+test("a changed result finishes pending and fully refreshes", async () => {
+  const client = harness(async () =>
+    successfulResult({ changed: true, replayed: false })
+  );
 
-  assert.equal(await client.run(), "success");
-  assert.deepEqual(client.messages, []);
-  assert.equal(client.refreshes, 1);
+  assert.equal(await client.run(), "changed");
+  assert.deepEqual(client.events, ["pending-finished", "reload"]);
   assert.equal(client.requests, 1);
 });
 
-test("403 and 503 remain visibly distinct from stale without refresh", async () => {
+test("an identical replay refreshes without claiming a new mutation", async () => {
+  const client = harness(async () =>
+    successfulResult({ changed: true, replayed: true })
+  );
+
+  assert.equal(await client.run(), "replayed");
+  assert.deepEqual(client.events, ["pending-finished", "reload"]);
+  assert.equal(client.requests, 1);
+});
+
+test("a consistent no-op finishes pending, explains the state, then refreshes", async () => {
+  const client = harness(async () =>
+    successfulResult({ changed: false, replayed: false })
+  );
+
+  assert.equal(await client.run(), "already-current");
+  assert.deepEqual(client.events, [
+    "pending-finished",
+    `alert:${ALREADY_CURRENT_MODERATION_MESSAGE}`,
+    "reload",
+  ]);
+  assert.equal(client.requests, 1);
+});
+
+test("403 and 503 finish pending and show their safe error without refresh", async () => {
   for (const [status, outcome, message] of [
     [403, "forbidden", "Forbidden"],
-    [503, "unavailable", "INTERNAL_ERROR"],
+    [503, "unavailable", "Moderation is temporarily unavailable."],
   ]) {
     const client = harness(async () => response(status, { error: message }));
 
     assert.equal(await client.run(), outcome);
-    assert.deepEqual(client.messages, [message]);
-    assert.equal(client.refreshes, 0);
+    assert.deepEqual(client.events, [
+      "pending-finished",
+      `alert:${message}`,
+    ]);
     assert.equal(client.requests, 1);
   }
 });
 
-test("a network failure is controlled, does not refresh, and does not retry", async () => {
+test("a network failure finishes pending without refresh or retry", async () => {
   const client = harness(async () => {
     throw new TypeError("socket and internal stack detail");
   });
 
   assert.equal(await client.run(), "network-error");
-  assert.deepEqual(client.messages, [NETWORK_MODERATION_MESSAGE]);
-  assert.equal(client.refreshes, 0);
+  assert.deepEqual(client.events, [
+    "pending-finished",
+    `alert:${NETWORK_MODERATION_MESSAGE}`,
+  ]);
   assert.equal(client.requests, 1);
-  assert.doesNotMatch(client.messages[0], /socket|stack/u);
+  assert.doesNotMatch(client.events[1], /socket|stack/u);
 });
 
-test("the synchronous pending guard prevents repeated submission", () => {
+test("the synchronous guard blocks a double click and permits a later attempt", () => {
   const pending = { current: false };
 
   assert.equal(tryBeginModerationRequest(pending), true);
   assert.equal(tryBeginModerationRequest(pending), false);
   finishModerationRequest(pending);
   assert.equal(tryBeginModerationRequest(pending), true);
+});
+
+test("each later semantic attempt receives a fresh, non-persisted idempotency key", () => {
+  let sequence = 0;
+  const randomUUID = () => `request-${++sequence}`;
+
+  const disqualifyKey = createModerationIdempotencyKey(randomUUID);
+  const laterDisqualifyKey = createModerationIdempotencyKey(randomUUID);
+  const reinstateKey = createModerationIdempotencyKey(randomUUID);
+
+  assert.notEqual(disqualifyKey, laterDisqualifyKey);
+  assert.notEqual(disqualifyKey, reinstateKey);
+  assert.notEqual(laterDisqualifyKey, reinstateKey);
 });

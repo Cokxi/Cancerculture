@@ -1,9 +1,11 @@
 "use client";
 
 import {
+  createModerationIdempotencyKey,
   finishModerationRequest,
   performModerationClientRequest,
   tryBeginModerationRequest,
+  waitForModerationPendingPaint,
 } from "@/lib/moderation/moderationClientRequest";
 import { useRef, useState } from "react";
 
@@ -66,8 +68,11 @@ export default function ModerationGrid({
     }
 
     setPendingAction(`disqualify:${id}`);
+    let outcome: Awaited<
+      ReturnType<typeof performModerationClientRequest>
+    >;
     try {
-      const outcome = await performModerationClientRequest({
+      outcome = await performModerationClientRequest({
         endpoint: "/api/admin/disqualify",
         body: {
           cycleId: submissions.find(
@@ -79,18 +84,25 @@ export default function ModerationGrid({
           disqualificationType,
           reasonCode,
           reasonText: reasonText || null,
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: createModerationIdempotencyKey(),
+        },
+        finishPending: async () => {
+          finishModerationRequest(requestPendingRef);
+          setPendingAction(null);
+          await waitForModerationPendingPaint();
         },
       });
-
-      if (outcome === "success") {
-        setOpenFor(null);
-        setReasonCode("");
-        setReasonText("");
-      }
     } finally {
-      finishModerationRequest(requestPendingRef);
-      setPendingAction(null);
+      if (requestPendingRef.current) {
+        finishModerationRequest(requestPendingRef);
+        setPendingAction(null);
+      }
+    }
+
+    if (outcome === "changed") {
+      setOpenFor(null);
+      setReasonCode("");
+      setReasonText("");
     }
   }
 
@@ -119,12 +131,19 @@ export default function ModerationGrid({
           disqualificationType: null,
           reasonCode: "manual_review",
           reasonText: reason.trim(),
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: createModerationIdempotencyKey(),
+        },
+        finishPending: async () => {
+          finishModerationRequest(requestPendingRef);
+          setPendingAction(null);
+          await waitForModerationPendingPaint();
         },
       });
     } finally {
-      finishModerationRequest(requestPendingRef);
-      setPendingAction(null);
+      if (requestPendingRef.current) {
+        finishModerationRequest(requestPendingRef);
+        setPendingAction(null);
+      }
     }
   }
 
@@ -332,7 +351,7 @@ export default function ModerationGrid({
                     }
                   >
                     {pendingAction === `disqualify:${submission.id}`
-                      ? "Disqualifyingâ€¦"
+                      ? "Disqualifying..."
                       : "Confirm Disqualify"}
                   </button>
                 </div>
@@ -358,7 +377,7 @@ export default function ModerationGrid({
               }
             >
               {pendingAction === `reinstate:${submission.id}`
-                ? "Reinstatingâ€¦"
+                ? "Reinstating..."
                 : "Reinstate"}
             </button>
           ) : null}

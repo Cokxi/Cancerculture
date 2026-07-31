@@ -61,9 +61,37 @@ test("pages and buttons carry phase, expected state and idempotency", async () =
   for (const client of [grid, reinstate]) {
     assert.match(client, /expectedPhase/u);
     assert.match(client, /expectedIsDisqualified/u);
-    assert.match(client, /crypto\.randomUUID\(\)/u);
+    assert.match(client, /createModerationIdempotencyKey\(\)/u);
     assert.match(client, /performModerationClientRequest/u);
     assert.match(client, /tryBeginModerationRequest/u);
+  }
+});
+
+test("moderation idempotency keys have no component, module, or persisted lifetime", async () => {
+  const [helper, grid, reinstate] = await Promise.all([
+    source("lib/moderation/moderationClientRequest.ts"),
+    source("app/admin/moderation/submissions/ModerationGrid.tsx"),
+    source("app/admin/moderation/disqualified/reinstate-button.tsx"),
+  ]);
+  assert.match(helper, /return randomUUID\(\)/u);
+  for (const client of [grid, reinstate]) {
+    assert.doesNotMatch(
+      client,
+      /useRef[^\n]*(?:UUID|idempotency)|localStorage|sessionStorage/iu
+    );
+  }
+});
+
+test("pending labels are ASCII-safe in both moderation clients", async () => {
+  const [grid, reinstate] = await Promise.all([
+    source("app/admin/moderation/submissions/ModerationGrid.tsx"),
+    source("app/admin/moderation/disqualified/reinstate-button.tsx"),
+  ]);
+  assert.match(grid, /"Disqualifying\.\.\."/u);
+  assert.match(grid, /"Reinstating\.\.\."/u);
+  assert.match(reinstate, /"Reinstating\.\.\."/u);
+  for (const client of [grid, reinstate]) {
+    assert.doesNotMatch(client, /Ã|â/u);
   }
 });
 
