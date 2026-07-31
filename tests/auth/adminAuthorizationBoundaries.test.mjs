@@ -222,8 +222,11 @@ test("admin identity is not derived from any configurable capability", async () 
     /canManageTeamRoles/
   );
   assert.match(uiGuards, /if \(!isAdminTeamRole\(member\.role\)\)/);
-  assert.match(navigation, /isAdmin = false/);
-  assert.doesNotMatch(navigation, /teamRole|hasTeamCapability/);
+  assert.match(navigation, /hasVisibleTeamAreaItems = false/);
+  assert.doesNotMatch(
+    navigation,
+    /teamRole|hasTeamCapability|isAdmin|submissions\.submission_phase\.moderate|users\.flag/
+  );
   assert.match(
     authorization,
     /result\.isAdmin !== \(result\.roleKey === "admin"\)/

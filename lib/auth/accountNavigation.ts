@@ -1,6 +1,6 @@
 export type AccountNavigationItem =
   | {
-      id: "profile" | "moderation" | "admin";
+      id: "profile" | "team_area";
       label: string;
       href: string;
       kind: "link";
@@ -27,8 +27,7 @@ type AccountNavigationInput = {
     | "authenticated"
     | "restricted"
     | "dependency_unavailable";
-  canModerateSubmissions?: boolean;
-  isAdmin?: boolean;
+  hasVisibleTeamAreaItems?: boolean;
   teamAccessUnavailable?: boolean;
 };
 
@@ -40,8 +39,7 @@ const logoutItem: AccountNavigationItem = {
 
 export function createAccountNavigationState({
   sessionStatus,
-  canModerateSubmissions = false,
-  isAdmin = false,
+  hasVisibleTeamAreaItems = false,
   teamAccessUnavailable = false,
 }: AccountNavigationInput): AccountNavigationState {
   if (sessionStatus === "anonymous") {
@@ -67,23 +65,11 @@ export function createAccountNavigationState({
 
   if (
     !teamAccessUnavailable &&
-    canModerateSubmissions
+    hasVisibleTeamAreaItems
   ) {
     items.push({
-      id: "moderation",
-      label: "Moderation",
-      href: "/admin/moderation/submissions",
-      kind: "link",
-    });
-  }
-
-  if (
-    !teamAccessUnavailable &&
-    isAdmin
-  ) {
-    items.push({
-      id: "admin",
-      label: "Admin",
+      id: "team_area",
+      label: "Team Area",
       href: "/admin",
       kind: "link",
     });

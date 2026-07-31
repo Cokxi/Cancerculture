@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { resolveTeamAreaNavigation } from "../../lib/admin/teamAreaNavigation.ts";
 import { createAccountNavigationState } from "../../lib/auth/accountNavigation.ts";
 import {
   HOME_NAVIGATION_ITEMS,
@@ -12,6 +13,25 @@ const readRepoFile = (path) =>
   readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
 const itemIds = (state) => state.items.map((item) => item.id);
+
+const teamContext = ({
+  role = "moderator",
+  isAdmin = false,
+  capabilities = [],
+} = {}) => ({
+  discord_user_id: "123",
+  role,
+  isAdmin,
+  resolvedCapabilities: capabilities,
+});
+
+function accountStateForTeamContext(context) {
+  const navigation = resolveTeamAreaNavigation(context);
+  return createAccountNavigationState({
+    sessionStatus: "authenticated",
+    hasVisibleTeamAreaItems: navigation.length > 0,
+  });
+}
 
 test("authenticated users receive profile and safe server logout only", () => {
   const state = createAccountNavigationState({
@@ -26,53 +46,113 @@ test("authenticated users receive profile and safe server logout only", () => {
   );
 });
 
-test("moderators and admins receive only their intended navigation", () => {
-  const moderator = createAccountNavigationState({
+test("Admin sees one canonical Team Area account link", () => {
+  const state = accountStateForTeamContext(
+    teamContext({ role: "admin", isAdmin: true })
+  );
+
+  assert.deepEqual(itemIds(state), ["profile", "team_area", "logout"]);
+  assert.deepEqual(
+    state.items.find((item) => item.id === "team_area"),
+    {
+      id: "team_area",
+      label: "Team Area",
+      href: "/admin",
+      kind: "link",
+    }
+  );
+});
+
+test("a Trial Moderator with only User Logs still sees Team Area", () => {
+  const state = accountStateForTeamContext(
+    teamContext({
+      role: "trial_moderator",
+      capabilities: ["users.directory.basic.view"],
+    })
+  );
+
+  assert.deepEqual(itemIds(state), ["profile", "team_area", "logout"]);
+});
+
+test("a Moderator without submission moderation but with another visible area sees Team Area", () => {
+  const state = accountStateForTeamContext(
+    teamContext({
+      role: "moderator",
+      capabilities: ["users.directory.basic.view"],
+    })
+  );
+
+  assert.deepEqual(itemIds(state), ["profile", "team_area", "logout"]);
+});
+
+test("team members and non-team users without visible areas do not see Team Area", () => {
+  const teamMember = accountStateForTeamContext(teamContext());
+  const nonTeamMember = createAccountNavigationState({
     sessionStatus: "authenticated",
-    canModerateSubmissions: true,
-  });
-  const admin = createAccountNavigationState({
-    sessionStatus: "authenticated",
-    canModerateSubmissions: true,
-    isAdmin: true,
+    hasVisibleTeamAreaItems: false,
   });
 
-  assert.deepEqual(itemIds(moderator), ["profile", "moderation", "logout"]);
-  assert.deepEqual(itemIds(admin), [
-    "profile",
-    "moderation",
-    "admin",
-    "logout",
-  ]);
-  assert.equal(
-    moderator.items.find((item) => item.id === "moderation")?.href,
-    "/admin/moderation/submissions"
-  );
-  assert.equal(
-    admin.items.find((item) => item.id === "admin")?.href,
-    "/admin"
-  );
+  assert.deepEqual(itemIds(teamMember), ["profile", "logout"]);
+  assert.deepEqual(itemIds(nonTeamMember), ["profile", "logout"]);
 });
 
 test("anonymous and dependency states never disclose team navigation", () => {
   for (const sessionStatus of ["anonymous", "dependency_unavailable"]) {
     const state = createAccountNavigationState({
       sessionStatus,
-      canModerateSubmissions: true,
-      isAdmin: true,
+      hasVisibleTeamAreaItems: true,
     });
     assert.deepEqual(state.items, []);
   }
 
   const degraded = createAccountNavigationState({
     sessionStatus: "authenticated",
-    canModerateSubmissions: true,
-    isAdmin: true,
+    hasVisibleTeamAreaItems: true,
     teamAccessUnavailable: true,
   });
   assert.equal(degraded.kind, "authenticated");
   assert.equal(degraded.teamAccessUnavailable, true);
   assert.deepEqual(itemIds(degraded), ["profile", "logout"]);
+});
+
+test("account visibility has no capability or static-role policy of its own", async () => {
+  const [navigation, globalAccount] = await Promise.all([
+    readRepoFile("lib/auth/accountNavigation.ts"),
+    readRepoFile("app/components/auth/GlobalAccount.tsx"),
+  ]);
+  const source = `${navigation}\n${globalAccount}`;
+
+  assert.match(globalAccount, /getResolvedTeamAreaNavigation\(\)/);
+  assert.match(globalAccount, /navigation\.length > 0/);
+  assert.doesNotMatch(
+    source,
+    /submissions\.submission_phase\.moderate|users\.flag|TEAM_ROLE_CAPABILITIES|trial_moderator|super_moderator/
+  );
+  assert.doesNotMatch(
+    globalAccount,
+    /hasResolvedTeamCapability|readTeamAuthorizationContextForDiscordUserId/
+  );
+});
+
+test("403 means no Team Area link while 503 remains dependency-unavailable", async () => {
+  const globalAccount = await readRepoFile(
+    "app/components/auth/GlobalAccount.tsx"
+  );
+  const forbidden = createAccountNavigationState({
+    sessionStatus: "authenticated",
+    hasVisibleTeamAreaItems: false,
+    teamAccessUnavailable: false,
+  });
+  const unavailable = createAccountNavigationState({
+    sessionStatus: "authenticated",
+    hasVisibleTeamAreaItems: false,
+    teamAccessUnavailable: true,
+  });
+
+  assert.equal(forbidden.teamAccessUnavailable, false);
+  assert.equal(unavailable.teamAccessUnavailable, true);
+  assert.match(globalAccount, /status === 403/);
+  assert.match(globalAccount, /status === 401 \|\| status === 503/);
 });
 
 test("desktop and mobile home navigation expose the intended links", () => {

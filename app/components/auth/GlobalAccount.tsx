@@ -1,16 +1,13 @@
 import Link from "next/link";
 import AccountMenu from "@/app/components/auth/AccountMenu";
 import { navigationTextTriggerClassName } from "@/app/components/navigation/navigationButtonStyles";
+import { getResolvedTeamAreaNavigation } from "@/lib/admin/teamAreaNavigation.server";
 import {
   createAccountNavigationState,
 } from "@/lib/auth/accountNavigation";
 import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { runAuthQueryWithTimeout } from "@/lib/auth/authQuery";
 import { getSessionState } from "@/lib/auth/sessionState";
-import {
-  hasResolvedTeamCapability,
-  readTeamAuthorizationContextForDiscordUserId,
-} from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 
@@ -70,28 +67,22 @@ export default async function GlobalAccount() {
       console.error("[AUTH] global account profile unavailable", error);
       return { data: null, error: null };
     }),
-    readTeamAuthorizationContextForDiscordUserId(discordUserId)
-      .then((context) => ({
-        canModerateSubmissions: hasResolvedTeamCapability(
-          context,
-          "submissions.submission_phase.moderate"
-        ),
-        isAdmin: context.isAdmin,
+    getResolvedTeamAreaNavigation()
+      .then((navigation) => ({
+        hasVisibleTeamAreaItems: navigation.length > 0,
         unavailable: false,
       }))
       .catch((error) => {
         const status = getAuthErrorStatus(error);
         if (status === 403) {
           return {
-            canModerateSubmissions: false,
-            isAdmin: false,
+            hasVisibleTeamAreaItems: false,
             unavailable: false,
           };
         }
-        if (status !== null) {
+        if (status === 401 || status === 503) {
           return {
-            canModerateSubmissions: false,
-            isAdmin: false,
+            hasVisibleTeamAreaItems: false,
             unavailable: true,
           };
         }
@@ -112,9 +103,8 @@ export default async function GlobalAccount() {
       : null;
   const navigation = createAccountNavigationState({
     sessionStatus: "authenticated",
-    canModerateSubmissions:
-      teamAccess.canModerateSubmissions,
-    isAdmin: teamAccess.isAdmin,
+    hasVisibleTeamAreaItems:
+      teamAccess.hasVisibleTeamAreaItems,
     teamAccessUnavailable: teamAccess.unavailable,
   });
 
