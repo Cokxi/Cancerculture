@@ -2,10 +2,11 @@ import "server-only";
 
 import { AuthError } from "@/lib/auth/AuthError";
 import {
-  REGISTERED_TEAM_CAPABILITY_KEYS,
+  ACTIVE_TEAM_CAPABILITY_KEYS,
   TEAM_CAPABILITY_REGISTRY,
   type TeamCapabilityRiskLevel,
 } from "@/lib/auth/teamCapabilityRegistry";
+import { evaluateTeamCapabilityCompatibility } from "@/lib/auth/teamCapabilityCompatibility";
 import { supabaseAdmin } from "@/lib/db/admin";
 
 export const TEAM_CAPABILITY_SYNC_STATUSES = [
@@ -16,6 +17,7 @@ export const TEAM_CAPABILITY_SYNC_STATUSES = [
   "version_mismatch",
   "inactive",
   "not_assignable",
+  "registry_inactive",
 ] as const;
 
 export type TeamCapabilitySyncStatus =
@@ -197,6 +199,10 @@ function getCapabilitySyncStatus(
     return "code_missing";
   }
 
+  if (registered.lifecycle !== "active") {
+    return "registry_inactive";
+  }
+
   if (!catalogEntry.is_active) {
     return "inactive";
   }
@@ -298,9 +304,27 @@ export function buildTeamRoleAdminReadModel(
   const catalogByKey = new Map(
     snapshot.capabilityRows.map((entry) => [entry.key, entry])
   );
+  const compatibility = evaluateTeamCapabilityCompatibility({
+    registry: TEAM_CAPABILITY_REGISTRY,
+    catalog: snapshot.capabilityRows.map((entry) => ({
+      key: entry.key,
+      isActive: entry.is_active,
+      assignableToNonAdmin: entry.assignable_to_non_admin,
+      implementationVersion: entry.implementation_version,
+      definitionHash: entry.definition_hash,
+    })),
+    grantedCapabilityKeys: snapshot.grantRows.map(
+      (grant) => grant.capability_key
+    ),
+  });
+  const safeTombstoneKeys = new Set(
+    compatibility.safeTombstoneKeys
+  );
   const capabilityKeys = new Set<string>([
-    ...REGISTERED_TEAM_CAPABILITY_KEYS,
-    ...snapshot.capabilityRows.map((entry) => entry.key),
+    ...ACTIVE_TEAM_CAPABILITY_KEYS,
+    ...snapshot.capabilityRows
+      .filter((entry) => !safeTombstoneKeys.has(entry.key))
+      .map((entry) => entry.key),
   ]);
   const capabilities = [...capabilityKeys]
     .map((key): TeamRoleAdminCapability => {

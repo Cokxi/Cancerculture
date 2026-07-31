@@ -120,6 +120,11 @@ test("the production database loader is read-only and projects no profile data",
     loader,
     /profile|session|email|username|console\./i
   );
+  assert.doesNotMatch(
+    loader,
+    /\.from\("team_role_capabilities"\)[\s\S]*?\.eq\("role_key"/u,
+    "tombstone compatibility must inspect grants for every role"
+  );
 });
 
 test("target call-sites no longer make static authorization decisions", async () => {

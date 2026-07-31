@@ -141,6 +141,34 @@ test("capabilities are data-driven and a database-only fixture stays visible", (
   assert.equal(fixture.mutable, false);
 });
 
+test("a safe database-only tombstone is absent from Roles & Permissions and drafts", () => {
+  const tombstone = {
+    ...catalog("users.flag"),
+    key: "test.compatibility.tombstone",
+    display_name: "Compatibility Tombstone",
+    is_active: false,
+    assignable_to_non_admin: false,
+    definition_hash: "e".repeat(64),
+  };
+  const model = buildTeamRoleAdminReadModel(
+    snapshot({
+      capabilityRows: [
+        ...REGISTERED_TEAM_CAPABILITY_KEYS.map((key) => catalog(key)),
+        tombstone,
+      ],
+    })
+  );
+
+  assert.equal(
+    model.capabilities.some((entry) => entry.key === tombstone.key),
+    false
+  );
+  assert.equal(
+    JSON.stringify(model.capabilities).includes(tombstone.key),
+    false
+  );
+});
+
 test("every registry and catalog drift state disables mutation", () => {
   const variants = [
     ["catalog_missing", []],

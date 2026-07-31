@@ -8,6 +8,8 @@ import {
   REGISTERED_TEAM_CAPABILITY_KEYS,
   TEAM_CAPABILITY_REGISTRY,
 } from "../../lib/auth/teamCapabilityRegistry.ts";
+import { resolveTeamAreaNavigation } from "../../lib/admin/teamAreaNavigation.ts";
+import { createAccountNavigationState } from "../../lib/auth/accountNavigation.ts";
 
 const nonAdminRoles = [
   "trial_moderator",
@@ -213,43 +215,119 @@ for (const [name, property, value, code] of [
   });
 }
 
-test("an unknown database key is ignored and reported as registry drift", () => {
+test("a safe unknown database tombstone is ignored without registry drift", () => {
   const resolved = resolveDynamicTeamAuthorizationSnapshot(
-    snapshot("moderator", {
+    snapshot("trial_moderator", {
       catalog: [
         ...catalog,
         {
           key: "users.unknown",
-          isActive: true,
-          assignableToNonAdmin: true,
+          isActive: false,
+          assignableToNonAdmin: false,
           implementationVersion: 1,
           definitionHash: "0".repeat(64),
         },
       ],
-      grants: [
-        ...grants,
-        {
-          roleKey: "moderator",
-          capabilityKey: "users.unknown",
-        },
-      ],
+      grants: grants.filter(
+        (grant) =>
+          grant.roleKey !== "trial_moderator" ||
+          grant.capabilityKey === "users.directory.basic.view"
+      ),
     })
   );
 
-  assert.equal(resolved.status, "registry_drift");
+  assert.equal(resolved.status, "resolved");
   assert.deepEqual(
     resolved.resolvedCapabilities,
-    REGISTERED_TEAM_CAPABILITY_KEYS
+    ["users.directory.basic.view"]
+  );
+  assert.deepEqual(
+    resolved.diagnostics.map((entry) => entry.code),
+    ["grant_missing", "grant_missing"]
   );
   assert.equal(
-    resolved.diagnostics.some(
-      (entry) =>
-        entry.code === "unknown_database_capability" &&
-        entry.capabilityKey === "users.unknown"
+    resolved.diagnostics.some((entry) => entry.kind === "drift"),
+    false
+  );
+
+  const navigation = resolveTeamAreaNavigation({
+    role: resolved.roleKey,
+    isAdmin: resolved.isAdmin,
+    resolvedCapabilities: resolved.resolvedCapabilities,
+  });
+  const account = createAccountNavigationState({
+    sessionStatus: "authenticated",
+    hasVisibleTeamAreaItems: navigation.length > 0,
+  });
+  assert.equal(JSON.stringify(navigation).includes("users.unknown"), false);
+  assert.deepEqual(
+    navigation.flatMap((category) =>
+      category.items.map((entry) => entry.id)
     ),
+    ["user-logs"]
+  );
+  assert.equal(
+    account.items.some((entry) => entry.id === "team_area"),
     true
   );
 });
+
+for (const [name, catalogOverrides, extraGrant, expectedCode] of [
+  ["active", { isActive: true }, null, "unknown_catalog_key_active"],
+  [
+    "assignable",
+    { assignableToNonAdmin: true },
+    null,
+    "unknown_catalog_key_assignable",
+  ],
+  [
+    "granted to a built-in role",
+    {},
+    { roleKey: "moderator", capabilityKey: "users.unknown" },
+    "unknown_catalog_key_granted",
+  ],
+  [
+    "granted to an unused custom role",
+    {},
+    { roleKey: "unused_custom_role", capabilityKey: "users.unknown" },
+    "unknown_catalog_key_granted",
+  ],
+  [
+    "granted to an inactive role",
+    {},
+    { roleKey: "inactive_custom_role", capabilityKey: "users.unknown" },
+    "unknown_catalog_key_granted",
+  ],
+]) {
+  test(`an unknown database key that is ${name} is registry drift`, () => {
+    const resolved = resolveDynamicTeamAuthorizationSnapshot(
+      snapshot("moderator", {
+        catalog: [
+          ...catalog,
+          {
+            key: "users.unknown",
+            isActive: false,
+            assignableToNonAdmin: false,
+            implementationVersion: 1,
+            definitionHash: "0".repeat(64),
+            ...catalogOverrides,
+          },
+        ],
+        grants: extraGrant ? [...grants, extraGrant] : grants,
+      })
+    );
+
+    assert.equal(resolved.status, "registry_drift");
+    assert.equal(
+      resolved.diagnostics.some(
+        (entry) =>
+          entry.code === expectedCode &&
+          entry.capabilityKey === "users.unknown"
+      ),
+      true
+    );
+  });
+}
 
 test("a missing catalog entry is denied and reported as drift", () => {
   const resolved = resolveDynamicTeamAuthorizationSnapshot(
@@ -267,7 +345,7 @@ test("a missing catalog entry is denied and reported as drift", () => {
   );
   assert.equal(
     resolved.diagnostics.some(
-      (entry) => entry.code === "catalog_entry_missing"
+      (entry) => entry.code === "active_registry_key_missing_catalog"
     ),
     true
   );

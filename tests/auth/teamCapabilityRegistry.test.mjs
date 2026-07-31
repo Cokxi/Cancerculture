@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import {
+  ACTIVE_TEAM_CAPABILITY_KEYS,
   REGISTERED_TEAM_CAPABILITY_KEYS,
   TEAM_CAPABILITY_REGISTRY,
   getRegisteredTeamCapability,
@@ -40,6 +41,7 @@ test("the server registry contains exactly the three connected capability keys",
     Object.keys(TEAM_CAPABILITY_REGISTRY),
     expectedKeys
   );
+  assert.deepEqual([...ACTIVE_TEAM_CAPABILITY_KEYS], expectedKeys);
   assert.equal(
     expectedKeys.some(
       (key) => key.includes("*") || key.includes("voting")
@@ -74,6 +76,7 @@ test("registry metadata is complete and hashes match canonical Foundation defini
     assert.ok(definition.includedActions.length > 0);
     assert.ok(definition.excludedActions.length > 0);
     assert.equal(definition.assignableToNonAdmin, true);
+    assert.equal(definition.lifecycle, "active");
     assert.equal(definition.implementationVersion, 1);
     assert.equal(definition.definitionHash, expectedHashes[key]);
     assert.equal(hash, expectedHashes[key]);

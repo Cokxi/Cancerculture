@@ -172,7 +172,7 @@ test("permission rows are semantic, responsive, data-driven, exclude Admin, and 
   );
   assert.match(
     model,
-    /REGISTERED_TEAM_CAPABILITY_KEYS[\s\S]*snapshot\.capabilityRows/
+    /ACTIVE_TEAM_CAPABILITY_KEYS[\s\S]*snapshot\.capabilityRows/
   );
 });
 

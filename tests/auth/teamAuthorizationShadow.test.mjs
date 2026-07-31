@@ -132,6 +132,29 @@ test("definition drift produces an explicit affected-capability mismatch", () =>
   );
 });
 
+test("shadow comparison ignores a safe tombstone and retains dangerous drift", () => {
+  const tombstone = {
+    key: "test.compatibility.tombstone",
+    isActive: false,
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash: "0".repeat(64),
+  };
+  const safe = compareTeamAuthorizationShadow(
+    resolve("moderator", { catalog: [...catalog, tombstone] })
+  );
+  const dangerous = compareTeamAuthorizationShadow(
+    resolve("moderator", {
+      catalog: [...catalog, { ...tombstone, isActive: true }],
+    })
+  );
+
+  assert.equal(safe.dynamicStatus, "resolved");
+  assert.equal(safe.isMatch, true);
+  assert.equal(dangerous.dynamicStatus, "registry_drift");
+  assert.equal(dangerous.isMatch, false);
+});
+
 test("an unknown role fails closed even when both value sets are false", () => {
   const shadow = compareTeamAuthorizationShadow(
     resolve("unknown_role")

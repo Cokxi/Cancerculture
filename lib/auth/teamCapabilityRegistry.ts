@@ -15,6 +15,15 @@ export type TeamCapabilityRiskLevel =
   | "high"
   | "critical";
 
+export const TEAM_CAPABILITY_LIFECYCLES = Object.freeze([
+  "active",
+  "staged",
+  "deprecated",
+] as const);
+
+export type TeamCapabilityLifecycle =
+  (typeof TEAM_CAPABILITY_LIFECYCLES)[number];
+
 export type TeamCapabilityDefinition = Readonly<{
   key: RegisteredTeamCapabilityKey;
   displayName: string;
@@ -23,6 +32,7 @@ export type TeamCapabilityDefinition = Readonly<{
   includedActions: readonly string[];
   excludedActions: readonly string[];
   riskLevel: TeamCapabilityRiskLevel;
+  lifecycle: TeamCapabilityLifecycle;
   assignableToNonAdmin: boolean;
   implementationVersion: number;
   definitionHash: string;
@@ -69,6 +79,7 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
       "Finalized or archived cycles.",
     ],
     riskLevel: "high",
+    lifecycle: "active",
     assignableToNonAdmin: true,
     implementationVersion: 1,
     definitionHash:
@@ -89,6 +100,7 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
       "Apply any other sanction.",
     ],
     riskLevel: "moderate",
+    lifecycle: "active",
     assignableToNonAdmin: true,
     implementationVersion: 1,
     definitionHash:
@@ -110,12 +122,19 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
       "Social, session, vote, wallet, or sync data.",
     ],
     riskLevel: "low",
+    lifecycle: "active",
     assignableToNonAdmin: true,
     implementationVersion: 1,
     definitionHash:
       "5d0d0ab97601631a43f7ba87ba04d0007bf6534449774ac859f838e370cede48",
   }),
 });
+
+export const ACTIVE_TEAM_CAPABILITY_KEYS = Object.freeze(
+  REGISTERED_TEAM_CAPABILITY_KEYS.filter(
+    (key) => TEAM_CAPABILITY_REGISTRY[key].lifecycle === "active"
+  )
+);
 
 export function isRegisteredTeamCapabilityKey(
   value: unknown

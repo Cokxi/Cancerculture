@@ -104,7 +104,6 @@ async function loadDynamicTeamAuthorizationSnapshot(
       supabaseAdmin
         .from("team_role_capabilities")
         .select("role_key, capability_key")
-        .eq("role_key", roleKey)
     ),
   ]);
 

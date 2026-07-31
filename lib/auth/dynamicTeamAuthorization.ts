@@ -1,11 +1,15 @@
 import "server-only";
 
 import {
-  REGISTERED_TEAM_CAPABILITY_KEYS,
   TEAM_CAPABILITY_REGISTRY,
   isRegisteredTeamCapabilityKey,
   type RegisteredTeamCapabilityKey,
 } from "@/lib/auth/teamCapabilityRegistry";
+import {
+  TEAM_CAPABILITY_COMPATIBILITY_ISSUE_CODES,
+  evaluateTeamCapabilityCompatibility,
+  type TeamCapabilityCompatibilityIssueCode,
+} from "@/lib/auth/teamCapabilityCompatibility";
 
 const TEAM_ROLE_KEY_PATTERN = /^[a-z][a-z0-9_]{2,63}$/u;
 
@@ -51,12 +55,7 @@ export const DYNAMIC_TEAM_AUTHORIZATION_DIAGNOSTIC_CODES = [
   "invalid_role_key",
   "role_not_registered",
   "role_inactive",
-  "unknown_database_capability",
-  "catalog_entry_missing",
-  "catalog_entry_inactive",
-  "capability_not_assignable",
-  "implementation_version_mismatch",
-  "definition_hash_mismatch",
+  ...TEAM_CAPABILITY_COMPATIBILITY_ISSUE_CODES,
   "grant_missing",
   "dependency_unavailable",
 ] as const;
@@ -141,6 +140,35 @@ export function dependencyUnavailableTeamAuthorization(): DynamicTeamAuthorizati
   );
 }
 
+function compatibilityIssueReason(
+  code: TeamCapabilityCompatibilityIssueCode
+): string {
+  switch (code) {
+    case "unknown_catalog_key_active":
+      return "An unregistered database capability is active.";
+    case "unknown_catalog_key_assignable":
+      return "An unregistered database capability is assignable.";
+    case "unknown_catalog_key_granted":
+      return "An unregistered database capability has a grant.";
+    case "active_registry_key_missing_catalog":
+      return "An active registered capability is missing from the database catalog.";
+    case "catalog_entry_inactive":
+      return "The database capability for an active registry entry is inactive.";
+    case "capability_not_assignable":
+      return "The database capability for an active registry entry is not assignable.";
+    case "implementation_version_mismatch":
+      return "The database and code implementation versions differ.";
+    case "definition_hash_mismatch":
+      return "The database and code capability definitions differ.";
+    case "inactive_registry_key_active_in_catalog":
+      return "A non-active registry capability is active in the database catalog.";
+    case "inactive_registry_key_assignable_in_catalog":
+      return "A non-active registry capability is assignable in the database catalog.";
+    case "inactive_registry_key_granted":
+      return "A non-active registry capability has a grant.";
+  }
+}
+
 export function resolveDynamicTeamAuthorizationSnapshot(
   snapshot: DynamicTeamAuthorizationSnapshot
 ): DynamicTeamAuthorizationResult {
@@ -198,120 +226,34 @@ export function resolveDynamicTeamAuthorizationSnapshot(
 
   const diagnostics: DynamicTeamAuthorizationDiagnostic[] = [];
   const resolvedCapabilities: RegisteredTeamCapabilityKey[] = [];
-  const unknownDatabaseKeys = new Set<string>();
-  const catalogByKey = new Map(
-    snapshot.catalog.map((entry) => [entry.key, entry])
-  );
   const roleGrantKeys = new Set(
     snapshot.grants
       .filter((grant) => grant.roleKey === roleKey)
       .map((grant) => grant.capabilityKey)
   );
+  const compatibility = evaluateTeamCapabilityCompatibility({
+    registry: TEAM_CAPABILITY_REGISTRY,
+    catalog: snapshot.catalog,
+    grantedCapabilityKeys: snapshot.grants.map(
+      (grant) => grant.capabilityKey
+    ),
+  });
 
-  for (const entry of snapshot.catalog) {
-    if (!isRegisteredTeamCapabilityKey(entry.key)) {
-      unknownDatabaseKeys.add(entry.key);
-    }
-  }
-
-  for (const capabilityKey of roleGrantKeys) {
-    if (!isRegisteredTeamCapabilityKey(capabilityKey)) {
-      unknownDatabaseKeys.add(capabilityKey);
-    }
-  }
-
-  for (const capabilityKey of [...unknownDatabaseKeys].sort()) {
+  for (const compatibilityIssue of compatibility.issues) {
     diagnostics.push(
       diagnostic({
         kind: "drift",
-        code: "unknown_database_capability",
+        code: compatibilityIssue.code,
         roleKey,
-        capabilityKey,
-        reason:
-          "The database capability is not present in the code registry.",
+        capabilityKey: compatibilityIssue.capabilityKey,
+        reason: compatibilityIssueReason(compatibilityIssue.code),
       })
     );
   }
 
-  for (const capabilityKey of REGISTERED_TEAM_CAPABILITY_KEYS) {
-    const definition =
-      TEAM_CAPABILITY_REGISTRY[capabilityKey];
-    const catalogEntry = catalogByKey.get(capabilityKey);
-    let allowed = true;
-
-    if (!catalogEntry) {
-      diagnostics.push(
-        diagnostic({
-          kind: "drift",
-          code: "catalog_entry_missing",
-          roleKey,
-          capabilityKey,
-          reason:
-            "The registered capability is missing from the database catalog.",
-        })
-      );
-      allowed = false;
-    } else {
-      if (!catalogEntry.isActive) {
-        diagnostics.push(
-          diagnostic({
-            kind: "denial",
-            code: "catalog_entry_inactive",
-            roleKey,
-            capabilityKey,
-            reason: "The database capability is inactive.",
-          })
-        );
-        allowed = false;
-      }
-
-      if (!catalogEntry.assignableToNonAdmin) {
-        diagnostics.push(
-          diagnostic({
-            kind: "denial",
-            code: "capability_not_assignable",
-            roleKey,
-            capabilityKey,
-            reason:
-              "The database capability is not assignable to non-admin roles.",
-          })
-        );
-        allowed = false;
-      }
-
-      if (
-        catalogEntry.implementationVersion !==
-        definition.implementationVersion
-      ) {
-        diagnostics.push(
-          diagnostic({
-            kind: "drift",
-            code: "implementation_version_mismatch",
-            roleKey,
-            capabilityKey,
-            reason:
-              "The database and code implementation versions differ.",
-          })
-        );
-        allowed = false;
-      }
-
-      if (
-        catalogEntry.definitionHash !==
-        definition.definitionHash
-      ) {
-        diagnostics.push(
-          diagnostic({
-            kind: "drift",
-            code: "definition_hash_mismatch",
-            roleKey,
-            capabilityKey,
-            reason:
-              "The database and code capability definitions differ.",
-          })
-        );
-        allowed = false;
-      }
+  for (const capabilityKey of compatibility.activeCapabilityKeys) {
+    if (!isRegisteredTeamCapabilityKey(capabilityKey)) {
+      continue;
     }
 
     if (!roleGrantKeys.has(capabilityKey)) {
@@ -325,12 +267,10 @@ export function resolveDynamicTeamAuthorizationSnapshot(
             "No positive grant exists for the role and capability.",
         })
       );
-      allowed = false;
+      continue;
     }
 
-    if (allowed) {
-      resolvedCapabilities.push(capabilityKey);
-    }
+    resolvedCapabilities.push(capabilityKey);
   }
 
   return result({

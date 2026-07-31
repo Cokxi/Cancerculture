@@ -45,6 +45,7 @@ export const syncLabels: Readonly<
   version_mismatch: "Version mismatch",
   inactive: "Inactive",
   not_assignable: "Not assignable",
+  registry_inactive: "Inactive in code registry",
 };
 
 export function Field({

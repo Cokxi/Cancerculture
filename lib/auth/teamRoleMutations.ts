@@ -237,6 +237,7 @@ async function assertCapabilityIsSynchronized(
 
   if (
     !data ||
+    registered.lifecycle !== "active" ||
     !data.is_active ||
     !data.assignable_to_non_admin ||
     data.implementation_version !==
@@ -397,6 +398,7 @@ function assertBatchCapabilitiesRegistered(
     );
     if (
       !registered ||
+      registered.lifecycle !== "active" ||
       snapshot.expected_implementation_version !==
         registered.implementationVersion ||
       snapshot.expected_definition_hash !==
