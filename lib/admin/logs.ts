@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import { getDelegatedUploadLogReason } from "@/lib/admin/uploadLogAccess";
 import { getDelegatedAvatarUploadLogReason } from "@/lib/admin/avatarUploadLogAccess";
+import { getDelegatedVoteLogReason } from "@/lib/admin/voteLogAccess";
 
 export type UploadLogRow = {
   id: string;
@@ -113,7 +114,11 @@ export async function getUploadLogs({
   };
 }
 
-export async function getVoteLogs() {
+export async function getVoteLogs({
+  includeRawReason = false,
+}: {
+  includeRawReason?: boolean;
+} = {}) {
   const { data, error } = await supabaseAdmin
     .from("vote_logs")
     .select(
@@ -122,8 +127,15 @@ export async function getVoteLogs() {
     .order("created_at", { ascending: false })
     .limit(300);
 
+  const visibleLogs = (data ?? []).map((log) => ({
+    ...log,
+    reason: includeRawReason
+      ? log.reason
+      : getDelegatedVoteLogReason(log.reason, log.status),
+  }));
+
   return {
-    data: await addDiscordUserLabels(data),
+    data: await addDiscordUserLabels(visibleLogs),
     error,
   };
 }

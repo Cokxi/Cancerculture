@@ -19,6 +19,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "logs.website_bans.view",
   "logs.uploads.view",
   "logs.avatar_uploads.view",
+  "logs.votes.view",
 ] as const);
 
 export type RegisteredTeamCapabilityKey =
@@ -485,6 +486,28 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "d9b917101f9051d91eef9f2f20cbfa738fcd8787abe8283b0862d007416d5813",
+  }),
+  "logs.votes.view": defineCapability({
+    key: "logs.votes.view",
+    displayName: "View Vote Logs",
+    description:
+      "View redacted individual vote outcomes and their user, cycle, submission, and timestamp context.",
+    category: "Logs",
+    includedActions: [
+      "View recent accepted and rejected individual vote outcomes.",
+      "View the associated user, cycle, submission reference, timestamp, and redacted outcome category.",
+    ],
+    excludedActions: [
+      "Viewing raw internal policy, database, provider, or infrastructure error details.",
+      "Viewing vote-cluster, network, device, abuse-detection, or hidden aggregate signals.",
+      "Casting, changing, refunding, or moderating votes and viewing unrelated logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "991f2ef3ae5b454d3b1fec1c8fbc15ed64f845049553c6ba1cd07fe3bc0c09da",
   }),
 });
 

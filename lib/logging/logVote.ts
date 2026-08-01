@@ -21,7 +21,9 @@ export async function logVote({
       status,
       reason: reason ?? null,
     });
-  } catch {
-    
+  } catch (error) {
+    console.error("[VOTE LOG]", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
   }
 }

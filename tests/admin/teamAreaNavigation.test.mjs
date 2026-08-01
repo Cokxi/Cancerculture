@@ -111,6 +111,24 @@ test("avatar upload logs navigation needs only its exact read capability", () =>
   assert.equal(JSON.stringify(withGrant).includes("vote-logs"), false);
 });
 
+test("vote logs navigation needs only its exact read capability", () => {
+  const withoutGrant = resolveTeamAreaNavigation(context());
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["logs.votes.view"] })
+  );
+
+  assert.equal(JSON.stringify(withoutGrant).includes("vote-logs"), false);
+  assert.equal(JSON.stringify(withGrant).includes("vote-logs"), true);
+  assert.equal(
+    JSON.stringify(withGrant).includes("avatar-upload-logs"),
+    false
+  );
+  assert.equal(
+    JSON.stringify(withGrant).includes('"id":"upload-logs"'),
+    false
+  );
+});
+
 test("admin remains a hard role requirement rather than a capability grant", () => {
   assert.equal(
     meetsTeamAreaRequirement(

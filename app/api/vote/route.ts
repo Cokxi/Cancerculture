@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     if (voteEligibility.isBanned) {
       await logVote({
-        cycleId: null,
+        cycleId: voteEligibility.activeCycleId,
         discordUserId,
         status: "rejected",
         reason: "banned",
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
         submissionId,
         discordUserId,
         status: "rejected",
-        reason: "already_voted",
+        reason: "duplicate_submission_vote",
       });
 
       return NextResponse.json(
@@ -125,7 +125,7 @@ export async function POST(req: Request) {
         submissionId,
         discordUserId,
         status: "rejected",
-        reason: "already_voted",
+        reason: "vote_limit_reached",
       });
 
       return NextResponse.json(
@@ -190,11 +190,25 @@ export async function POST(req: Request) {
           status: "rejected",
           reason: isSelfVote
             ? "self_vote"
-            : isVotingClosed
-              ? "voting_closed"
-              : isSubmissionMissing
-                ? "submission_not_found"
-              : "already_voted",
+            : isDuplicate
+              ? "duplicate_submission_vote"
+              : isLimitReached
+                ? "vote_limit_reached"
+                : isVotingClosed
+                  ? "voting_closed"
+                  : isSubmissionMissing
+                    ? "submission_not_found"
+                    : isSubmissionIneligible
+                      ? "submission_ineligible"
+                      : isDiscordBanned
+                        ? "discord_banned"
+                        : isWebsiteBanned
+                          ? "website_banned"
+                          : isParticipationUnavailable
+                            ? "participation_unavailable"
+                            : isNotInDiscord
+                              ? "not_in_discord"
+                              : "joined_too_recently",
         });
 
         return NextResponse.json(

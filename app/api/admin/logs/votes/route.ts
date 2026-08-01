@@ -1,15 +1,19 @@
 export const runtime = "nodejs";
 
 import { getVoteLogs } from "@/lib/admin/logs";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    await requireAdmin();
+    const authorization = await requireDynamicTeamCapability(
+      "logs.votes.view"
+    );
 
-    const { data, error } = await getVoteLogs();
+    const { data, error } = await getVoteLogs({
+      includeRawReason: authorization.isAdmin,
+    });
 
     if (error) {
       return NextResponse.json(
