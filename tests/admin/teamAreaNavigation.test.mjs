@@ -81,6 +81,18 @@ test("the user directory needs its existing capability grant", () => {
   assert.equal(JSON.stringify(withGrant).includes("user-logs"), true);
 });
 
+test("upload logs navigation needs only its exact read capability", () => {
+  const withoutGrant = resolveTeamAreaNavigation(context());
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["logs.uploads.view"] })
+  );
+
+  assert.equal(JSON.stringify(withoutGrant).includes("upload-logs"), false);
+  assert.equal(JSON.stringify(withGrant).includes("upload-logs"), true);
+  assert.equal(JSON.stringify(withGrant).includes("avatar-upload-logs"), false);
+  assert.equal(JSON.stringify(withGrant).includes("vote-logs"), false);
+});
+
 test("admin remains a hard role requirement rather than a capability grant", () => {
   assert.equal(
     meetsTeamAreaRequirement(

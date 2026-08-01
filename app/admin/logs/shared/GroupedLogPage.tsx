@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import UserProfileLink from "./UserProfileLink";
 
 type BaseLog = {
-  id: number;
+  id: number | string;
   created_at: string;
-  cycle_id: number | null;
+  cycle_id: number | string | null;
   discord_user_id: string | null;
   status: string;
   reason: string | null;
-  submission_id?: number | null;
+  submission_id?: number | string | null;
   discord_user_label?: string | null;
   discord_public_profile_id?: string | null;
 };

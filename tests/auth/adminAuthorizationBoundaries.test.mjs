@@ -32,7 +32,6 @@ async function sourceFiles(directory) {
 
 const adminOnlyRoutes = [
   "app/api/admin/logs/route.ts",
-  "app/api/admin/logs/uploads/route.ts",
   "app/api/admin/logs/avatar-uploads/route.ts",
   "app/api/admin/logs/votes/route.ts",
   "app/api/admin/logs/blocked/route.ts",
@@ -76,6 +75,22 @@ test("upload block viewing is delegable while emergency unblock stays Admin-only
     route,
     /export async function POST\(req: Request\)[\s\S]*?requireAdmin\(\)/
   );
+});
+
+test("submission upload logs use their exact read capability and redact delegated reasons", async () => {
+  const [route, logs] = await Promise.all([
+    source("app/api/admin/logs/uploads/route.ts"),
+    source("lib/admin/logs.ts"),
+  ]);
+
+  assert.match(
+    route,
+    /requireDynamicTeamCapability\(\s*"logs\.uploads\.view"/
+  );
+  assert.match(route, /includeRawReason: authorization\.isAdmin/);
+  assert.doesNotMatch(route, /requireAdmin\(\)/);
+  assert.match(logs, /getDelegatedUploadLogReason/);
+  assert.doesNotMatch(logs, /from\("upload_logs"\)\s*\.select\("\*"\)/);
 });
 
 test("rules and social administration are server-side admin-only", async () => {
@@ -131,10 +146,27 @@ test("website ban view, create, and revoke use separate capability guards", asyn
   assert.doesNotMatch(revokeAction, /\.from\("user_logs"\)\s*\.update/);
 });
 
-test("all log pages are protected by a server admin layout", async () => {
-  const logsLayout = await source("app/admin/logs/layout.tsx");
+test("upload logs have a capability page guard while owner-only sibling pages keep direct guards", async () => {
+  const [logsLayout, logsPage, uploadsLayout] = await Promise.all([
+    source("app/admin/logs/layout.tsx"),
+    source("app/admin/logs/page.tsx"),
+    source("app/admin/logs/uploads/layout.tsx"),
+  ]);
 
-  assert.match(logsLayout, /await requireAdminPage\("\/admin\/logs"\)/);
+  assert.doesNotMatch(logsLayout, /requireAdminPage|requireTeamCapabilityPage/);
+  assert.match(logsPage, /requireAdminPage\("\/admin\/logs"\)/);
+  assert.match(
+    uploadsLayout,
+    /requireTeamCapabilityPage\(\s*"logs\.uploads\.view"/
+  );
+
+  for (const file of [
+    "app/admin/logs/avatar-uploads/layout.tsx",
+    "app/admin/logs/cycles/layout.tsx",
+    "app/admin/logs/votes/layout.tsx",
+  ]) {
+    assert.match(await source(file), /requireAdminPage\(/, file);
+  }
 });
 
 test("submission moderation uses only the exact phase and operation capability guard", async () => {

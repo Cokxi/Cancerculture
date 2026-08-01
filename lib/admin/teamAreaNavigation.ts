@@ -69,6 +69,10 @@ const uploadBlockView = Object.freeze({
   type: "capability",
   capability: "users.upload_blocks.view",
 } as const);
+const uploadLogsView = Object.freeze({
+  type: "capability",
+  capability: "logs.uploads.view",
+} as const);
 const websiteBanView = Object.freeze({
   type: "capability",
   capability: "users.website_bans.view",
@@ -198,7 +202,8 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           title: "Upload Logs",
           href: "/admin/logs/uploads",
           categoryId: "logs",
-          requirement: adminOnly,
+          description: "Browse redacted submission-upload outcomes.",
+          requirement: uploadLogsView,
           implemented: true,
         }),
         item({

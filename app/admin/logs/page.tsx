@@ -1,8 +1,9 @@
-"use client";
-
 import Link from "next/link";
+import { requireAdminPage } from "@/lib/auth/pageAccess";
 
-export default function AdminLogsPage() {
+export default async function AdminLogsPage() {
+  await requireAdminPage("/admin/logs");
+
   return (
     <div style={{ padding: 24 }}>
       <h1>Admin - Logs</h1>

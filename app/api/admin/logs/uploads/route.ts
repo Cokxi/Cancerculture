@@ -1,15 +1,19 @@
 export const runtime = "nodejs";
 
 import { getUploadLogs } from "@/lib/admin/logs";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    await requireAdmin();
+    const authorization = await requireDynamicTeamCapability(
+      "logs.uploads.view"
+    );
 
-    const { data, error } = await getUploadLogs();
+    const { data, error } = await getUploadLogs({
+      includeRawReason: authorization.isAdmin,
+    });
 
     if (error) {
       return NextResponse.json(

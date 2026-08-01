@@ -1,16 +1,17 @@
 import { supabaseAdmin } from "@/lib/db/admin";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
+import { getDelegatedUploadLogReason } from "@/lib/admin/uploadLogAccess";
 
 export type UploadLogRow = {
-  id: number;
+  id: string;
   created_at: string;
-  cycle_id: number | null;
+  cycle_id: string | null;
   status: string;
   reason: string | null;
   discord_user_id: string | null;
   discord_user_label?: string | null;
   discord_public_profile_id?: string | null;
-  submission_id: number | null;
+  submission_id: string | null;
 };
 
 export type VoteLogRow = {
@@ -25,7 +26,14 @@ export type VoteLogRow = {
   reason: string | null;
 };
 
-export type AvatarUploadLogRow = UploadLogRow;
+export type AvatarUploadLogRow = Omit<
+  UploadLogRow,
+  "id" | "cycle_id" | "submission_id"
+> & {
+  id: number;
+  cycle_id: null;
+  submission_id: null;
+};
 
 type LogWithDiscordUserId = {
   discord_user_id: string | null;
@@ -76,15 +84,28 @@ async function addDiscordUserLabels<TLog extends LogWithDiscordUserId>(
   }));
 }
 
-export async function getUploadLogs() {
+export async function getUploadLogs({
+  includeRawReason = false,
+}: {
+  includeRawReason?: boolean;
+} = {}) {
   const { data, error } = await supabaseAdmin
     .from("upload_logs")
-    .select("*")
+    .select(
+      "id, created_at, cycle_id, submission_id, discord_user_id, status, reason"
+    )
     .order("created_at", { ascending: false })
     .limit(400);
 
+  const visibleLogs = (data ?? []).map((log) => ({
+    ...log,
+    reason: includeRawReason
+      ? log.reason
+      : getDelegatedUploadLogReason(log.reason, log.status),
+  }));
+
   return {
-    data: await addDiscordUserLabels(data),
+    data: await addDiscordUserLabels(visibleLogs),
     error,
   };
 }
