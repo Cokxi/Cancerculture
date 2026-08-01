@@ -13,6 +13,10 @@ import CharitiesOverlay from "@/app/components/overlay/CharitiesOverlay";
 import RulesOverlay from "@/app/components/overlay/RulesOverlay";
 import type { UserSocialSettings } from "@/lib/socials/getUserSocialSettings";
 import type { ParticipationAccessState } from "@/lib/eligibility/participation";
+import {
+  PARTICIPATION_HOLD_TEXT,
+  PARTICIPATION_HOLD_TITLE,
+} from "@/lib/eligibility/participationNotice";
 import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 import {
   MEDIA_VALIDATION_MESSAGES,
@@ -555,6 +559,15 @@ if (!file) {
                   />
                 </>
               )
+            ) : participationState.status === "temporarily_unavailable" ? (
+              <>
+                <h2 className="font-[Permanent_Marker] text-3xl text-[var(--orange-dark)]">
+                  {PARTICIPATION_HOLD_TITLE}
+                </h2>
+                <p className="text-sm text-[var(--orange-main)]/80">
+                  {PARTICIPATION_HOLD_TEXT}
+                </p>
+              </>
             ) : participationState.status === "membership_pending" ? (
               <p className="text-[var(--orange-main)]">
                 We&apos;re temporarily verifying your Discord membership

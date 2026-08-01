@@ -108,7 +108,12 @@ export default function UserModerationActions({
       {canCreateFlags && activeFlagStatus ? (
         <span
           role="status"
-          style={{ color: "#ff6b6b", fontSize: 12, fontWeight: 700 }}
+          style={{
+            color: "#ff6b6b",
+            cursor: "default",
+            fontSize: 12,
+            fontWeight: 700,
+          }}
         >
           🚩 Active flag case: {activeFlagStatus}
         </span>
@@ -211,7 +216,10 @@ export default function UserModerationActions({
       ) : null}
 
       {flagMessage ? (
-        <p role="status" style={{ marginTop: 6, fontSize: 12 }}>
+        <p
+          role="status"
+          style={{ cursor: "default", marginTop: 6, fontSize: 12 }}
+        >
           {flagMessage}
         </p>
       ) : null}

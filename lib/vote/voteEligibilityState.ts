@@ -3,6 +3,7 @@ export type VoteBlockedReason =
   | "not_in_discord"
   | "join_wait"
   | "membership_pending"
+  | "participation_hold"
   | "dependency_unavailable"
   | "not_authenticated"
   | null;

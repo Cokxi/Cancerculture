@@ -10,6 +10,10 @@ import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
 import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
+import {
+  PARTICIPATION_HOLD_TEXT,
+  PARTICIPATION_HOLD_TITLE,
+} from "@/lib/eligibility/participationNotice";
 import type { PublicPage } from "@/lib/pagination/publicPagination";
 import { usePublicPagination } from "@/lib/pagination/usePublicPagination";
 import {
@@ -161,6 +165,8 @@ export default function SubmissionsClient({
             ? "banned"
             : data.status === "anonymous"
               ? "not_authenticated"
+              : data.status === "temporarily_unavailable"
+                ? "participation_hold"
               : "dependency_unavailable"
         );
         return;
@@ -179,6 +185,8 @@ export default function SubmissionsClient({
               ? "join_wait"
               : status === "restricted"
                 ? "banned"
+                : status === "temporarily_unavailable"
+                  ? "participation_hold"
                 : status === "membership_pending"
                   ? "membership_pending"
                   : "dependency_unavailable"
@@ -276,6 +284,10 @@ export default function SubmissionsClient({
       return "Membership verification is temporarily pending";
     }
 
+    if (effectiveVoteBlockedReason === "participation_hold") {
+      return PARTICIPATION_HOLD_TITLE;
+    }
+
     if (effectiveVoteBlockedReason === "dependency_unavailable") {
       return "Temporarily unable to verify membership";
     }
@@ -333,6 +345,12 @@ export default function SubmissionsClient({
 
       if (data?.error === "MEMBERSHIP_UNAVAILABLE") {
         setLocalVoteBlockedReason("dependency_unavailable");
+        setLocalShowDiscordSyncDelayNotice(false);
+        return;
+      }
+
+      if (data?.error === "PARTICIPATION_UNAVAILABLE") {
+        setLocalVoteBlockedReason("participation_hold");
         setLocalShowDiscordSyncDelayNotice(false);
         return;
       }
@@ -549,6 +567,19 @@ export default function SubmissionsClient({
                         </a>
                         <p className="mt-2 text-[10px] text-white/55">
                           Voting requires 10 minutes of Discord membership.
+                        </p>
+                      </div>
+                    ) : effectiveVoteBlockedReason ===
+                      "participation_hold" ? (
+                      <div
+                        role="status"
+                        className="max-w-sm text-center text-red-300"
+                      >
+                        <p className="font-semibold">
+                          {PARTICIPATION_HOLD_TITLE}
+                        </p>
+                        <p className="mt-2 text-xs text-white/70">
+                          {PARTICIPATION_HOLD_TEXT}
                         </p>
                       </div>
                     ) : (

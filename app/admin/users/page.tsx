@@ -18,6 +18,7 @@ import {
 import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
 import UserFlagCaseCreateForm from "./UserFlagCaseCreateForm";
+import UserFlagHistoryDisclosure from "./UserFlagHistoryDisclosure";
 
 
 type UserLog = {
@@ -249,6 +250,7 @@ export default async function AdminUsersPage({
             <tr>
               <th align="left">User</th>
               <th align="left">Discord ID</th>
+              {canViewFlags ? <th align="left">Flag cases</th> : null}
               {isAdmin ? <th align="left">Stats</th> : null}
               {isAdmin ? <th align="left">Activity</th> : null}
             </tr>
@@ -306,33 +308,6 @@ export default async function AdminUsersPage({
     </strong>
   )}
 
-  
-  {canViewFlags && (flagCasesByUser.get(user.discord_user_id)?.length ?? 0) > 0 ? (
-    <details style={{ marginTop: 6, fontSize: 12 }}>
-      <summary>User flag history</summary>
-      {(flagCasesByUser.get(user.discord_user_id) ?? []).map((flagCase) => (
-        <div
-          key={flagCase.caseId}
-          style={{
-            marginTop: 6,
-            border: "1px solid #333",
-            borderRadius: 4,
-            padding: "6px 8px",
-          }}
-        >
-          <Link href={`/admin/flags/${flagCase.caseId}`}>
-            {flagCase.status} · {flagCase.category ?? "legacy category unavailable"}
-          </Link>
-          <div>{flagCase.reason ?? "Legacy reason unavailable"}</div>
-          <div style={{ opacity: 0.7 }}>
-            {flagCase.events.length} history event(s)
-          </div>
-        </div>
-      ))}
-    </details>
-  ) : null}
-
-  
 {isAdmin && user.is_banned && user.ban_reason && (
   <div
     style={{
@@ -378,6 +353,17 @@ export default async function AdminUsersPage({
                 >
                   {user.discord_user_id}
                 </td>
+
+                {canViewFlags ? (
+                  <td style={{ padding: "8px 16px 8px 0" }}>
+                    <UserFlagHistoryDisclosure
+                      flagCases={
+                        flagCasesByUser.get(user.discord_user_id) ?? []
+                      }
+                      userLabel={userLabel}
+                    />
+                  </td>
+                ) : null}
 
                   
 

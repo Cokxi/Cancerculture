@@ -58,6 +58,8 @@ export async function GET() {
               ? "anonymous"
               : code === "DISCORD_BANNED" || code === "WEBSITE_BANNED"
                 ? "restricted"
+                : code === "PARTICIPATION_UNAVAILABLE"
+                  ? "temporarily_unavailable"
                 : "dependency_unavailable",
           error: code,
         },

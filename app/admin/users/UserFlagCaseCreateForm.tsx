@@ -85,7 +85,12 @@ export default function UserFlagCaseCreateForm() {
       {activeStatus ? (
         <p
           role="status"
-          style={{ marginTop: 8, color: "#ff6b6b", fontWeight: 700 }}
+          style={{
+            marginTop: 8,
+            color: "#ff6b6b",
+            cursor: "default",
+            fontWeight: 700,
+          }}
         >
           🚩 Active flag case: {activeStatus}
         </p>
@@ -138,7 +143,7 @@ export default function UserFlagCaseCreateForm() {
         {pending ? "Creating..." : "Create flag case"}
       </button>
       {message ? (
-        <p role="status" style={{ marginTop: 8 }}>
+        <p role="status" style={{ cursor: "default", marginTop: 8 }}>
           {message}
         </p>
       ) : null}

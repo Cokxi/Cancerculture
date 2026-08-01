@@ -62,6 +62,37 @@ test("only bans produce the restricted participation state", () => {
   );
 });
 
+test("participation holds remain distinct from membership failures", async () => {
+  const held = createParticipationAccessState({
+    authenticated: true,
+    membershipKnown: true,
+    discordMember: true,
+    participationHeld: true,
+  });
+  const released = createParticipationAccessState({
+    authenticated: true,
+    membershipKnown: true,
+    discordMember: true,
+    participationHeld: false,
+  });
+
+  assert.equal(held.status, "temporarily_unavailable");
+  assert.equal(held.participationHeld, true);
+  assert.equal(held.membershipKnown, true);
+  assert.equal(held.discordMember, true);
+  assert.equal(released.status, "eligible");
+
+  const migration = await readRepoFile(
+    "supabase/migrations/20260801000100_user_flag_escalation_workflow.sql"
+  );
+  const holdFunction = migration.slice(
+    migration.indexOf("create or replace function public.is_user_participation_held"),
+    migration.indexOf("create or replace function public.get_user_participation_hold")
+  );
+  assert.match(holdFunction, /status = 'escalated'/u);
+  assert.doesNotMatch(holdFunction, /status = '(?:open|resolved|dismissed)'/u);
+});
+
 test("public upload and submissions pages contain no automatic OAuth redirect", async () => {
   const [uploadPage, submissionsPage] = await Promise.all([
     readRepoFile("app/upload/page.tsx"),
@@ -100,9 +131,10 @@ test("upload and vote commits use the participation guard", async () => {
 });
 
 test("upload and vote UX expose every non-eligible state", async () => {
-  const [uploadClient, submissionsClient] = await Promise.all([
+  const [uploadClient, submissionsClient, notice] = await Promise.all([
     readRepoFile("app/components/upload/DesktopUpload.tsx"),
     readRepoFile("app/submissions/SubmissionsClient.tsx"),
+    readRepoFile("lib/eligibility/participationNotice.ts"),
   ]);
 
   assert.match(uploadClient, /Login with Discord to upload/);
@@ -113,6 +145,18 @@ test("upload and vote UX expose every non-eligible state", async () => {
   assert.match(submissionsClient, /Join Discord to vote/);
   assert.match(submissionsClient, /Membership verification is temporarily pending/);
   assert.match(submissionsClient, /DiscordCooldownTimer/);
+  assert.match(uploadClient, /status === "temporarily_unavailable"/u);
+  assert.match(submissionsClient, /status === "temporarily_unavailable"/u);
+  assert.match(submissionsClient, /"participation_hold"/u);
+  assert.match(notice, /Your participation is temporarily on hold/u);
+  assert.match(
+    notice,
+    /Your account is currently under review\. You can continue to browse CancerCulture, but uploading and voting are unavailable until the review is complete\./u
+  );
+  assert.doesNotMatch(
+    notice,
+    /suspicious_behavior|escalation|actor|category|internal reason/iu
+  );
 });
 
 test("logout revokes the server session before clearing the cookie", async () => {
