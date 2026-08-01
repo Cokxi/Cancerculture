@@ -45,6 +45,41 @@ test("flag case detail retains capability gates and review action conditions", a
   assert.match(detail, /isAdmin && flagCase\.status === "escalated"/u);
 });
 
+test("review input and outcomes expose clear accessible interaction states", async () => {
+  const actions = await source(
+    "app/admin/flags/[caseId]/FlagCaseReviewActions.tsx"
+  );
+
+  assert.match(actions, /data-flag-review-actions/u);
+  assert.match(actions, /htmlFor="flag-review-reason"/u);
+  assert.match(actions, /id="flag-review-reason"/u);
+  assert.match(actions, /rows=\{5\}/u);
+  assert.match(actions, /minLength=\{3\}/u);
+  assert.match(actions, /required/u);
+  assert.match(actions, /border-2 border-white\/25/u);
+  assert.match(actions, /px-3 py-3/u);
+  assert.match(actions, /focus-visible:ring-2/u);
+  assert.match(actions, /disabled:cursor-not-allowed/u);
+  assert.match(actions, /className="mt-5 flex flex-wrap gap-3/u);
+  assert.match(actions, /role="group"/u);
+  assert.match(actions, /aria-label="Flag case review actions"/u);
+
+  for (const action of [
+    "resolved",
+    "dismissed",
+    "escalated",
+    "banned_resolved",
+  ]) {
+    assert.match(actions, new RegExp(`data-review-action="${action}"`, "u"));
+  }
+  for (const style of ["resolve", "dismiss", "escalate", "ban"]) {
+    assert.match(actions, new RegExp(`className=\\{${style}ButtonClassName\\}`, "u"));
+  }
+  assert.match(actions, /cursor-pointer/u);
+  assert.match(actions, /disabled:opacity-45/u);
+  assert.doesNotMatch(actions, /style=\{\{ color: "#ff6b6b" \}\}/u);
+});
+
 test("user log flag history is an independent accessible table control", async () => {
   const [page, disclosure] = await Promise.all([
     source("app/admin/users/page.tsx"),
