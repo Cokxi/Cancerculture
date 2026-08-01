@@ -21,6 +21,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "logs.avatar_uploads.view",
   "logs.votes.view",
   "logs.submission_moderation.view",
+  "logs.team_authorization.view",
 ] as const);
 
 export type RegisteredTeamCapabilityKey =
@@ -531,6 +532,28 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "fc820ff4bea36171834588856c8f1ca09f0b0391d0b04ff6c0521fffa85d88e7",
+  }),
+  "logs.team_authorization.view": defineCapability({
+    key: "logs.team_authorization.view",
+    displayName: "View Team Authorization History",
+    description:
+      "View separately paginated team-membership and Roles & Permissions authorization events through a safe read-only projection.",
+    category: "Logs",
+    includedActions: [
+      "View team enrollment, removal, role-assignment, and Owner-access changes with actor, target, timestamp, role-transition, and reason context.",
+      "View role lifecycle and capability grant or revocation events with actor, affected role, capability, timestamp, and reason context.",
+    ],
+    excludedActions: [
+      "Viewing raw before/after objects, request or idempotency data, row versions, batch identifiers, or other internal enforcement details.",
+      "Adding or removing team members, changing team or Owner assignments, or managing role definitions and lifecycle.",
+      "Viewing or changing the Roles & Permissions matrix, granting or revoking capabilities, or viewing unrelated logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "69faf8e792eb9ee98366d3be382d6020ba46994b514c07c3ab2e970c716be1ba",
   }),
 });
 

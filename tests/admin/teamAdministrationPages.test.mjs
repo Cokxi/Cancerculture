@@ -84,12 +84,11 @@ test("Team routes retain breadcrumbs and active state from the central definitio
   }
 });
 
-test("all four pages guard before loading their server read models", async () => {
+test("the three owner mutation pages guard before loading their server read models", async () => {
   for (const path of [
     "app/admin/team/members/page.tsx",
     "app/admin/team/members/add/page.tsx",
     "app/admin/team/roles/page.tsx",
-    "app/admin/team/authorization-history/page.tsx",
   ]) {
     const page = await source(path);
     assert.match(page, /requireAdminPage\(/, path);
@@ -100,6 +99,22 @@ test("all four pages guard before loading their server read models", async () =>
     );
     assert.match(page, /getTeamPageAccessRedirect/, path);
   }
+});
+
+test("Authorization History uses its exact capability-guarded read model", async () => {
+  const [page, model] = await Promise.all([
+    source("app/admin/team/authorization-history/page.tsx"),
+    source("lib/auth/teamAuthorizationHistoryReadModel.ts"),
+  ]);
+
+  assert.doesNotMatch(page, /requireAdminPage/);
+  assert.match(page, /loadTeamAuthorizationHistoryReadModel/);
+  assert.match(page, /getTeamPageAccessRedirect/);
+  assert.match(model, /requireDynamicTeamCapability\(\s*"logs\.team_authorization\.view"/u);
+  assert.ok(
+    model.indexOf("requireDynamicTeamCapability") <
+      model.indexOf('.from("team_authorization_audit")')
+  );
 });
 
 test("the legacy team route guards and redirects directly to the canonical role page", async () => {
@@ -195,15 +210,10 @@ test("page-specific server read models avoid loading unrelated Team data", async
   const rolesLoader = model.slice(
     model.indexOf(
       "export async function loadRolesPermissionsAdminReadModel"
-    ),
-    model.indexOf(
-      "export async function loadTeamAuthorizationHistoryReadModel"
     )
   );
-  const historyLoader = model.slice(
-    model.indexOf(
-      "export async function loadTeamAuthorizationHistoryReadModel"
-    )
+  const historyLoader = await source(
+    "lib/auth/teamAuthorizationHistoryReadModel.ts"
   );
 
   assert.match(membersLoader, /\.from\("team_roles"\)/);
@@ -222,7 +232,7 @@ test("page-specific server read models avoid loading unrelated Team data", async
   );
 });
 
-test("Roles & Permissions renders eighteen compact responsive rows with active dynamic role controls", async () => {
+test("Roles & Permissions renders nineteen compact responsive rows with active dynamic role controls", async () => {
   const [page, shell, ui, registry] = await Promise.all([
     source("app/admin/team/roles/page.tsx"),
     source("app/admin/team/roles/RolesPermissionsClient.tsx"),
@@ -251,8 +261,9 @@ test("Roles & Permissions renders eighteen compact responsive rows with active d
       "logs.avatar_uploads.view",
       "logs.votes.view",
       "logs.submission_moderation.view",
+      "logs.team_authorization.view",
     ].filter((key) => registry.includes(`"${key}"`)).length,
-    18
+    19
   );
   assert.match(shell, /capabilities=\{readModel\.capabilities\}/);
   assert.match(ui, /baseCapabilities\.map/);
@@ -327,14 +338,24 @@ test("custom role administration retains the hardened single mutation contract w
 });
 
 test("Authorization History is a server-rendered read-only projection", async () => {
-  const [page, list] = await Promise.all([
+  const [page, list, model, projection] = await Promise.all([
     source("app/admin/team/authorization-history/page.tsx"),
     source(
       "app/admin/team/authorization-history/AuthorizationHistoryList.tsx"
     ),
+    source("lib/auth/teamAuthorizationHistoryReadModel.ts"),
+    source("lib/auth/teamAuthorizationHistoryProjection.ts"),
   ]);
 
-  assert.match(page, /audit=\{readModel\.audit\}/);
+  assert.match(page, /audit=\{readModel\.entries\}/);
+  assert.match(page, /Team changes/);
+  assert.match(page, /Roles & Permissions/);
+  assert.match(page, /hasNextPage/);
+  assert.match(model, /EVENT_TYPES_BY_VIEW/);
+  assert.match(model, /\.in\("event_type"/);
+  assert.match(model, /\.range\(/);
+  assert.match(model, /\.order\("occurred_at"/);
+  assert.match(model, /\.order\("id"/);
   for (const field of [
     "occurredAt",
     "eventType",
@@ -343,11 +364,14 @@ test("Authorization History is a server-rendered read-only projection", async ()
     "capabilityKey",
     "targetDiscordUserId",
     "reason",
-    "beforeState",
-    "afterState",
+    "previousRoleKey",
+    "newRoleKey",
+    "adminAudit",
   ]) {
     assert.match(list, new RegExp(`entry\\.${field}`));
   }
+  assert.match(model, /authorization\.isAdmin \? \["request_id"\] : \[\]/);
+  assert.match(projection, /adminAudit: isAdmin/);
   assert.doesNotMatch(`${page}\n${list}`, /"use client"|fetch\(|<form|<button/);
   assert.doesNotMatch(`${page}\n${list}`, /\.(?:insert|update|delete)\(/);
   assert.doesNotMatch(page, /\.from\("team_authorization_audit"\)/);

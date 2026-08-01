@@ -85,6 +85,10 @@ const submissionModerationLogsView = Object.freeze({
   type: "capability",
   capability: "logs.submission_moderation.view",
 } as const);
+const teamAuthorizationLogsView = Object.freeze({
+  type: "capability",
+  capability: "logs.team_authorization.view",
+} as const);
 const websiteBanView = Object.freeze({
   type: "capability",
   capability: "users.website_bans.view",
@@ -339,8 +343,9 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           title: "Authorization History",
           href: "/admin/team/authorization-history",
           categoryId: "team",
-          description: "Review append-only authorization events.",
-          requirement: adminOnly,
+          description:
+            "Review separated team-change and Roles & Permissions events.",
+          requirement: teamAuthorizationLogsView,
           implemented: true,
         }),
       ],

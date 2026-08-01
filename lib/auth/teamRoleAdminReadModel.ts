@@ -113,11 +113,6 @@ export type RolesPermissionsAdminReadModel = Pick<
   "roles" | "capabilities" | "activeNonAdminRoles"
 >;
 
-export type TeamAuthorizationHistoryReadModel = Pick<
-  TeamRoleAdminReadModel,
-  "audit"
->;
-
 type RoleRow = {
   key: string;
   display_name: string;
@@ -677,37 +672,4 @@ export async function loadRolesPermissionsAdminReadModel(
     capabilities: model.capabilities,
     activeNonAdminRoles: model.activeNonAdminRoles,
   };
-}
-
-export async function loadTeamAuthorizationHistoryReadModel(
-  currentAdminDiscordUserId: string
-): Promise<TeamAuthorizationHistoryReadModel> {
-  const auditResult = await supabaseAdmin
-    .from("team_authorization_audit")
-    .select(
-      "id, occurred_at, actor_discord_user_id, actor_role_key, event_type, target_role_key, target_discord_user_id, capability_key, before_state, after_state, reason, request_id"
-    )
-    .order("occurred_at", { ascending: false })
-    .limit(50);
-
-  if (auditResult.error) {
-    console.error("[TEAM_ROLE_ADMIN] history read model unavailable", {
-      audit: auditResult.error.code,
-    });
-    throw readModelUnavailable();
-  }
-
-  const model = buildReadModelOrUnavailable(
-    {
-      roleRows: [],
-      capabilityRows: [],
-      grantRows: [],
-      memberRows: [],
-      auditRows: (auditResult.data ?? []) as AuditRow[],
-      currentAdminDiscordUserId,
-    },
-    "authorization-history"
-  );
-
-  return { audit: model.audit };
 }

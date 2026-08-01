@@ -180,7 +180,6 @@ test("admin pages and owner actions keep explicit server guards", async () => {
     "app/admin/team/roles/page.tsx",
     "app/admin/team/members/page.tsx",
     "app/admin/team/members/add/page.tsx",
-    "app/admin/team/authorization-history/page.tsx",
     "app/admin/moderation/legal-review/page.tsx",
     "app/admin/coin-launches/page.tsx",
     "app/admin/homepage-info-blocks/page.tsx",
@@ -201,6 +200,20 @@ test("admin pages and owner actions keep explicit server guards", async () => {
   ]) {
     assert.match(await source(file), /requireAdmin\(\)/, file);
   }
+
+  const [historyPage, historyReadModel] = await Promise.all([
+    source("app/admin/team/authorization-history/page.tsx"),
+    source("lib/auth/teamAuthorizationHistoryReadModel.ts"),
+  ]);
+  assert.match(historyPage, /loadTeamAuthorizationHistoryReadModel/);
+  assert.match(
+    historyReadModel,
+    /requireDynamicTeamCapability\(\s*"logs\.team_authorization\.view"/
+  );
+  assert.ok(
+    historyReadModel.indexOf("requireDynamicTeamCapability") <
+      historyReadModel.indexOf('.from("team_authorization_audit")')
+  );
 });
 
 test("website ban view, create, and revoke use separate capability guards", async () => {
