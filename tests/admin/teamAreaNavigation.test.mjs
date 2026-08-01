@@ -129,6 +129,24 @@ test("vote logs navigation needs only its exact read capability", () => {
   );
 });
 
+test("submission moderation logs navigation needs only its exact read capability", () => {
+  const withoutGrant = resolveTeamAreaNavigation(context());
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["logs.submission_moderation.view"] })
+  );
+
+  assert.equal(
+    JSON.stringify(withoutGrant).includes("moderation-logs"),
+    false
+  );
+  assert.equal(
+    JSON.stringify(withGrant).includes("moderation-logs"),
+    true
+  );
+  assert.equal(JSON.stringify(withGrant).includes("vote-logs"), false);
+  assert.equal(JSON.stringify(withGrant).includes("social-logs"), false);
+});
+
 test("admin remains a hard role requirement rather than a capability grant", () => {
   assert.equal(
     meetsTeamAreaRequirement(

@@ -1,21 +1,133 @@
+import { supabaseAdmin } from "@/lib/db/admin";
+import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
+import { getDelegatedSubmissionModerationReason } from "@/lib/admin/submissionModerationLogAccess";
+
+export const SUBMISSION_MODERATION_LOG_ACTIONS = Object.freeze([
+  "disqualify_submission",
+  "reinstate_submission",
+  "mark_submission_legal_review",
+  "restore_submission_public_visibility",
+  "remove_submission_from_public",
+] as const);
+
 export type ModerationLogRow = {
+  id: string;
+  created_at: string;
+  actor_role: string;
+  actor_discord_user_id: string;
+  actor_discord_user_label: string | null;
+  actor_public_profile_id: string | null;
+  action: string;
+  submission_id: number | null;
+  submitter_discord_user_id: string | null;
+  submitter_discord_user_label: string | null;
+  submitter_public_profile_id: string | null;
+  reason: string;
+  reason_text: string | null;
+  cycle_id: number | null;
+};
+
+type ModerationLogQueryRow = {
   id: string;
   created_at: string;
   actor_role: string;
   actor_id: string;
   action: string;
   target_id: string;
-  reason_code: string | null;
-  reason_text: string | null;
-  cycle_id: number;
-  evidence: Record<string, unknown> | null;
+  target_discord_user_id: string | null;
+  reason_code: string;
+  reason_text?: string | null;
+  cycle_id: number | null;
 };
 
-export type ActorUser = {
-  discord_user_id: string;
-  current_discord_username: string | null;
-  current_discord_handle?: string | null;
-  current_display_name?: string | null;
-  current_guild_nickname?: string | null;
-  public_profile_id?: string | null;
-};
+export async function getSubmissionModerationLogs({
+  includeAdminDetails = false,
+}: {
+  includeAdminDetails?: boolean;
+} = {}) {
+  const query = includeAdminDetails
+    ? supabaseAdmin
+        .from("moderation_action_logs")
+        .select(
+          "id, created_at, actor_role, actor_id, action, target_id, target_discord_user_id, reason_code, reason_text, cycle_id"
+        )
+    : supabaseAdmin
+        .from("moderation_action_logs")
+        .select(
+          "id, created_at, actor_role, actor_id, action, target_id, target_discord_user_id, reason_code, cycle_id"
+        );
+
+  const { data, error } = await query
+    .eq("target_type", "submission")
+    .in("action", [...SUBMISSION_MODERATION_LOG_ACTIONS])
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (error || !data) {
+    return { data: [], error };
+  }
+
+  const rows = data as ModerationLogQueryRow[];
+  const discordUserIds = Array.from(
+    new Set(
+      rows.flatMap((log) =>
+        [log.actor_id, log.target_discord_user_id].filter(
+          (discordUserId): discordUserId is string =>
+            typeof discordUserId === "string" && discordUserId.length > 0
+        )
+      )
+    )
+  );
+
+  const { data: users } =
+    discordUserIds.length > 0
+      ? await supabaseAdmin
+          .from("user_logs")
+          .select(
+            "discord_user_id, public_profile_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+          )
+          .in("discord_user_id", discordUserIds)
+      : { data: [] };
+
+  const userByDiscordUserId = new Map(
+    (users ?? []).map((user) => [
+      user.discord_user_id,
+      {
+        label: formatDiscordUserLabel(user, "admin"),
+        publicProfileId: user.public_profile_id,
+      },
+    ])
+  );
+
+  return {
+    data: rows.map((log): ModerationLogRow => {
+      const actor = userByDiscordUserId.get(log.actor_id);
+      const submitter = log.target_discord_user_id
+        ? userByDiscordUserId.get(log.target_discord_user_id)
+        : null;
+      const parsedSubmissionId = Number(log.target_id);
+
+      return {
+        id: log.id,
+        created_at: log.created_at,
+        actor_role: log.actor_role,
+        actor_discord_user_id: log.actor_id,
+        actor_discord_user_label: actor?.label ?? null,
+        actor_public_profile_id: actor?.publicProfileId ?? null,
+        action: log.action,
+        submission_id: Number.isSafeInteger(parsedSubmissionId)
+          ? parsedSubmissionId
+          : null,
+        submitter_discord_user_id: log.target_discord_user_id,
+        submitter_discord_user_label: submitter?.label ?? null,
+        submitter_public_profile_id: submitter?.publicProfileId ?? null,
+        reason: includeAdminDetails
+          ? log.reason_code
+          : getDelegatedSubmissionModerationReason(log.reason_code),
+        reason_text: includeAdminDetails ? log.reason_text ?? null : null,
+        cycle_id: log.cycle_id,
+      };
+    }),
+    error: null,
+  };
+}

@@ -81,6 +81,10 @@ const voteLogsView = Object.freeze({
   type: "capability",
   capability: "logs.votes.view",
 } as const);
+const submissionModerationLogsView = Object.freeze({
+  type: "capability",
+  capability: "logs.submission_moderation.view",
+} as const);
 const websiteBanView = Object.freeze({
   type: "capability",
   capability: "users.website_bans.view",
@@ -242,10 +246,11 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
         }),
         item({
           id: "moderation-logs",
-          title: "Moderation Logs",
+          title: "Submission Moderation Logs",
           href: "/admin/logs/moderation",
           categoryId: "logs",
-          requirement: adminOnly,
+          description: "Browse redacted submission-moderation actions.",
+          requirement: submissionModerationLogsView,
           implemented: true,
         }),
         item({

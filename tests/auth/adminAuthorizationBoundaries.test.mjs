@@ -34,8 +34,6 @@ const adminOnlyRoutes = [
   "app/api/admin/logs/route.ts",
   "app/api/admin/logs/blocked/route.ts",
   "app/api/admin/logs/blocked/handled/route.ts",
-  "app/api/admin/logs/moderation/route.ts",
-  "app/api/admin/logs/moderation/by-cycle/route.ts",
   "app/api/admin/socials/[socialId]/verify/route.ts",
   "app/api/admin/socials/[socialId]/unverify/route.ts",
   "app/api/admin/submissions/public-visibility/route.ts",
@@ -130,6 +128,41 @@ test("vote logs use their exact read capability and redact delegated reasons", a
   assert.doesNotMatch(logs, /from\("vote_logs"\)\s*\.select\("\*"\)/);
 });
 
+test("submission moderation logs use their exact read capability and redact delegated details", async () => {
+  const [route, byCycleRoute, logs] = await Promise.all([
+    source("app/api/admin/logs/moderation/route.ts"),
+    source("app/api/admin/logs/moderation/by-cycle/route.ts"),
+    source("lib/admin/moderationLogs.ts"),
+  ]);
+
+  for (const apiRoute of [route, byCycleRoute]) {
+    assert.match(
+      apiRoute,
+      /requireDynamicTeamCapability\(\s*"logs\.submission_moderation\.view"/
+    );
+    assert.match(
+      apiRoute,
+      /includeAdminDetails: authorization\.isAdmin/
+    );
+    assert.doesNotMatch(apiRoute, /requireAdmin\(\)/);
+  }
+
+  assert.match(logs, /getDelegatedSubmissionModerationReason/);
+  assert.match(logs, /\.eq\("target_type", "submission"\)/);
+  assert.doesNotMatch(
+    logs,
+    /from\("moderation_action_logs"\)\s*\.select\("\*"\)/
+  );
+  assert.match(
+    logs,
+    /includeAdminDetails[\s\S]*?reason_code, reason_text, cycle_id"[\s\S]*?: supabaseAdmin[\s\S]*?reason_code, cycle_id"/
+  );
+  assert.doesNotMatch(
+    logs,
+    /select\([^)]*(?:evidence|moderation_request_id|before_state|after_state)/
+  );
+});
+
 test("rules and social administration are server-side admin-only", async () => {
   const [rules, socialLogs] = await Promise.all([
     source("app/admin/actions/updateRulesVersion.ts"),
@@ -184,12 +217,13 @@ test("website ban view, create, and revoke use separate capability guards", asyn
 });
 
 test("delegable log pages have exact capability guards while owner-only sibling pages keep direct guards", async () => {
-  const [logsLayout, logsPage, uploadsLayout, avatarUploadsLayout, votesLayout] = await Promise.all([
+  const [logsLayout, logsPage, uploadsLayout, avatarUploadsLayout, votesLayout, moderationLogsLayout] = await Promise.all([
     source("app/admin/logs/layout.tsx"),
     source("app/admin/logs/page.tsx"),
     source("app/admin/logs/uploads/layout.tsx"),
     source("app/admin/logs/avatar-uploads/layout.tsx"),
     source("app/admin/logs/votes/layout.tsx"),
+    source("app/admin/logs/moderation/layout.tsx"),
   ]);
 
   assert.doesNotMatch(logsLayout, /requireAdminPage|requireTeamCapabilityPage/);
@@ -205,6 +239,10 @@ test("delegable log pages have exact capability guards while owner-only sibling 
   assert.match(
     votesLayout,
     /requireTeamCapabilityPage\(\s*"logs\.votes\.view"/
+  );
+  assert.match(
+    moderationLogsLayout,
+    /requireTeamCapabilityPage\(\s*"logs\.submission_moderation\.view"/
   );
 
   for (const file of ["app/admin/logs/cycles/layout.tsx"]) {

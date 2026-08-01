@@ -1,20 +1,19 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guards";
-import { supabaseAdmin } from "@/lib/db/admin";
+import { getSubmissionModerationLogs } from "@/lib/admin/moderationLogs";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 
 export async function GET() {
   try {
-   
-    await requireAdmin();
+    const authorization = await requireDynamicTeamCapability(
+      "logs.submission_moderation.view"
+    );
 
-    const { data, error } = await supabaseAdmin
-      .from("moderation_action_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(300);
+    const { data, error } = await getSubmissionModerationLogs({
+      includeAdminDetails: authorization.isAdmin,
+    });
 
     if (error) {
       return NextResponse.json(

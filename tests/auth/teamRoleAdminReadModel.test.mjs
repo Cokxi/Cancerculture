@@ -170,14 +170,14 @@ test("a safe database-only tombstone is absent from Roles & Permissions and draf
   );
 });
 
-test("all seventeen active registered capabilities appear in Roles & Permissions and drafts", () => {
+test("all eighteen active registered capabilities appear in Roles & Permissions and drafts", () => {
   const model = buildTeamRoleAdminReadModel(snapshot());
 
   assert.deepEqual(
     model.capabilities.map((entry) => entry.key).sort(),
     [...ACTIVE_TEAM_CAPABILITY_KEYS].sort()
   );
-  assert.equal(model.capabilities.length, 17);
+  assert.equal(model.capabilities.length, 18);
   assert.equal(
     model.capabilities.every(
       (capability) => capability.mutable && capability.isActive

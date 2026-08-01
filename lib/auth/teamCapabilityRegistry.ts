@@ -20,6 +20,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "logs.uploads.view",
   "logs.avatar_uploads.view",
   "logs.votes.view",
+  "logs.submission_moderation.view",
 ] as const);
 
 export type RegisteredTeamCapabilityKey =
@@ -508,6 +509,28 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "991f2ef3ae5b454d3b1fec1c8fbc15ed64f845049553c6ba1cd07fe3bc0c09da",
+  }),
+  "logs.submission_moderation.view": defineCapability({
+    key: "logs.submission_moderation.view",
+    displayName: "View Submission Moderation Logs",
+    description:
+      "View redacted submission-moderation actions and their actor, affected user, cycle, submission, and timestamp context.",
+    category: "Logs",
+    includedActions: [
+      "View recent submission disqualification, reinstatement, legal-review, removal, and visibility-restoration actions.",
+      "View the associated actor and affected user identities, cycle, submission reference, timestamp, and broad redacted reason category.",
+    ],
+    excludedActions: [
+      "Viewing free-text moderation notes, exact reason codes, evidence, object keys, idempotency details, internal capability names, or before/after state snapshots.",
+      "Disqualifying, reinstating, hiding, restoring, exporting, or otherwise changing submissions.",
+      "Viewing flag, user, upload, vote, social-verification, website-ban, or other unrelated logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "fc820ff4bea36171834588856c8f1ca09f0b0391d0b04ff6c0521fffa85d88e7",
   }),
 });
 
