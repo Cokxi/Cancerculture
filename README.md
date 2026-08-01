@@ -29,11 +29,14 @@ The local application is available at `http://localhost:3000` by default.
 Common local checks:
 
 ```powershell
+npm.cmd test
 npm.cmd run lint
 npm.cmd run build
 ```
 
-Focused test commands and database test prerequisites depend on the affected subsystem. Follow `AGENTS.md`, the current checklist, and the relevant test files instead of running DEV-backed suites by assumption.
+`npm.cmd test` is the canonical local full suite. It discovers every `*.test.mjs` file recursively and starts Node with the repository alias loader and module-mocking support required by the tests.
+
+Focused and DEV-backed test commands depend on the affected subsystem. Follow `AGENTS.md`, the current checklist, and the relevant test files instead of running DEV-backed suites by assumption.
 
 ## Safety
 
