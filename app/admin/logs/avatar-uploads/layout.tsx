@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
-import { requireAdminPage } from "@/lib/auth/pageAccess";
+import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
 
 export default async function AvatarUploadLogsLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  await requireAdminPage("/admin/logs/avatar-uploads");
+  await requireTeamCapabilityPage(
+    "logs.avatar_uploads.view",
+    "/admin/logs/avatar-uploads"
+  );
 
   return children;
 }

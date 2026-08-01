@@ -17,11 +17,17 @@ export default function AdminAvatarUploadLogsPage() {
       }
       title="Admin - Avatar Upload Logs"
       renderTitle={(log) => {
-        if (log.reason === "cooldown") {
+        if (
+          log.reason === "cooldown" ||
+          log.reason === "cooldown_active"
+        ) {
           return `${log.status.toUpperCase()} - Cooldown Blocked`;
         }
 
-        if (log.reason === "missing_file") {
+        if (
+          log.reason === "missing_file" ||
+          log.reason === "invalid_request"
+        ) {
           return `${log.status.toUpperCase()} - Missing File`;
         }
 

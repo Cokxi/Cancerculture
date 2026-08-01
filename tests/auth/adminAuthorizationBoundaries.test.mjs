@@ -32,7 +32,6 @@ async function sourceFiles(directory) {
 
 const adminOnlyRoutes = [
   "app/api/admin/logs/route.ts",
-  "app/api/admin/logs/avatar-uploads/route.ts",
   "app/api/admin/logs/votes/route.ts",
   "app/api/admin/logs/blocked/route.ts",
   "app/api/admin/logs/blocked/handled/route.ts",
@@ -93,6 +92,29 @@ test("submission upload logs use their exact read capability and redact delegate
   assert.doesNotMatch(logs, /from\("upload_logs"\)\s*\.select\("\*"\)/);
 });
 
+test("avatar upload logs use their exact read capability and redact delegated details", async () => {
+  const [route, logs] = await Promise.all([
+    source("app/api/admin/logs/avatar-uploads/route.ts"),
+    source("lib/admin/logs.ts"),
+  ]);
+
+  assert.match(
+    route,
+    /requireDynamicTeamCapability\(\s*"logs\.avatar_uploads\.view"/
+  );
+  assert.match(route, /includeAdminDetails: authorization\.isAdmin/);
+  assert.doesNotMatch(route, /requireAdmin\(\)/);
+  assert.match(logs, /getDelegatedAvatarUploadLogReason/);
+  assert.match(
+    logs,
+    /includeAdminDetails[\s\S]*?"id, created_at, discord_user_id, status, reason, avatar_key, cooldown_until"[\s\S]*?: await supabaseAdmin[\s\S]*?"id, created_at, discord_user_id, status, reason"/
+  );
+  assert.doesNotMatch(
+    logs,
+    /from\("avatar_upload_logs"\)\s*\.select\("\*"\)/
+  );
+});
+
 test("rules and social administration are server-side admin-only", async () => {
   const [rules, socialLogs] = await Promise.all([
     source("app/admin/actions/updateRulesVersion.ts"),
@@ -146,11 +168,12 @@ test("website ban view, create, and revoke use separate capability guards", asyn
   assert.doesNotMatch(revokeAction, /\.from\("user_logs"\)\s*\.update/);
 });
 
-test("upload logs have a capability page guard while owner-only sibling pages keep direct guards", async () => {
-  const [logsLayout, logsPage, uploadsLayout] = await Promise.all([
+test("upload log pages have exact capability guards while owner-only sibling pages keep direct guards", async () => {
+  const [logsLayout, logsPage, uploadsLayout, avatarUploadsLayout] = await Promise.all([
     source("app/admin/logs/layout.tsx"),
     source("app/admin/logs/page.tsx"),
     source("app/admin/logs/uploads/layout.tsx"),
+    source("app/admin/logs/avatar-uploads/layout.tsx"),
   ]);
 
   assert.doesNotMatch(logsLayout, /requireAdminPage|requireTeamCapabilityPage/);
@@ -159,9 +182,12 @@ test("upload logs have a capability page guard while owner-only sibling pages ke
     uploadsLayout,
     /requireTeamCapabilityPage\(\s*"logs\.uploads\.view"/
   );
+  assert.match(
+    avatarUploadsLayout,
+    /requireTeamCapabilityPage\(\s*"logs\.avatar_uploads\.view"/
+  );
 
   for (const file of [
-    "app/admin/logs/avatar-uploads/layout.tsx",
     "app/admin/logs/cycles/layout.tsx",
     "app/admin/logs/votes/layout.tsx",
   ]) {

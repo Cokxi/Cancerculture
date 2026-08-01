@@ -18,6 +18,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "users.website_bans.revoke",
   "logs.website_bans.view",
   "logs.uploads.view",
+  "logs.avatar_uploads.view",
 ] as const);
 
 export type RegisteredTeamCapabilityKey =
@@ -462,6 +463,28 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "3968acde89ace9d541824c1e010573c0d5b3be4b30f6b75b8e5a3dd543ad2a2b",
+  }),
+  "logs.avatar_uploads.view": defineCapability({
+    key: "logs.avatar_uploads.view",
+    displayName: "View Avatar Upload Logs",
+    description:
+      "View redacted avatar-upload outcomes and their user and timestamp context without storage details.",
+    category: "Logs",
+    includedActions: [
+      "View recent avatar-upload success and failure outcomes.",
+      "View the associated user, timestamp, and redacted outcome category.",
+    ],
+    excludedActions: [
+      "Viewing raw provider, storage, infrastructure, or internal error details and avatar object keys.",
+      "Changing avatars, cooldowns, upload protections, or user profile state.",
+      "Viewing submission-upload, vote, social, moderation, or other unrelated logs.",
+    ],
+    riskLevel: "moderate",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "d9b917101f9051d91eef9f2f20cbfa738fcd8787abe8283b0862d007416d5813",
   }),
 });
 

@@ -30,6 +30,7 @@ const expectedKeys = [
   "users.website_bans.revoke",
   "logs.website_bans.view",
   "logs.uploads.view",
+  "logs.avatar_uploads.view",
 ];
 
 function canonicalDefinition(definition) {
@@ -48,7 +49,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains seventeen known and fifteen active capability keys", () => {
+test("the server registry contains eighteen known and sixteen active capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -114,6 +115,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "a3ce56bd99c5e3aa74ff1d863a8969b73cd23717cc9ced50a7c8c375cda743e3",
     "logs.uploads.view":
       "3968acde89ace9d541824c1e010573c0d5b3be4b30f6b75b8e5a3dd543ad2a2b",
+    "logs.avatar_uploads.view":
+      "d9b917101f9051d91eef9f2f20cbfa738fcd8787abe8283b0862d007416d5813",
   };
 
   for (const key of expectedKeys) {
