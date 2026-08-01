@@ -4,16 +4,11 @@ CancerCulture is a community platform for submission cycles, voting, public rank
 
 The application uses Next.js 16 with the App Router, React 19, TypeScript, Supabase/PostgreSQL, Cloudflare R2, Discord authentication and membership synchronization, and Vercel hosting.
 
-## Project documentation
+## Repository scope
 
-Start here before changing the project:
+This public repository contains the application source, tests, and database migration history so that the project's implementation can be inspected. Internal operational runbooks, security configuration, abuse-prevention thresholds, and project decision records are intentionally maintained outside the public repository.
 
-- [`AGENTS.md`](AGENTS.md) — durable repository rules loaded by Codex.
-- [`docs/project/CURRENT_STATE.md`](docs/project/CURRENT_STATE.md) — current Git, release, environment, and handoff state.
-- [`docs/project/CHECKLIST.md`](docs/project/CHECKLIST.md) — detailed product status, decisions, and roadmap.
-- [`docs/project/README.md`](docs/project/README.md) — documentation ownership and maintenance contract.
-
-Point-in-time operational documents and audits remain under [`docs/`](docs/). The Supabase schema baseline and its limitations are documented in [`supabase/baseline/README.md`](supabase/baseline/README.md).
+The Supabase schema baseline and its limitations are documented in [`supabase/baseline/README.md`](supabase/baseline/README.md).
 
 ## Local development
 
@@ -36,7 +31,7 @@ npm.cmd run build
 
 `npm.cmd test` is the canonical local full suite. It discovers every `*.test.mjs` file recursively and starts Node with the repository alias loader and module-mocking support required by the tests.
 
-Focused and DEV-backed test commands depend on the affected subsystem. Follow `AGENTS.md`, the current checklist, and the relevant test files instead of running DEV-backed suites by assumption.
+Focused and DEV-backed test commands depend on the affected subsystem. Use the relevant package scripts and test files instead of running DEV-backed suites by assumption.
 
 ## Safety
 
