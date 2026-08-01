@@ -89,6 +89,10 @@ const teamAuthorizationLogsView = Object.freeze({
   type: "capability",
   capability: "logs.team_authorization.view",
 } as const);
+const cycleLogsView = Object.freeze({
+  type: "capability",
+  capability: "cycles.logs.view",
+} as const);
 const websiteBanView = Object.freeze({
   type: "capability",
   capability: "users.website_bans.view",
@@ -135,7 +139,7 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/logs/cycles",
           categoryId: "cycles",
           description: "Review cycle history and operational events.",
-          requirement: adminOnly,
+          requirement: cycleLogsView,
           implemented: true,
         }),
       ],

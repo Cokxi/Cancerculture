@@ -22,6 +22,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "logs.votes.view",
   "logs.submission_moderation.view",
   "logs.team_authorization.view",
+  "cycles.logs.view",
 ] as const);
 
 export type RegisteredTeamCapabilityKey =
@@ -554,6 +555,28 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "69faf8e792eb9ee98366d3be382d6020ba46994b514c07c3ab2e970c716be1ba",
+  }),
+  "cycles.logs.view": defineCapability({
+    key: "cycles.logs.view",
+    displayName: "View Cycle Logs",
+    description:
+      "View paginated cycle start, finalization, and reset events through a safe read-only projection.",
+    category: "Cycles",
+    includedActions: [
+      "View cycle start, finalization, and reset events with their cycle, current theme, actor, and timestamp context.",
+      "Navigate the bounded server-paginated Cycle Logs history.",
+    ],
+    excludedActions: [
+      "Viewing raw audit metadata, free-text reset reasons, sponsor data, storage cleanup details, scheduler data, or other infrastructure context.",
+      "Starting, ending, finalizing, resetting, scheduling, or otherwise changing cycles, phases, themes, or settings.",
+      "Managing winners, payouts, sponsors, submissions, or unrelated logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "915c24cf6a167040c8637e59ca27a28510c6299b2ea417ae770f86e992924beb",
   }),
 });
 

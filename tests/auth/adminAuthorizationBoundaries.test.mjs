@@ -230,13 +230,14 @@ test("website ban view, create, and revoke use separate capability guards", asyn
 });
 
 test("delegable log pages have exact capability guards while owner-only sibling pages keep direct guards", async () => {
-  const [logsLayout, logsPage, uploadsLayout, avatarUploadsLayout, votesLayout, moderationLogsLayout] = await Promise.all([
+  const [logsLayout, logsPage, uploadsLayout, avatarUploadsLayout, votesLayout, moderationLogsLayout, cycleLogsLayout] = await Promise.all([
     source("app/admin/logs/layout.tsx"),
     source("app/admin/logs/page.tsx"),
     source("app/admin/logs/uploads/layout.tsx"),
     source("app/admin/logs/avatar-uploads/layout.tsx"),
     source("app/admin/logs/votes/layout.tsx"),
     source("app/admin/logs/moderation/layout.tsx"),
+    source("app/admin/logs/cycles/layout.tsx"),
   ]);
 
   assert.doesNotMatch(logsLayout, /requireAdminPage|requireTeamCapabilityPage/);
@@ -257,10 +258,10 @@ test("delegable log pages have exact capability guards while owner-only sibling 
     moderationLogsLayout,
     /requireTeamCapabilityPage\(\s*"logs\.submission_moderation\.view"/
   );
-
-  for (const file of ["app/admin/logs/cycles/layout.tsx"]) {
-    assert.match(await source(file), /requireAdminPage\(/, file);
-  }
+  assert.match(
+    cycleLogsLayout,
+    /requireTeamCapabilityPage\(\s*"cycles\.logs\.view"/
+  );
 });
 
 test("submission moderation uses only the exact phase and operation capability guard", async () => {

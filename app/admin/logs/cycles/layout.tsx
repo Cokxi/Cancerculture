@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
-import { requireAdminPage } from "@/lib/auth/pageAccess";
+import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
 
 export default async function CycleLogsLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  await requireAdminPage("/admin/logs/cycles");
+  await requireTeamCapabilityPage("cycles.logs.view", "/admin/logs/cycles");
 
   return children;
 }
