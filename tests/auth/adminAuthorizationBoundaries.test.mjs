@@ -44,7 +44,6 @@ const adminOnlyRoutes = [
   "app/api/admin/submissions/public-visibility/route.ts",
   "app/api/admin/team/role/route.ts",
   "app/api/admin/team/roles/route.ts",
-  "app/api/admin/upload-blocks/route.ts",
   "app/api/admin/discord-sync/route.ts",
   "app/api/admin/cycles/start/route.ts",
   "app/api/admin/cycles/end/route.ts",
@@ -66,6 +65,19 @@ test("sensitive APIs all enforce the independent admin guard", async () => {
   }
 });
 
+test("upload block viewing is delegable while emergency unblock stays Admin-only", async () => {
+  const route = await source("app/api/admin/upload-blocks/route.ts");
+
+  assert.match(
+    route,
+    /export async function GET\(\)[\s\S]*?requireDynamicTeamCapability\("users\.upload_blocks\.view"\)/
+  );
+  assert.match(
+    route,
+    /export async function POST\(req: Request\)[\s\S]*?requireAdmin\(\)/
+  );
+});
+
 test("rules and social administration are server-side admin-only", async () => {
   const [rules, socialLogs] = await Promise.all([
     source("app/admin/actions/updateRulesVersion.ts"),
@@ -79,7 +91,6 @@ test("rules and social administration are server-side admin-only", async () => {
 test("admin pages and owner actions keep explicit server guards", async () => {
   for (const file of [
     "app/admin/cycles/page.tsx",
-    "app/admin/bans/page.tsx",
     "app/admin/mods/page.tsx",
     "app/admin/team/roles/page.tsx",
     "app/admin/team/members/page.tsx",
@@ -97,8 +108,6 @@ test("admin pages and owner actions keep explicit server guards", async () => {
   }
 
   for (const file of [
-    "app/admin/actions/banUser.ts",
-    "app/admin/actions/unbanUser.ts",
     "app/admin/actions/updateRulesVersion.ts",
     "app/admin/cycles/phaseActions.ts",
     "app/admin/cycles/updateCycleHud.ts",
@@ -107,6 +116,19 @@ test("admin pages and owner actions keep explicit server guards", async () => {
   ]) {
     assert.match(await source(file), /requireAdmin\(\)/, file);
   }
+});
+
+test("website ban view, create, and revoke use separate capability guards", async () => {
+  const [page, createAction, revokeAction] = await Promise.all([
+    source("app/admin/bans/page.tsx"),
+    source("app/admin/actions/banUser.ts"),
+    source("app/admin/actions/unbanUser.ts"),
+  ]);
+
+  assert.match(page, /requireTeamCapabilityPage\(\s*"users\.website_bans\.view"/);
+  assert.match(createAction, /requireDynamicTeamCapability\(\s*"users\.website_bans\.create"/);
+  assert.match(revokeAction, /requireDynamicTeamCapability\(\s*"users\.website_bans\.revoke"/);
+  assert.doesNotMatch(revokeAction, /\.from\("user_logs"\)\s*\.update/);
 });
 
 test("all log pages are protected by a server admin layout", async () => {
@@ -160,7 +182,7 @@ test("flag cases use distinct create, view, and review capabilities", async () =
   assert.match(detailPage, /"users\.flag\.review"/);
 });
 
-test("user page composes narrow rights while the API keeps the minimal-directory projection", async () => {
+test("user page and API compose separate basic and full directory rights", async () => {
   const [page, route] = await Promise.all([
     source("app/admin/users/page.tsx"),
     source("app/api/admin/user-logs/route.ts"),
@@ -168,19 +190,22 @@ test("user page composes narrow rights while the API keeps the minimal-directory
 
   assert.match(page, /getTeamAuthorizationContext\(\)/);
   assert.match(page, /"users\.directory\.basic\.view"/);
+  assert.match(page, /"users\.directory\.full\.view"/);
   assert.match(page, /"users\.flag\.create"/);
   assert.match(page, /"users\.flag\.view"/);
-  assert.match(route, /requireDynamicTeamCapability\(\s*"users\.directory\.basic\.view"/);
-  for (const contents of [page, route]) {
-    assert.match(contents, /getUserDirectoryQuery\(\s*authorization\.isAdmin/);
-  }
+  assert.match(route, /getTeamAuthorizationContext\(\)/);
+  assert.match(route, /"users\.directory\.basic\.view"/);
+  assert.match(route, /"users\.directory\.full\.view"/);
+  assert.match(route, /if \(!canViewBasic && !canViewFull\)/);
+  assert.match(page, /getUserDirectoryQuery\(canViewFullDirectory\)/);
+  assert.match(route, /getUserDirectoryQuery\(\s*canViewFull/);
 
-  assert.match(page, /isAdmin && user\.is_banned/);
-  assert.match(page, /\{isAdmin \? <th align="left">Stats/);
+  assert.match(page, /canViewWebsiteBans &&/);
+  assert.match(page, /\{isFullView \? <th align="left">Stats/);
   assert.doesNotMatch(`${page}\n${route}`, /flagged_for_review|flag_reason_code|flagged_by_discord_user_id/);
   assert.match(
     route,
-    /directoryQuery\.isAdminView[\s\S]*display_name: formatDiscordUserLabel\(user\)/
+    /directoryQuery\.isFullView[\s\S]*display_name: formatDiscordUserLabel\(user\)/
   );
   assert.doesNotMatch(
     route,

@@ -2,7 +2,11 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/db/admin";
-import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
+import {
+  getTeamAuthorizationContext,
+  hasResolvedTeamCapability,
+} from "@/lib/auth/teamAuthorization";
+import { AuthError } from "@/lib/auth/AuthError";
 import { getUserDirectoryQuery } from "@/lib/admin/userDirectoryAccess";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
@@ -19,11 +23,20 @@ type BasicUserDirectorySource = {
 export async function GET() {
   try {
     
-    const authorization = await requireDynamicTeamCapability(
+    const authorization = await getTeamAuthorizationContext();
+    const canViewBasic = hasResolvedTeamCapability(
+      authorization,
       "users.directory.basic.view"
     );
+    const canViewFull = hasResolvedTeamCapability(
+      authorization,
+      "users.directory.full.view"
+    );
+    if (!canViewBasic && !canViewFull) {
+      throw new AuthError(403, "Forbidden", "TEAM_CAPABILITY_DENIED");
+    }
     const directoryQuery = getUserDirectoryQuery(
-      authorization.isAdmin
+      canViewFull
     );
 
     const { data, error } = await supabaseAdmin
@@ -41,7 +54,7 @@ export async function GET() {
 
     const basicUsers = (data ?? []) as unknown as
       BasicUserDirectorySource[];
-    const users = directoryQuery.isAdminView
+    const users = directoryQuery.isFullView
       ? data ?? []
       : basicUsers.map((user) => ({
           discord_user_id: user.discord_user_id,

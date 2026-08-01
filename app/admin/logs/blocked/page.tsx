@@ -10,7 +10,7 @@ export default async function BlockedLogsPage() {
   return (
     <div>
       <h1 className="text-xl mb-4">Blocked Users</h1>
-      <SubmissionUploadBlocks />
+      <SubmissionUploadBlocks canEmergencyUnblock />
       <BlockedCycleLogList isAdmin />
     </div>
   );

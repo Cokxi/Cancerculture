@@ -1,49 +1,37 @@
 "use server";
 
-import { getActorAuditInfo } from "@/lib/auth/getActorAuditInfo";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function unbanUser(params: {
   targetDiscordUserId: string;
+  expectedBanVersion: number;
   reason: string;
+  idempotencyKey: string;
 }) {
-  const { targetDiscordUserId, reason } = params;
+  const { targetDiscordUserId, expectedBanVersion, reason, idempotencyKey } =
+    params;
 
   if (!reason?.trim()) {
     throw new Error("Unban reason is required");
   }
 
-  const admin = await requireAdmin();
-  const adminAudit = await getActorAuditInfo(admin.discord_user_id);
-
-  const { data: targetUser } = await supabaseAdmin
-    .from("user_logs")
-    .select("is_banned")
-    .eq("discord_user_id", targetDiscordUserId)
-    .single();
-
-  if (!targetUser?.is_banned) {
-    throw new Error("User is not banned");
+  if (!Number.isSafeInteger(expectedBanVersion) || expectedBanVersion < 0) {
+    throw new Error("Invalid website ban version");
   }
 
-  const { error } = await supabaseAdmin
-    .from("user_logs")
-    .update({
-      is_banned: false,
-      ban_reason: null,
-      ban_source: null,
-      banned_at: null,
-      banned_by_discord_user_id: null,
-      banned_by_discord_username: null,
-      unban_reason: reason,
-      unbanned_at: new Date().toISOString(),
-      unbanned_by_discord_user_id: adminAudit.discordUserId,
-      unbanned_by_discord_username: adminAudit.username,
-    })
-    .eq("discord_user_id", targetDiscordUserId);
+  const authorization = await requireDynamicTeamCapability(
+    "users.website_bans.revoke"
+  );
+  const { data, error } = await supabaseAdmin.rpc("revoke_website_ban", {
+    p_actor_discord_user_id: authorization.discord_user_id,
+    p_target_discord_user_id: targetDiscordUserId,
+    p_expected_ban_version: expectedBanVersion,
+    p_reason: reason.trim(),
+    p_idempotency_key: idempotencyKey,
+  });
 
   if (error) throw error;
 
-  return { success: true };
+  return data;
 }

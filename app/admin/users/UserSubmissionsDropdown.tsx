@@ -6,6 +6,8 @@ import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 type Props = {
   discordUserId: string;
   defaultOpen?: boolean;
+  includeDisqualified?: boolean;
+  includeVoteCounts?: boolean;
 };
 
 type SubmissionRow = {
@@ -19,9 +21,10 @@ type SubmissionRow = {
 export default async function UserSubmissionsDropdown({
   discordUserId,
   defaultOpen,
+  includeDisqualified = false,
+  includeVoteCounts = false,
 }: Props) {
-  
-  const { data: submissions } = await supabaseAdmin
+  let submissionsQuery = supabaseAdmin
     .from("submissions")
     .select(`
       id,
@@ -30,7 +33,11 @@ export default async function UserSubmissionsDropdown({
       is_disqualified,
       disqualification_reason_code
     `)
-    .eq("discord_user_id", discordUserId)
+    .eq("discord_user_id", discordUserId);
+  if (!includeDisqualified) {
+    submissionsQuery = submissionsQuery.eq("is_disqualified", false);
+  }
+  const { data: submissions } = await submissionsQuery
     .order("id", { ascending: false })
     .limit(6);
 
@@ -57,10 +64,12 @@ export default async function UserSubmissionsDropdown({
   
   const submissionIds = typedSubmissions.map((s) => s.id);
 
-  const { data: votes } = await supabaseAdmin
-    .from("votes")
-    .select("submission_id")
-    .in("submission_id", submissionIds);
+  const { data: votes } = includeVoteCounts
+    ? await supabaseAdmin
+        .from("votes")
+        .select("submission_id")
+        .in("submission_id", submissionIds)
+    : { data: [] };
 
   const voteCountMap = new Map<number, number>();
 
@@ -176,7 +185,8 @@ export default async function UserSubmissionsDropdown({
             </div>
 
             <div style={{ marginTop: 4, opacity: 0.8 }}>
-              C{sub.cycle_id} · {sub.vote_count}v
+              C{sub.cycle_id}
+              {includeVoteCounts ? ` · ${sub.vote_count}v` : ""}
             </div>
 
             {sub.is_disqualified && (

@@ -10,7 +10,7 @@ test("every authorized non-admin uses the explicit minimal user projection", () 
     relation: "user_logs",
     select: BASIC_USER_DIRECTORY_SELECT,
     orderBy: "current_discord_username",
-    isAdminView: false,
+    isFullView: false,
   });
 });
 
@@ -45,6 +45,6 @@ test("hard admin retains the existing full administrative directory", () => {
     relation: "user_logs_with_stats",
     select: "*",
     orderBy: "last_seen_at",
-    isAdminView: true,
+    isFullView: true,
   });
 });

@@ -158,7 +158,17 @@ async function loadFlagCasePage(caseId: string) {
     );
     if (!canView && !canReview) redirect("/403");
     const flagCase = await getUserFlagCase(caseId);
-    return { canView, canReview, isAdmin: authorization.isAdmin, flagCase };
+    const canCreateWebsiteBan = hasResolvedTeamCapability(
+      authorization,
+      "users.website_bans.create"
+    );
+    return {
+      canView,
+      canReview,
+      isAdmin: authorization.isAdmin,
+      canCreateWebsiteBan,
+      flagCase,
+    };
   } catch (error) {
     const destination = getTeamPageAccessRedirect(error);
     if (destination) redirect(destination);
@@ -172,7 +182,7 @@ export default async function UserFlagCasePage({
   params: Promise<{ caseId: string }>;
 }) {
   const { caseId } = await params;
-  const { canView, canReview, isAdmin, flagCase } =
+  const { canView, canReview, isAdmin, canCreateWebsiteBan, flagCase } =
     await loadFlagCasePage(caseId);
   const createdEvent = flagCase.events.find(
     (event) =>
@@ -390,6 +400,7 @@ export default async function UserFlagCasePage({
           rowVersion={flagCase.rowVersion}
           status={flagCase.status}
           isAdmin={isAdmin}
+          canCreateWebsiteBan={canCreateWebsiteBan}
         />
       ) : null}
     </main>

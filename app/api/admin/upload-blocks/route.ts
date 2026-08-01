@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 
@@ -11,7 +12,7 @@ type UnblockRpcResult = {
 
 export async function GET() {
   try {
-    await requireAdmin();
+    await requireDynamicTeamCapability("users.upload_blocks.view");
 
     const { data: states, error } = await supabaseAdmin
       .from("submission_upload_abuse_states")

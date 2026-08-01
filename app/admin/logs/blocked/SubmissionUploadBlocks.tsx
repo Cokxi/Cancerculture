@@ -18,7 +18,11 @@ type UploadBlockState = {
   public_profile_id: string | null;
 };
 
-export default function SubmissionUploadBlocks() {
+export default function SubmissionUploadBlocks({
+  canEmergencyUnblock,
+}: {
+  canEmergencyUnblock: boolean;
+}) {
   const [states, setStates] = useState<UploadBlockState[]>([]);
   const [reasonByKey, setReasonByKey] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -70,8 +74,9 @@ export default function SubmissionUploadBlocks() {
     <section className="mb-10 rounded border border-white/15 p-4">
       <h2 className="mb-1 text-lg font-semibold">Submission upload blocks</h2>
       <p className="mb-4 text-sm text-white/60">
-        Authoritative invalid-media attempts per user and cycle. Unblocking is
-        Admin-only and requires an audited reason.
+        Automatic abuse protection scoped to one user and one cycle. A block
+        stops affecting uploads when the next cycle begins. Manual unblocking
+        during the current cycle is an audited Admin-only emergency action.
       </p>
       {error ? <p className="mb-3 text-sm text-red-300">{error}</p> : null}
       <div className="space-y-3">
@@ -99,7 +104,7 @@ export default function SubmissionUploadBlocks() {
                   ? new Date(state.last_invalid_attempt_at).toLocaleString()
                   : "—"}
               </div>
-              {state.blocked_at ? (
+              {state.blocked_at && canEmergencyUnblock ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <input
                     value={reasonByKey[key] ?? ""}

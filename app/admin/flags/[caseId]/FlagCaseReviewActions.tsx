@@ -9,11 +9,13 @@ export default function FlagCaseReviewActions({
   rowVersion,
   status,
   isAdmin,
+  canCreateWebsiteBan,
 }: {
   caseId: string;
   rowVersion: number;
   status: "open" | "escalated";
   isAdmin: boolean;
+  canCreateWebsiteBan: boolean;
 }) {
   const router = useRouter();
   const [reviewReason, setReviewReason] = useState("");
@@ -94,7 +96,7 @@ export default function FlagCaseReviewActions({
             {pending ? "Saving..." : "Escalate case"}
           </button>
         ) : null}
-        {isAdmin && status === "escalated" ? (
+        {isAdmin && canCreateWebsiteBan && status === "escalated" ? (
           <button
             disabled={pending || reviewReason.trim().length < 3}
             onClick={() => submit("banned_resolved")}

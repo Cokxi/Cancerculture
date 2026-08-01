@@ -68,7 +68,7 @@ test("admin resolves as the hard owner without capability grants", () => {
 });
 
 for (const roleKey of nonAdminRoles) {
-  test(`${roleKey} resolves exactly all eight active capabilities`, () => {
+  test(`${roleKey} resolves exactly all fourteen active capabilities`, () => {
     const resolved = resolveDynamicTeamAuthorizationSnapshot(
       snapshot(roleKey)
     );

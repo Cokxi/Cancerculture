@@ -8,8 +8,10 @@ import { unbanUser } from "@/app/admin/actions/unbanUser";
 type Props = {
   discordUserId: string;
   isBanned: boolean;
+  websiteBanVersion: number;
   canCreateFlags: boolean;
-  isAdmin: boolean;
+  canCreateWebsiteBan: boolean;
+  canRevokeWebsiteBan: boolean;
   activeFlagStatus?: "open" | "escalated" | null;
 };
 
@@ -40,8 +42,10 @@ const modalBox: React.CSSProperties = {
 export default function UserModerationActions({
   discordUserId,
   isBanned,
+  websiteBanVersion,
   canCreateFlags,
-  isAdmin,
+  canCreateWebsiteBan,
+  canRevokeWebsiteBan,
   activeFlagStatus = null,
 }: Props) {
   const [showFlag, setShowFlag] = useState(false);
@@ -54,6 +58,8 @@ export default function UserModerationActions({
   const [flagMessage, setFlagMessage] = useState<string | null>(null);
   const [showBan, setShowBan] = useState(false);
   const [banReason, setBanReason] = useState("");
+  const [showUnban, setShowUnban] = useState(false);
+  const [unbanReason, setUnbanReason] = useState("");
 
   async function createFlagCase() {
     setPending(true);
@@ -83,22 +89,47 @@ export default function UserModerationActions({
   }
 
   if (isBanned) {
-    if (!isAdmin) return null;
-
     return (
       <div style={{ marginTop: 6 }}>
-        <button
-          style={{ ...baseButton, borderColor: "#a33", color: "#ff6b6b" }}
-          onClick={async () => {
-            await unbanUser({
-              targetDiscordUserId: discordUserId,
-              reason: "Manual unban by admin",
-            });
-            location.reload();
-          }}
-        >
-          Unban
-        </button>
+        <span role="status" style={{ color: "#ff6b6b", fontSize: 12 }}>
+          Website ban active
+        </span>
+        {canRevokeWebsiteBan ? (
+          <>
+            <button
+              style={{ ...baseButton, display: "block", marginTop: 6 }}
+              onClick={() => setShowUnban((value) => !value)}
+            >
+              Revoke website ban
+            </button>
+            {showUnban ? (
+              <div style={modalBox}>
+                <textarea
+                  placeholder="Reason for revocation (required)"
+                  value={unbanReason}
+                  maxLength={1000}
+                  onChange={(event) => setUnbanReason(event.target.value)}
+                  style={{ width: "100%", background: "#1e1e1e", color: "#fff" }}
+                />
+                <button
+                  style={{ ...baseButton, marginTop: 6 }}
+                  disabled={unbanReason.trim().length < 3}
+                  onClick={async () => {
+                    await unbanUser({
+                      targetDiscordUserId: discordUserId,
+                      expectedBanVersion: websiteBanVersion,
+                      reason: unbanReason,
+                      idempotencyKey: crypto.randomUUID(),
+                    });
+                    location.reload();
+                  }}
+                >
+                  Confirm revocation
+                </button>
+              </div>
+            ) : null}
+          </>
+        ) : null}
       </div>
     );
   }
@@ -224,7 +255,7 @@ export default function UserModerationActions({
         </p>
       ) : null}
 
-      {isAdmin ? (
+      {canCreateWebsiteBan ? (
         <>
           <button
             style={{
@@ -265,7 +296,9 @@ export default function UserModerationActions({
                   onClick={async () => {
                     await banUser({
                       targetDiscordUserId: discordUserId,
+                      expectedBanVersion: websiteBanVersion,
                       reason: banReason,
+                      idempotencyKey: crypto.randomUUID(),
                     });
                     location.reload();
                   }}

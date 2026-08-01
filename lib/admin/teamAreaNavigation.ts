@@ -60,9 +60,22 @@ const basicUserDirectory = Object.freeze({
   type: "anyCapability",
   capabilities: Object.freeze([
     "users.directory.basic.view",
+    "users.directory.full.view",
     "users.flag.create",
     "users.flag.view",
   ] as const),
+} as const);
+const uploadBlockView = Object.freeze({
+  type: "capability",
+  capability: "users.upload_blocks.view",
+} as const);
+const websiteBanView = Object.freeze({
+  type: "capability",
+  capability: "users.website_bans.view",
+} as const);
+const websiteBanHistoryView = Object.freeze({
+  type: "capability",
+  capability: "logs.website_bans.view",
 } as const);
 const userFlagWork = Object.freeze({
   type: "anyCapability",
@@ -150,10 +163,10 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
         item({
           id: "blocked-users",
           title: "Blocked Users",
-          href: "/admin/logs/blocked",
+          href: "/admin/moderation/upload-blocks",
           categoryId: "moderation",
           description: "Review submission upload blocks.",
-          requirement: adminOnly,
+          requirement: uploadBlockView,
           implemented: true,
         }),
         item({
@@ -162,7 +175,7 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/bans",
           categoryId: "moderation",
           description: "Review website bans.",
-          requirement: adminOnly,
+          requirement: websiteBanView,
           implemented: true,
         }),
       ],
@@ -218,6 +231,15 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/logs/moderation",
           categoryId: "logs",
           requirement: adminOnly,
+          implemented: true,
+        }),
+        item({
+          id: "website-ban-history",
+          title: "Website Ban History",
+          href: "/admin/website-ban-history",
+          categoryId: "logs",
+          description: "Review immutable website ban and revocation events.",
+          requirement: websiteBanHistoryView,
           implemented: true,
         }),
       ],

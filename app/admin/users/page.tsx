@@ -34,9 +34,22 @@ type UserLog = {
 
   
   is_banned?: boolean;
+  website_ban_version?: number;
   ban_reason?: string | null;
   first_seen_at?: string;
   last_seen_at?: string;
+};
+
+type UserIdentityProjection = {
+  discord_user_id: string;
+  public_profile_id: string | null;
+  current_discord_username: string | null;
+  current_discord_handle: string | null;
+  current_display_name: string | null;
+  current_guild_nickname: string | null;
+  is_banned?: boolean;
+  website_ban_version?: number;
+  ban_reason?: string | null;
 };
 
 
@@ -67,10 +80,15 @@ export default async function AdminUsersPage({
     throw error;
   }
 
-  const canViewDirectory = hasResolvedTeamCapability(
+  const canViewBasicDirectory = hasResolvedTeamCapability(
     authorization,
     "users.directory.basic.view"
   );
+  const canViewFullDirectory = hasResolvedTeamCapability(
+    authorization,
+    "users.directory.full.view"
+  );
+  const canViewDirectory = canViewBasicDirectory || canViewFullDirectory;
   const canCreateFlags = hasResolvedTeamCapability(
     authorization,
     "users.flag.create"
@@ -78,6 +96,18 @@ export default async function AdminUsersPage({
   const canViewFlags = hasResolvedTeamCapability(
     authorization,
     "users.flag.view"
+  );
+  const canViewWebsiteBans = hasResolvedTeamCapability(
+    authorization,
+    "users.website_bans.view"
+  );
+  const canCreateWebsiteBan = hasResolvedTeamCapability(
+    authorization,
+    "users.website_bans.create"
+  );
+  const canRevokeWebsiteBan = hasResolvedTeamCapability(
+    authorization,
+    "users.website_bans.revoke"
   );
 
   if (!canViewDirectory && !canCreateFlags && !canViewFlags) {
@@ -98,8 +128,8 @@ export default async function AdminUsersPage({
     );
   }
 
-  const directoryQuery = getUserDirectoryQuery(authorization.isAdmin);
-  const isAdmin = directoryQuery.isAdminView;
+  const directoryQuery = getUserDirectoryQuery(canViewFullDirectory);
+  const isFullView = directoryQuery.isFullView;
   const { data: users, error } = await supabaseAdmin
     .from(directoryQuery.relation)
     .select(directoryQuery.select)
@@ -136,7 +166,7 @@ export default async function AdminUsersPage({
           user.current_display_name,
           user.current_guild_nickname,
         ];
-        const searchableNames = isAdmin
+        const searchableNames = isFullView
           ? [
               ...currentNames,
               ...(user.known_discord_usernames ?? []),
@@ -190,31 +220,56 @@ export default async function AdminUsersPage({
     (filteredUsers ?? []).map(
       (user: UserLog) => user.discord_user_id
     );
+  const needsWebsiteBanState =
+    canViewWebsiteBans || canCreateWebsiteBan || canRevokeWebsiteBan;
+  const identitySelect = [
+    "discord_user_id",
+    "public_profile_id",
+    "current_discord_username",
+    "current_discord_handle",
+    "current_display_name",
+    "current_guild_nickname",
+    ...(needsWebsiteBanState ? ["is_banned", "website_ban_version"] : []),
+    ...(canViewWebsiteBans ? ["ban_reason"] : []),
+  ].join(", ");
   const publicProfilesResult =
     discordUserIds.length > 0
       ? await supabaseAdmin
           .from("user_logs")
-          .select(
-            "discord_user_id, public_profile_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
-          )
+          .select(identitySelect)
           .in("discord_user_id", discordUserIds)
       : { data: [], error: null };
+  const identityRows = (publicProfilesResult.data ?? []) as unknown as
+    UserIdentityProjection[];
 
   const userLabelByDiscordUserId = new Map(
-    (publicProfilesResult.data ?? []).map((row) => [
+    identityRows.map((row) => [
       row.discord_user_id,
       formatDiscordUserLabel(row),
     ])
   );
   const publicProfileIdByDiscordUserId = new Map(
-    (publicProfilesResult.data ?? []).map((row) => [
+    identityRows.map((row) => [
       row.discord_user_id,
       row.public_profile_id,
     ])
   );
+  const websiteBanStateByDiscordUserId = new Map(
+    identityRows.map((row) => [
+      row.discord_user_id,
+      {
+        isBanned: Boolean(row.is_banned),
+        version:
+          typeof row.website_ban_version === "number"
+            ? row.website_ban_version
+            : 0,
+        reason: typeof row.ban_reason === "string" ? row.ban_reason : null,
+      },
+    ])
+  );
   return (
     <div style={{ padding: 24 }}>
-      <h1>{isAdmin ? "Admin – User Logs" : "Users"}</h1>
+      <h1>{isFullView ? "Full User Directory" : "Users"}</h1>
 
       <form method="get" style={{ marginTop: 12 }}>
   <input
@@ -251,8 +306,8 @@ export default async function AdminUsersPage({
               <th align="left">User</th>
               <th align="left">Discord ID</th>
               {canViewFlags ? <th align="left">Flag cases</th> : null}
-              {isAdmin ? <th align="left">Stats</th> : null}
-              {isAdmin ? <th align="left">Activity</th> : null}
+              {isFullView ? <th align="left">Stats</th> : null}
+              {isFullView ? <th align="left">Activity</th> : null}
             </tr>
           </thead>
 
@@ -270,7 +325,7 @@ export default async function AdminUsersPage({
         user.current_discord_handle,
         user.current_display_name,
         user.current_guild_nickname,
-        ...(isAdmin ? user.known_discord_usernames ?? [] : []),
+        ...(isFullView ? user.known_discord_usernames ?? [] : []),
       ].some((name) =>
         name?.toLowerCase().includes(query.toLowerCase())
       )
@@ -308,7 +363,9 @@ export default async function AdminUsersPage({
     </strong>
   )}
 
-{isAdmin && user.is_banned && user.ban_reason && (
+{canViewWebsiteBans &&
+  websiteBanStateByDiscordUserId.get(user.discord_user_id)?.isBanned &&
+  websiteBanStateByDiscordUserId.get(user.discord_user_id)?.reason && (
   <div
     style={{
       marginTop: 6,
@@ -322,7 +379,7 @@ export default async function AdminUsersPage({
   >
     <strong>BANNED</strong>
     <div style={{ marginTop: 2 }}>
-      {user.ban_reason}
+      {websiteBanStateByDiscordUserId.get(user.discord_user_id)?.reason}
     </div>
   </div>
 )}
@@ -331,9 +388,16 @@ export default async function AdminUsersPage({
   
   <UserModerationActions
     discordUserId={user.discord_user_id}
-    isBanned={Boolean(user.is_banned)}
+    isBanned={
+      websiteBanStateByDiscordUserId.get(user.discord_user_id)?.isBanned ??
+      false
+    }
+    websiteBanVersion={
+      websiteBanStateByDiscordUserId.get(user.discord_user_id)?.version ?? 0
+    }
     canCreateFlags={canCreateFlags}
-    isAdmin={isAdmin}
+    canCreateWebsiteBan={canCreateWebsiteBan}
+    canRevokeWebsiteBan={canRevokeWebsiteBan}
     activeFlagStatus={
       activeFlagStatusByUser.get(user.discord_user_id) ?? null
     }
@@ -368,7 +432,7 @@ export default async function AdminUsersPage({
                   
 
                 
-                {isAdmin ? <td style={{ padding: "8px 0" }}>
+                {isFullView ? <td style={{ padding: "8px 0" }}>
                   <div>
                     Submissions: <strong>{user.submission_count}</strong>
                   </div>
@@ -397,12 +461,14 @@ export default async function AdminUsersPage({
                   <UserSubmissionsDropdown
                     discordUserId={user.discord_user_id}
                     defaultOpen={focusUserId === user.discord_user_id}
+                    includeDisqualified={authorization.isAdmin}
+                    includeVoteCounts={authorization.isAdmin}
                   />
 
                 </td> : null}
 
                 
-                {isAdmin ? <td
+                {isFullView ? <td
                   style={{
                     padding: "8px 0",
                     fontSize: 12,

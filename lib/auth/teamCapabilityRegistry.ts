@@ -11,6 +11,12 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "users.flag.view",
   "users.flag.review",
   "users.directory.basic.view",
+  "users.directory.full.view",
+  "users.upload_blocks.view",
+  "users.website_bans.view",
+  "users.website_bans.create",
+  "users.website_bans.revoke",
+  "logs.website_bans.view",
 ] as const);
 
 export type RegisteredTeamCapabilityKey =
@@ -297,6 +303,142 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "5d0d0ab97601631a43f7ba87ba04d0007bf6534449774ac859f838e370cede48",
+  }),
+  "users.directory.full.view": defineCapability({
+    key: "users.directory.full.view",
+    displayName: "View Full User Directory",
+    description:
+      "View the extended user directory with identity history, activity timestamps, and aggregate participation statistics.",
+    category: "User Moderation",
+    includedActions: [
+      "View current and known Discord names.",
+      "View first-seen and last-seen timestamps.",
+      "View aggregate submission and username-change statistics.",
+      "Open the user's recent non-disqualified submission list without per-submission vote totals.",
+    ],
+    excludedActions: [
+      "Viewing website-ban reasons or history.",
+      "Creating or revoking website bans.",
+      "Viewing flag reasons or flag history.",
+      "Viewing vote, wallet, session, or infrastructure data.",
+      "Viewing disqualified submission history or per-submission vote totals.",
+    ],
+    riskLevel: "moderate",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 2,
+    definitionHash:
+      "df91b4c3c90ae2f90d5be05f77b70be1717e3b50892f705ff4ba477d969e81b1",
+  }),
+  "users.upload_blocks.view": defineCapability({
+    key: "users.upload_blocks.view",
+    displayName: "View Cycle Upload Blocks",
+    description:
+      "View cycle-scoped automatic upload-abuse blocks and their bounded counters without changing them.",
+    category: "User Moderation",
+    includedActions: [
+      "View cycle-scoped invalid-upload counters and active automatic blocks.",
+      "View when a block was triggered and the last bounded error category.",
+    ],
+    excludedActions: [
+      "Manually unblocking a user during the current cycle.",
+      "Changing abuse thresholds or detection rules.",
+      "Viewing raw network or infrastructure data.",
+    ],
+    riskLevel: "moderate",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "174c20de72228105c16c01b98a9da10f232ecdbe2f9e6c1f0b309a1c37479204",
+  }),
+  "users.website_bans.view": defineCapability({
+    key: "users.website_bans.view",
+    displayName: "View Active Website Bans",
+    description:
+      "View active website bans and their current moderation context without changing ban state.",
+    category: "User Moderation",
+    includedActions: [
+      "View actively website-banned users.",
+      "View the current ban reason, source, actor, and timestamp.",
+    ],
+    excludedActions: [
+      "Creating or revoking website bans.",
+      "Viewing the complete historical website-ban event log.",
+      "Discord bans or team-member administration.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "4e8d362ef56b5f101e66ac6d3db552f505ecf6c4580dbefe36f397d4571e7388",
+  }),
+  "users.website_bans.create": defineCapability({
+    key: "users.website_bans.create",
+    displayName: "Create Website Bans",
+    description:
+      "Create an auditable website ban for a known non-team user with a required reason.",
+    category: "User Moderation",
+    includedActions: [
+      "Create a website ban for a known user who is not a team member.",
+      "Read only whether the selected user currently has an active website ban.",
+    ],
+    excludedActions: [
+      "Revoking website bans.",
+      "Banning active team members or Owner accounts.",
+      "Discord bans, legal deletion, or historical data repair.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "66118e044f0defc403ce7a63539a30156b4000bd0a05dbeeafe73a9661407470",
+  }),
+  "users.website_bans.revoke": defineCapability({
+    key: "users.website_bans.revoke",
+    displayName: "Revoke Website Bans",
+    description:
+      "Revoke an active website ban for a non-team user with a required auditable reason.",
+    category: "User Moderation",
+    includedActions: [
+      "Revoke an active website ban for a user who is not a team member.",
+      "Read the current website-ban state required for the action.",
+    ],
+    excludedActions: [
+      "Creating website bans.",
+      "Changing team membership or Owner access.",
+      "Republishing submissions or repairing historical results.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "1a5b5dd1c07c638051dc76ea079561baff6b8204b17be017d04e186de6b09706",
+  }),
+  "logs.website_bans.view": defineCapability({
+    key: "logs.website_bans.view",
+    displayName: "View Website Ban History",
+    description:
+      "View the append-only website-ban and revocation event history without changing moderation state.",
+    category: "Logs",
+    includedActions: [
+      "View immutable website-ban and revocation events.",
+      "View event actors, timestamps, reasons, and state transitions.",
+    ],
+    excludedActions: [
+      "Creating or revoking website bans.",
+      "Viewing unrelated user, flag, vote, upload, or infrastructure logs.",
+      "Deleting or rewriting moderation history.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "a3ce56bd99c5e3aa74ff1d863a8969b73cd23717cc9ced50a7c8c375cda743e3",
   }),
 });
 

@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { getBannedUsersWithStats } from "@/lib/admin/getUserLogsWithStats";
-import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
+import { hasResolvedTeamCapability } from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import UserModerationActions from "../users/UserModerationActions";
@@ -21,15 +21,23 @@ type BannedUser = {
   banned_by_discord_username: string | null;
   
   submission_count: number;
+  website_ban_version?: number;
 };
 
 export default async function AdminBannedUsersPage() {
   
-  try {
-    await requireAdmin();
-  } catch {
-    redirect("/403");
-  }
+  const authorization = await requireTeamCapabilityPage(
+    "users.website_bans.view",
+    "/admin/bans"
+  );
+  const canRevokeWebsiteBan = hasResolvedTeamCapability(
+    authorization,
+    "users.website_bans.revoke"
+  );
+  const canViewFullDirectory = hasResolvedTeamCapability(
+    authorization,
+    "users.directory.full.view"
+  );
 
   const { data: users, error } = await getBannedUsersWithStats();
 
@@ -50,7 +58,7 @@ export default async function AdminBannedUsersPage() {
       ? await supabaseAdmin
           .from("user_logs")
           .select(
-            "discord_user_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname"
+            "discord_user_id, current_discord_username, current_discord_handle, current_display_name, current_guild_nickname, website_ban_version"
           )
           .in("discord_user_id", discordUserIds)
       : { data: [] };
@@ -58,6 +66,12 @@ export default async function AdminBannedUsersPage() {
     (userNames ?? []).map((user) => [
       user.discord_user_id,
       formatDiscordUserLabel(user),
+    ])
+  );
+  const websiteBanVersionByDiscordUserId = new Map(
+    (userNames ?? []).map((user) => [
+      user.discord_user_id,
+      user.website_ban_version ?? 0,
     ])
   );
 
@@ -137,17 +151,25 @@ export default async function AdminBannedUsersPage() {
                     <UserModerationActions
                       discordUserId={user.discord_user_id}
                       isBanned={true}
+                      websiteBanVersion={
+                        websiteBanVersionByDiscordUserId.get(
+                          user.discord_user_id
+                        ) ?? 0
+                      }
                       canCreateFlags={false}
-                      isAdmin
+                      canCreateWebsiteBan={false}
+                      canRevokeWebsiteBan={canRevokeWebsiteBan}
                     />
                   </div>
 
                   
-                  <div style={{ marginTop: 6 }}>
+                  {canViewFullDirectory ? <div style={{ marginTop: 6 }}>
                     <UserSubmissionsDropdown
                       discordUserId={user.discord_user_id}
+                      includeDisqualified={authorization.isAdmin}
+                      includeVoteCounts={authorization.isAdmin}
                     />
-                  </div>
+                  </div> : null}
                 </td>
 
                 

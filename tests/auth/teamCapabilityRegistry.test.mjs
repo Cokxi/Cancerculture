@@ -23,6 +23,12 @@ const expectedKeys = [
   "users.flag.view",
   "users.flag.review",
   "users.directory.basic.view",
+  "users.directory.full.view",
+  "users.upload_blocks.view",
+  "users.website_bans.view",
+  "users.website_bans.create",
+  "users.website_bans.revoke",
+  "logs.website_bans.view",
 ];
 
 function canonicalDefinition(definition) {
@@ -41,7 +47,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains ten known and eight active capability keys", () => {
+test("the server registry contains sixteen known and fourteen active capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -93,6 +99,18 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "8ec44455bd08212cab4cacc64dfcd96b139edd9753862255d68150e702b26869",
     "users.directory.basic.view":
       "5d0d0ab97601631a43f7ba87ba04d0007bf6534449774ac859f838e370cede48",
+    "users.directory.full.view":
+      "df91b4c3c90ae2f90d5be05f77b70be1717e3b50892f705ff4ba477d969e81b1",
+    "users.upload_blocks.view":
+      "174c20de72228105c16c01b98a9da10f232ecdbe2f9e6c1f0b309a1c37479204",
+    "users.website_bans.view":
+      "4e8d362ef56b5f101e66ac6d3db552f505ecf6c4580dbefe36f397d4571e7388",
+    "users.website_bans.create":
+      "66118e044f0defc403ce7a63539a30156b4000bd0a05dbeeafe73a9661407470",
+    "users.website_bans.revoke":
+      "1a5b5dd1c07c638051dc76ea079561baff6b8204b17be017d04e186de6b09706",
+    "logs.website_bans.view":
+      "a3ce56bd99c5e3aa74ff1d863a8969b73cd23717cc9ced50a7c8c375cda743e3",
   };
 
   for (const key of expectedKeys) {
@@ -115,7 +133,10 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "users.flag",
     ].includes(key);
     const versionTwo =
-      deprecated || activatedKeys.includes(key) || key.startsWith("users.flag.");
+      deprecated ||
+      activatedKeys.includes(key) ||
+      key.startsWith("users.flag.") ||
+      key === "users.directory.full.view";
     assert.equal(definition.assignableToNonAdmin, !deprecated);
     assert.equal(definition.lifecycle, deprecated ? "deprecated" : "active");
     assert.equal(
