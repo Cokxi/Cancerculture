@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CancerCulture
 
-## Getting Started
+CancerCulture is a community platform for submission cycles, voting, public rankings, and a capability-based moderation and team area.
 
-First, run the development server:
+The application uses Next.js 16 with the App Router, React 19, TypeScript, Supabase/PostgreSQL, Cloudflare R2, Discord authentication and membership synchronization, and Vercel hosting.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Project documentation
+
+Start here before changing the project:
+
+- [`AGENTS.md`](AGENTS.md) — durable repository rules loaded by Codex.
+- [`docs/project/CURRENT_STATE.md`](docs/project/CURRENT_STATE.md) — current Git, release, environment, and handoff state.
+- [`docs/project/CHECKLIST.md`](docs/project/CHECKLIST.md) — detailed product status, decisions, and roadmap.
+- [`docs/project/README.md`](docs/project/README.md) — documentation ownership and maintenance contract.
+
+Point-in-time operational documents and audits remain under [`docs/`](docs/). The Supabase schema baseline and its limitations are documented in [`supabase/baseline/README.md`](supabase/baseline/README.md).
+
+## Local development
+
+Install the locked dependencies and start the development server:
+
+```powershell
+npm.cmd ci
+npm.cmd run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The local application is available at `http://localhost:3000` by default.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Common local checks:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```powershell
+npm.cmd run lint
+npm.cmd run build
+```
 
-## Learn More
+Focused test commands and database test prerequisites depend on the affected subsystem. Follow `AGENTS.md`, the current checklist, and the relevant test files instead of running DEV-backed suites by assumption.
 
-To learn more about Next.js, take a look at the following resources:
+## Safety
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Keep `.env` files, credentials, connection strings, and tokens out of Git and documentation.
+- Treat DEV and LIVE as separate environments.
+- Never alter historical migrations.
+- Do not push, deploy, or contact LIVE without explicit authorization.
