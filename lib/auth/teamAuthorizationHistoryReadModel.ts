@@ -51,6 +51,32 @@ export type TeamAuthorizationHistoryReadModel = Readonly<{
   isAdmin: boolean;
 }>;
 
+type UserLogIdentityRow = {
+  discord_user_id: string;
+  current_discord_username: string | null;
+};
+
+type TeamMemberIdentityRow = {
+  discord_user_id: string;
+  discord_username: string | null;
+};
+
+function addKnownDiscordUsernames(
+  namesByDiscordUserId: Map<string, string>,
+  rows: readonly { discordUserId: string; discordUsername: string | null }[]
+) {
+  for (const row of rows) {
+    const username = row.discordUsername?.trim() ?? "";
+    if (
+      !namesByDiscordUserId.has(row.discordUserId) &&
+      username.length >= 1 &&
+      username.length <= 100
+    ) {
+      namesByDiscordUserId.set(row.discordUserId, username);
+    }
+  }
+}
+
 function historyUnavailable() {
   return new AuthError(
     503,
@@ -113,10 +139,86 @@ export async function loadTeamAuthorizationHistoryReadModel({
     throw historyUnavailable();
   }
 
-  const entries = (result.data ?? []).map((row) =>
+  const auditRows = (result.data ?? []) as unknown as TeamAuthorizationAuditRow[];
+  const targetDiscordUserIds =
+    view === "team-changes"
+      ? [
+          ...new Set(
+            auditRows.flatMap((row) =>
+              row.target_discord_user_id ? [row.target_discord_user_id] : []
+            )
+          ),
+        ]
+      : [];
+  const namesByDiscordUserId = new Map<string, string>();
+
+  if (targetDiscordUserIds.length > 0) {
+    const [userLogsResult, teamMembersResult, memberStateResult] =
+      await Promise.all([
+        supabaseAdmin
+          .from("user_logs")
+          .select("discord_user_id, current_discord_username")
+          .in("discord_user_id", targetDiscordUserIds),
+        supabaseAdmin
+          .from("team_members")
+          .select("discord_user_id, discord_username")
+          .in("discord_user_id", targetDiscordUserIds),
+        supabaseAdmin
+          .from("discord_member_state")
+          .select("discord_user_id, current_discord_username")
+          .in("discord_user_id", targetDiscordUserIds),
+      ]);
+
+    if (userLogsResult.error || teamMembersResult.error || memberStateResult.error) {
+      console.error("[TEAM_AUTHORIZATION_HISTORY] identity lookup unavailable", {
+        userLogs: userLogsResult.error?.code ?? null,
+        teamMembers: teamMembersResult.error?.code ?? null,
+        memberState: memberStateResult.error?.code ?? null,
+      });
+    }
+
+    if (!userLogsResult.error) {
+      addKnownDiscordUsernames(
+        namesByDiscordUserId,
+        ((userLogsResult.data ?? []) as unknown as UserLogIdentityRow[]).map(
+          (row) => ({
+            discordUserId: row.discord_user_id,
+            discordUsername: row.current_discord_username,
+          })
+        )
+      );
+    }
+    if (!teamMembersResult.error) {
+      addKnownDiscordUsernames(
+        namesByDiscordUserId,
+        (
+          (teamMembersResult.data ?? []) as unknown as TeamMemberIdentityRow[]
+        ).map((row) => ({
+          discordUserId: row.discord_user_id,
+          discordUsername: row.discord_username,
+        }))
+      );
+    }
+    if (!memberStateResult.error) {
+      addKnownDiscordUsernames(
+        namesByDiscordUserId,
+        ((memberStateResult.data ?? []) as unknown as UserLogIdentityRow[]).map(
+          (row) => ({
+            discordUserId: row.discord_user_id,
+            discordUsername: row.current_discord_username,
+          })
+        )
+      );
+    }
+  }
+
+  const entries = auditRows.map((row) =>
     buildTeamAuthorizationHistoryEntry(
-      row as unknown as TeamAuthorizationAuditRow,
-      authorization.isAdmin
+      row,
+      authorization.isAdmin,
+      row.target_discord_user_id
+        ? namesByDiscordUserId.get(row.target_discord_user_id) ?? null
+        : null
     )
   );
 

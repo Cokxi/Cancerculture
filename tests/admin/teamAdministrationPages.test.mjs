@@ -226,9 +226,20 @@ test("page-specific server read models avoid loading unrelated Team data", async
   assert.match(rolesLoader, /\.from\("team_role_capabilities"\)/);
   assert.doesNotMatch(rolesLoader, /team_authorization_audit/);
   assert.match(historyLoader, /\.from\("team_authorization_audit"\)/);
+  assert.match(historyLoader, /\.from\("user_logs"\)/);
+  assert.match(historyLoader, /\.from\("team_members"\)/);
+  assert.match(historyLoader, /\.from\("discord_member_state"\)/);
+  assert.match(
+    historyLoader,
+    /view === "team-changes"[\s\S]*targetDiscordUserIds/
+  );
   assert.doesNotMatch(
     historyLoader,
-    /\.from\("(?:team_roles|team_members|capability_catalog|team_role_capabilities)"\)/
+    /\.from\("(?:team_roles|capability_catalog|team_role_capabilities)"\)/
+  );
+  assert.doesNotMatch(
+    historyLoader,
+    /known_discord_usernames|current_discord_handle|current_display_name|current_guild_nickname/
   );
 });
 
@@ -363,6 +374,7 @@ test("Authorization History is a server-rendered read-only projection", async ()
     "targetRoleKey",
     "capabilityKey",
     "targetDiscordUserId",
+    "targetDiscordUsername",
     "reason",
     "previousRoleKey",
     "newRoleKey",

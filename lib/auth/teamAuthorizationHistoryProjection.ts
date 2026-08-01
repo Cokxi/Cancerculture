@@ -18,6 +18,7 @@ export type TeamAuthorizationHistoryEntry = Readonly<{
   eventType: string;
   targetRoleKey: string | null;
   targetDiscordUserId: string | null;
+  targetDiscordUsername: string | null;
   capabilityKey: string | null;
   previousRoleKey: string | null;
   newRoleKey: string | null;
@@ -77,7 +78,8 @@ function readRoleSnapshot(
 
 export function buildTeamAuthorizationHistoryEntry(
   row: TeamAuthorizationAuditRow,
-  isAdmin: boolean
+  isAdmin: boolean,
+  targetDiscordUsername: string | null = null
 ): TeamAuthorizationHistoryEntry {
   const beforeState = asRecord(row.before_state) ?? {};
   const afterState = asRecord(row.after_state) ?? {};
@@ -89,6 +91,7 @@ export function buildTeamAuthorizationHistoryEntry(
   if (row.event_type === "member_added" && newRoleKey === null) {
     newRoleKey = row.target_role_key;
   }
+  const normalizedTargetDiscordUsername = targetDiscordUsername?.trim() ?? "";
 
   return Object.freeze({
     id: row.id,
@@ -98,6 +101,11 @@ export function buildTeamAuthorizationHistoryEntry(
     eventType: row.event_type,
     targetRoleKey: row.target_role_key,
     targetDiscordUserId: row.target_discord_user_id,
+    targetDiscordUsername:
+      normalizedTargetDiscordUsername.length >= 1 &&
+      normalizedTargetDiscordUsername.length <= 100
+        ? normalizedTargetDiscordUsername
+        : null,
     capabilityKey: row.capability_key,
     previousRoleKey,
     newRoleKey,

@@ -31,14 +31,32 @@ function row(overrides = {}) {
 }
 
 test("delegated team-change projection exposes the role transition without raw enforcement state", () => {
-  const entry = buildTeamAuthorizationHistoryEntry(row(), false);
+  const entry = buildTeamAuthorizationHistoryEntry(
+    row(),
+    false,
+    "  Known Discord Name  "
+  );
 
   assert.equal(entry.previousRoleKey, "trial_moderator");
   assert.equal(entry.newRoleKey, "moderator");
+  assert.equal(entry.targetDiscordUsername, "Known Discord Name");
   assert.equal(entry.adminAudit, null);
   assert.equal(JSON.stringify(entry).includes("rowVersion"), false);
   assert.equal(JSON.stringify(entry).includes("batchId"), false);
   assert.equal(JSON.stringify(entry).includes("internal-request"), false);
+});
+
+test("missing or invalid known names fall back to the unchanged Discord ID", () => {
+  assert.equal(
+    buildTeamAuthorizationHistoryEntry(row(), false, "   ")
+      .targetDiscordUsername,
+    null
+  );
+  assert.equal(
+    buildTeamAuthorizationHistoryEntry(row(), false, "x".repeat(101))
+      .targetDiscordUsername,
+    null
+  );
 });
 
 test("delegated role projection allowlists descriptive role fields", () => {

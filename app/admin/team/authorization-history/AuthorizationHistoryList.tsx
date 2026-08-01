@@ -135,7 +135,22 @@ function AuditEntry({
         {entry.targetDiscordUserId ? (
           <>
             <dt className="text-white/40">Affected member</dt>
-            <dd className="break-all">{entry.targetDiscordUserId}</dd>
+            <dd className="min-w-0">
+              {entry.targetDiscordUsername ? (
+                <span className="block break-words font-medium">
+                  {entry.targetDiscordUsername}
+                </span>
+              ) : null}
+              <span
+                className={`block break-all ${
+                  entry.targetDiscordUsername
+                    ? "mt-0.5 text-xs text-white/45"
+                    : ""
+                }`}
+              >
+                {entry.targetDiscordUserId}
+              </span>
+            </dd>
           </>
         ) : null}
         {entry.targetRoleKey ? (
