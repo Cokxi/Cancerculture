@@ -394,7 +394,7 @@ for (const [name, property, value, code] of [
   [
     "implementation version drift",
     "implementationVersion",
-    2,
+    3,
     "implementation_version_mismatch",
   ],
 ]) {

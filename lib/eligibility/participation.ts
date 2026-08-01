@@ -3,6 +3,7 @@ export type ParticipationStatus =
   | "membership_pending"
   | "not_in_discord"
   | "join_wait"
+  | "temporarily_unavailable"
   | "eligible"
   | "restricted"
   | "dependency_unavailable";
@@ -14,6 +15,7 @@ export type ParticipationAccessState = {
   participationEligible: boolean;
   discordBanned: boolean;
   websiteBanned: boolean;
+  participationHeld: boolean;
   joinWaitActive: boolean;
   dependencyUnavailable: boolean;
   joinedAt: string | null;
@@ -27,6 +29,7 @@ export function createParticipationAccessState({
   discordMember = false,
   discordBanned = false,
   websiteBanned = false,
+  participationHeld = false,
   joinWaitActive = false,
   dependencyUnavailable = false,
   joinedAt = null,
@@ -40,6 +43,7 @@ export function createParticipationAccessState({
     discordMember &&
     !discordBanned &&
     !websiteBanned &&
+    !participationHeld &&
     !joinWaitActive &&
     !dependencyUnavailable;
 
@@ -47,6 +51,8 @@ export function createParticipationAccessState({
     ? "anonymous"
     : discordBanned || websiteBanned
       ? "restricted"
+      : participationHeld
+        ? "temporarily_unavailable"
       : dependencyUnavailable
         ? "dependency_unavailable"
         : !membershipKnown
@@ -64,6 +70,7 @@ export function createParticipationAccessState({
     participationEligible,
     discordBanned,
     websiteBanned,
+    participationHeld,
     joinWaitActive,
     dependencyUnavailable,
     joinedAt,

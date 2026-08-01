@@ -162,6 +162,9 @@ export async function POST(req: Request) {
       );
       const isDiscordBanned = errorMessage.includes("DISCORD_BANNED");
       const isWebsiteBanned = errorMessage.includes("WEBSITE_BANNED");
+      const isParticipationUnavailable = errorMessage.includes(
+        "PARTICIPATION_UNAVAILABLE"
+      );
       const isNotInDiscord = errorMessage.includes("NOT_IN_DISCORD");
       const isJoinCooldown = errorMessage.includes(
         "JOINED_TOO_RECENTLY"
@@ -176,6 +179,7 @@ export async function POST(req: Request) {
         isSubmissionIneligible ||
         isDiscordBanned ||
         isWebsiteBanned ||
+        isParticipationUnavailable ||
         isNotInDiscord ||
         isJoinCooldown
       ) {
@@ -201,6 +205,8 @@ export async function POST(req: Request) {
                 ? "DISCORD_BANNED"
                 : isWebsiteBanned
                   ? "WEBSITE_BANNED"
+                  : isParticipationUnavailable
+                    ? "PARTICIPATION_UNAVAILABLE"
                   : isNotInDiscord
                     ? "NOT_IN_DISCORD"
                     : isJoinCooldown
@@ -220,6 +226,7 @@ export async function POST(req: Request) {
               isSelfVote ||
               isDiscordBanned ||
               isWebsiteBanned ||
+              isParticipationUnavailable ||
               isNotInDiscord ||
               isJoinCooldown
               ? 403

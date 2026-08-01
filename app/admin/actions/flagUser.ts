@@ -2,6 +2,7 @@
 
 import {
   createUserFlagCase,
+  getUserFlagActiveStatus,
   UserFlagDatabaseError,
 } from "@/lib/admin/userFlagCases";
 
@@ -28,10 +29,14 @@ export async function flagUser(params: {
         success: false as const,
         conflict: true as const,
         message:
-          "This user already has an open flag case. No case details were disclosed.",
+          "This user already has an active flag case. No case details were disclosed.",
       };
     }
 
     throw error;
   }
+}
+
+export async function checkUserFlagStatus(targetDiscordUserId: string) {
+  return getUserFlagActiveStatus(targetDiscordUserId);
 }

@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import { getUserDirectoryQuery } from "@/lib/admin/userDirectoryAccess";
-import { listUserFlagCases } from "@/lib/admin/userFlagCases";
+import {
+  getUserFlagActiveStatus,
+  listUserFlagCases,
+} from "@/lib/admin/userFlagCases";
 import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
 import {
   getTeamAuthorizationContext,
@@ -102,8 +105,17 @@ export default async function AdminUsersPage({
     .order(directoryQuery.orderBy, { ascending: false });
 
   const typedUsers = (users ?? []) as unknown as UserLog[];
-  const flagCases = canViewFlags ? await listUserFlagCases() : [];
-  const flagCasesByUser = new Map<string, typeof flagCases>();
+  const flagPages = canViewFlags
+    ? await Promise.all([
+        listUserFlagCases({ section: "active", limit: 100 }),
+        listUserFlagCases({ section: "history", limit: 100 }),
+      ])
+    : [];
+  const flagCases = flagPages.flatMap((page) => page.items);
+  const flagCasesByUser = new Map<
+    string,
+    readonly (typeof flagCases)[number][]
+  >();
 
   for (const flagCase of flagCases) {
     const existing = flagCasesByUser.get(flagCase.discordUserId) ?? [];
@@ -137,6 +149,35 @@ export default async function AdminUsersPage({
           )
         );
       });
+
+  const activeFlagStatusByUser = new Map<
+    string,
+    "open" | "escalated"
+  >();
+  if (canCreateFlags) {
+    if (canViewFlags) {
+      for (const flagCase of flagCases) {
+        if (flagCase.status === "open" || flagCase.status === "escalated") {
+          activeFlagStatusByUser.set(
+            flagCase.discordUserId,
+            flagCase.status
+          );
+        }
+      }
+    } else {
+      const statuses = await Promise.all(
+        filteredUsers.map(async (user) => [
+          user.discord_user_id,
+          await getUserFlagActiveStatus(user.discord_user_id),
+        ] as const)
+      );
+      for (const [discordUserId, status] of statuses) {
+        if (status.active && status.status) {
+          activeFlagStatusByUser.set(discordUserId, status.status);
+        }
+      }
+    }
+  }
 
 
   if (error) {
@@ -318,6 +359,9 @@ export default async function AdminUsersPage({
     isBanned={Boolean(user.is_banned)}
     canCreateFlags={canCreateFlags}
     isAdmin={isAdmin}
+    activeFlagStatus={
+      activeFlagStatusByUser.get(user.discord_user_id) ?? null
+    }
   />
 
 </td>

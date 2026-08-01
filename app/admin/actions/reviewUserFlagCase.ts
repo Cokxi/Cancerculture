@@ -8,7 +8,11 @@ import {
 export async function reviewUserFlagCase(params: {
   caseId: string;
   expectedRowVersion: number;
-  status: "resolved" | "dismissed";
+  status:
+    | "resolved"
+    | "dismissed"
+    | "escalated"
+    | "banned_resolved";
   reviewReason: string;
   idempotencyKey: string;
 }) {

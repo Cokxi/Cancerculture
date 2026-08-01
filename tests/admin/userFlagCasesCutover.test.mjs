@@ -38,7 +38,7 @@ test("list-view and concrete-review routes remain separated", async () => {
     source("app/admin/flags/[caseId]/page.tsx"),
   ]);
   assert.match(list, /"users\.flag\.view"/u);
-  assert.match(list, /listUserFlagCases\(\)/u);
+  assert.match(list, /listUserFlagCases\(\{[\s\S]*section:/u);
   assert.match(detail, /getUserFlagCase\(caseId\)/u);
   assert.match(detail, /"users\.flag\.review"/u);
   assert.doesNotMatch(detail, /listUserFlagCases/u);

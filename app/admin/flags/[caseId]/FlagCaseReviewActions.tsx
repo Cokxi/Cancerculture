@@ -7,9 +7,13 @@ import { reviewUserFlagCase } from "@/app/admin/actions/reviewUserFlagCase";
 export default function FlagCaseReviewActions({
   caseId,
   rowVersion,
+  status,
+  isAdmin,
 }: {
   caseId: string;
   rowVersion: number;
+  status: "open" | "escalated";
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [reviewReason, setReviewReason] = useState("");
@@ -17,10 +21,14 @@ export default function FlagCaseReviewActions({
   const [message, setMessage] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
 
-  async function submit(status: "resolved" | "dismissed") {
+  async function submit(
+    action: "resolved" | "dismissed" | "escalated" | "banned_resolved"
+  ) {
     if (
       !window.confirm(
-        `Confirm that this case should be marked ${status}?`
+        action === "banned_resolved"
+          ? "Confirm the atomic website ban and case resolution?"
+          : `Confirm that this case should be marked ${action}?`
       )
     ) {
       return;
@@ -34,7 +42,7 @@ export default function FlagCaseReviewActions({
       const result = await reviewUserFlagCase({
         caseId,
         expectedRowVersion: rowVersion,
-        status,
+        status: action,
         reviewReason,
         idempotencyKey: crypto.randomUUID(),
       });
@@ -78,6 +86,23 @@ export default function FlagCaseReviewActions({
         >
           {pending ? "Saving..." : "Dismiss case"}
         </button>
+        {status === "open" ? (
+          <button
+            disabled={pending || reviewReason.trim().length < 3}
+            onClick={() => submit("escalated")}
+          >
+            {pending ? "Saving..." : "Escalate case"}
+          </button>
+        ) : null}
+        {isAdmin && status === "escalated" ? (
+          <button
+            disabled={pending || reviewReason.trim().length < 3}
+            onClick={() => submit("banned_resolved")}
+            style={{ color: "#ff6b6b" }}
+          >
+            {pending ? "Saving..." : "Ban user & resolve"}
+          </button>
+        ) : null}
       </div>
       {message ? <p role="status">{message}</p> : null}
       {stale ? (

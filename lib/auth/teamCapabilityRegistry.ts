@@ -212,10 +212,11 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     key: "users.flag.create",
     displayName: "Create User Flag Cases",
     description:
-      "Create a new auditable user flag case for a known user when no other open case exists.",
+      "Create a new auditable user flag case for a known user only when no open or escalated case exists.",
     category: "User Moderation",
     includedActions: [
-      "Create a new auditable user flag case for a known user.",
+      "Create a new auditable user flag case for a known user when no active case exists.",
+      "Read only whether the selected user has an active case and its status.",
     ],
     excludedActions: [
       "Viewing flagged-user lists or history.",
@@ -225,18 +226,20 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     riskLevel: "moderate",
     lifecycle: "active",
     assignableToNonAdmin: true,
-    implementationVersion: 1,
+    implementationVersion: 2,
     definitionHash:
-      "bf758cdf0fa93e88b27a40582916efbea56d5d25d708d02f9889ed3a3cbe5dbf",
+      "284ad15bb26a61110b34d96f51b199ed0223d66bbe81462e7e89fd534972231b",
   }),
   "users.flag.view": defineCapability({
     key: "users.flag.view",
     displayName: "View User Flag Cases",
     description:
-      "View flagged-user lists, case details, and complete user flag history without changing case state.",
+      "View active user flag cases and bounded searchable closed-case history without changing case state.",
     category: "User Moderation",
     includedActions: [
-      "View flagged-user lists, case details, and complete user flag history.",
+      "View open and escalated user flag cases and their details.",
+      "Search bounded closed-case history by Discord ID or username.",
+      "View immutable actor snapshots and complete case event history.",
     ],
     excludedActions: [
       "Creating flag cases.",
@@ -246,31 +249,32 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     riskLevel: "moderate",
     lifecycle: "active",
     assignableToNonAdmin: true,
-    implementationVersion: 1,
+    implementationVersion: 2,
     definitionHash:
-      "8cbde5054432fc6630bbec66c68ce98393f6c37744eb8452b28ea67dfdbc431c",
+      "20f04bf3dc07ce7b0f77a31633f6a90b4ce003ad8e03618d078228236dd4699e",
   }),
   "users.flag.review": defineCapability({
     key: "users.flag.review",
     displayName: "Review User Flag Cases",
     description:
-      "Load a specifically addressed user flag case and resolve or dismiss it without general list access.",
+      "Work open user flag cases and resolve, dismiss, or escalate them without access to escalated cases or history.",
     category: "User Moderation",
     includedActions: [
-      "Load and review a specifically addressed user flag case.",
-      "Resolve or dismiss an open user flag case.",
+      "Load a narrow worklist containing only open user flag cases.",
+      "Resolve, dismiss, or escalate an open user flag case.",
     ],
     excludedActions: [
       "General flagged-user lists or free history searches.",
       "Creating flag cases.",
+      "Viewing or changing escalated cases.",
       "Website bans or other sanctions.",
     ],
     riskLevel: "high",
     lifecycle: "active",
     assignableToNonAdmin: true,
-    implementationVersion: 1,
+    implementationVersion: 2,
     definitionHash:
-      "d43a7db86453e3432b04b65bad4cb7b01555c77f18cd4c26bd58a626d5508dbe",
+      "8ec44455bd08212cab4cacc64dfcd96b139edd9753862255d68150e702b26869",
   }),
   "users.directory.basic.view": defineCapability({
     key: "users.directory.basic.view",

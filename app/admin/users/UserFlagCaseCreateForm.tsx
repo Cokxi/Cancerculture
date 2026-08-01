@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { flagUser } from "@/app/admin/actions/flagUser";
+import {
+  checkUserFlagStatus,
+  flagUser,
+} from "@/app/admin/actions/flagUser";
 
 type FlagCategory =
   | "trolling_low_effort"
@@ -17,6 +20,20 @@ export default function UserFlagCaseCreateForm() {
   const [comment, setComment] = useState("");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [activeStatus, setActiveStatus] = useState<
+    "open" | "escalated" | null
+  >(null);
+
+  async function refreshActiveStatus() {
+    const target = targetDiscordUserId.trim();
+    if (!target) return;
+    try {
+      const result = await checkUserFlagStatus(target);
+      setActiveStatus(result.active ? result.status : null);
+    } catch {
+      setActiveStatus(null);
+    }
+  }
 
   async function submit() {
     setPending(true);
@@ -37,6 +54,7 @@ export default function UserFlagCaseCreateForm() {
       }
 
       setMessage("Flag case created successfully.");
+      setActiveStatus(null);
       setTargetDiscordUserId("");
       setReason("");
       setComment("");
@@ -56,10 +74,22 @@ export default function UserFlagCaseCreateForm() {
         <input
           value={targetDiscordUserId}
           disabled={pending}
-          onChange={(event) => setTargetDiscordUserId(event.target.value)}
+          onBlur={refreshActiveStatus}
+          onChange={(event) => {
+            setTargetDiscordUserId(event.target.value);
+            setActiveStatus(null);
+          }}
           style={{ display: "block", width: "100%", marginTop: 4 }}
         />
       </label>
+      {activeStatus ? (
+        <p
+          role="status"
+          style={{ marginTop: 8, color: "#ff6b6b", fontWeight: 700 }}
+        >
+          🚩 Active flag case: {activeStatus}
+        </p>
+      ) : null}
       <label style={{ display: "block", marginTop: 12 }}>
         Category
         <select
@@ -99,6 +129,7 @@ export default function UserFlagCaseCreateForm() {
         onClick={submit}
         disabled={
           pending ||
+          activeStatus !== null ||
           targetDiscordUserId.trim().length === 0 ||
           reason.trim().length < 3
         }

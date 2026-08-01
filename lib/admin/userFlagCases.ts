@@ -16,18 +16,31 @@ export const USER_FLAG_CATEGORIES = Object.freeze([
 
 export type UserFlagCategory =
   (typeof USER_FLAG_CATEGORIES)[number];
-export type UserFlagStatus = "open" | "resolved" | "dismissed";
+export type UserFlagStatus =
+  | "open"
+  | "escalated"
+  | "resolved"
+  | "dismissed";
+export type UserFlagReviewAction =
+  | "resolved"
+  | "dismissed"
+  | "escalated"
+  | "banned_resolved";
 
 export type UserFlagEvent = Readonly<{
   eventId: string;
   eventType:
     | "case_created"
     | "legacy_case_migrated"
+    | "case_escalated"
     | "case_resolved"
-    | "case_dismissed";
+    | "case_dismissed"
+    | "case_banned_and_resolved";
   previousStatus: UserFlagStatus | null;
   newStatus: UserFlagStatus;
   actorDiscordUserId: string | null;
+  actorAccountId: string | null;
+  actorUsername: string | null;
   actorDisplayName: string | null;
   occurredAt: string | null;
   recordedAt: string;
@@ -49,6 +62,10 @@ export type UserFlagCase = Readonly<{
   recordedAt: string;
   createdByDiscordUserId: string | null;
   createdByDisplayName: string | null;
+  escalatedAt: string | null;
+  escalatedByDiscordUserId: string | null;
+  escalatedByDisplayName: string | null;
+  escalationReason: string | null;
   reviewedAt: string | null;
   reviewedByDiscordUserId: string | null;
   reviewedByDisplayName: string | null;
@@ -62,6 +79,19 @@ export type UserFlagMutationResult = Readonly<{
   status: UserFlagStatus;
   rowVersion: number;
   replayed: boolean;
+  websiteBanApplied?: boolean;
+}>;
+
+export type UserFlagCasePage = Readonly<{
+  items: readonly UserFlagCase[];
+  total: number;
+  limit: number;
+  offset: number;
+}>;
+
+export type UserFlagActiveStatus = Readonly<{
+  active: boolean;
+  status: "open" | "escalated" | null;
 }>;
 
 type SupabaseRpcError = Readonly<{
@@ -150,13 +180,71 @@ export async function createUserFlagCase(input: {
   return unwrapRpc<UserFlagMutationResult>(data, error);
 }
 
-export async function listUserFlagCases(): Promise<readonly UserFlagCase[]> {
+export async function getUserFlagActiveStatus(
+  targetDiscordUserId: string
+): Promise<UserFlagActiveStatus> {
+  assertText(targetDiscordUserId, "targetDiscordUserId", 1, 100);
+  const authorization = await requireDynamicTeamCapability(
+    "users.flag.create"
+  );
+  const { data, error } = await supabaseAdmin.rpc(
+    "get_user_flag_active_status",
+    {
+      p_actor_discord_user_id: authorization.discord_user_id,
+      p_target_discord_user_id: targetDiscordUserId.trim(),
+    }
+  );
+
+  return unwrapRpc<UserFlagActiveStatus>(data, error);
+}
+
+export async function listUserFlagCases({
+  section,
+  query = "",
+  limit = 50,
+  offset = 0,
+}: {
+  section: "active" | "history";
+  query?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<UserFlagCasePage> {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+    throw new TypeError("Invalid limit");
+  }
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    throw new TypeError("Invalid offset");
+  }
+  if (query.length > 100) throw new TypeError("Invalid query");
   const authorization = await requireDynamicTeamCapability(
     "users.flag.view"
   );
   const { data, error } = await supabaseAdmin.rpc(
     "list_user_flag_cases",
-    { p_actor_discord_user_id: authorization.discord_user_id }
+    {
+      p_actor_discord_user_id: authorization.discord_user_id,
+      p_section: section,
+      p_query: query.trim() || null,
+      p_limit: limit,
+      p_offset: offset,
+    }
+  );
+
+  return unwrapRpc<UserFlagCasePage>(data, error);
+}
+
+export async function listUserFlagReviewWorklist(
+  limit = 100
+): Promise<readonly UserFlagCase[]> {
+  const authorization = await requireDynamicTeamCapability(
+    "users.flag.review"
+  );
+  const { data, error } = await supabaseAdmin.rpc(
+    "list_user_flag_review_worklist",
+    {
+      p_actor_discord_user_id: authorization.discord_user_id,
+      p_limit: limit,
+    }
   );
 
   return unwrapRpc<readonly UserFlagCase[]>(data, error);
@@ -194,7 +282,7 @@ export async function getUserFlagCase(
 export async function reviewUserFlagCase(input: {
   caseId: string;
   expectedRowVersion: number;
-  status: "resolved" | "dismissed";
+  status: UserFlagReviewAction;
   reviewReason: string;
   idempotencyKey: string;
 }): Promise<UserFlagMutationResult> {
@@ -207,7 +295,11 @@ export async function reviewUserFlagCase(input: {
   ) {
     throw new TypeError("Invalid expectedRowVersion");
   }
-  if (input.status !== "resolved" && input.status !== "dismissed") {
+  if (
+    !["resolved", "dismissed", "escalated", "banned_resolved"].includes(
+      input.status
+    )
+  ) {
     throw new TypeError("Invalid status");
   }
 

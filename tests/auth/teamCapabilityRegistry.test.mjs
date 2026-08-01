@@ -86,11 +86,11 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "users.flag":
       "4ec252dadafc8d9e149df225825f850fd90666e444fff4edaca43bd5d02b553c",
     "users.flag.create":
-      "bf758cdf0fa93e88b27a40582916efbea56d5d25d708d02f9889ed3a3cbe5dbf",
+      "284ad15bb26a61110b34d96f51b199ed0223d66bbe81462e7e89fd534972231b",
     "users.flag.view":
-      "8cbde5054432fc6630bbec66c68ce98393f6c37744eb8452b28ea67dfdbc431c",
+      "20f04bf3dc07ce7b0f77a31633f6a90b4ce003ad8e03618d078228236dd4699e",
     "users.flag.review":
-      "d43a7db86453e3432b04b65bad4cb7b01555c77f18cd4c26bd58a626d5508dbe",
+      "8ec44455bd08212cab4cacc64dfcd96b139edd9753862255d68150e702b26869",
     "users.directory.basic.view":
       "5d0d0ab97601631a43f7ba87ba04d0007bf6534449774ac859f838e370cede48",
   };
@@ -114,7 +114,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "submissions.submission_phase.moderate",
       "users.flag",
     ].includes(key);
-    const versionTwo = deprecated || activatedKeys.includes(key);
+    const versionTwo =
+      deprecated || activatedKeys.includes(key) || key.startsWith("users.flag.");
     assert.equal(definition.assignableToNonAdmin, !deprecated);
     assert.equal(definition.lifecycle, deprecated ? "deprecated" : "active");
     assert.equal(

@@ -10,6 +10,7 @@ const state = {
   sessionError: null,
   membership: null,
   membershipError: null,
+  participationHeld: false,
 };
 
 mock.module(new URL("../../lib/auth/requireSession.ts", import.meta.url), {
@@ -28,6 +29,17 @@ mock.module(
       async getDiscordMembershipEligibility() {
         if (state.membershipError) throw state.membershipError;
         return state.membership;
+      },
+    },
+  }
+);
+
+mock.module(
+  new URL("../../lib/eligibility/participationHold.ts", import.meta.url),
+  {
+    namedExports: {
+      async getParticipationHold() {
+        return state.participationHeld;
       },
     },
   }
@@ -78,6 +90,14 @@ test.beforeEach(() => {
   state.sessionError = null;
   state.membership = eligibleMembership();
   state.membershipError = null;
+  state.participationHeld = false;
+});
+
+test("an escalated case blocks participation with a neutral result", async () => {
+  state.participationHeld = true;
+  const result = await getParticipationAccess();
+  assert.equal(result.access.status, "temporarily_unavailable");
+  await assertParticipationCode("PARTICIPATION_UNAVAILABLE");
 });
 
 test("the central guard allows fresh membership with only the canonical result", async () => {

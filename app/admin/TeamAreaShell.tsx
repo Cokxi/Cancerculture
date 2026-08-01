@@ -43,7 +43,21 @@ function NavigationGroups({
                         : "text-white/70 hover:bg-white/[0.07] hover:text-white"
                     }`}
                   >
-                    {entry.title}
+                    <span className="flex items-center justify-between gap-2">
+                      <span>{entry.title}</span>
+                      {entry.badges?.length ? (
+                        <span className="flex gap-1" aria-label={entry.badges.join(", ")}>
+                          {entry.badges.map((badge) => (
+                            <span
+                              key={badge}
+                              className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-200"
+                            >
+                              {badge}
+                            </span>
+                          ))}
+                        </span>
+                      ) : null}
+                    </span>
                   </Link>
                 </li>
               );

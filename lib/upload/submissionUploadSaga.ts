@@ -39,6 +39,10 @@ const OUTCOME_HTTP_ERRORS: Record<
 > = {
   not_authenticated: { code: "NOT_AUTHENTICATED", status: 401 },
   banned: { code: "BANNED", status: 403 },
+  participation_unavailable: {
+    code: "PARTICIPATION_UNAVAILABLE",
+    status: 403,
+  },
   not_in_discord: { code: "NOT_IN_DISCORD", status: 403 },
   joined_too_recently: {
     code: "JOINED_TOO_RECENTLY",
@@ -100,6 +104,13 @@ function throwRpcFailure(
   if (error?.message === "UPLOAD_BLOCKED_FOR_CYCLE") {
     throw new SubmissionUploadSagaError(
       "UPLOAD_BLOCKED_FOR_CYCLE",
+      403
+    );
+  }
+
+  if (error?.message?.includes("PARTICIPATION_UNAVAILABLE")) {
+    throw new SubmissionUploadSagaError(
+      "PARTICIPATION_UNAVAILABLE",
       403
     );
   }

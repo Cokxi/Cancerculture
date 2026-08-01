@@ -10,6 +10,7 @@ type Props = {
   isBanned: boolean;
   canCreateFlags: boolean;
   isAdmin: boolean;
+  activeFlagStatus?: "open" | "escalated" | null;
 };
 
 type FlagCategory =
@@ -41,6 +42,7 @@ export default function UserModerationActions({
   isBanned,
   canCreateFlags,
   isAdmin,
+  activeFlagStatus = null,
 }: Props) {
   const [showFlag, setShowFlag] = useState(false);
   const [category, setCategory] = useState<FlagCategory>(
@@ -103,10 +105,17 @@ export default function UserModerationActions({
 
   return (
     <div style={{ marginTop: 6 }}>
-      {canCreateFlags ? (
+      {canCreateFlags && activeFlagStatus ? (
+        <span
+          role="status"
+          style={{ color: "#ff6b6b", fontSize: 12, fontWeight: 700 }}
+        >
+          🚩 Active flag case: {activeFlagStatus}
+        </span>
+      ) : canCreateFlags ? (
         <>
           <button
-            style={baseButton}
+            style={{ ...baseButton, cursor: pending ? "default" : "pointer" }}
             disabled={pending}
             onClick={() => setShowFlag((value) => !value)}
           >
@@ -172,14 +181,24 @@ export default function UserModerationActions({
 
               <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
                 <button
-                  style={baseButton}
+                  style={{
+                    ...baseButton,
+                    cursor:
+                      pending || reason.trim().length < 3
+                        ? "default"
+                        : "pointer",
+                  }}
                   disabled={pending || reason.trim().length < 3}
                   onClick={createFlagCase}
                 >
                   {pending ? "Creating..." : "Confirm create"}
                 </button>
                 <button
-                  style={{ ...baseButton, opacity: 0.7 }}
+                  style={{
+                    ...baseButton,
+                    opacity: 0.7,
+                    cursor: pending ? "default" : "pointer",
+                  }}
                   disabled={pending}
                   onClick={() => setShowFlag(false)}
                 >
@@ -229,6 +248,10 @@ export default function UserModerationActions({
                     ...baseButton,
                     borderColor: "#a33",
                     color: "#ff6b6b",
+                    cursor:
+                      banReason.trim().length === 0
+                        ? "default"
+                        : "pointer",
                   }}
                   disabled={banReason.trim().length === 0}
                   onClick={async () => {

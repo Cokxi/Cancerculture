@@ -28,6 +28,7 @@ export type TeamAreaNavigationItem = Readonly<{
   requirement: TeamAreaRequirement;
   parentId: string;
   implemented: boolean;
+  badges?: readonly string[];
 }>;
 
 export type TeamAreaNavigationCategory = Readonly<{
@@ -63,9 +64,12 @@ const basicUserDirectory = Object.freeze({
     "users.flag.view",
   ] as const),
 } as const);
-const userFlagView = Object.freeze({
-  type: "capability",
-  capability: "users.flag.view",
+const userFlagWork = Object.freeze({
+  type: "anyCapability",
+  capabilities: Object.freeze([
+    "users.flag.view",
+    "users.flag.review",
+  ] as const),
 } as const);
 
 function item(
@@ -140,7 +144,7 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/flags",
           categoryId: "moderation",
           description: "Review users flagged for follow-up.",
-          requirement: userFlagView,
+          requirement: userFlagWork,
           implemented: true,
         }),
         item({
