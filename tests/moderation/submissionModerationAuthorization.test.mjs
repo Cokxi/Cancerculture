@@ -13,7 +13,7 @@ const context = (capabilities = [], isAdmin = false) => ({
   resolvedCapabilities: capabilities,
 });
 
-test("the four operations map to exactly four granular keys", () => {
+test("open-phase operations stay granular while cycle-end review maps to cycles.manage", () => {
   assert.equal(
     getSubmissionModerationCapability(
       "submission_open",
@@ -35,6 +35,14 @@ test("the four operations map to exactly four granular keys", () => {
   assert.equal(
     getSubmissionModerationCapability("voting_open", "reinstate"),
     "submissions.voting_phase.reinstate"
+  );
+  assert.equal(
+    getSubmissionModerationCapability("voting_closed", "disqualify"),
+    "cycles.manage"
+  );
+  assert.equal(
+    getSubmissionModerationCapability("voting_closed", "reinstate"),
+    "cycles.manage"
   );
 });
 
@@ -111,8 +119,40 @@ test("disqualified page requires current-phase reinstate", () => {
   );
 });
 
+test("Cycle End Moderation is available only through cycles.manage", () => {
+  const cycleManager = context(["cycles.manage"]);
+  const votingModerator = context([
+    "submissions.voting_phase.disqualify",
+    "submissions.voting_phase.reinstate",
+  ]);
+
+  for (const operation of ["disqualify", "reinstate"]) {
+    assert.equal(
+      canModerateSubmission(
+        cycleManager,
+        "voting_closed",
+        operation
+      ),
+      true
+    );
+    assert.throws(
+      () =>
+        requireSubmissionModerationAction(
+          votingModerator,
+          "voting_closed",
+          operation
+        ),
+      { status: 403 }
+    );
+  }
+});
+
 test("admin remains hard owner without grants", () => {
-  for (const phase of ["submission_open", "voting_open"]) {
+  for (const phase of [
+    "submission_open",
+    "voting_open",
+    "voting_closed",
+  ]) {
     for (const operation of ["disqualify", "reinstate"]) {
       assert.doesNotThrow(() =>
         requireSubmissionModerationAction(

@@ -5,12 +5,13 @@ const state = {
   table: null,
   responses: new Map(),
   calls: [],
+  authorizationCalls: [],
 };
 
 function builder(table) {
   const chain = {
-    select(value) {
-      state.calls.push([table, "select", value]);
+    select(value, options) {
+      state.calls.push([table, "select", value, options]);
       return chain;
     },
     in(column, values) {
@@ -27,6 +28,10 @@ function builder(table) {
     },
     limit(value) {
       state.calls.push([table, "limit", value]);
+      return chain;
+    },
+    range(from, to) {
+      state.calls.push([table, "range", from, to]);
       return chain;
     },
     then(resolve, reject) {
@@ -49,15 +54,30 @@ mock.module(new URL("../../lib/db/admin.ts", import.meta.url), {
   },
 });
 
+mock.module(new URL("../../lib/auth/teamAuthorization.ts", import.meta.url), {
+  namedExports: {
+    requireDynamicTeamCapability(capability) {
+      state.authorizationCalls.push(capability);
+      return Promise.resolve({
+        discord_user_id: "cycle-manager",
+        isAdmin: false,
+        resolvedCapabilities: [capability],
+      });
+    },
+  },
+});
+
 const {
   getCurrentModerationCycle,
   getLiveModerationSubmissions,
   getDisqualifiedModerationSubmissions,
+  loadCycleEndModerationReadModel,
 } = await import("../../lib/moderation/submissionModerationReadModel.ts");
 
 test.beforeEach(() => {
   state.table = null;
   state.calls = [];
+  state.authorizationCalls = [];
   state.responses = new Map();
 });
 
@@ -123,4 +143,36 @@ test("submission query failures are controlled 503 errors", async () => {
         error?.code === "MODERATION_SUBMISSION_READ_UNAVAILABLE"
     );
   }
+});
+
+test("Cycle End Moderation read model authorizes before loading all paginated submissions", async () => {
+  state.responses.set("voting_cycles", {
+    data: [{ id: 7, status: "voting_closed" }],
+    error: null,
+  });
+  state.responses.set("submissions", {
+    data: [
+      {
+        id: 125,
+        cycle_id: 7,
+        r2_key: "submissions/125.webp",
+        is_disqualified: false,
+        discord_user_id: "submitter",
+      },
+    ],
+    error: null,
+    count: 49,
+  });
+
+  const result = await loadCycleEndModerationReadModel(2);
+
+  assert.deepEqual(state.authorizationCalls, ["cycles.manage"]);
+  assert.equal(result.cycle?.status, "voting_closed");
+  assert.equal(result.submissions?.items.length, 1);
+  assert.equal(result.submissions?.hasPrevious, true);
+  assert.equal(result.submissions?.hasNext, false);
+  assert.deepEqual(
+    state.calls.find((entry) => entry[1] === "range"),
+    ["submissions", "range", 48, 95]
+  );
 });

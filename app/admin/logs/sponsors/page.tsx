@@ -1,4 +1,4 @@
-import { requireAdminPage } from "@/lib/auth/pageAccess";
+import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
 import { supabaseAdmin } from "@/lib/db/admin";
 import {
   getSponsorReportStats,
@@ -14,7 +14,6 @@ type SponsorshipRow = {
   cycle_id: number;
   sponsor_name: string;
   sponsor_link: string;
-  banner_r2_key: string;
   starts_at: string | null;
   ends_at: string | null;
   created_at: string;
@@ -37,12 +36,15 @@ function formatPercent(value: number) {
 }
 
 export default async function SponsorLogsPage() {
-  await requireAdminPage("/admin/logs/sponsors");
+  await requireTeamCapabilityPage(
+    "sponsorships.reports.view",
+    "/admin/logs/sponsors"
+  );
 
   const sponsorshipsResult = await supabaseAdmin
     .from("cycle_sponsorships")
     .select(
-      "id, cycle_id, sponsor_name, sponsor_link, banner_r2_key, starts_at, ends_at, created_at"
+      "id, cycle_id, sponsor_name, sponsor_link, starts_at, ends_at, created_at"
     )
     .order("created_at", { ascending: false });
 

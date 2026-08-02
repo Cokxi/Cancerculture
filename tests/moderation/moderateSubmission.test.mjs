@@ -79,6 +79,23 @@ test("the adapter calls only the single atomic RPC with server-owned actor data"
   });
 });
 
+test("Cycle End Moderation uses its dedicated voting-closed RPC", async () => {
+  state.data = {
+    ...state.data,
+    phase: "voting_closed",
+    requiredCapability: "cycles.manage",
+  };
+
+  await moderateSubmission({
+    ...params,
+    expectedPhase: "voting_closed",
+  });
+
+  assert.equal(state.calls.length, 1);
+  assert.equal(state.calls[0].name, "moderate_cycle_end_submission");
+  assert.equal(state.calls[0].parameters.p_expected_phase, "voting_closed");
+});
+
 test("database authorization, conflicts, validation and dependency failures stay distinct", async () => {
   const cases = [
     ["P0001", "SUBMISSION_MODERATION_FORBIDDEN", 403],
@@ -168,8 +185,16 @@ test("request parsing enforces phase, expected state, operation fields and ratio
   assert.equal("actorDiscordUserId" in parsed, false);
   assert.equal("capabilityKey" in parsed, false);
 
+  assert.equal(
+    parseSubmissionModerationRequest(
+      { ...params, expectedPhase: "voting_closed" },
+      "disqualify"
+    ).expectedPhase,
+    "voting_closed"
+  );
+
   for (const invalid of [
-    { ...params, expectedPhase: "voting_closed" },
+    { ...params, expectedPhase: "draft" },
     { ...params, expectedIsDisqualified: "false" },
     { ...params, idempotencyKey: "not-a-uuid" },
   ]) {

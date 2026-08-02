@@ -42,7 +42,8 @@ export function parseSubmissionModerationRequest(
     !Number.isSafeInteger(body.submissionId) ||
     Number(body.submissionId) <= 0 ||
     (expectedPhase !== "submission_open" &&
-      expectedPhase !== "voting_open") ||
+      expectedPhase !== "voting_open" &&
+      expectedPhase !== "voting_closed") ||
     typeof body.expectedIsDisqualified !== "boolean" ||
     typeof body.idempotencyKey !== "string" ||
     !UUID_PATTERN.test(body.idempotencyKey) ||

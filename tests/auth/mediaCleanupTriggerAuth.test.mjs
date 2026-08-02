@@ -80,15 +80,19 @@ test("media cleanup route has a dedicated secret and accepts no work selection i
   );
 });
 
-test("reset uses the shared lease worker and isolates post-commit worker failure", async () => {
+test("reset leases only cleanup jobs created by that reset", async () => {
   const resetRouteSource = await readFile(
     new URL("../../app/api/admin/cycles/reset/route.ts", import.meta.url),
     "utf8"
   );
 
   assert.match(resetRouteSource, /await resetCycleTransactional/);
-  assert.match(resetRouteSource, /await processR2CleanupQueue\(\)/);
-  assert.doesNotMatch(resetRouteSource, /processR2CleanupQueue\([^)]*QueueIds/);
+  assert.match(
+    resetRouteSource,
+    /processR2CleanupQueue\(\{[\s\S]*queueIds: targetedQueueIds[\s\S]*\}\)/
+  );
+  assert.match(resetRouteSource, /reset\.r2CleanupQueueIds\.slice\(0, 20\)/);
+  assert.doesNotMatch(resetRouteSource, /await processR2CleanupQueue\(\)/);
   assert.match(
     resetRouteSource,
     /Cycle reset succeeded, but queued media cleanup could not be started/

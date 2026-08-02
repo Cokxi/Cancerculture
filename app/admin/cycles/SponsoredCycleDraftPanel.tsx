@@ -19,9 +19,6 @@ export default function SponsoredCycleDraftPanel({
   const [selectedFile, setSelectedFile] = useState<File | null>(
     null
   );
-  const [currentBannerR2Key, setCurrentBannerR2Key] = useState(
-    initialDraft.bannerR2Key
-  );
   const [currentBannerUrl, setCurrentBannerUrl] = useState(
     initialDraft.bannerUrl
   );
@@ -60,8 +57,6 @@ export default function SponsoredCycleDraftPanel({
       formData.append("enabled", enabled ? "true" : "false");
       formData.append("companyName", companyName);
       formData.append("sponsorLink", sponsorLink);
-      formData.append("currentBannerR2Key", currentBannerR2Key);
-
       if (selectedFile) {
         formData.append("banner", selectedFile);
       }
@@ -87,7 +82,6 @@ export default function SponsoredCycleDraftPanel({
         setEnabled(draft.enabled);
         setCompanyName(draft.companyName);
         setSponsorLink(draft.sponsorLink);
-        setCurrentBannerR2Key(draft.bannerR2Key);
         setCurrentBannerUrl(draft.bannerUrl);
       }
 

@@ -49,7 +49,7 @@ export async function finalizeCycleTransactional({
   cycleId: number;
 }): Promise<FinalizeCycleResult> {
   const { data, error } = await supabaseAdmin.rpc(
-    "finalize_cycle",
+    "finalize_cycle_managed",
     {
       p_actor_discord_user_id: actorDiscordUserId,
       p_cycle_id: cycleId,

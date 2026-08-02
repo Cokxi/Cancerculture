@@ -67,7 +67,7 @@ export async function startCycleTransactional({
   cycleId: number | null;
   settings: StartCycleSettings;
 }): Promise<StartCycleResult> {
-  const { data, error } = await supabaseAdmin.rpc("start_cycle", {
+  const { data, error } = await supabaseAdmin.rpc("start_cycle_managed", {
     p_actor_discord_user_id: actorDiscordUserId,
     p_cycle_id: cycleId,
     p_settings: settings,

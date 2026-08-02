@@ -177,6 +177,44 @@ test("Cycle Logs navigation needs only its exact read capability", () => {
   assert.equal(JSON.stringify(withGrant).includes("winner-payouts"), false);
 });
 
+test("Cycle Management navigation needs only cycles.manage", () => {
+  const withoutGrant = resolveTeamAreaNavigation(context());
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["cycles.manage"] })
+  );
+  const rendered = JSON.stringify(withGrant);
+
+  assert.equal(JSON.stringify(withoutGrant).includes("cycle-management"), false);
+  assert.equal(rendered.includes("cycle-management"), true);
+  assert.equal(rendered.includes("cycle-end-moderation"), true);
+  assert.equal(rendered.includes("cycle-logs"), false);
+  assert.equal(rendered.includes("winner-payouts"), false);
+});
+
+test("Winner Payouts navigation needs only its exact read capability", () => {
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["winners.payouts.view"] })
+  );
+  const rendered = JSON.stringify(withGrant);
+
+  assert.equal(rendered.includes("winner-payouts"), true);
+  assert.equal(rendered.includes("cycle-management"), false);
+  assert.equal(rendered.includes("sponsor-reports"), false);
+  assert.equal(rendered.includes("social-logs"), false);
+});
+
+test("Sponsor Reports navigation needs only its exact read capability", () => {
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["sponsorships.reports.view"] })
+  );
+  const rendered = JSON.stringify(withGrant);
+
+  assert.equal(rendered.includes("sponsor-reports"), true);
+  assert.equal(rendered.includes("winner-payouts"), false);
+  assert.equal(rendered.includes("cycle-management"), false);
+  assert.equal(rendered.includes("legal-review"), false);
+});
+
 test("admin remains a hard role requirement rather than a capability grant", () => {
   assert.equal(
     meetsTeamAreaRequirement(

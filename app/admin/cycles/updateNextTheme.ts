@@ -1,10 +1,10 @@
 "use server";
 
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function updateNextTheme(formData: FormData) {
-  await requireAdmin();
+  await requireDynamicTeamCapability("cycles.manage");
 
   const raw = formData.get("next_cycle_theme");
 

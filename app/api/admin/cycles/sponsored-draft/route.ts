@@ -4,7 +4,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 import { NextResponse } from "next/server";
 import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { r2 } from "@/lib/r2";
 import {
   getSponsoredCycleDraft,
@@ -16,7 +16,7 @@ const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 export async function POST(req: Request) {
   try {
-    await requireAdmin();
+    await requireDynamicTeamCapability("cycles.manage");
 
     const formData = await req.formData();
     const enabled = formData.get("enabled") === "true";
@@ -24,9 +24,8 @@ export async function POST(req: Request) {
       formData.get("companyName")?.toString().trim() ?? "";
     const sponsorLink =
       formData.get("sponsorLink")?.toString().trim() ?? "";
-    const currentBannerR2Key =
-      formData.get("currentBannerR2Key")?.toString().trim() ?? "";
     const bannerEntry = formData.get("banner");
+    const existingDraft = await getSponsoredCycleDraft();
 
     if (enabled && companyName.length === 0) {
       return NextResponse.json(
@@ -37,10 +36,17 @@ export async function POST(req: Request) {
 
     if (sponsorLink.length > 0) {
       try {
-        new URL(sponsorLink);
+        const parsedSponsorLink = new URL(sponsorLink);
+        if (
+          parsedSponsorLink.protocol !== "https:" ||
+          parsedSponsorLink.username.length > 0 ||
+          parsedSponsorLink.password.length > 0
+        ) {
+          throw new Error("INVALID_SPONSOR_URL");
+        }
       } catch {
         return NextResponse.json(
-          { error: "Sponsor link must be a valid URL" },
+          { error: "Sponsor link must be a valid HTTPS URL" },
           { status: 400 }
         );
       }
@@ -53,7 +59,7 @@ export async function POST(req: Request) {
       );
     }
 
-    let bannerR2Key = currentBannerR2Key;
+    let bannerR2Key = existingDraft.bannerR2Key;
 
     if (bannerEntry instanceof File && bannerEntry.size > 0) {
       if (bannerEntry.size > MAX_BANNER_SIZE) {
@@ -94,7 +100,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const existingDraft = await getSponsoredCycleDraft();
     await saveSponsoredCycleDraft({
       enabled,
       companyName,

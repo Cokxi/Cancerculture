@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import CycleHudControls from "./CycleHudControls";
 import type { SponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
 
@@ -387,6 +388,15 @@ export default function CycleControls({
         pausedFromStatus={pausedFromStatus}
         initialVotesPerUser={initialVotesPerUser}
       />
+
+      {currentPhaseStatus === "voting_closed" ? (
+        <Link
+          href="/admin/cycles/end-moderation"
+          className="mt-5 inline-flex cursor-pointer rounded-md border border-orange-300/60 bg-orange-500/15 px-4 py-2 font-semibold text-orange-100 hover:bg-orange-500/25"
+        >
+          Open Cycle End Moderation
+        </Link>
+      ) : null}
 
       {message && (
         <p style={{ marginTop: 16 }}>{message}</p>

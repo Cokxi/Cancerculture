@@ -23,6 +23,9 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "logs.submission_moderation.view",
   "logs.team_authorization.view",
   "cycles.logs.view",
+  "cycles.manage",
+  "sponsorships.reports.view",
+  "winners.payouts.view",
 ] as const);
 
 export type RegisteredTeamCapabilityKey =
@@ -577,6 +580,80 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "915c24cf6a167040c8637e59ca27a28510c6299b2ea417ae770f86e992924beb",
+  }),
+  "cycles.manage": defineCapability({
+    key: "cycles.manage",
+    displayName: "Manage Cycles",
+    description:
+      "Operate the current cycle through hardened start, scheduling, phase, sponsorship, end-review, finalization, pause, and reset workflows.",
+    category: "Cycles",
+    includedActions: [
+      "Create or reuse a clean draft and start normal or sponsored cycles.",
+      "Set or clear current-phase timers, configure votes per user, pause or resume, and advance submission or voting phases.",
+      "Perform exceptional submission disqualification or reinstatement after voting closes and before finalization.",
+      "Finalize or reset the current cycle through confirmed auditable workflows.",
+      "Manage the current and next cycle theme plus the sponsored-cycle draft.",
+    ],
+    excludedActions: [
+      "Viewing Cycle Logs or unrelated logs without their separate capabilities.",
+      "Managing roles, permissions, team membership, Owner access, or other administrative domains.",
+      "Managing winner payouts, refunding votes, editing individual votes, repairing finalized history, or moderating open phases without their separate capabilities.",
+      "Accessing raw secrets, storage credentials, scheduler credentials, or arbitrary media-cleanup work.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "4f3e07f01bc453f594994689c3049e698ca2bd1d1c99e75927d161056033f710",
+  }),
+  "sponsorships.reports.view": defineCapability({
+    key: "sponsorships.reports.view",
+    displayName: "View Sponsor Reports",
+    description:
+      "Review cycle sponsorship details and aggregate engagement reports, including a redacted JSON export.",
+    category: "Sponsoring",
+    includedActions: [
+      "View sponsor name, linked website, cycle, active state, and sponsorship timing.",
+      "View aggregate impressions, clicks, unique counts, click-through rate, and per-surface totals.",
+      "Download the same report as a redacted JSON export.",
+    ],
+    excludedActions: [
+      "Viewing raw viewer hashes, cookies, pseudonymous identifiers, or individual tracking events.",
+      "Viewing banner storage keys, credentials, secrets, or infrastructure details.",
+      "Creating or changing sponsor drafts, planned sponsorships, contacts, commercial terms, banners, links, or cycles.",
+      "Viewing unrelated logs, winner payouts, or private user data.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "421c31be87cac7864a7fb6fad229e614befed4d38374f0fc05e285ffaa24d655",
+  }),
+  "winners.payouts.view": defineCapability({
+    key: "winners.payouts.view",
+    displayName: "View Winner Payouts",
+    description:
+      "Review finalized winner identities, prize shares, payout choices, charities, and required payout wallet addresses without changing payouts.",
+    category: "Winner & Payouts",
+    includedActions: [
+      "View finalized winners grouped by cycle with theme, submission, identity, votes, and prize share.",
+      "View payout choice, charity or split details, and wallet addresses only where a winner keeps part of the prize.",
+      "Copy an existing payout wallet address exactly through the protected view.",
+    ],
+    excludedActions: [
+      "Initiating, confirming, marking, changing, retrying, or otherwise managing payouts.",
+      "Editing winners, rankings, votes, refunds, disqualifications, or finalized cycle history.",
+      "Viewing non-winner private submission data, unrelated wallets, secrets, or infrastructure details.",
+      "Viewing sponsor reports, unrelated logs, or managing team roles and permissions.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "d482f10a0e15ea2f166f633e7cf8a27760987ea748fddc4b5c34aa6abde978e9",
   }),
 });
 

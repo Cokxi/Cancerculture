@@ -1,15 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth/guards";
-import {
-  closeSubmissionPhase,
-  closeVotingPhase,
-  pauseCyclePhase,
-  resumeCyclePhase,
-  setCycleVotesPerUser,
-  startVotingPhaseWithoutTimer,
-} from "@/lib/cycles/phaseTransitions";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
+import { manageCyclePhase } from "@/lib/cycles/manageCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 
 type CycleLookupStatus =
@@ -69,22 +62,16 @@ function revalidateAdminCycles() {
 }
 
 export async function closeSubmissionPhaseAction() {
-  const admin = await requireAdmin();
+  const authorization =
+    await requireDynamicTeamCapability("cycles.manage");
   const cycle = await getLatestOpenishCycle(["submission_open"]);
 
-  await closeSubmissionPhase({
+  await manageCyclePhase({
     cycleId: cycle.id,
-    actorType: "admin",
-    actorDiscordUserId: admin.discord_user_id,
-    expectedStatuses: ["submission_open"],
-  });
-
-  await startVotingPhaseWithoutTimer({
-    cycleId: cycle.id,
-    votesPerUser: cycle.votes_per_user ?? 2,
-    actorType: "admin",
-    actorDiscordUserId: admin.discord_user_id,
-    expectedStatuses: ["submission_closed"],
+    actorDiscordUserId: authorization.discord_user_id,
+    operation: "end_submission_start_voting",
+    expectedStatus: "submission_open",
+    idempotencyKey: crypto.randomUUID(),
   });
 
   revalidateAdminCycles();
@@ -94,7 +81,8 @@ export async function closeSubmissionPhaseAction() {
 }
 
 export async function setVotesPerUserAction(formData: FormData) {
-  const admin = await requireAdmin();
+  const authorization =
+    await requireDynamicTeamCapability("cycles.manage");
   const votesPerUser = getPositiveInteger(formData, "votes_per_user");
 
   if (!votesPerUser || votesPerUser > 10) {
@@ -103,11 +91,13 @@ export async function setVotesPerUserAction(formData: FormData) {
 
   const cycle = await getLatestOpenishCycle(["submission_open"]);
 
-  await setCycleVotesPerUser({
+  await manageCyclePhase({
     cycleId: cycle.id,
+    actorDiscordUserId: authorization.discord_user_id,
+    operation: "set_votes_per_user",
+    expectedStatus: "submission_open",
     votesPerUser,
-    actorType: "admin",
-    actorDiscordUserId: admin.discord_user_id,
+    idempotencyKey: crypto.randomUUID(),
   });
 
   revalidateAdminCycles();
@@ -115,15 +105,16 @@ export async function setVotesPerUserAction(formData: FormData) {
 }
 
 export async function startVotingPhaseAction() {
-  const admin = await requireAdmin();
+  const authorization =
+    await requireDynamicTeamCapability("cycles.manage");
   const cycle = await getLatestOpenishCycle(["submission_closed"]);
 
-  await startVotingPhaseWithoutTimer({
+  await manageCyclePhase({
     cycleId: cycle.id,
-    votesPerUser: cycle.votes_per_user ?? 2,
-    actorType: "admin",
-    actorDiscordUserId: admin.discord_user_id,
-    expectedStatuses: ["submission_closed"],
+    actorDiscordUserId: authorization.discord_user_id,
+    operation: "start_voting",
+    expectedStatus: "submission_closed",
+    idempotencyKey: crypto.randomUUID(),
   });
 
   revalidateAdminCycles();
@@ -132,18 +123,21 @@ export async function startVotingPhaseAction() {
 }
 
 export async function pauseCurrentPhaseAction(formData: FormData) {
-  const admin = await requireAdmin();
+  const authorization =
+    await requireDynamicTeamCapability("cycles.manage");
   const cycle = await getLatestOpenishCycle([
     "submission_open",
     "voting_open",
   ]);
   const rawReason = formData.get("pause_reason");
 
-  await pauseCyclePhase({
+  await manageCyclePhase({
     cycleId: cycle.id,
+    actorDiscordUserId: authorization.discord_user_id,
+    operation: "pause",
+    expectedStatus: cycle.status,
     reason: typeof rawReason === "string" ? rawReason : null,
-    actorType: "admin",
-    actorDiscordUserId: admin.discord_user_id,
+    idempotencyKey: crypto.randomUUID(),
   });
 
   revalidateAdminCycles();
@@ -153,13 +147,16 @@ export async function pauseCurrentPhaseAction(formData: FormData) {
 }
 
 export async function resumeCurrentPhaseAction() {
-  const admin = await requireAdmin();
+  const authorization =
+    await requireDynamicTeamCapability("cycles.manage");
   const cycle = await getLatestOpenishCycle(["paused"]);
 
-  await resumeCyclePhase({
+  await manageCyclePhase({
     cycleId: cycle.id,
-    actorType: "admin",
-    actorDiscordUserId: admin.discord_user_id,
+    actorDiscordUserId: authorization.discord_user_id,
+    operation: "resume",
+    expectedStatus: "paused",
+    idempotencyKey: crypto.randomUUID(),
   });
 
   revalidateAdminCycles();
@@ -169,14 +166,16 @@ export async function resumeCurrentPhaseAction() {
 }
 
 export async function closeVotingPhaseAction() {
-  const admin = await requireAdmin();
+  const authorization =
+    await requireDynamicTeamCapability("cycles.manage");
   const cycle = await getLatestOpenishCycle(["voting_open"]);
 
-  await closeVotingPhase({
+  await manageCyclePhase({
     cycleId: cycle.id,
-    actorType: "admin",
-    actorDiscordUserId: admin.discord_user_id,
-    expectedStatuses: ["voting_open"],
+    actorDiscordUserId: authorization.discord_user_id,
+    operation: "end_voting",
+    expectedStatus: "voting_open",
+    idempotencyKey: crypto.randomUUID(),
   });
 
   revalidateAdminCycles();

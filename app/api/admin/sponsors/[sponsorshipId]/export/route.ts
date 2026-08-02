@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import {
@@ -26,7 +26,9 @@ export async function GET(
   }
 ) {
   try {
-    await requireAdmin();
+    const authorization = await requireDynamicTeamCapability(
+      "sponsorships.reports.view"
+    );
 
     const { sponsorshipId: sponsorshipIdRaw } =
       await context.params;
@@ -84,7 +86,9 @@ export async function GET(
         cycle_id: sponsorship.cycle_id,
         sponsor_name: sponsorship.sponsor_name,
         sponsor_link: sponsorship.sponsor_link,
-        banner_r2_key: sponsorship.banner_r2_key,
+        ...(authorization.isAdmin
+          ? { banner_r2_key: sponsorship.banner_r2_key }
+          : {}),
         is_active: sponsorship.is_active,
         starts_at: sponsorship.starts_at,
         ends_at: sponsorship.ends_at,

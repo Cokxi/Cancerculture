@@ -42,7 +42,7 @@ export default function ModerationGrid({
   canReinstate,
 }: {
   submissions: Submission[];
-  phase: "submission_open" | "voting_open";
+  phase: "submission_open" | "voting_open" | "voting_closed";
   canDisqualify: boolean;
   canReinstate: boolean;
 }) {

@@ -40,11 +40,7 @@ const adminOnlyRoutes = [
   "app/api/admin/team/role/route.ts",
   "app/api/admin/team/roles/route.ts",
   "app/api/admin/discord-sync/route.ts",
-  "app/api/admin/cycles/start/route.ts",
-  "app/api/admin/cycles/end/route.ts",
-  "app/api/admin/cycles/reset/route.ts",
   "app/api/admin/submissions/[submissionId]/export/route.ts",
-  "app/api/admin/sponsors/[sponsorshipId]/export/route.ts",
 ];
 
 test("sensitive APIs all enforce the independent admin guard", async () => {
@@ -70,6 +66,36 @@ test("upload block viewing is delegable while emergency unblock stays Admin-only
   assert.match(
     route,
     /export async function POST\(req: Request\)[\s\S]*?requireAdmin\(\)/
+  );
+});
+
+test("winner payouts and sponsor reports use distinct exact read capabilities", async () => {
+  const [winnerPage, sponsorPage, sponsorExport] = await Promise.all([
+    source("app/admin/logs/winners/page.tsx"),
+    source("app/admin/logs/sponsors/page.tsx"),
+    source("app/api/admin/sponsors/[sponsorshipId]/export/route.ts"),
+  ]);
+
+  assert.match(
+    winnerPage,
+    /requireTeamCapabilityPage\(\s*"winners\.payouts\.view"/
+  );
+  assert.match(
+    sponsorPage,
+    /requireTeamCapabilityPage\(\s*"sponsorships\.reports\.view"/
+  );
+  assert.match(
+    sponsorExport,
+    /requireDynamicTeamCapability\(\s*"sponsorships\.reports\.view"/
+  );
+  assert.doesNotMatch(
+    `${winnerPage}\n${sponsorPage}\n${sponsorExport}`,
+    /requireAdmin(?:Page)?\(/
+  );
+  assert.doesNotMatch(sponsorPage, /banner_r2_key/);
+  assert.match(
+    sponsorExport,
+    /authorization\.isAdmin[\s\S]*banner_r2_key/
   );
 });
 
@@ -175,7 +201,6 @@ test("rules and social administration are server-side admin-only", async () => {
 
 test("admin pages and owner actions keep explicit server guards", async () => {
   for (const file of [
-    "app/admin/cycles/page.tsx",
     "app/admin/mods/page.tsx",
     "app/admin/team/roles/page.tsx",
     "app/admin/team/members/page.tsx",
@@ -193,10 +218,6 @@ test("admin pages and owner actions keep explicit server guards", async () => {
 
   for (const file of [
     "app/admin/actions/updateRulesVersion.ts",
-    "app/admin/cycles/phaseActions.ts",
-    "app/admin/cycles/updateCycleHud.ts",
-    "app/admin/cycles/updateCycleTimer.ts",
-    "app/admin/cycles/updateNextTheme.ts",
   ]) {
     assert.match(await source(file), /requireAdmin\(\)/, file);
   }
@@ -213,6 +234,61 @@ test("admin pages and owner actions keep explicit server guards", async () => {
   assert.ok(
     historyReadModel.indexOf("requireDynamicTeamCapability") <
       historyReadModel.indexOf('.from("team_authorization_audit")')
+  );
+});
+
+test("every Cycle Management surface enforces the exact cycles.manage capability", async () => {
+  for (const file of [
+    "app/api/admin/cycles/start/route.ts",
+    "app/api/admin/cycles/end/route.ts",
+    "app/api/admin/cycles/reset/route.ts",
+    "app/api/admin/cycles/sponsored-draft/route.ts",
+    "app/api/admin/cycles/themes/route.ts",
+    "app/api/admin/cycles/next-theme/route.ts",
+    "app/admin/cycles/updateCycleHud.ts",
+    "app/admin/cycles/updateNextTheme.ts",
+  ]) {
+    const contents = await source(file);
+    assert.match(
+      contents,
+      /requireDynamicTeamCapability\("cycles\.manage"\)/,
+      file
+    );
+    assert.doesNotMatch(contents, /requireAdmin\(\)/, file);
+  }
+
+  for (const file of [
+    "app/admin/cycles/page.tsx",
+    "app/admin/cycles/end-moderation/page.tsx",
+  ]) {
+    const contents = await source(file);
+    assert.match(
+      contents,
+      /requireTeamCapabilityPage\(\s*"cycles\.manage"/,
+      file
+    );
+    assert.doesNotMatch(contents, /requireAdminPage\(/, file);
+  }
+
+  for (const file of [
+    "app/admin/cycles/phaseActions.ts",
+    "app/admin/cycles/updateCycleTimer.ts",
+  ]) {
+    const contents = await source(file);
+    assert.match(
+      contents,
+      /requireDynamicTeamCapability\([\s\S]*"cycles\.manage"/,
+      file
+    );
+    assert.doesNotMatch(contents, /requireAdmin\(\)/, file);
+  }
+
+  const cycleEndReadModel = await source(
+    "lib/moderation/submissionModerationReadModel.ts"
+  );
+  assert.match(
+    cycleEndReadModel,
+    /loadCycleEndModerationReadModel[\s\S]*requireDynamicTeamCapability\("cycles\.manage"\)[\s\S]*getCurrentCycleEndModerationCycle\(\)[\s\S]*getCycleEndModerationSubmissions\(cycle\.id, page\)/
   );
 });
 

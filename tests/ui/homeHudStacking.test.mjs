@@ -179,7 +179,12 @@ test("HUD fallback inherits the slot and every current HUD row can grow safely",
   assert.match(hudSlot, /min-block-size: var\(--home-hud-slot\)/);
   assert.doesNotMatch(hudSlot, /(?:max-)?height:|overflow:\s*hidden/);
   assert.match(cycleHud, /if \(!cycle \|\| !displayState\) return null/);
-  assert.match(cycleHud, /<CycleCountdown endAt=\{displayState\.timerEndAt\}/);
+  assert.match(
+    cycleHud,
+    /<CycleCountdown[\s\S]*endAt=\{displayState\.timerEndAt\}[\s\S]*expiredLabel=/
+  );
+  assert.match(cycleHud, /Submission phase is ending…/);
+  assert.match(cycleHud, /Voting phase is ending…/);
   assert.match(cycleHud, /Presented by:/);
   assert.match(cycleHud, /Votes per user:/);
   assert.match(cycleHud, /Next Theme:/);

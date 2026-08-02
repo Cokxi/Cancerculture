@@ -3,7 +3,12 @@ import type { RegisteredTeamCapabilityKey } from "@/lib/auth/teamCapabilityRegis
 
 export type SubmissionModerationPhase =
   | "submission_open"
-  | "voting_open";
+  | "voting_open"
+  | "voting_closed";
+export type LiveSubmissionModerationPhase = Exclude<
+  SubmissionModerationPhase,
+  "voting_closed"
+>;
 export type SubmissionModerationOperation =
   | "disqualify"
   | "reinstate";
@@ -17,10 +22,17 @@ export const SUBMISSION_MODERATION_CAPABILITIES = Object.freeze({
     disqualify: "submissions.voting_phase.disqualify",
     reinstate: "submissions.voting_phase.reinstate",
   }),
+  voting_closed: Object.freeze({
+    disqualify: "cycles.manage",
+    reinstate: "cycles.manage",
+  }),
 } as const);
 
 const ALL_MODERATION_CAPABILITIES = Object.freeze(
-  Object.values(SUBMISSION_MODERATION_CAPABILITIES).flatMap(
+  [
+    SUBMISSION_MODERATION_CAPABILITIES.submission_open,
+    SUBMISSION_MODERATION_CAPABILITIES.voting_open,
+  ].flatMap(
     (phase) => Object.values(phase)
   )
 );

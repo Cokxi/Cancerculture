@@ -93,6 +93,18 @@ const cycleLogsView = Object.freeze({
   type: "capability",
   capability: "cycles.logs.view",
 } as const);
+const cycleManagement = Object.freeze({
+  type: "capability",
+  capability: "cycles.manage",
+} as const);
+const sponsorReportsView = Object.freeze({
+  type: "capability",
+  capability: "sponsorships.reports.view",
+} as const);
+const winnerPayoutsView = Object.freeze({
+  type: "capability",
+  capability: "winners.payouts.view",
+} as const);
 const websiteBanView = Object.freeze({
   type: "capability",
   capability: "users.website_bans.view",
@@ -130,7 +142,17 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/cycles",
           categoryId: "cycles",
           description: "Manage the active cycle and its phase.",
-          requirement: adminOnly,
+          requirement: cycleManagement,
+          implemented: true,
+        }),
+        item({
+          id: "cycle-end-moderation",
+          title: "Cycle End Moderation",
+          href: "/admin/cycles/end-moderation",
+          categoryId: "cycles",
+          description:
+            "Review submissions after voting closes and before finalization.",
+          requirement: cycleManagement,
           implemented: true,
         }),
         item({
@@ -305,7 +327,7 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/logs/sponsors",
           categoryId: "sponsoring",
           description: "Review sponsor reporting data.",
-          requirement: adminOnly,
+          requirement: sponsorReportsView,
           implemented: true,
         }),
       ],
@@ -396,7 +418,7 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/logs/winners",
           categoryId: "winner-payouts",
           description: "Review protected winner and payout records.",
-          requirement: adminOnly,
+          requirement: winnerPayoutsView,
           implemented: true,
         }),
       ],

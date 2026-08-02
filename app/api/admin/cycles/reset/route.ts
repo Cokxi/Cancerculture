@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { resetCycleTransactional } from "@/lib/cycles/resetCycle";
 import { processR2CleanupQueue } from "@/lib/r2/processMediaCleanupQueue";
 
@@ -10,7 +10,8 @@ const MAX_REASON_LENGTH = 1000;
 
 export async function POST(req: Request) {
   try {
-    const admin = await requireAdmin();
+    const authorization =
+      await requireDynamicTeamCapability("cycles.manage");
     const body = await req.json().catch(() => null);
     const cycleId = Number(body?.cycleId);
     const reason =
@@ -49,26 +50,42 @@ export async function POST(req: Request) {
     }
 
     const reset = await resetCycleTransactional({
-      actorDiscordUserId: admin.discord_user_id,
+      actorDiscordUserId: authorization.discord_user_id,
       cycleId,
       reason,
     });
     let cleanup;
 
     try {
-      const result = await processR2CleanupQueue();
+      const targetedQueueIds = reset.r2CleanupQueueIds.slice(0, 20);
+      const result = targetedQueueIds.length > 0
+        ? await processR2CleanupQueue({ queueIds: targetedQueueIds })
+        : {
+            claimed: 0,
+            completed: 0,
+            retryScheduled: 0,
+            terminalFailures: 0,
+            staleResults: 0,
+            confirmationFailures: 0,
+          };
+      const remainingQueued = Math.max(
+        0,
+        reset.r2CleanupQueueIds.length - result.completed
+      );
       cleanup = {
         claimed: result.claimed,
         completed: result.completed,
         retryScheduled: result.retryScheduled,
         terminalFailures: result.terminalFailures,
         staleResults: result.staleResults,
+        remainingQueued,
         warning:
+          remainingQueued > 0 ||
           result.retryScheduled > 0 ||
           result.terminalFailures > 0 ||
           result.staleResults > 0 ||
           result.confirmationFailures > 0
-            ? "Cycle reset succeeded, but some media cleanup remains queued or requires review."
+            ? "Cycle reset succeeded, but some cycle media cleanup remains queued or requires review."
             : null,
       };
     } catch (cleanupError) {
@@ -84,6 +101,7 @@ export async function POST(req: Request) {
         retryScheduled: 0,
         terminalFailures: 0,
         staleResults: 0,
+        remainingQueued: reset.r2CleanupQueueIds.length,
         warning:
           "Cycle reset succeeded, but queued media cleanup could not be started.",
       };

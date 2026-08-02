@@ -61,7 +61,7 @@ export async function resetCycleTransactional({
   cycleId: number;
   reason: string;
 }): Promise<ResetCycleResult> {
-  const { data, error } = await supabaseAdmin.rpc("reset_cycle", {
+  const { data, error } = await supabaseAdmin.rpc("reset_cycle_managed", {
     p_actor_discord_user_id: actorDiscordUserId,
     p_cycle_id: cycleId,
     p_reason: reason,

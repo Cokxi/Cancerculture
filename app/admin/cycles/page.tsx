@@ -1,10 +1,10 @@
-import { requireAdminPage } from "@/lib/auth/pageAccess";
+import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
 import { getSponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 import CycleControls from "./CycleControls";
 
 export default async function AdminCyclesPage() {
-  await requireAdminPage("/admin/cycles");
+  await requireTeamCapabilityPage("cycles.manage", "/admin/cycles");
   const { data: nextThemeConfig } = await supabaseAdmin
     .from("app_config")
     .select("value")

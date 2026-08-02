@@ -2,14 +2,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { startCycleTransactional } from "@/lib/cycles/startCycle";
 import { getSponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function POST(req: Request) {
   try {
-    const admin = await requireAdmin();
+    const authorization =
+      await requireDynamicTeamCapability("cycles.manage");
     const body = await req.json().catch(() => null);
     const theme = body?.theme;
     const requestedCycleId =
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
     }
 
     const result = await startCycleTransactional({
-      actorDiscordUserId: admin.discord_user_id,
+      actorDiscordUserId: authorization.discord_user_id,
       cycleId: requestedCycleId,
       settings: {
         theme: resolvedTheme,

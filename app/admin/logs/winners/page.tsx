@@ -1,7 +1,8 @@
-import { requireAdminPage } from "@/lib/auth/pageAccess";
+import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { formatDiscordUserLabel } from "@/lib/discord/formatDiscordUserLabel";
 import UserProfileLink from "../shared/UserProfileLink";
+import CopyWalletButton from "./CopyWalletButton";
 
 type WinnerRow = {
   cycle_id: number;
@@ -32,7 +33,10 @@ function getPayoutDescription(winner: WinnerRow) {
 }
 
 export default async function WinnerLogsPage() {
-  await requireAdminPage("/admin/logs/winners");
+  await requireTeamCapabilityPage(
+    "winners.payouts.view",
+    "/admin/logs/winners"
+  );
 
   const { data: winnerRows, error } = await supabaseAdmin
     .from("winner_public_profiles")
@@ -183,9 +187,20 @@ export default async function WinnerLogsPage() {
                             <div className="text-xs uppercase tracking-wide text-white/45">
                               Wallet
                             </div>
-                            <code className="mt-1 block select-all break-all rounded-md bg-black/40 p-3 text-xs text-green-300">
-                              {winner.wallet_address || "Missing wallet"}
-                            </code>
+                            {winner.wallet_address ? (
+                              <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-start">
+                                <code className="block min-w-0 flex-1 select-all break-all rounded-md bg-black/40 p-3 text-xs text-green-300">
+                                  {winner.wallet_address}
+                                </code>
+                                <CopyWalletButton
+                                  walletAddress={winner.wallet_address}
+                                />
+                              </div>
+                            ) : (
+                              <div className="mt-1 rounded-md bg-red-950/40 p-3 text-xs text-red-200">
+                                Missing wallet
+                              </div>
+                            )}
                           </div>
                         ) : null}
                       </div>

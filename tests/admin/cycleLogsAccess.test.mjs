@@ -44,14 +44,18 @@ test("Cycle Logs read model filters, allowlists, and paginates on the server", a
   );
 });
 
-test("generic Admin log and Cycle theme APIs remain Admin-only siblings", async () => {
+test("generic Admin logs remain owner-only while Cycle themes use cycles.manage", async () => {
   const [logsApi, themesApi] = await Promise.all([
     source("app/api/admin/logs/route.ts"),
     source("app/api/admin/cycles/themes/route.ts"),
   ]);
 
   assert.match(logsApi, /requireAdmin\(\)/u);
-  assert.match(themesApi, /requireAdmin\(\)/u);
+  assert.match(
+    themesApi,
+    /requireDynamicTeamCapability\("cycles\.manage"\)/u
+  );
+  assert.doesNotMatch(themesApi, /requireAdmin\(\)/u);
   assert.doesNotMatch(`${logsApi}\n${themesApi}`, /cycles\.logs\.view/u);
 });
 

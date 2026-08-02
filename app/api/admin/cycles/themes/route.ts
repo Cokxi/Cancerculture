@@ -2,13 +2,13 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 
 export async function GET(req: Request) {
   try {
     
-    await requireAdmin();
+    await requireDynamicTeamCapability("cycles.manage");
 
     const { searchParams } = new URL(req.url);
     const idsParam = searchParams.get("ids");

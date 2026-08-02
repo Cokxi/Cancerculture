@@ -122,7 +122,8 @@ function isResult(
     typeof result.cycleId === "number" &&
     typeof result.submissionId === "number" &&
     (result.phase === "submission_open" ||
-      result.phase === "voting_open") &&
+      result.phase === "voting_open" ||
+      result.phase === "voting_closed") &&
     typeof result.requiredCapability === "string" &&
     typeof result.changed === "boolean" &&
     typeof result.isDisqualified === "boolean" &&
@@ -149,7 +150,11 @@ export async function moderateSubmission(params: {
   };
   let response;
   try {
-    response = await supabaseAdmin.rpc("moderate_submission", {
+    response = await supabaseAdmin.rpc(
+      params.expectedPhase === "voting_closed"
+        ? "moderate_cycle_end_submission"
+        : "moderate_submission",
+      {
       p_actor_discord_user_id: params.actorDiscordUserId,
       p_cycle_id: params.cycleId,
       p_submission_id: params.submissionId,
@@ -161,7 +166,8 @@ export async function moderateSubmission(params: {
       p_reason_code: params.reasonCode,
       p_reason_text: params.reasonText,
       p_idempotency_key: params.idempotencyKey,
-    });
+      }
+    );
   } catch {
     logRpcDependencyFailure({}, context);
     throw new SubmissionModerationError(

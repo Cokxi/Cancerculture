@@ -1,14 +1,15 @@
 export const runtime = "nodejs";
 
 import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { finalizeCycleTransactional } from "@/lib/cycles/finalizeCycle";
 import { supabaseAdmin as supabase } from "@/lib/db/admin";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const admin = await requireAdmin();
+    const authorization =
+      await requireDynamicTeamCapability("cycles.manage");
     const body = await req.json().catch(() => null);
     const requestedCycleId = Number(body?.cycleId);
     let cycleId = Number.isInteger(requestedCycleId)
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
     }
 
     const result = await finalizeCycleTransactional({
-      actorDiscordUserId: admin.discord_user_id,
+      actorDiscordUserId: authorization.discord_user_id,
       cycleId,
     });
 

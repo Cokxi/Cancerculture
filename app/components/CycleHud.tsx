@@ -56,10 +56,6 @@ function normalizeString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function getCurrentTimestamp() {
-  return Date.parse(new Date().toISOString());
-}
-
 function getCyclePriority(status: CycleHudStatus) {
   const index = RELEVANT_CYCLE_STATUSES.indexOf(
     status as (typeof RELEVANT_CYCLE_STATUSES)[number]
@@ -137,11 +133,9 @@ async function getPreferredCycle() {
 function getDisplayState({
   cycle,
   sponsoredMeta,
-  nowMs,
 }: {
   cycle: CycleHudRow;
   sponsoredMeta: SponsoredCycleMeta | null;
-  nowMs: number;
 }) {
   const themeFromCycle = normalizeString(cycle.theme);
   const displayTheme =
@@ -159,8 +153,9 @@ function getDisplayState({
         displayStatus: "SUBMISSION OPEN",
         statusClassName: "text-green-400",
         timerLabel: "Submission phase ends in:",
+        timerExpiredLabel: "Submission phase is ending…",
         timerEndAt: endAt,
-        isTimerActive: Boolean(endAtMs && endAtMs > nowMs),
+        isTimerActive: Boolean(endAtMs && Number.isFinite(endAtMs)),
         votesPerUser:
           cycle.votes_per_user && cycle.votes_per_user !== 2
             ? cycle.votes_per_user
@@ -177,8 +172,9 @@ function getDisplayState({
         displayStatus: "VOTING OPEN",
         statusClassName: "text-green-400",
         timerLabel: "Voting phase ends in:",
+        timerExpiredLabel: "Voting phase is ending…",
         timerEndAt: endAt,
-        isTimerActive: Boolean(endAtMs && endAtMs > nowMs),
+        isTimerActive: Boolean(endAtMs && Number.isFinite(endAtMs)),
         votesPerUser:
           cycle.votes_per_user && cycle.votes_per_user !== 2
             ? cycle.votes_per_user
@@ -192,6 +188,7 @@ function getDisplayState({
         displayStatus: "PAUSED",
         statusClassName: "text-red-500",
         timerLabel: null,
+        timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
         votesPerUser:
@@ -206,6 +203,7 @@ function getDisplayState({
         displayStatus: "SUBMISSION CLOSED",
         statusClassName: "text-red-600",
         timerLabel: null,
+        timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
         votesPerUser: null,
@@ -217,6 +215,7 @@ function getDisplayState({
         displayStatus: "VOTING CLOSED",
         statusClassName: "text-red-600",
         timerLabel: null,
+        timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
         votesPerUser: null,
@@ -228,6 +227,7 @@ function getDisplayState({
         displayStatus: "FINALIZING",
         statusClassName: "text-red-600",
         timerLabel: null,
+        timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
         votesPerUser: null,
@@ -239,6 +239,7 @@ function getDisplayState({
         displayStatus: "COMPLETED",
         statusClassName: "text-red-600",
         timerLabel: null,
+        timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
         votesPerUser: null,
@@ -250,6 +251,7 @@ function getDisplayState({
         displayStatus: "FINALIZED",
         statusClassName: "text-red-600",
         timerLabel: null,
+        timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
         votesPerUser: null,
@@ -264,8 +266,9 @@ function getDisplayState({
         displayStatus: "ACTIVE",
         statusClassName: "text-green-400",
         timerLabel: "Ends in:",
+        timerExpiredLabel: "Cycle phase is ending…",
         timerEndAt: endAt,
-        isTimerActive: Boolean(endAtMs && endAtMs > nowMs),
+        isTimerActive: Boolean(endAtMs && Number.isFinite(endAtMs)),
         votesPerUser: null,
       };
     }
@@ -276,6 +279,7 @@ function getDisplayState({
         displayStatus: cycle.status?.toUpperCase() ?? "-",
         statusClassName: "text-red-600",
         timerLabel: null,
+        timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
         votesPerUser: null,
@@ -284,7 +288,6 @@ function getDisplayState({
 }
 
 export default async function CycleHud() {
-  const nowMs = getCurrentTimestamp();
   const cyclePromise = getPreferredCycle();
   const nextCycleThemePromise = supabaseAdmin
     .from("app_config")
@@ -314,10 +317,9 @@ export default async function CycleHud() {
   );
 
   const displayState = cycle
-    ? getDisplayState({
+      ? getDisplayState({
         cycle,
         sponsoredMeta,
-        nowMs,
       })
     : null;
 
@@ -387,14 +389,19 @@ export default async function CycleHud() {
           </span>
         </div>
 
-        {displayState.isTimerActive && displayState.timerEndAt && (
+        {displayState.isTimerActive &&
+        displayState.timerEndAt &&
+        displayState.timerLabel &&
+        displayState.timerExpiredLabel ? (
           <div className="font-['Permanent_Marker']">
-            <span className="text-[var(--orange-main)]">
-              {displayState.timerLabel}{" "}
-            </span>
-            <CycleCountdown endAt={displayState.timerEndAt} />
+            <CycleCountdown
+              key={`${cycle.status}:${displayState.timerEndAt}`}
+              endAt={displayState.timerEndAt}
+              timerLabel={displayState.timerLabel}
+              expiredLabel={displayState.timerExpiredLabel}
+            />
           </div>
-        )}
+        ) : null}
 
         {displayState.votesPerUser ? (
           <div className="font-['Permanent_Marker'] text-xs">

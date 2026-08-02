@@ -115,6 +115,31 @@ async function claimDueJobs() {
   return data;
 }
 
+async function claimDueJobsByIds(queueIds: readonly number[]) {
+  const { data, error } = await supabaseAdmin.rpc(
+    "claim_media_cleanup_jobs_by_ids",
+    {
+      p_job_ids: queueIds,
+      p_lease_seconds: MEDIA_CLEANUP_LEASE_SECONDS,
+    }
+  );
+
+  if (error) {
+    console.error("[media cleanup][targeted claim]", {
+      code: error.code,
+      requestedCount: queueIds.length,
+    });
+    throw new Error("Targeted media cleanup jobs could not be claimed");
+  }
+
+  if (!Array.isArray(data) || !data.every(isClaimedJob)) {
+    console.error("[media cleanup][targeted claim response invalid]");
+    throw new Error("Targeted media cleanup claim returned an invalid response");
+  }
+
+  return data;
+}
+
 async function completeJob(job: ClaimedMediaCleanupJob) {
   const { data, error } = await supabaseAdmin.rpc(
     "complete_media_cleanup_job",
@@ -214,9 +239,21 @@ async function deleteQueuedR2Object(
   return "deleted";
 }
 
-export async function processR2CleanupQueue(): Promise<MediaCleanupBatchResult> {
-  await recoverStaleSubmissionUploads();
-  const jobs = await claimDueJobs();
+export async function processR2CleanupQueue(
+  options: { queueIds?: readonly number[] } = {}
+): Promise<MediaCleanupBatchResult> {
+  const queueIds = options.queueIds;
+  let jobs: ClaimedMediaCleanupJob[];
+
+  if (queueIds) {
+    if (queueIds.length < 1 || queueIds.length > MEDIA_CLEANUP_BATCH_SIZE) {
+      throw new TypeError("Invalid targeted media cleanup batch");
+    }
+    jobs = await claimDueJobsByIds(queueIds);
+  } else {
+    await recoverStaleSubmissionUploads();
+    jobs = await claimDueJobs();
+  }
 
   return processClaimedMediaCleanupJobs({
     jobs,

@@ -1,29 +1,42 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-export default function CycleCountdown({ endAt }: { endAt: string }) {
+export default function CycleCountdown({
+  endAt,
+  timerLabel,
+  expiredLabel,
+}: {
+  endAt: string;
+  timerLabel: string;
+  expiredLabel: string;
+}) {
   const router = useRouter();
-  const refreshTriggeredRef = useRef(false);
   const [timeLeft, setTimeLeft] = useState("");
+  const [expired, setExpired] = useState(false);
+  const [delayed, setDelayed] = useState(false);
 
   useEffect(() => {
-    refreshTriggeredRef.current = false;
+    const end = new Date(endAt).getTime();
+    let refreshInterval: ReturnType<typeof setInterval> | null = null;
+    let delayedTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const beginTransitionRefresh = () => {
+      if (refreshInterval) return;
+      setExpired(true);
+      setTimeLeft("");
+      router.refresh();
+      refreshInterval = setInterval(() => router.refresh(), 3000);
+      delayedTimeout = setTimeout(() => setDelayed(true), 90000);
+    };
 
     const update = () => {
-      const end = new Date(endAt).getTime();
       const now = Date.now();
       const diff = end - now;
 
       if (diff <= 0) {
-        setTimeLeft("");
-
-        if (!refreshTriggeredRef.current) {
-          refreshTriggeredRef.current = true;
-          router.refresh();
-        }
-
+        beginTransitionRefresh();
         return;
       }
 
@@ -44,14 +57,33 @@ export default function CycleCountdown({ endAt }: { endAt: string }) {
 
     update();
     const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (refreshInterval) clearInterval(refreshInterval);
+      if (delayedTimeout) clearTimeout(delayedTimeout);
+    };
   }, [endAt, router]);
+
+  if (expired) {
+    return (
+      <span
+        role="status"
+        aria-live="polite"
+        className={delayed ? "text-red-400" : "text-green-400"}
+      >
+        {delayed
+          ? "Phase transition is taking longer than expected."
+          : expiredLabel}
+      </span>
+    );
+  }
 
   if (!timeLeft) return null;
 
   return (
-    <span className="text-green-400">
-      {timeLeft}
-    </span>
+    <>
+      <span className="text-[var(--orange-main)]">{timerLabel} </span>
+      <span className="text-green-400">{timeLeft}</span>
+    </>
   );
 }
