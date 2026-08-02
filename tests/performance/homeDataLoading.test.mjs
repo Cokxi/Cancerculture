@@ -41,16 +41,19 @@ test("independent home data starts before the page shell renders", async () => {
   );
 });
 
-test("HUD, account, launch, and Info stream in separate boundaries", async () => {
-  const home = await readRepoFile("app/page.tsx");
+test("HUD, launch, and Info stream independently from the global account", async () => {
+  const [home, layout] = await Promise.all([
+    readRepoFile("app/page.tsx"),
+    readRepoFile("app/layout.tsx"),
+  ]);
 
   assert.match(
     home,
     /<Suspense fallback=\{<CycleHudFallback \/>\}>/
   );
   assert.match(home, /<HomeCycleHud/);
-  assert.match(home, /<Suspense\s+fallback=\{/);
-  assert.match(home, /<GlobalAccount \/>/);
+  assert.match(layout, /<GlobalAccount \/>/);
+  assert.doesNotMatch(home, /<GlobalAccount \/>/);
   assert.match(
     home,
     /<Suspense fallback=\{null\}>\s*<HomePrimaryCoinLaunch/
@@ -146,10 +149,11 @@ test("primary launch transfers at most one row", async () => {
 });
 
 test("public hero and user account data stay isolated", async () => {
-  const [home, cycleHud, globalAccount] = await Promise.all([
+  const [home, cycleHud, globalAccount, accountRoute] = await Promise.all([
     readRepoFile("app/page.tsx"),
     readRepoFile("app/components/CycleHud.tsx"),
     readRepoFile("app/components/auth/GlobalAccount.tsx"),
+    readRepoFile("app/api/auth/account/route.ts"),
   ]);
 
   assert.doesNotMatch(home, /getSessionState|requireSession|cookies\(/);
@@ -157,9 +161,11 @@ test("public hero and user account data stay isolated", async () => {
     cycleHud,
     /getSessionState|requireSession|cookies\(/
   );
-  assert.match(globalAccount, /await getSessionState\(\)/);
+  assert.doesNotMatch(globalAccount, /getSessionState|supabaseAdmin/);
+  assert.match(globalAccount, /fetch\("\/api\/auth\/account"/);
+  assert.match(accountRoute, /await getSessionState\(\)/);
   assert.match(
-    globalAccount,
+    accountRoute,
     /const \[accountResult, teamAccess\] = await Promise\.all/
   );
 });

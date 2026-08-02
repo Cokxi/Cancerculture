@@ -4,6 +4,10 @@ import test from "node:test";
 import { resolveTeamAreaNavigation } from "../../lib/admin/teamAreaNavigation.ts";
 import { createAccountNavigationState } from "../../lib/auth/accountNavigation.ts";
 import {
+  getGlobalAccountVisibilityAction,
+  isGlobalAccountVisible,
+} from "../../lib/auth/globalAccount.ts";
+import {
   HOME_NAVIGATION_ITEMS,
   getHomeDesktopNavigationItems,
   getHomeMenuItems,
@@ -116,27 +120,27 @@ test("anonymous and dependency states never disclose team navigation", () => {
 });
 
 test("account visibility has no capability or static-role policy of its own", async () => {
-  const [navigation, globalAccount] = await Promise.all([
+  const [navigation, accountRoute] = await Promise.all([
     readRepoFile("lib/auth/accountNavigation.ts"),
-    readRepoFile("app/components/auth/GlobalAccount.tsx"),
+    readRepoFile("app/api/auth/account/route.ts"),
   ]);
-  const source = `${navigation}\n${globalAccount}`;
+  const source = `${navigation}\n${accountRoute}`;
 
-  assert.match(globalAccount, /getResolvedTeamAreaNavigation\(\)/);
-  assert.match(globalAccount, /navigation\.length > 0/);
+  assert.match(accountRoute, /getResolvedTeamAreaNavigation\(\)/);
+  assert.match(accountRoute, /navigation\.length > 0/);
   assert.doesNotMatch(
     source,
     /submissions\.submission_phase\.moderate|users\.flag|TEAM_ROLE_CAPABILITIES|trial_moderator|super_moderator/
   );
   assert.doesNotMatch(
-    globalAccount,
+    accountRoute,
     /hasResolvedTeamCapability|readTeamAuthorizationContextForDiscordUserId/
   );
 });
 
 test("403 means no Team Area link while 503 remains dependency-unavailable", async () => {
-  const globalAccount = await readRepoFile(
-    "app/components/auth/GlobalAccount.tsx"
+  const accountRoute = await readRepoFile(
+    "app/api/auth/account/route.ts"
   );
   const forbidden = createAccountNavigationState({
     sessionStatus: "authenticated",
@@ -151,8 +155,25 @@ test("403 means no Team Area link while 503 remains dependency-unavailable", asy
 
   assert.equal(forbidden.teamAccessUnavailable, false);
   assert.equal(unavailable.teamAccessUnavailable, true);
-  assert.match(globalAccount, /status === 403/);
-  assert.match(globalAccount, /status === 401 \|\| status === 503/);
+  assert.match(accountRoute, /status === 403/);
+  assert.match(accountRoute, /status === 401 \|\| status === 503/);
+});
+
+test("global account visibility keeps home as the recovery surface", () => {
+  assert.equal(
+    isGlobalAccountVisible({ pathname: "/", hiddenOnSubpages: true }),
+    true
+  );
+  assert.equal(
+    isGlobalAccountVisible({ pathname: "/faq", hiddenOnSubpages: true }),
+    false
+  );
+  assert.equal(
+    isGlobalAccountVisible({ pathname: "/faq", hiddenOnSubpages: false }),
+    true
+  );
+  assert.equal(getGlobalAccountVisibilityAction(false), "Hide");
+  assert.equal(getGlobalAccountVisibilityAction(true), "Show always");
 });
 
 test("desktop and mobile home navigation expose the intended links", () => {
@@ -187,15 +208,16 @@ test("desktop and mobile home navigation expose the intended links", () => {
   });
 });
 
-test("menus are home-only and duplicate floating profile links stay removed", async () => {
+test("home menu stays home-only while account access is global", async () => {
   const [layout, home] = await Promise.all([
     readRepoFile("app/layout.tsx"),
     readRepoFile("app/page.tsx"),
   ]);
 
-  assert.doesNotMatch(layout, /GlobalAccount|HomeMenu|GlobalHeader/);
+  assert.match(layout, /<GlobalAccount \/>/);
+  assert.doesNotMatch(layout, /HomeMenu|GlobalHeader/);
   assert.match(home, /<HomeMenu \/>/);
-  assert.match(home, /<GlobalAccount \/>/);
+  assert.doesNotMatch(home, /<GlobalAccount \/>/);
   assert.match(home, /aria-label="Primary navigation"/);
   assert.doesNotMatch(home, />\s*My Profile\s*</);
 });
@@ -217,6 +239,19 @@ test("account menu preserves the existing POST logout flow", async () => {
   assert.match(menu, /action="\/api\/auth\/logout\?returnTo=\/"/);
   assert.match(menu, /method="post"/);
   assert.doesNotMatch(menu, /document\.cookie|localStorage/);
+});
+
+test("account menu exposes the persistent visibility action", async () => {
+  const [menu, globalAccount] = await Promise.all([
+    readRepoFile("app/components/auth/AccountMenu.tsx"),
+    readRepoFile("app/components/auth/GlobalAccount.tsx"),
+  ]);
+
+  assert.match(menu, /visibilityAction\.label/);
+  assert.match(menu, /visibilityAction\.onSelect\(\)/);
+  assert.match(globalAccount, /GLOBAL_ACCOUNT_HIDDEN_STORAGE_KEY/);
+  assert.match(globalAccount, /window\.localStorage\.setItem/);
+  assert.match(globalAccount, /window\.localStorage\.removeItem/);
 });
 
 test("account menu exposes keyboard, focus, and dismissal contracts", async () => {

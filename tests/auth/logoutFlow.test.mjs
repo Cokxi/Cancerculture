@@ -91,8 +91,8 @@ test("Discord and website bans retain an unguarded server logout", async () => {
     readRepoFile("lib/auth/sessionState.ts"),
   ]);
   const restrictedBranch = globalAccount.slice(
-    globalAccount.indexOf('sessionState.status === "restricted"'),
-    globalAccount.indexOf("const discordUserId")
+    globalAccount.indexOf('account.kind === "restricted"'),
+    globalAccount.indexOf("<AccountMenu")
   );
 
   assert.match(sessionState, /code === "DISCORD_BANNED"/);

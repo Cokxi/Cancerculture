@@ -222,14 +222,16 @@ test("member removal and complete snapshot absence retain sessions while bans re
 });
 
 test("global account and lazy vote eligibility stay separated", async () => {
-  const [account, voteClient, eligibilityRoute] = await Promise.all([
+  const [account, accountRoute, voteClient, eligibilityRoute] = await Promise.all([
     readRepoFile("app/components/auth/GlobalAccount.tsx"),
+    readRepoFile("app/api/auth/account/route.ts"),
     readRepoFile("app/submissions/SubmissionsClient.tsx"),
     readRepoFile("app/api/vote/eligibility/route.ts"),
   ]);
 
-  assert.doesNotMatch(account, /getDiscordMembershipEligibility/);
+  assert.doesNotMatch(`${account}\n${accountRoute}`, /getDiscordMembershipEligibility/);
   assert.match(account, /method="post"/);
+  assert.match(accountRoute, /"Cache-Control": "no-store"/);
   assert.match(voteClient, /cache: "no-store"/);
   assert.match(eligibilityRoute, /export const dynamic = "force-dynamic"/);
   assert.match(eligibilityRoute, /Cache-Control", "no-store"/);

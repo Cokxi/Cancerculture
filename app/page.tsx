@@ -7,7 +7,6 @@ import CoinLaunchDisplay from "./components/CoinLaunchDisplay";
 import CycleHud from "@/app/components/CycleHud";
 import DiscordCellAnimated from "./components/DiscordCellAnimated";
 import TelegramCellAnimated from "./components/TelegramCellAnimated";
-import GlobalAccount from "@/app/components/auth/GlobalAccount";
 import HomeInfoBlocks from "@/app/components/homepageInfoBlocks/HomeInfoBlocks";
 import HomeMenu from "@/app/components/navigation/HomeMenu";
 import { getPrimaryCoinLaunch } from "@/lib/coinLaunches/getActiveCoinLaunches";
@@ -87,19 +86,6 @@ export default function Home() {
       </div>
 
       <HomeMenu />
-
-      <div className="fixed right-3 top-[74px] z-[70] sm:right-5">
-        <Suspense
-          fallback={
-            <div
-              className="h-11 w-11 animate-pulse rounded-full border border-orange-500/30 bg-black/80"
-              aria-label="Account loading"
-            />
-          }
-        >
-          <GlobalAccount />
-        </Suspense>
-      </div>
 
       <div className="mt-3 hidden w-full justify-center md:flex">
         <div className="link-container max-w-[780px]">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bangers, Permanent_Marker } from "next/font/google";
 import "./globals.css";
+import GlobalAccount from "@/app/components/auth/GlobalAccount";
 import { OverlayProvider } from "@/app/components/overlay/OverlayProvider";
 import BackToTopButton from "@/app/components/ui/BackToTopButton";
 
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body className="antialiased bg-orange-background overflow-x-hidden">
         <OverlayProvider>
           {children}
+          <GlobalAccount />
           <BackToTopButton />
         </OverlayProvider>
       </body>
