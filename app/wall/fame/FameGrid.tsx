@@ -12,6 +12,7 @@ import {
 import type { PublicPage } from "@/lib/pagination/publicPagination";
 import { usePublicPagination } from "@/lib/pagination/usePublicPagination";
 import { formatReason } from "@/lib/profile/formatReason";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import type { PublicWallItem } from "@/lib/walls/publicWallTypes";
 import {
   useCallback,
@@ -113,11 +114,6 @@ export default function FameGrid({
     lastTapRef.current = now;
   }
 
-  function getThumbUrl(imageUrl: string) {
-    const url = new URL(imageUrl);
-    return `${url.origin}/cdn-cgi/image/w=400,q=75${url.pathname}`;
-  }
-
   useEffect(() => {
     if (!active) return;
 
@@ -179,7 +175,7 @@ export default function FameGrid({
               {winner.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element -- This URL is already a bounded Cloudflare thumbnail, so Next's globally unoptimized Image wrapper adds no optimization.
                 <img
-                  src={getThumbUrl(winner.image_url)}
+                  src={getSubmissionThumbnailUrl(winner.image_url)}
                   alt=""
                   loading="lazy"
                   decoding="async"

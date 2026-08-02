@@ -6,6 +6,7 @@ import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicV
 import { formatReason } from "@/lib/profile/formatReason";
 import { getUserProfileData } from "@/lib/profile/getUserProfileData";
 import type { ProfileSubmission } from "@/lib/profile/getUserProfileData";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import ProfileSocialsSection from "@/app/components/profile/ProfileSocialsSection";
 import { redirect } from "next/navigation";
 import ProfileSections from "./ProfileSections";
@@ -168,7 +169,7 @@ export default async function MyProfilePage() {
           <div className="flex flex-col items-center rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/40 p-4">
             {currentSubmission?.image_url ? (
               <Image
-                src={currentSubmission.image_url}
+                src={getSubmissionThumbnailUrl(currentSubmission.image_url)}
                 className="mb-3 h-48 w-48 rounded object-cover"
                 alt={`Submission for cycle ${currentSubmission.cycle_id}`}
                 width={192}

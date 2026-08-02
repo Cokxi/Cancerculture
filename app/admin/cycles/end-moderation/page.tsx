@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
 import { loadCycleEndModerationReadModel } from "@/lib/moderation/submissionModerationReadModel";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import ModerationGrid from "@/app/admin/moderation/submissions/ModerationGrid";
 
 export const dynamic = "force-dynamic";
@@ -50,10 +51,9 @@ export default async function CycleEndModerationPage({
       ...submission,
       is_disqualified: submission.is_disqualified === true,
       image_url: imageUrl,
-      thumb_url:
-        submission.r2_key && imageUrl
-          ? `${new URL(imageUrl).origin}/cdn-cgi/image/w=400,q=75/${submission.r2_key}`
-          : "",
+      thumb_url: imageUrl
+        ? getSubmissionThumbnailUrl(imageUrl)
+        : "",
     };
   });
 

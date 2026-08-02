@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import type {
   ProfileSubmission,
   ProfileVote,
@@ -138,7 +139,7 @@ export default function ProfileSections({
                       className="mb-2 block h-40 w-40 rounded focus:outline-none focus:ring-2 focus:ring-[var(--orange-dark)]"
                     >
                       <Image
-                        src={submission.image_url}
+                        src={getSubmissionThumbnailUrl(submission.image_url)}
                         className="h-40 w-40 rounded object-cover transition hover:opacity-85"
                         alt={`Submission for cycle ${submission.cycle_id}`}
                         width={160}
@@ -148,7 +149,7 @@ export default function ProfileSections({
                     </Link>
                   ) : (
                     <Image
-                      src={submission.image_url}
+                      src={getSubmissionThumbnailUrl(submission.image_url)}
                       className="mb-2 h-40 w-40 rounded object-cover"
                       alt={`Submission for cycle ${submission.cycle_id}`}
                       width={160}
@@ -284,7 +285,7 @@ export default function ProfileSections({
 
                 {vote.image_url ? (
                   <Image
-                    src={vote.image_url}
+                    src={getSubmissionThumbnailUrl(vote.image_url)}
                     className="mt-2 h-24 w-24 rounded border border-[#222] object-cover"
                     alt={`Voted submission ${vote.submission_id}`}
                     width={96}

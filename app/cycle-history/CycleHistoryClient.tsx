@@ -28,6 +28,7 @@ import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
 import type { PublicPage } from "@/lib/pagination/publicPagination";
 import { mergePublicPageItems } from "@/lib/pagination/mergePublicPageItems";
 import { usePublicPagination } from "@/lib/pagination/usePublicPagination";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 
 const PUBLIC_VISIBILITY_REASONS = [
   "copyright_claim",
@@ -173,7 +174,7 @@ function SubmissionPreview({
   if (!showPlaceholder && submission.imageUrl) {
     return (
       <Image
-        src={submission.imageUrl}
+        src={getSubmissionThumbnailUrl(submission.imageUrl)}
         alt={`Cycle ${cycleId} submission ${submission.id}`}
         width={400}
         height={224}

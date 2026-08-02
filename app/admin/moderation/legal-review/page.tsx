@@ -2,6 +2,7 @@ import { requireAdminPage } from "@/lib/auth/pageAccess";
 import Image from "next/image";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import ReviewActions from "./review-actions";
 
 type ReviewSubmissionRow = {
@@ -19,15 +20,6 @@ type ReviewSubmissionRow = {
   is_disqualified: boolean;
   discord_ban_active: boolean;
 };
-
-function buildThumbUrl(imageUrl: string | null) {
-  if (!imageUrl) {
-    return null;
-  }
-
-  const url = new URL(imageUrl);
-  return `${url.origin}/cdn-cgi/image/w=400,q=75${url.pathname}`;
-}
 
 function SubmissionSection({
   title,
@@ -211,7 +203,9 @@ export default async function AdminLegalReviewPage() {
           membershipStatesError !== null ||
           activeBanByDiscordUserId.get(submission.discord_user_id) === true,
         image_url: imageUrl,
-        thumb_url: buildThumbUrl(imageUrl),
+        thumb_url: imageUrl
+          ? getSubmissionThumbnailUrl(imageUrl)
+          : null,
       };
     }
   );

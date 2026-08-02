@@ -16,6 +16,7 @@ import {
 } from "@/lib/eligibility/participationNotice";
 import type { PublicPage } from "@/lib/pagination/publicPagination";
 import { usePublicPagination } from "@/lib/pagination/usePublicPagination";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import {
   resolveVoteBlockedReason,
   type VoteBlockedReason,
@@ -398,8 +399,7 @@ export default function SubmissionsClient({
               : "SUBMISSIONS OPEN - VOTING STARTS LATER"}
         </div>
         {submissions.map((s) => {
-          const url = new URL(s.image_url);
-          const thumbSrc = `${url.origin}/cdn-cgi/image/w=400,q=75${url.pathname}`;
+          const thumbSrc = getSubmissionThumbnailUrl(s.image_url);
 
           return (
             <button

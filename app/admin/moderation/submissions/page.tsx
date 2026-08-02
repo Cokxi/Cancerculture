@@ -11,6 +11,7 @@ import {
 } from "@/lib/moderation/submissionModerationReadModel";
 import ModerationGrid from "./ModerationGrid";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -50,10 +51,9 @@ export default async function AdminModerationSubmissionsPage() {
       ...submission,
       is_disqualified: submission.is_disqualified === true,
       image_url: imageUrl,
-      thumb_url:
-        submission.r2_key && imageUrl
-          ? `${new URL(imageUrl).origin}/cdn-cgi/image/w=400,q=75/${submission.r2_key}`
-          : "",
+      thumb_url: imageUrl
+        ? getSubmissionThumbnailUrl(imageUrl)
+        : "",
     };
   });
   const canDisqualify = canModerateSubmission(

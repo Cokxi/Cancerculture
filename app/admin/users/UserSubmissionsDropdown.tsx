@@ -2,6 +2,7 @@
 
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import Image from "next/image";
 
 type Props = {
@@ -145,7 +146,7 @@ export default async function UserSubmissionsDropdown({
                     style={{ display: "block" }}
                   >
                     <Image
-                      src={sub.image_url}
+                      src={getSubmissionThumbnailUrl(sub.image_url)}
                       alt={`Cycle ${sub.cycle_id}`}
                       width={96}
                       height={96}
@@ -161,7 +162,7 @@ export default async function UserSubmissionsDropdown({
                   </a>
                 ) : (
                   <Image
-                    src={sub.image_url}
+                    src={getSubmissionThumbnailUrl(sub.image_url)}
                     alt={`Cycle ${sub.cycle_id}`}
                     width={96}
                     height={96}

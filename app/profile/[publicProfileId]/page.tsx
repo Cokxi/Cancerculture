@@ -6,6 +6,7 @@ import { getTeamMember } from "@/lib/auth/guards";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
 import { getPublicUserProfileData } from "@/lib/profile/getPublicUserProfileData";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 
 function renderRank(submission: {
   rank: number | null;
@@ -132,7 +133,7 @@ export default async function PublicProfilePage({
                           className="block h-40 w-40 rounded focus:outline-none focus:ring-2 focus:ring-[var(--orange-dark)]"
                         >
                           <Image
-                            src={submission.image_url}
+                            src={getSubmissionThumbnailUrl(submission.image_url)}
                             className="h-40 w-40 rounded object-cover transition hover:opacity-85"
                             alt={`Submission for cycle ${submission.cycle_id}`}
                             width={160}
@@ -142,7 +143,7 @@ export default async function PublicProfilePage({
                         </Link>
                       ) : (
                         <Image
-                          src={submission.image_url}
+                          src={getSubmissionThumbnailUrl(submission.image_url)}
                           className="h-40 w-40 rounded object-cover"
                           alt={`Submission for cycle ${submission.cycle_id}`}
                           width={160}

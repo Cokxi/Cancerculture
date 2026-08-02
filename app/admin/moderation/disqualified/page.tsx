@@ -14,6 +14,7 @@ import {
 } from "@/lib/moderation/submissionModerationReadModel";
 import ReinstateButton from "./reinstate-button";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 
 export default async function DisqualifiedSubmissionsPage() {
   let authorization;
@@ -86,7 +87,7 @@ export default async function DisqualifiedSubmissionsPage() {
                 rel="noopener noreferrer"
               >
               <Image
-                src={imageUrl}
+                src={getSubmissionThumbnailUrl(imageUrl)}
                 alt=""
                 width={96}
                 height={96}
