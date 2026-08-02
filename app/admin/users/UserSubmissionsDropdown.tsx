@@ -2,6 +2,7 @@
 
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import Image from "next/image";
 
 type Props = {
   discordUserId: string;
@@ -143,9 +144,12 @@ export default async function UserSubmissionsDropdown({
                     rel="noopener noreferrer"
                     style={{ display: "block" }}
                   >
-                    <img
+                    <Image
                       src={sub.image_url}
                       alt={`Cycle ${sub.cycle_id}`}
+                      width={96}
+                      height={96}
+                      unoptimized
                       style={{
                         width: "100%",
                         height: "100%",
@@ -156,9 +160,12 @@ export default async function UserSubmissionsDropdown({
                     />
                   </a>
                 ) : (
-                  <img
+                  <Image
                     src={sub.image_url}
                     alt={`Cycle ${sub.cycle_id}`}
+                    width={96}
+                    height={96}
+                    unoptimized
                     style={{
                       width: "100%",
                       height: "100%",

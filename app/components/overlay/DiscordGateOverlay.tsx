@@ -11,6 +11,11 @@ type Props = {
 };
 
 const COOLDOWN_MS = 10 * 60 * 1000;
+const COMPLETION_LINES = [
+  "You did your time.",
+  "Thank you for your patience.",
+  "Make it count.",
+];
 
 export default function DiscordGateOverlay({
   type,
@@ -55,7 +60,7 @@ export default function DiscordGateOverlay({
   };
 
   fetchData();
-}, [type, joinedAt]);
+}, [type, joinedAt, openOverlay]);
 
   useEffect(() => {
     if (type !== "cooldown" || !joinedAt) return;
@@ -79,12 +84,6 @@ export default function DiscordGateOverlay({
   }, [type, joinedAt]);
 
   
-  const lines = [
-  "You did your time.",
-  "Thank you for your patience.",
-  "Make it count.",
-];
-
 useEffect(() => {
   if (!isDone) return;
 
@@ -93,14 +92,14 @@ useEffect(() => {
   let currentText = "";
 
   const typeNextChar = () => {
-    if (lineIndex >= lines.length) {
+    if (lineIndex >= COMPLETION_LINES.length) {
       setTimeout(() => {
         closeOverlay();
       }, 3000);
       return;
     }
 
-    const currentLine = lines[lineIndex];
+    const currentLine = COMPLETION_LINES[lineIndex];
 
     if (charIndex < currentLine.length) {
       currentText += currentLine[charIndex];
@@ -120,7 +119,7 @@ useEffect(() => {
   };
 
   typeNextChar();
-}, [isDone]);
+}, [closeOverlay, isDone]);
 
   
   useEffect(() => {
@@ -154,7 +153,7 @@ useEffect(() => {
     }, 8000);
 
     return () => clearInterval(interval);
-  }, [type]);
+  }, [closeOverlay, openOverlay, type]);
 
   const minutes = Math.floor(remaining / 60000);
   const seconds = Math.floor((remaining % 60000) / 1000);

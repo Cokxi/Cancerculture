@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import { getTeamAuthorizationContext } from "@/lib/auth/teamAuthorization";
 import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
 import {
@@ -78,14 +79,18 @@ export default async function DisqualifiedSubmissionsPage() {
               alignItems: "flex-start",
             }}
           >
-            <a
-              href={imageUrl ?? undefined}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <img
-                src={imageUrl ?? undefined}
+            {imageUrl ? (
+              <a
+                href={imageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+              <Image
+                src={imageUrl}
                 alt=""
+                width={96}
+                height={96}
+                unoptimized
                 style={{
                   width: 96,
                   height: 96,
@@ -94,7 +99,23 @@ export default async function DisqualifiedSubmissionsPage() {
                   cursor: "pointer",
                 }}
               />
-            </a>
+              </a>
+            ) : (
+              <div
+                style={{
+                  width: 96,
+                  height: 96,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "1px solid #444",
+                  fontSize: 12,
+                  opacity: 0.7,
+                }}
+              >
+                Preview unavailable
+              </div>
+            )}
 
             <div style={{ fontSize: 13 }}>
               <div>

@@ -2,6 +2,7 @@
 
 import { getSocialDisplayLabel } from "@/lib/socials/normalize";
 import { SOCIAL_PLATFORM_META } from "@/lib/socials/platforms";
+import Image from "next/image";
 import type {
   PublicSocialLink,
   SocialPlatform,
@@ -20,9 +21,11 @@ export function SocialPlatformBadge({
       title={meta.label}
     >
       {meta.iconSrc ? (
-        <img
+        <Image
           src={meta.iconSrc}
           alt={`${meta.label} icon`}
+          width={20}
+          height={20}
           className={`${meta.iconSizeClass ?? "h-4 w-4"} object-contain`}
         />
       ) : (

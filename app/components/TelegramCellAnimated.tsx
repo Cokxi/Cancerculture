@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 
 export default function TelegramCellAnimated() {
@@ -64,9 +66,11 @@ export default function TelegramCellAnimated() {
   "
 >
 
-          <img
+          <Image
   src="https://cdn.cancerculture.fun/webp/icons/Discord.V1.webp"
             alt="X"
+            width={40}
+            height={40}
             className="w-6 h-6 md:w-10 md:h-10 drop-shadow-[0_4px_0_rgba(0,0,0,0.6)]"
           />
         </div>

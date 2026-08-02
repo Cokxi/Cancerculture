@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, type ReactNode } from "react";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
@@ -136,17 +137,23 @@ export default function ProfileSections({
                       href={destinationHref}
                       className="mb-2 block h-40 w-40 rounded focus:outline-none focus:ring-2 focus:ring-[var(--orange-dark)]"
                     >
-                      <img
+                      <Image
                         src={submission.image_url}
                         className="h-40 w-40 rounded object-cover transition hover:opacity-85"
                         alt={`Submission for cycle ${submission.cycle_id}`}
+                        width={160}
+                        height={160}
+                        unoptimized
                       />
                     </Link>
                   ) : (
-                    <img
+                    <Image
                       src={submission.image_url}
                       className="mb-2 h-40 w-40 rounded object-cover"
                       alt={`Submission for cycle ${submission.cycle_id}`}
+                      width={160}
+                      height={160}
+                      unoptimized
                     />
                   )
                   ) : (
@@ -276,10 +283,13 @@ export default function ProfileSections({
                 </div>
 
                 {vote.image_url ? (
-                  <img
+                  <Image
                     src={vote.image_url}
                     className="mt-2 h-24 w-24 rounded border border-[#222] object-cover"
                     alt={`Voted submission ${vote.submission_id}`}
+                    width={96}
+                    height={96}
+                    unoptimized
                   />
                 ) : (
                   <div className="mt-2 flex h-24 w-24 items-center justify-center rounded bg-orange-200/20 text-2xl">

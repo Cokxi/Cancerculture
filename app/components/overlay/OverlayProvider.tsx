@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  useCallback,
   createContext,
   useContext,
+  useMemo,
   useState,
-  ReactNode,
+  type ReactNode,
 } from "react";
 
 type OverlayContextType = {
@@ -21,17 +23,22 @@ export function OverlayProvider({
 }) {
   const [overlay, setOverlay] = useState<ReactNode>(null);
 
-  const openOverlay = (node: ReactNode) => {
+  const openOverlay = useCallback((node: ReactNode) => {
     setOverlay(node);
-  };
+  }, []);
 
-  const closeOverlay = () => {
+  const closeOverlay = useCallback(() => {
     setOverlay(null);
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({ openOverlay, closeOverlay }),
+    [closeOverlay, openOverlay]
+  );
 
   return (
     <OverlayContext.Provider
-      value={{ openOverlay, closeOverlay }}
+      value={contextValue}
     >
       {children}
 

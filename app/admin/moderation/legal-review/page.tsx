@@ -1,4 +1,5 @@
 import { requireAdminPage } from "@/lib/auth/pageAccess";
+import Image from "next/image";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import ReviewActions from "./review-actions";
@@ -82,9 +83,12 @@ function SubmissionSection({
                   rel="noopener noreferrer"
                   className="block"
                 >
-                  <img
+                  <Image
                     src={submission.thumb_url ?? submission.image_url}
                     alt=""
+                    width={400}
+                    height={176}
+                    unoptimized
                     className="h-44 w-full rounded-lg object-cover"
                   />
                 </a>

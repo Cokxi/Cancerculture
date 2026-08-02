@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { KeyboardEvent } from "react";
 import {
   useCallback,
@@ -171,9 +172,12 @@ function SubmissionPreview({
 
   if (!showPlaceholder && submission.imageUrl) {
     return (
-      <img
+      <Image
         src={submission.imageUrl}
         alt={`Cycle ${cycleId} submission ${submission.id}`}
+        width={400}
+        height={224}
+        unoptimized
         className="h-56 w-full rounded-lg object-cover"
       />
     );
@@ -419,17 +423,20 @@ function SubmissionModal({
         <ModalCloseButton onClick={onClose} />
 
         {submission.imageUrl ? (
-          <img
-            src={submission.imageUrl}
-            alt=""
-            onDoubleClick={handleToggleSize}
-            onTouchStart={handleTouchStart}
-            className={
-              showOriginalSize
-                ? "mx-auto h-auto w-auto max-w-none rounded-lg"
-                : "mx-auto h-auto max-h-[75vh] w-auto max-w-[75vw] rounded-lg object-contain"
-            }
-          />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- The R2 original has unknown intrinsic dimensions, and this modal toggles between viewport-fit and native-size zoom. */}
+            <img
+              src={submission.imageUrl}
+              alt=""
+              onDoubleClick={handleToggleSize}
+              onTouchStart={handleTouchStart}
+              className={
+                showOriginalSize
+                  ? "mx-auto h-auto w-auto max-w-none rounded-lg"
+                  : "mx-auto h-auto max-h-[75vh] w-auto max-w-[75vw] rounded-lg object-contain"
+              }
+            />
+          </>
         ) : (
           <div className="flex h-[60vh] w-[60vw] min-w-[280px] items-center justify-center rounded-lg bg-orange-200/20 px-6 text-center">
             <div>

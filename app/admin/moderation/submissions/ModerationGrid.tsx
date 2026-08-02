@@ -7,6 +7,7 @@ import {
   tryBeginModerationRequest,
   waitForModerationPendingPaint,
 } from "@/lib/moderation/moderationClientRequest";
+import Image from "next/image";
 import { useRef, useState } from "react";
 
 type Submission = {
@@ -174,9 +175,12 @@ export default function ModerationGrid({
             rel="noopener noreferrer"
             style={{ display: "block" }}
           >
-            <img
+            <Image
               src={submission.thumb_url || submission.image_url}
               alt=""
+              width={400}
+              height={150}
+              unoptimized
               style={{
                 width: "100%",
                 height: 150,

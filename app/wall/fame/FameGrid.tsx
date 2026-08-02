@@ -177,6 +177,7 @@ export default function FameGrid({
               "
             >
               {winner.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- This URL is already a bounded Cloudflare thumbnail, so Next's globally unoptimized Image wrapper adds no optimization.
                 <img
                   src={getThumbUrl(winner.image_url)}
                   alt=""
@@ -235,17 +236,20 @@ export default function FameGrid({
             <ModalCloseButton onClick={() => setActive(null)} />
 
             {active.image_url ? (
-              <img
-                src={active.image_url}
-                alt=""
-                onDoubleClick={handleToggleSize}
-                onTouchStart={handleTouchStart}
-                className={
-                  showOriginalSize
-                    ? "mx-auto h-auto w-auto max-w-none rounded-lg"
-                    : "mx-auto h-auto max-h-[75vh] w-auto max-w-[75vw] rounded-lg object-contain"
-                }
-              />
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element -- The R2 original has unknown intrinsic dimensions, and this modal toggles between viewport-fit and native-size zoom. */}
+                <img
+                  src={active.image_url}
+                  alt=""
+                  onDoubleClick={handleToggleSize}
+                  onTouchStart={handleTouchStart}
+                  className={
+                    showOriginalSize
+                      ? "mx-auto h-auto w-auto max-w-none rounded-lg"
+                      : "mx-auto h-auto max-h-[75vh] w-auto max-w-[75vw] rounded-lg object-contain"
+                  }
+                />
+              </>
             ) : (
               <VisibilityPlaceholder
                 winner={active}

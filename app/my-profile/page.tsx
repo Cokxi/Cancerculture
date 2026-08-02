@@ -1,5 +1,6 @@
 import BackButton from "@/app/components/ui/BackButton";
 import AvatarUpload from "@/app/components/ui/AvatarUpload";
+import Image from "next/image";
 import { getSessionState } from "@/lib/auth/sessionState";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
@@ -112,10 +113,13 @@ export default async function MyProfilePage() {
         <div className="flex flex-col items-center space-y-4 text-center">
           <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-orange-500/20 text-2xl">
             {avatarUrl ? (
-              <img
+              <Image
                 src={avatarUrl}
                 className="h-full w-full object-cover"
                 alt="User Avatar"
+                width={96}
+                height={96}
+                unoptimized
               />
             ) : (
               "?"
@@ -163,10 +167,13 @@ export default async function MyProfilePage() {
 
           <div className="flex flex-col items-center rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/40 p-4">
             {currentSubmission?.image_url ? (
-              <img
+              <Image
                 src={currentSubmission.image_url}
                 className="mb-3 h-48 w-48 rounded object-cover"
                 alt={`Submission for cycle ${currentSubmission.cycle_id}`}
+                width={192}
+                height={192}
+                unoptimized
               />
             ) : (
               <div className="mb-3 flex h-48 w-48 items-center justify-center rounded bg-orange-200/20 text-4xl">

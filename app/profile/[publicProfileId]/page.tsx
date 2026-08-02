@@ -1,5 +1,6 @@
 import BackButton from "@/app/components/ui/BackButton";
 import Link from "next/link";
+import Image from "next/image";
 import PublicProfileSocialsSection from "@/app/components/profile/PublicProfileSocialsSection";
 import { getTeamMember } from "@/lib/auth/guards";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
@@ -48,10 +49,13 @@ export default async function PublicProfilePage({
           <div className="flex flex-col items-center gap-4 text-center">
             <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-orange-500/20 text-2xl">
               {profile.avatarUrl ? (
-                <img
+                <Image
                   src={profile.avatarUrl}
                   className="h-full w-full object-cover"
                   alt={`${profile.currentDiscordUsername} avatar`}
+                  width={96}
+                  height={96}
+                  unoptimized
                 />
               ) : (
                 "?"
@@ -127,17 +131,23 @@ export default async function PublicProfilePage({
                           href={destinationHref}
                           className="block h-40 w-40 rounded focus:outline-none focus:ring-2 focus:ring-[var(--orange-dark)]"
                         >
-                          <img
+                          <Image
                             src={submission.image_url}
                             className="h-40 w-40 rounded object-cover transition hover:opacity-85"
                             alt={`Submission for cycle ${submission.cycle_id}`}
+                            width={160}
+                            height={160}
+                            unoptimized
                           />
                         </Link>
                       ) : (
-                        <img
+                        <Image
                           src={submission.image_url}
                           className="h-40 w-40 rounded object-cover"
                           alt={`Submission for cycle ${submission.cycle_id}`}
+                          width={160}
+                          height={160}
+                          unoptimized
                         />
                       )
                     ) : (

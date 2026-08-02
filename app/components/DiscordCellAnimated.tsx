@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 export default function DiscordCellAnimated() {
   return (
     <a
@@ -62,9 +64,11 @@ export default function DiscordCellAnimated() {
   "
 >
 
-          <img
+          <Image
   src="https://cdn.cancerculture.fun/webp/icons/x-v2.webp"
             alt="X"
+            width={40}
+            height={40}
             className="w-6 h-6 md:w-10 md:h-10 drop-shadow-[0_4px_0_rgba(0,0,0,0.6)]"
           />
         </div>

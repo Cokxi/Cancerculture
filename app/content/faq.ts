@@ -1,9 +1,9 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export type FaqSection = {
   id: string;
   title: string;
-  paragraphs?: (string | React.ReactNode)[];
+  paragraphs?: (string | ReactNode)[];
   bullets?: string[];
 };
 
