@@ -10,9 +10,12 @@ const database = {
   data: null,
   error: null,
   throwError: null,
+  schedulerData: null,
+  schedulerError: null,
+  schedulerThrowError: null,
   fromCalls: [],
-  selectedColumns: null,
-  filter: null,
+  selectedColumns: {},
+  filters: [],
   singleCalls: 0,
 };
 
@@ -23,21 +26,29 @@ mock.module(new URL("../../lib/db/admin.ts", import.meta.url), {
         database.fromCalls.push(table);
         return {
           select(columns) {
-            database.selectedColumns = columns;
+            database.selectedColumns[table] = columns;
             return this;
           },
           eq(column, value) {
-            database.filter = { column, value };
+            database.filters.push({ table, column, value });
             return this;
           },
           single() {
             database.singleCalls += 1;
-            if (database.throwError) {
-              return Promise.reject(database.throwError);
+            const isScheduler = table === "cycle_scheduler_health";
+            const throwError = isScheduler
+              ? database.schedulerThrowError
+              : database.throwError;
+            if (throwError) {
+              return Promise.reject(throwError);
             }
             return Promise.resolve({
-              data: database.data,
-              error: database.error,
+              data: isScheduler
+                ? database.schedulerData
+                : database.data,
+              error: isScheduler
+                ? database.schedulerError
+                : database.error,
             });
           },
         };
@@ -62,13 +73,26 @@ function freshRow() {
   };
 }
 
+function freshSchedulerRow() {
+  return {
+    active_run_started_at: null,
+    last_completed_at: timestampAgo(60 * 1000),
+    last_succeeded_at: timestampAgo(60 * 1000),
+    last_outcome: "noop",
+    consecutive_failures: 0,
+  };
+}
+
 function resetDatabase() {
   database.data = freshRow();
   database.error = null;
   database.throwError = null;
+  database.schedulerData = freshSchedulerRow();
+  database.schedulerError = null;
+  database.schedulerThrowError = null;
   database.fromCalls = [];
-  database.selectedColumns = null;
-  database.filter = null;
+  database.selectedColumns = {};
+  database.filters = [];
   database.singleCalls = 0;
 }
 
@@ -139,12 +163,22 @@ test("valid auth reads only the health singleton id 1", async () => {
   const response = await route.GET(healthRequest());
 
   assert.equal(response.status, 200);
-  assert.deepEqual(database.fromCalls, ["discord_sync_health"]);
-  assert.deepEqual(database.filter, { column: "id", value: 1 });
-  assert.equal(database.singleCalls, 1);
+  assert.deepEqual(database.fromCalls, [
+    "discord_sync_health",
+    "cycle_scheduler_health",
+  ]);
+  assert.deepEqual(database.filters, [
+    { table: "discord_sync_health", column: "id", value: 1 },
+    { table: "cycle_scheduler_health", column: "id", value: 1 },
+  ]);
+  assert.equal(database.singleCalls, 2);
   assert.equal(
-    database.selectedColumns,
+    database.selectedColumns.discord_sync_health,
     "last_heartbeat_at, last_full_reconciliation_succeeded_at, last_failure_at"
+  );
+  assert.equal(
+    database.selectedColumns.cycle_scheduler_health,
+    "active_run_started_at, last_completed_at, last_succeeded_at, last_outcome, consecutive_failures"
   );
 });
 
@@ -162,6 +196,53 @@ test("fresh health returns healthy", async () => {
   assert.equal(response.status, 200);
   assert.equal(body.status, "healthy");
   assert.deepEqual(body.reasons, []);
+  assert.deepEqual(body.scheduler, {
+    status: "healthy",
+    reasons: [],
+    lastCompletedAgeSeconds: 60,
+    lastSucceededAgeSeconds: 60,
+    runningForSeconds: null,
+    consecutiveFailures: 0,
+    lastOutcome: "noop",
+  });
+});
+
+test("missing scheduler progress is a separate degraded component", async () => {
+  database.schedulerData = {
+    active_run_started_at: null,
+    last_completed_at: null,
+    last_succeeded_at: null,
+    last_outcome: null,
+    consecutive_failures: 0,
+  };
+
+  const response = await route.GET(healthRequest());
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.status, "healthy");
+  assert.equal(body.scheduler.status, "degraded");
+  assert.deepEqual(body.scheduler.reasons, ["scheduler_missing"]);
+});
+
+test("stuck and repeatedly failing scheduler reasons are bounded", async () => {
+  database.schedulerData = {
+    ...freshSchedulerRow(),
+    active_run_started_at: timestampAgo(121 * 1000),
+    last_completed_at: timestampAgo(181 * 1000),
+    last_outcome: "failed",
+    consecutive_failures: 3,
+  };
+
+  const response = await route.GET(healthRequest());
+  const scheduler = (await response.json()).scheduler;
+
+  assert.equal(scheduler.status, "degraded");
+  assert.deepEqual(scheduler.reasons, [
+    "scheduler_stale",
+    "scheduler_stuck",
+    "scheduler_consecutive_failures",
+  ]);
 });
 
 test("a stale heartbeat returns degraded with HTTP 200", async () => {
@@ -353,6 +434,7 @@ test("responses expose only minimized health fields", async () => {
     "reasons",
     "reconciliationAgeSeconds",
     "recoveredFromLatestFailure",
+    "scheduler",
     "status",
   ]);
   assert.doesNotMatch(
