@@ -15,6 +15,16 @@ const NO_STORE_HEADERS = {
   Pragma: "no-cache",
 };
 
+const HEALTH_CONTRACT_VERSION = "2";
+const WATCHDOG_PROBE_HEADER = "x-cancerculture-watchdog-probe-id";
+const HEALTH_CONTRACT_HEADER = "x-cancerculture-health-contract";
+const DEPLOYMENT_ID_HEADER = "x-cancerculture-deployment-id";
+const COMMIT_SHA_HEADER = "x-cancerculture-commit-sha";
+const PROBE_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const DEPLOYMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/u;
+const COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/u;
+
 const HEALTH_SELECT = [
   "last_heartbeat_at",
   "last_full_reconciliation_succeeded_at",
@@ -43,14 +53,85 @@ type CycleSchedulerHealthRow = {
   consecutive_failures: number;
 };
 
+type HealthProbeContext = {
+  probeId: string | null;
+  deploymentId: string | null;
+  commitSha: string | null;
+};
+
+type HealthProbeDiagnostic = {
+  responseStatus: number;
+  discordDependencyAvailable: boolean | null;
+  schedulerDependencyAvailable: boolean | null;
+  schedulerIncluded: boolean;
+};
+
 function jsonResponse(
   body: Record<string, unknown>,
-  status: number
+  status: number,
+  context?: HealthProbeContext
 ) {
+  const headers = new Headers(NO_STORE_HEADERS);
+  headers.set(HEALTH_CONTRACT_HEADER, HEALTH_CONTRACT_VERSION);
+  if (context?.probeId) {
+    headers.set(WATCHDOG_PROBE_HEADER, context.probeId);
+  }
+  if (context?.deploymentId) {
+    headers.set(DEPLOYMENT_ID_HEADER, context.deploymentId);
+  }
+  if (context?.commitSha) {
+    headers.set(COMMIT_SHA_HEADER, context.commitSha);
+  }
+
   return NextResponse.json(body, {
     status,
-    headers: NO_STORE_HEADERS,
+    headers,
   });
+}
+
+function healthProbeContext(req: Request): HealthProbeContext {
+  const requestedProbeId = req.headers.get(WATCHDOG_PROBE_HEADER);
+  const deploymentId = process.env.VERCEL_DEPLOYMENT_ID;
+  const commitSha = process.env.VERCEL_GIT_COMMIT_SHA;
+
+  return {
+    probeId:
+      requestedProbeId && PROBE_ID_PATTERN.test(requestedProbeId)
+        ? requestedProbeId
+        : null,
+    deploymentId:
+      deploymentId && DEPLOYMENT_ID_PATTERN.test(deploymentId)
+        ? deploymentId
+        : null,
+    commitSha:
+      commitSha && COMMIT_SHA_PATTERN.test(commitSha)
+        ? commitSha.toLowerCase()
+        : null,
+  };
+}
+
+function logHealthProbe(
+  context: HealthProbeContext,
+  diagnostic: HealthProbeDiagnostic
+) {
+  if (!context.probeId) {
+    return;
+  }
+
+  try {
+    console.log(
+      JSON.stringify({
+        event: "INTERNAL_DISCORD_HEALTH_PROBE",
+        probeId: context.probeId,
+        contractVersion: HEALTH_CONTRACT_VERSION,
+        deploymentId: context.deploymentId,
+        commitSha: context.commitSha,
+        ...diagnostic,
+      })
+    );
+  } catch {
+    // Operational correlation must never affect the health response.
+  }
 }
 
 function ageInSeconds(ageMs: number | null) {
@@ -105,6 +186,7 @@ export async function GET(req: Request) {
     return jsonResponse({ error: "UNAUTHORIZED" }, 401);
   }
 
+  const probeContext = healthProbeContext(req);
   const now = new Date();
 
   try {
@@ -121,32 +203,53 @@ export async function GET(req: Request) {
         .single<CycleSchedulerHealthRow>(),
     ]);
 
-    if (
-      discordResult.error ||
-      !discordResult.data ||
-      schedulerResult.error ||
-      !isCycleSchedulerHealthRow(schedulerResult.data)
-    ) {
+    const discordHealth =
+      !discordResult.error && discordResult.data
+        ? discordResult.data
+        : null;
+    const schedulerHealth =
+      !schedulerResult.error &&
+      isCycleSchedulerHealthRow(schedulerResult.data)
+        ? schedulerResult.data
+        : null;
+    const discordDependencyAvailable = discordHealth !== null;
+    const schedulerDependencyAvailable = schedulerHealth !== null;
+
+    if (!discordDependencyAvailable || !schedulerDependencyAvailable) {
+      logHealthProbe(probeContext, {
+        responseStatus: 503,
+        discordDependencyAvailable,
+        schedulerDependencyAvailable,
+        schedulerIncluded: false,
+      });
       return jsonResponse(
         { error: "HEALTH_DEPENDENCY_UNAVAILABLE" },
-        503
+        503,
+        probeContext
       );
     }
 
     const evaluation = evaluateDiscordSyncHealth({
       now,
-      lastHeartbeatAt: discordResult.data.last_heartbeat_at,
+      lastHeartbeatAt: discordHealth.last_heartbeat_at,
       lastFullReconciliationSucceededAt:
-        discordResult.data.last_full_reconciliation_succeeded_at,
-      lastFailureAt: discordResult.data.last_failure_at,
+        discordHealth.last_full_reconciliation_succeeded_at,
+      lastFailureAt: discordHealth.last_failure_at,
     });
     const schedulerEvaluation = evaluateCycleSchedulerHealth({
       now,
-      activeRunStartedAt: schedulerResult.data.active_run_started_at,
-      lastCompletedAt: schedulerResult.data.last_completed_at,
-      lastSucceededAt: schedulerResult.data.last_succeeded_at,
-      lastOutcome: schedulerResult.data.last_outcome,
-      consecutiveFailures: schedulerResult.data.consecutive_failures,
+      activeRunStartedAt: schedulerHealth.active_run_started_at,
+      lastCompletedAt: schedulerHealth.last_completed_at,
+      lastSucceededAt: schedulerHealth.last_succeeded_at,
+      lastOutcome: schedulerHealth.last_outcome,
+      consecutiveFailures: schedulerHealth.consecutive_failures,
+    });
+
+    logHealthProbe(probeContext, {
+      responseStatus: 200,
+      discordDependencyAvailable: true,
+      schedulerDependencyAvailable: true,
+      schedulerIncluded: true,
     });
 
     return jsonResponse(
@@ -178,12 +281,20 @@ export async function GET(req: Request) {
           lastOutcome: schedulerEvaluation.lastOutcome,
         },
       },
-      200
+      200,
+      probeContext
     );
   } catch {
+    logHealthProbe(probeContext, {
+      responseStatus: 503,
+      discordDependencyAvailable: null,
+      schedulerDependencyAvailable: null,
+      schedulerIncluded: false,
+    });
     return jsonResponse(
       { error: "HEALTH_DEPENDENCY_UNAVAILABLE" },
-      503
+      503,
+      probeContext
     );
   }
 }

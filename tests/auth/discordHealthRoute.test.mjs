@@ -100,10 +100,14 @@ function healthRequest({
   providedSecret = secret,
   includeAuthorization = true,
   search = "",
+  probeId,
 } = {}) {
   const headers = new Headers();
   if (includeAuthorization) {
     headers.set("authorization", "Bearer " + providedSecret);
+  }
+  if (probeId !== undefined) {
+    headers.set("x-cancerculture-watchdog-probe-id", probeId);
   }
 
   return new Request("https://example.test" + routePath + search, {
@@ -121,6 +125,8 @@ function assertNoStore(response) {
 
 test.beforeEach(() => {
   process.env.DISCORD_SYNC_HEALTH_SECRET = secret;
+  process.env.VERCEL_DEPLOYMENT_ID = "dpl_testDeployment123";
+  process.env.VERCEL_GIT_COMMIT_SHA = "a".repeat(40);
   resetDatabase();
 });
 
@@ -187,6 +193,87 @@ test("no Website session or Participation state is required", async () => {
 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("set-cookie"), null);
+});
+
+test("an authenticated watchdog probe receives bounded correlation headers and logs", async () => {
+  const probeId = "3d127977-01c4-4eb9-9f55-6dd37a55ff79";
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (value) => logs.push(value);
+
+  try {
+    const response = await route.GET(healthRequest({ probeId }));
+
+    assert.equal(response.status, 200);
+    assert.equal(
+      response.headers.get("x-cancerculture-watchdog-probe-id"),
+      probeId
+    );
+    assert.equal(
+      response.headers.get("x-cancerculture-health-contract"),
+      "2"
+    );
+    assert.equal(
+      response.headers.get("x-cancerculture-deployment-id"),
+      "dpl_testDeployment123"
+    );
+    assert.equal(
+      response.headers.get("x-cancerculture-commit-sha"),
+      "a".repeat(40)
+    );
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.equal(logs.length, 1);
+  assert.deepEqual(JSON.parse(logs[0]), {
+    event: "INTERNAL_DISCORD_HEALTH_PROBE",
+    probeId,
+    contractVersion: "2",
+    deploymentId: "dpl_testDeployment123",
+    commitSha: "a".repeat(40),
+    responseStatus: 200,
+    discordDependencyAvailable: true,
+    schedulerDependencyAvailable: true,
+    schedulerIncluded: true,
+  });
+  assert.doesNotMatch(JSON.stringify(logs), new RegExp(secret));
+});
+
+test("untrusted probe and deployment metadata are not echoed or logged", async () => {
+  process.env.VERCEL_DEPLOYMENT_ID = "private deployment\nvalue";
+  process.env.VERCEL_GIT_COMMIT_SHA = "not-a-commit";
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (value) => logs.push(value);
+
+  try {
+    const response = await route.GET(
+      healthRequest({ probeId: "not-a-probe-id" })
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(
+      response.headers.get("x-cancerculture-health-contract"),
+      "2"
+    );
+    assert.equal(
+      response.headers.get("x-cancerculture-watchdog-probe-id"),
+      null
+    );
+    assert.equal(
+      response.headers.get("x-cancerculture-deployment-id"),
+      null
+    );
+    assert.equal(
+      response.headers.get("x-cancerculture-commit-sha"),
+      null
+    );
+  } finally {
+    console.log = originalLog;
+  }
+
+  assert.deepEqual(logs, []);
 });
 
 test("fresh health returns healthy", async () => {
