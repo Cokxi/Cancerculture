@@ -191,6 +191,20 @@ test("Cycle Management navigation needs only cycles.manage", () => {
   assert.equal(rendered.includes("winner-payouts"), false);
 });
 
+test("Rules Content navigation needs only rules.manage", () => {
+  const withoutGrant = resolveTeamAreaNavigation(context());
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["rules.manage"] })
+  );
+  const rendered = JSON.stringify(withGrant);
+
+  assert.equal(JSON.stringify(withoutGrant).includes("update-rules"), false);
+  assert.equal(rendered.includes("update-rules"), true);
+  assert.equal(rendered.includes("homepage-info-boxes"), false);
+  assert.equal(rendered.includes("coin-launch-links"), false);
+  assert.equal(rendered.includes("cycle-management"), false);
+});
+
 test("Winner Payouts navigation needs only its exact read capability", () => {
   const withGrant = resolveTeamAreaNavigation(
     context({ capabilities: ["winners.payouts.view"] })

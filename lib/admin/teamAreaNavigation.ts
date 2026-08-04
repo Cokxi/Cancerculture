@@ -97,6 +97,10 @@ const cycleManagement = Object.freeze({
   type: "capability",
   capability: "cycles.manage",
 } as const);
+const rulesManagement = Object.freeze({
+  type: "capability",
+  capability: "rules.manage",
+} as const);
 const sponsorReportsView = Object.freeze({
   type: "capability",
   capability: "sponsorships.reports.view",
@@ -392,10 +396,12 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
         item({
           id: "update-rules",
           title: "Update Rules",
-          href: null,
+          href: "/admin/content/rules",
           categoryId: "content",
-          requirement: adminOnly,
-          implemented: false,
+          description:
+            "Edit, preview, and publish versioned public Rules content.",
+          requirement: rulesManagement,
+          implemented: true,
         }),
         item({
           id: "coin-launch-links",

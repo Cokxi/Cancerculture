@@ -23,43 +23,47 @@ const ruleSectionIds = [
 ];
 
 test("Rules exposes stable navigation for every major section", async () => {
-  const [rulesPage, rulesContent, navigation] = await Promise.all([
+  const [rulesPage, rulesView, migration, navigation] = await Promise.all([
     readRepoFile("app/rules/page.tsx"),
-    readRepoFile("app/content/rules.ts"),
+    readRepoFile("app/components/content/RulesDocumentView.tsx"),
+    readRepoFile(
+      "supabase/migrations/20260804000100_dynamic_rules_content_management.sql"
+    ),
     readRepoFile("app/components/navigation/SectionNavigation.tsx"),
   ]);
 
   for (const id of ruleSectionIds) {
-    assert.match(rulesContent, new RegExp(`id: "${id}"`));
+    assert.match(migration, new RegExp(`"id": "${id}"`));
   }
 
   assert.equal(
-    [...rulesContent.matchAll(/\bid: "([^"]+)"/g)].length,
+    [...migration.matchAll(/"id": "([^"]+)"/g)].length,
     ruleSectionIds.length
   );
-  assert.match(rulesPage, /id=\{id\}/);
-  assert.match(rulesPage, /sections=\{standardRulesSections\}/);
+  assert.match(rulesPage, /getPublishedRulesContent/);
+  assert.match(rulesView, /id=\{section\.id\}/);
+  assert.match(rulesView, /sections=\{document\.sections\}/);
   assert.match(navigation, /href=\{`#\$\{section\.id\}`\}/);
   assert.doesNotMatch(navigation, /sticky|scrollIntoView/);
 });
 
 test("FAQ and Rules share wrapping hash navigation with scroll offsets", async () => {
-  const [faq, rules, navigation] = await Promise.all([
+  const [faq, rulesView, navigation] = await Promise.all([
     readRepoFile("app/faq/page.tsx"),
-    readRepoFile("app/rules/page.tsx"),
+    readRepoFile("app/components/content/RulesDocumentView.tsx"),
     readRepoFile("app/components/navigation/SectionNavigation.tsx"),
   ]);
 
   assert.match(faq, /sections=\{faqSections\}/);
-  assert.match(rules, /sections=\{standardRulesSections\}/);
+  assert.match(rulesView, /sections=\{document\.sections\}/);
   assert.match(faq, /scroll-mt-24.*sm:scroll-mt-28/);
-  assert.match(rules, /scroll-mt-24.*sm:scroll-mt-28/);
+  assert.match(rulesView, /scroll-mt-24.*sm:scroll-mt-28/);
   assert.match(navigation, /flex max-w-full flex-wrap gap-3/);
   assert.match(navigation, /cursor-pointer/);
   assert.match(navigation, /focus-visible:ring-2/);
   assert.match(navigation, /active:bg-\[#2a1007\]/);
   assert.doesNotMatch(faq, /sticky|scrollIntoView/);
-  assert.doesNotMatch(rules, /sticky|scrollIntoView/);
+  assert.doesNotMatch(rulesView, /sticky|scrollIntoView/);
 });
 
 test("one shared back-to-top control covers public routes without entering Admin", async () => {

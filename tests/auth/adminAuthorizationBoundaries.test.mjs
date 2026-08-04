@@ -189,13 +189,23 @@ test("submission moderation logs use their exact read capability and redact dele
   );
 });
 
-test("rules and social administration are server-side admin-only", async () => {
-  const [rules, socialLogs] = await Promise.all([
-    source("app/admin/actions/updateRulesVersion.ts"),
+test("Rules administration uses its exact capability while social logs remain Admin-only", async () => {
+  const [rulesPage, rulesActions, socialLogs] = await Promise.all([
+    source("app/admin/content/rules/page.tsx"),
+    source("app/admin/content/rules/actions.ts"),
     source("app/admin/logs/socials/page.tsx"),
   ]);
 
-  assert.match(rules, /await requireAdmin\(\)/);
+  assert.match(
+    rulesPage,
+    /requireTeamCapabilityPage\("rules\.manage", "\/admin\/content\/rules"\)/
+  );
+  assert.equal(
+    rulesActions.match(/requireDynamicTeamCapability\("rules\.manage"\)/g)
+      ?.length,
+    2
+  );
+  assert.doesNotMatch(`${rulesPage}\n${rulesActions}`, /requireAdmin(?:Page)?\(/);
   assert.match(socialLogs, /await requireAdminPage\(/);
 });
 
@@ -214,12 +224,6 @@ test("admin pages and owner actions keep explicit server guards", async () => {
       /requireAdmin(?:Page)?\(/,
       file
     );
-  }
-
-  for (const file of [
-    "app/admin/actions/updateRulesVersion.ts",
-  ]) {
-    assert.match(await source(file), /requireAdmin\(\)/, file);
   }
 
   const [historyPage, historyReadModel] = await Promise.all([

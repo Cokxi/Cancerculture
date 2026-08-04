@@ -24,6 +24,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "logs.team_authorization.view",
   "cycles.logs.view",
   "cycles.manage",
+  "rules.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
 ] as const);
@@ -606,6 +607,31 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "4f3e07f01bc453f594994689c3049e698ca2bd1d1c99e75927d161056033f710",
+  }),
+  "rules.manage": defineCapability({
+    key: "rules.manage",
+    displayName: "Manage Rules",
+    description:
+      "Create and edit the Rules draft, preview the pending revision, and publish validated Rules with an explicit material-change decision that atomically controls Rules acceptance.",
+    category: "Content",
+    includedActions: [
+      "View the current published Rules and any pending draft in the Content area.",
+      "Save validated ordered Rules sections as a versioned draft with optimistic concurrency.",
+      "Publish the current draft and explicitly classify text-only changes as material or non-material.",
+      "Automatically require a new Rules acceptance version when sections are added or removed.",
+    ],
+    excludedActions: [
+      "Managing FAQ, Homepage Info Boxes, Coin Launch Links, or other content.",
+      "Changing user acceptance records directly or bypassing rules_meta.",
+      "Managing roles, permissions, team membership, or Owner access.",
+      "Deleting or rewriting Rules revision, request, or publication history.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "d7097dece0897ddcd924010a9a8cd48f427512231eaf7da77a28005536720887",
   }),
   "sponsorships.reports.view": defineCapability({
     key: "sponsorships.reports.view",
