@@ -25,6 +25,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "cycles.logs.view",
   "cycles.manage",
   "rules.manage",
+  "faq.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
 ] as const);
@@ -632,6 +633,31 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "d7097dece0897ddcd924010a9a8cd48f427512231eaf7da77a28005536720887",
+  }),
+  "faq.manage": defineCapability({
+    key: "faq.manage",
+    displayName: "Manage FAQ",
+    description:
+      "Edit FAQ content locally, preview the exact safe public rendering, and atomically save and publish one validated immutable revision.",
+    category: "Content",
+    includedActions: [
+      "View the current published FAQ in the Content area.",
+      "Edit ordered FAQ sections in browser-local state and preview them without creating a server draft.",
+      "Atomically save and publish one validated immutable revision with optimistic concurrency and idempotency.",
+      "Invalidate the public FAQ cache after a successful publication.",
+    ],
+    excludedActions: [
+      "Creating or retaining a stored FAQ draft or a separate publish step.",
+      "Managing Rules, Rules acceptance, rules_meta, Homepage Info Boxes, Coin Launch Links, or other content.",
+      "Managing roles, permissions, team membership, or Owner access.",
+      "Deleting or rewriting FAQ revision, request, publication, or audit history.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "7a0e2cecaf38453e42a00bbc60058f9a7793512941f2c62750d5c5537a030c93",
   }),
   "sponsorships.reports.view": defineCapability({
     key: "sponsorships.reports.view",

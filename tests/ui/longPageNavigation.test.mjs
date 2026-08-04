@@ -48,21 +48,23 @@ test("Rules exposes stable navigation for every major section", async () => {
 });
 
 test("FAQ and Rules share wrapping hash navigation with scroll offsets", async () => {
-  const [faq, rulesView, navigation] = await Promise.all([
+  const [faqPage, faqView, rulesView, navigation] = await Promise.all([
     readRepoFile("app/faq/page.tsx"),
+    readRepoFile("app/components/content/FaqDocumentView.tsx"),
     readRepoFile("app/components/content/RulesDocumentView.tsx"),
     readRepoFile("app/components/navigation/SectionNavigation.tsx"),
   ]);
 
-  assert.match(faq, /sections=\{faqSections\}/);
+  assert.match(faqPage, /getPublishedFaqContent/);
+  assert.match(faqView, /sections=\{document\.sections\}/);
   assert.match(rulesView, /sections=\{document\.sections\}/);
-  assert.match(faq, /scroll-mt-24.*sm:scroll-mt-28/);
+  assert.match(faqView, /scroll-mt-24.*sm:scroll-mt-28/);
   assert.match(rulesView, /scroll-mt-24.*sm:scroll-mt-28/);
   assert.match(navigation, /flex max-w-full flex-wrap gap-3/);
   assert.match(navigation, /cursor-pointer/);
   assert.match(navigation, /focus-visible:ring-2/);
   assert.match(navigation, /active:bg-\[#2a1007\]/);
-  assert.doesNotMatch(faq, /sticky|scrollIntoView/);
+  assert.doesNotMatch(faqView, /sticky|scrollIntoView/);
   assert.doesNotMatch(rulesView, /sticky|scrollIntoView/);
 });
 

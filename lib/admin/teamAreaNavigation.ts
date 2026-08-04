@@ -101,6 +101,10 @@ const rulesManagement = Object.freeze({
   type: "capability",
   capability: "rules.manage",
 } as const);
+const faqManagement = Object.freeze({
+  type: "capability",
+  capability: "faq.manage",
+} as const);
 const sponsorReportsView = Object.freeze({
   type: "capability",
   capability: "sponsorships.reports.view",
@@ -401,6 +405,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           description:
             "Edit, preview, and publish versioned public Rules content.",
           requirement: rulesManagement,
+          implemented: true,
+        }),
+        item({
+          id: "update-faq",
+          title: "Update FAQ",
+          href: "/admin/content/faq",
+          categoryId: "content",
+          description:
+            "Edit, preview, and atomically publish versioned public FAQ content.",
+          requirement: faqManagement,
           implemented: true,
         }),
         item({
