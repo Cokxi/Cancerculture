@@ -64,6 +64,7 @@ test("Cloudflare submission transforms stay centralized", async () => {
 test("preview surfaces use thumbnails while full-size views keep originals", async () => {
   const previewPaths = [
     "app/admin/moderation/disqualified/page.tsx",
+    "lib/admin/moderationLogs.ts",
     "app/admin/users/UserSubmissionsDropdown.tsx",
     "app/cycle-history/CycleHistoryClient.tsx",
     "app/my-profile/ProfileSections.tsx",
@@ -80,6 +81,18 @@ test("preview surfaces use thumbnails while full-size views keep originals", asy
   for (const source of previewSources) {
     assert.match(source, /getSubmissionThumbnailUrl/u);
   }
+
+  const moderationLogList = await readFile(
+    new URL(
+      "app/admin/logs/moderation/moderation-log-list.tsx",
+      repoRoot
+    ),
+    "utf8"
+  );
+  assert.match(
+    moderationLogList,
+    /src=\{log\.submission_thumbnail_url\}/u
+  );
 
   const [submissions, cycleHistory, fame, shame] = await Promise.all(
     [

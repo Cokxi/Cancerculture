@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ModerationLogRow } from "@/lib/admin/moderationLogs";
+import Image from "next/image";
 import UserProfileLink from "../shared/UserProfileLink";
 
 function formatAction(action: string) {
@@ -65,8 +66,15 @@ export default function ModerationLogList() {
 
       {!loading && !error ? (
         <>
-          <div style={{ marginTop: 12 }}>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <label
+              htmlFor="moderation-log-submitter-filter"
+              className="sr-only"
+            >
+              Filter moderation logs by submitter Discord ID
+            </label>
             <input
+              id="moderation-log-submitter-filter"
               type="text"
               placeholder="Filter by submitter Discord ID"
               value={discordIdFilter}
@@ -75,6 +83,7 @@ export default function ModerationLogList() {
                 padding: "4px 8px",
                 fontSize: 13,
                 width: 280,
+                maxWidth: "100%",
                 background: "#0b0b0b",
                 border: "1px solid #333",
                 color: "white",
@@ -82,8 +91,9 @@ export default function ModerationLogList() {
             />
             {discordIdFilter ? (
               <button
+                type="button"
                 onClick={() => setDiscordIdFilter("")}
-                style={{ marginLeft: 8, fontSize: 12 }}
+                style={{ fontSize: 12 }}
               >
                 Clear
               </button>
@@ -111,68 +121,126 @@ export default function ModerationLogList() {
               </summary>
 
               {cycleLogs.map((log) => (
-                <div
+                <details
                   key={log.id}
-                  style={{
-                    marginTop: 12,
-                    padding: 12,
-                    background: "#0b0b0b",
-                    border: "1px solid #222",
-                    borderRadius: 6,
-                    fontSize: 13,
-                  }}
+                  className="mt-3 rounded-lg border border-white/10 bg-black/35 p-3 text-sm"
                 >
-                  <div>
-                    <strong>{log.actor_role.toUpperCase()}</strong> - {" "}
-                    {formatAction(log.action)}
-                  </div>
-                  <div style={{ opacity: 0.7 }}>
-                    {new Date(log.created_at).toLocaleString()}
-                  </div>
+                  <summary className="cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-orange-300">
+                    <span className="ml-2 inline-flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <strong>{log.actor_role.toUpperCase()}</strong>
+                      <span>{formatAction(log.action)}</span>
+                      <span className="text-xs text-white/60">
+                        {new Date(log.created_at).toLocaleString()}
+                      </span>
+                    </span>
+                  </summary>
 
-                  <div style={{ marginTop: 4 }}>
-                    Actor: {" "}
-                    <UserProfileLink
-                      discordUserId={log.actor_discord_user_id}
-                      label={
-                        log.actor_discord_user_label ??
-                        log.actor_discord_user_id
-                      }
-                      publicProfileId={log.actor_public_profile_id}
-                    />
-                  </div>
+                  <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_10rem]">
+                    <dl className="grid min-w-0 gap-x-4 gap-y-2 sm:grid-cols-[7rem_minmax(0,1fr)]">
+                      <dt className="font-semibold text-white/60">
+                        Actor
+                      </dt>
+                      <dd className="min-w-0 break-words">
+                        <UserProfileLink
+                          discordUserId={log.actor_discord_user_id}
+                          label={
+                            log.actor_discord_user_label ??
+                            log.actor_discord_user_id
+                          }
+                          publicProfileId={log.actor_public_profile_id}
+                        />
+                      </dd>
 
-                  <div style={{ marginTop: 4 }}>
-                    Submitter: {" "}
-                    {log.submitter_discord_user_id ? (
-                      <UserProfileLink
-                        discordUserId={log.submitter_discord_user_id}
-                        label={
-                          log.submitter_discord_user_label ??
-                          log.submitter_discord_user_id
-                        }
-                        publicProfileId={log.submitter_public_profile_id}
-                      />
-                    ) : (
-                      "unknown"
-                    )}
-                  </div>
+                      <dt className="font-semibold text-white/60">
+                        Submitter
+                      </dt>
+                      <dd className="min-w-0 break-words">
+                        {log.submitter_discord_user_id ? (
+                          <UserProfileLink
+                            discordUserId={
+                              log.submitter_discord_user_id
+                            }
+                            label={
+                              log.submitter_discord_user_label ??
+                              log.submitter_discord_user_id
+                            }
+                            publicProfileId={
+                              log.submitter_public_profile_id
+                            }
+                          />
+                        ) : (
+                          "unknown"
+                        )}
+                      </dd>
 
-                  <div style={{ marginTop: 4 }}>
-                    Submission: {" "}
-                    {log.submission_id === null
-                      ? "unknown"
-                      : `#${log.submission_id}`}
+                      <dt className="font-semibold text-white/60">
+                        Submission
+                      </dt>
+                      <dd className="min-w-0 break-words">
+                        {log.submission_id === null
+                          ? "unknown"
+                          : `#${log.submission_id}`}
+                        {log.submission_href ? (
+                          <a
+                            href={log.submission_href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-3 text-orange-300 underline decoration-orange-300/50 underline-offset-2 transition hover:text-orange-200 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+                          >
+                            Open current view
+                          </a>
+                        ) : null}
+                      </dd>
+
+                      <dt className="font-semibold text-white/60">
+                        Cycle
+                      </dt>
+                      <dd>
+                        {log.cycle_id === null
+                          ? "unknown"
+                          : `#${log.cycle_id}`}
+                      </dd>
+
+                      <dt className="font-semibold text-white/60">
+                        Reason
+                      </dt>
+                      <dd className="min-w-0 break-words font-semibold">
+                        {formatAction(log.reason)}
+                      </dd>
+
+                      {log.reason_text ? (
+                        <>
+                          <dt className="font-semibold text-white/60">
+                            Details
+                          </dt>
+                          <dd className="min-w-0 whitespace-pre-wrap break-words text-white/70">
+                            {log.reason_text}
+                          </dd>
+                        </>
+                      ) : null}
+                    </dl>
+
+                    {log.submission_href &&
+                    log.submission_thumbnail_url ? (
+                      <a
+                        href={log.submission_href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Open current view of submission #${log.submission_id}`}
+                        className="block h-40 w-40 overflow-hidden rounded-lg border border-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+                      >
+                        <Image
+                          src={log.submission_thumbnail_url}
+                          alt={`Submission #${log.submission_id} preview`}
+                          width={160}
+                          height={160}
+                          unoptimized
+                          className="h-full w-full object-cover transition-transform hover:scale-105"
+                        />
+                      </a>
+                    ) : null}
                   </div>
-                  <div style={{ marginTop: 8, fontWeight: 600 }}>
-                    Reason: {formatAction(log.reason)}
-                  </div>
-                  {log.reason_text ? (
-                    <div style={{ marginTop: 4, color: "#aaa" }}>
-                      Details: {log.reason_text}
-                    </div>
-                  ) : null}
-                </div>
+                </details>
               ))}
             </details>
           ))}

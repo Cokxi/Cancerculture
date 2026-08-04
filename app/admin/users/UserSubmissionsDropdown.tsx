@@ -3,6 +3,7 @@
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
+import { getSubmissionDestinationHref } from "@/lib/submissions/getSubmissionDestinationHref";
 import Image from "next/image";
 
 type Props = {
@@ -18,6 +19,7 @@ type SubmissionRow = {
   r2_key: string;
   is_disqualified: boolean;
   disqualification_reason_code: string | null;
+  public_visibility_status: string | null;
 };
 
 export default async function UserSubmissionsDropdown({
@@ -33,7 +35,8 @@ export default async function UserSubmissionsDropdown({
       cycle_id,
       r2_key,
       is_disqualified,
-      disqualification_reason_code
+      disqualification_reason_code,
+      public_visibility_status
     `)
     .eq("discord_user_id", discordUserId);
   if (!includeDisqualified) {
@@ -87,13 +90,13 @@ export default async function UserSubmissionsDropdown({
     ...s,
     image_url: getPublicImageUrl(s.r2_key) ?? "",
     vote_count: voteCountMap.get(s.id) ?? 0,
-    destination_href: s.is_disqualified
-      ? null
-      : ["active", "submission_open", "voting_open", "paused"].includes(
-            cycleStatusById.get(s.cycle_id) ?? ""
-          )
-        ? `/submissions?submission=${s.id}`
-        : `/cycle-history?cycle=${s.cycle_id}#submission-${s.id}`,
+    destination_href: getSubmissionDestinationHref({
+      cycleId: s.cycle_id,
+      cycleStatus: cycleStatusById.get(s.cycle_id),
+      isDisqualified: s.is_disqualified,
+      publicVisibilityStatus: s.public_visibility_status,
+      submissionId: s.id,
+    }),
   }));
 
   

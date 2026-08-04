@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/db/server";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getSubmissionDestinationHref } from "@/lib/submissions/getSubmissionDestinationHref";
 
 type UserSubmissionRow = {
   id: number;
@@ -19,7 +20,9 @@ type CycleVoteRow = {
 };
 
 type CycleCountRow = {
+  id: number;
   cycle_id: number;
+  public_visibility_status: string | null;
 };
 
 type CycleStatusRow = {
@@ -67,7 +70,7 @@ export async function getUserSubmissions(discord_user_id: string) {
 
   const { data: cycleCounts } = await supabase
     .from("submissions")
-    .select("cycle_id")
+    .select("id, cycle_id, public_visibility_status")
     .in("cycle_id", cycleIds)
     .eq("is_disqualified", false);
 
@@ -78,6 +81,12 @@ export async function getUserSubmissions(discord_user_id: string) {
 
   const tieMap = new Map<string, number>();
   const totalByCycle = new Map<number, number>();
+  const publicVisibilityBySubmissionId = new Map(
+    ((cycleCounts ?? []) as CycleCountRow[]).map((submission) => [
+      submission.id,
+      submission.public_visibility_status,
+    ])
+  );
   const cycleStatusById = new Map(
     ((cycleRows ?? []) as CycleStatusRow[]).map((cycle) => [
       cycle.id,
@@ -100,19 +109,14 @@ export async function getUserSubmissions(discord_user_id: string) {
   return submissions.map((item) => {
     const tieKey = `${item.cycle_id}-${item.vote_count}`;
     const cycleStatus = cycleStatusById.get(item.cycle_id);
-    const isCurrentPublicCycle = [
-      "active",
-      "submission_open",
-      "voting_open",
-      "paused",
-    ].includes(cycleStatus ?? "");
-    const destinationHref = item.is_disqualified
-      ? null
-      : isCurrentPublicCycle
-        ? `/submissions?submission=${item.id}`
-        : item.rank
-          ? `/cycle-history?cycle=${item.cycle_id}#submission-${item.id}`
-          : null;
+    const destinationHref = getSubmissionDestinationHref({
+      cycleId: item.cycle_id,
+      cycleStatus,
+      isDisqualified: item.is_disqualified,
+      publicVisibilityStatus:
+        publicVisibilityBySubmissionId.get(item.id),
+      submissionId: item.id,
+    });
 
     return {
       id: item.id,
