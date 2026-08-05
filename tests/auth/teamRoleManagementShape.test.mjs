@@ -153,7 +153,7 @@ test("permission rows are semantic, responsive, data-driven, exclude Admin, and 
   ]);
 
   assert.match(shell, /capabilities=\{readModel\.capabilities\}/);
-  assert.match(ui, /baseCapabilities\.map/);
+  assert.match(ui, /capabilitiesByTab\[activePermissionTab\]\.map/);
   assert.match(page, /ACTIVE_TEAM_CAPABILITY_KEYS\.map/);
   assert.match(shell, /activeNonAdminRoles/);
   assert.match(ui, /data-capability-block/);

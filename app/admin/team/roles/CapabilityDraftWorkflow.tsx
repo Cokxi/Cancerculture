@@ -13,6 +13,11 @@ import type {
   TeamRoleAdminRole,
 } from "@/lib/auth/teamRoleAdminReadModel";
 import {
+  getTeamCapabilityPermissionTab,
+  TEAM_CAPABILITY_PERMISSION_TABS,
+  type TeamCapabilityPermissionTab,
+} from "@/lib/auth/teamCapabilityPresentation";
+import {
   buildCapabilityBatchReview,
   capabilityDraftKey,
   permissionSnapshotFingerprint,
@@ -36,6 +41,16 @@ const builtInRoleLabels: Readonly<Record<string, string>> = {
   moderator: "Mod",
   super_moderator: "S Mod",
 };
+
+const permissionTabLabels: Readonly<
+  Record<TeamCapabilityPermissionTab, string>
+> = {
+  view: "View",
+  actions: "Actions",
+};
+
+const PERMISSION_BATCH_REASON =
+  "Permission grants updated through the reviewed SAVE batch.";
 
 function roleLabel(role: TeamRoleAdminRole) {
   return builtInRoleLabels[role.key] ?? role.displayName;
@@ -431,6 +446,11 @@ export default function CapabilityDraftWorkflow({
   const requestIdentityRef =
     useRef<TeamCapabilityBatchRequestIdentity | null>(null);
   const submitLockRef = useRef(false);
+  const [activePermissionTab, setActivePermissionTab] =
+    useState<TeamCapabilityPermissionTab>("view");
+  const permissionTabRefs = useRef<
+    Record<TeamCapabilityPermissionTab, HTMLButtonElement | null>
+  >({ view: null, actions: null });
 
   const incomingFingerprint = useMemo(
     () => permissionSnapshotFingerprint(roles, capabilities),
@@ -447,6 +467,20 @@ export default function CapabilityDraftWorkflow({
   const summary = useMemo(
     () => summarizeCapabilityDraft(draft),
     [draft]
+  );
+  const capabilitiesByTab = useMemo(
+    () =>
+      Object.freeze({
+        view: baseCapabilities.filter(
+          (capability) =>
+            getTeamCapabilityPermissionTab(capability.key) === "view"
+        ),
+        actions: baseCapabilities.filter(
+          (capability) =>
+            getTeamCapabilityPermissionTab(capability.key) === "actions"
+        ),
+      }),
+    [baseCapabilities]
   );
   const blocked =
     draft.length > 0 ||
@@ -616,7 +650,7 @@ export default function CapabilityDraftWorkflow({
     }
   }
 
-  async function applyReview(reason: string) {
+  async function applyReview() {
     if (
       !review ||
       busy ||
@@ -625,12 +659,11 @@ export default function CapabilityDraftWorkflow({
     ) {
       return;
     }
-    const normalizedReason = reason.trim();
     requestIdentityRef.current =
       resolveCapabilityBatchRequestIdentity(
         requestIdentityRef.current,
         review.fingerprint,
-        normalizedReason,
+        PERMISSION_BATCH_REASON,
         () => crypto.randomUUID()
       );
     const requestIdentity = requestIdentityRef.current;
@@ -649,7 +682,7 @@ export default function CapabilityDraftWorkflow({
           capabilitySnapshots: review.capabilitySnapshots,
           changes: review.changes,
           confirmationWord: "SAVE",
-          reason: normalizedReason,
+          reason: PERMISSION_BATCH_REASON,
           idempotencyKey: requestIdentity.idempotencyKey,
         }),
       });
@@ -723,21 +756,85 @@ export default function CapabilityDraftWorkflow({
         </p>
       ) : null}
 
-      {baseCapabilities.map((capability) => (
-        <CapabilityBlock
-          key={capability.key}
-          capability={capability}
-          roles={baseRoles}
-          draft={draft}
-          locked={
-            review !== null ||
-            busy ||
-            roleMutationPending ||
-            refreshPending
-          }
-          onToggle={(role) => toggle(role, capability)}
-        />
-      ))}
+      <div
+        role="tablist"
+        aria-label="Permission type"
+        className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-black/20 p-1.5"
+      >
+        {TEAM_CAPABILITY_PERMISSION_TABS.map((tab, index) => {
+          const selected = activePermissionTab === tab;
+          return (
+            <button
+              key={tab}
+              ref={(element) => {
+                permissionTabRefs.current[tab] = element;
+              }}
+              id={`permission-tab-${tab}`}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`permission-panel-${tab}`}
+              tabIndex={selected ? 0 : -1}
+              className={`cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-orange-300 ${
+                selected
+                  ? "bg-orange-500/20 text-orange-200"
+                  : "text-white/55 hover:bg-white/5 hover:text-white/85"
+              }`}
+              onClick={() => setActivePermissionTab(tab)}
+              onKeyDown={(event) => {
+                let nextIndex = index;
+                if (event.key === "ArrowRight") {
+                  nextIndex =
+                    (index + 1) %
+                    TEAM_CAPABILITY_PERMISSION_TABS.length;
+                } else if (event.key === "ArrowLeft") {
+                  nextIndex =
+                    (index - 1 + TEAM_CAPABILITY_PERMISSION_TABS.length) %
+                    TEAM_CAPABILITY_PERMISSION_TABS.length;
+                } else if (event.key === "Home") {
+                  nextIndex = 0;
+                } else if (event.key === "End") {
+                  nextIndex = TEAM_CAPABILITY_PERMISSION_TABS.length - 1;
+                } else {
+                  return;
+                }
+                event.preventDefault();
+                const nextTab = TEAM_CAPABILITY_PERMISSION_TABS[nextIndex];
+                setActivePermissionTab(nextTab);
+                permissionTabRefs.current[nextTab]?.focus();
+              }}
+            >
+              {permissionTabLabels[tab]}{" "}
+              <span className="text-xs text-white/45">
+                ({capabilitiesByTab[tab].length})
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        id={`permission-panel-${activePermissionTab}`}
+        role="tabpanel"
+        aria-labelledby={`permission-tab-${activePermissionTab}`}
+        className="grid gap-3"
+      >
+        {capabilitiesByTab[activePermissionTab].map((capability) => (
+          <CapabilityBlock
+            key={capability.key}
+            capability={capability}
+            roles={baseRoles}
+            draft={draft}
+            locked={
+              review !== null ||
+              busy ||
+              roleMutationPending ||
+              refreshPending
+            }
+            onToggle={(role) => toggle(role, capability)}
+          />
+        ))}
+      </div>
 
       <div
         data-draft-summary
@@ -843,6 +940,7 @@ export default function CapabilityDraftWorkflow({
               "Every listed Grant and Revoke is submitted in one all-or-nothing authorization batch.",
             payload: {},
             confirmationWord: "SAVE",
+            reasonInput: "hidden",
           }}
           busy={busy || refreshPending}
           confirmDisabled={
@@ -858,7 +956,7 @@ export default function CapabilityDraftWorkflow({
               requestIdentityRef.current = null;
             }
           }}
-          onConfirm={(reason) => void applyReview(reason)}
+          onConfirm={() => void applyReview()}
         />
       ) : null}
     </section>

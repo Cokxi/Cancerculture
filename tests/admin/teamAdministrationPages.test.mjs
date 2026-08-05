@@ -243,7 +243,7 @@ test("page-specific server read models avoid loading unrelated Team data", async
   );
 });
 
-test("Roles & Permissions renders twenty compact responsive rows with active dynamic role controls", async () => {
+test("Roles & Permissions splits all twenty-six compact responsive rows into View and Actions", async () => {
   const [page, shell, ui, registry] = await Promise.all([
     source("app/admin/team/roles/page.tsx"),
     source("app/admin/team/roles/RolesPermissionsClient.tsx"),
@@ -274,11 +274,25 @@ test("Roles & Permissions renders twenty compact responsive rows with active dyn
       "logs.submission_moderation.view",
       "logs.team_authorization.view",
       "cycles.logs.view",
+      "cycles.manage",
+      "rules.manage",
+      "faq.manage",
+      "homepage_content.manage",
+      "sponsorships.reports.view",
+      "winners.payouts.view",
     ].filter((key) => registry.includes(`"${key}"`)).length,
-    20
+    26
   );
   assert.match(shell, /capabilities=\{readModel\.capabilities\}/);
-  assert.match(ui, /baseCapabilities\.map/);
+  assert.match(ui, /capabilitiesByTab\[activePermissionTab\]\.map/);
+  assert.match(ui, /role="tablist"/);
+  assert.match(ui, /role="tab"/);
+  assert.match(ui, /aria-selected=\{selected\}/);
+  assert.match(ui, /role="tabpanel"/);
+  assert.match(ui, /permissionTabLabels\[tab\]/);
+  assert.match(ui, /getTeamCapabilityPermissionTab\(capability\.key\)/);
+  assert.match(ui, /event\.key === "ArrowRight"/);
+  assert.match(ui, /event\.key === "ArrowLeft"/);
   assert.match(shell, /roles=\{readModel\.activeNonAdminRoles\}/);
   assert.match(ui, /<article[\s\S]*aria-labelledby=\{headingId\}/);
   assert.match(ui, /data-capability-layout/);

@@ -65,7 +65,7 @@ test("the compact draft summary and role-management interlock retain local inten
   assert.match(roles, /operation: "set_role_active"/);
 });
 
-test("review is complete, frozen, requires Reason and exact SAVE, and posts only the batch contract", async () => {
+test("review is complete, frozen, hides free-text Reason, requires exact SAVE, and posts only the batch contract", async () => {
   const [workflow, dialog] = await Promise.all([
     source("app/admin/team/roles/CapabilityDraftWorkflow.tsx"),
     source("app/admin/team/TeamRoleMutationClient.tsx"),
@@ -84,17 +84,37 @@ test("review is complete, frozen, requires Reason and exact SAVE, and posts only
   assert.match(workflow, /entry\.originalGranted/);
   assert.match(workflow, /entry\.desiredGranted/);
   assert.match(workflow, /confirmationWord: "SAVE"/);
+  assert.match(workflow, /reasonInput: "hidden"/);
   assert.match(workflow, /confirmLabel="Apply changes"/);
+  assert.match(dialog, /operation\.reasonInput !== "hidden"/);
+  assert.match(dialog, /reasonRequired \? \(/);
   assert.match(dialog, /reason\.trim\(\)\.length >= 3/);
   assert.match(dialog, /!confirmDisabled/);
   assert.match(dialog, /confirmationInput === operation\.confirmationWord/);
   assert.match(dialog, /immutable authorization audit and batch ledger/);
+  assert.match(
+    workflow,
+    /PERMISSION_BATCH_REASON\s*=\s*\n?\s*"Permission grants updated through the reviewed SAVE batch\."/u,
+  );
   assert.match(body, /roleSnapshots: review\.roleSnapshots/);
   assert.match(body, /capabilitySnapshots: review\.capabilitySnapshots/);
   assert.match(body, /changes: review\.changes/);
-  assert.match(body, /reason: normalizedReason/);
+  assert.match(body, /reason: PERMISSION_BATCH_REASON/);
   assert.match(body, /idempotencyKey: requestIdentity\.idempotencyKey/);
   assert.doesNotMatch(body, /actor|roleSnapshots\s*:\s*baseRoles/iu);
+});
+
+test("non-batch role mutations retain the required append-only audit reason", async () => {
+  const [dialog, roles] = await Promise.all([
+    source("app/admin/team/TeamRoleMutationClient.tsx"),
+    source("app/admin/team/roles/RolesPermissionsClient.tsx"),
+  ]);
+
+  assert.match(dialog, /reasonInput\?: "required" \| "hidden"/);
+  assert.match(dialog, /operation\.reasonInput !== "hidden"/);
+  assert.match(dialog, /label="Reason"/);
+  assert.match(dialog, /Stored in the append-only authorization audit/);
+  assert.doesNotMatch(roles, /reasonInput: "hidden"/);
 });
 
 test("submission has stable retry identity, double-click protection, controlled refresh, and no early clear", async () => {

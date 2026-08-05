@@ -18,6 +18,7 @@ export type MutationOperation = {
   successMessage: string;
   payload: Record<string, unknown>;
   confirmationWord?: "ADMIN" | "ADD" | "REMOVE" | "SAVE";
+  reasonInput?: "required" | "hidden";
   redirectOnSuccess?: string;
 };
 
@@ -88,6 +89,7 @@ export function TeamMutationDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [reason, setReason] = useState("");
   const [confirmationInput, setConfirmationInput] = useState("");
+  const reasonRequired = operation.reasonInput !== "hidden";
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -98,7 +100,7 @@ export function TeamMutationDialog({
 
   const valid =
     !confirmDisabled &&
-    reason.trim().length >= 3 &&
+    (!reasonRequired || reason.trim().length >= 3) &&
     (!operation.confirmationWord ||
       confirmationInput === operation.confirmationWord);
 
@@ -119,7 +121,10 @@ export function TeamMutationDialog({
         onSubmit={(event) => {
           event.preventDefault();
           if (valid && !busy) {
-            onConfirm(reason.trim(), confirmationInput);
+            onConfirm(
+              reasonRequired ? reason.trim() : "",
+              confirmationInput
+            );
           }
         }}
       >
@@ -147,24 +152,26 @@ export function TeamMutationDialog({
           </div>
         ) : null}
 
-        <Field
-          label="Reason"
-          hint={
-            operation.confirmationWord === "SAVE"
-              ? "Required. Stored in the immutable authorization audit and batch ledger."
-              : "Required. Stored in the append-only authorization audit."
-          }
-        >
-          <textarea
-            autoFocus
-            className={`${inputClass} min-h-24`}
-            value={reason}
-            disabled={busy}
-            maxLength={1000}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="Explain why this authorization change is required"
-          />
-        </Field>
+        {reasonRequired ? (
+          <Field
+            label="Reason"
+            hint={
+              operation.confirmationWord === "SAVE"
+                ? "Required. Stored in the immutable authorization audit and batch ledger."
+                : "Required. Stored in the append-only authorization audit."
+            }
+          >
+            <textarea
+              autoFocus
+              className={`${inputClass} min-h-24`}
+              value={reason}
+              disabled={busy}
+              maxLength={1000}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Explain why this authorization change is required"
+            />
+          </Field>
+        ) : null}
 
         {operation.confirmationWord ? (
           <Field
@@ -178,6 +185,7 @@ export function TeamMutationDialog({
             }
           >
             <input
+              autoFocus={!reasonRequired}
               className={inputClass}
               value={confirmationInput}
               disabled={busy}
