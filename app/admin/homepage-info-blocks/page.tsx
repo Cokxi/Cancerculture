@@ -1,5 +1,5 @@
 import HomepageInfoBlockCard from "@/app/components/homepageInfoBlocks/HomepageInfoBlockCard";
-import { requireAdminPage } from "@/lib/auth/pageAccess";
+import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
 import { getHomepageInfoBlocksForAdmin } from "@/lib/homepageInfoBlocks/data.server";
 import type { AdminHomepageInfoBlock } from "@/lib/homepageInfoBlocks/types";
 import { HOMEPAGE_INFO_BLOCK_LIMITS } from "@/lib/homepageInfoBlocks/validation";
@@ -102,7 +102,10 @@ function getExcerpt(body: string) {
 }
 
 export default async function HomepageInfoBlocksAdminPage() {
-  await requireAdminPage("/admin/homepage-info-blocks");
+  await requireTeamCapabilityPage(
+    "homepage_content.manage",
+    "/admin/homepage-info-blocks"
+  );
   const blocks = await getHomepageInfoBlocksForAdmin();
   const activeBlocks = blocks.filter((block) => block.isActive);
 

@@ -221,6 +221,24 @@ test("FAQ Content navigation needs only faq.manage", () => {
   assert.equal(rendered.includes("cycle-management"), false);
 });
 
+test("Homepage Info navigation needs only homepage_content.manage", () => {
+  const withoutGrant = resolveTeamAreaNavigation(context());
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["homepage_content.manage"] })
+  );
+  const rendered = JSON.stringify(withGrant);
+
+  assert.equal(
+    JSON.stringify(withoutGrant).includes("homepage-info-boxes"),
+    false
+  );
+  assert.equal(rendered.includes("homepage-info-boxes"), true);
+  assert.equal(rendered.includes("update-rules"), false);
+  assert.equal(rendered.includes("update-faq"), false);
+  assert.equal(rendered.includes("coin-launch-links"), false);
+  assert.equal(rendered.includes("cycle-management"), false);
+});
+
 test("Winner Payouts navigation needs only its exact read capability", () => {
   const withGrant = resolveTeamAreaNavigation(
     context({ capabilities: ["winners.payouts.view"] })

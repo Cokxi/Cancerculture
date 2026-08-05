@@ -26,6 +26,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "cycles.manage",
   "rules.manage",
   "faq.manage",
+  "homepage_content.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
 ] as const);
@@ -658,6 +659,31 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "7a0e2cecaf38453e42a00bbc60058f9a7793512941f2c62750d5c5537a030c93",
+  }),
+  "homepage_content.manage": defineCapability({
+    key: "homepage_content.manage",
+    displayName: "Manage Homepage Info Boxes",
+    description:
+      "Create, edit, activate, deactivate, reorder, preview, and permanently delete the validated public Homepage Info Boxes.",
+    category: "Content",
+    includedActions: [
+      "View all active and inactive Homepage Info Boxes, stored actor identifiers, and timestamps in the Content area.",
+      "Create and edit validated titles, body text, display order, and optional internal or HTTPS links.",
+      "Activate or deactivate boxes and preview the active public ordering.",
+      "Permanently delete a box after explicit confirmation and invalidate the public Homepage cache after every successful mutation.",
+    ],
+    excludedActions: [
+      "Managing Rules, FAQ, Coin Launch Links, or any other Homepage content.",
+      "Using non-HTTPS external links, embedded credentials, unsafe rendering, or bypassing content validation.",
+      "Managing roles, permissions, team membership, or Owner access.",
+      "Viewing unrelated logs or mutating unrelated public content, cycles, users, submissions, sponsorships, or payouts.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "b9f5db882c8fa65f235ef2fe83f1cc90515761e21ea885e4ca80e58b2476957a",
   }),
   "sponsorships.reports.view": defineCapability({
     key: "sponsorships.reports.view",

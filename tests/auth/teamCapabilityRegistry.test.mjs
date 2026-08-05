@@ -38,6 +38,7 @@ const expectedKeys = [
   "cycles.manage",
   "rules.manage",
   "faq.manage",
+  "homepage_content.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
 ];
@@ -58,7 +59,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains twenty-seven known and twenty-five active capability keys", () => {
+test("the server registry contains twenty-eight known and twenty-six active capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -140,6 +141,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "d7097dece0897ddcd924010a9a8cd48f427512231eaf7da77a28005536720887",
     "faq.manage":
       "7a0e2cecaf38453e42a00bbc60058f9a7793512941f2c62750d5c5537a030c93",
+    "homepage_content.manage":
+      "b9f5db882c8fa65f235ef2fe83f1cc90515761e21ea885e4ca80e58b2476957a",
     "sponsorships.reports.view":
       "421c31be87cac7864a7fb6fad229e614befed4d38374f0fc05e285ffaa24d655",
     "winners.payouts.view":

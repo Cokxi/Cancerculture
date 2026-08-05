@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { logAdminAction } from "@/lib/audit/logAdminAction";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { HOMEPAGE_INFO_BLOCKS_CACHE_TAG } from "@/lib/homepageInfoBlocks/data.server";
@@ -40,12 +40,16 @@ function invalidateHomepageInfoBlocks() {
 
 async function recordMutation({
   actorId,
+  actorRole,
+  isAdmin,
   action,
   blockId,
   isActive,
   displayOrder,
 }: {
   actorId: string;
+  actorRole: string;
+  isAdmin: boolean;
   action: string;
   blockId: number;
   isActive?: boolean;
@@ -53,7 +57,7 @@ async function recordMutation({
 }) {
   try {
     await logAdminAction({
-      actorType: "admin",
+      actorType: isAdmin ? "admin" : "moderator",
       actorId,
       action,
       targetType: "homepage_info_block",
@@ -61,6 +65,8 @@ async function recordMutation({
       meta: {
         is_active: isActive ?? null,
         display_order: displayOrder ?? null,
+        authorization_capability: "homepage_content.manage",
+        authorization_role: actorRole,
       },
     });
   } catch {
@@ -71,14 +77,16 @@ async function recordMutation({
 export async function createHomepageInfoBlockAction(
   formData: FormData
 ) {
-  const admin = await requireAdmin();
+  const authorization = await requireDynamicTeamCapability(
+    "homepage_content.manage"
+  );
   const values = validateHomepageInfoBlockFormData(formData);
   const { data, error } = await supabaseAdmin
     .from("homepage_info_blocks")
     .insert({
       ...toDatabaseValues(values),
-      created_by: admin.discord_user_id,
-      updated_by: admin.discord_user_id,
+      created_by: authorization.discord_user_id,
+      updated_by: authorization.discord_user_id,
     })
     .select("id")
     .single();
@@ -89,7 +97,9 @@ export async function createHomepageInfoBlockAction(
 
   invalidateHomepageInfoBlocks();
   await recordMutation({
-    actorId: admin.discord_user_id,
+    actorId: authorization.discord_user_id,
+    actorRole: authorization.role,
+    isAdmin: authorization.isAdmin,
     action: "homepage_info_block_created",
     blockId: data.id,
     isActive: values.isActive,
@@ -100,14 +110,16 @@ export async function createHomepageInfoBlockAction(
 export async function updateHomepageInfoBlockAction(
   formData: FormData
 ) {
-  const admin = await requireAdmin();
+  const authorization = await requireDynamicTeamCapability(
+    "homepage_content.manage"
+  );
   const id = getInfoBlockId(formData);
   const values = validateHomepageInfoBlockFormData(formData);
   const { data, error } = await supabaseAdmin
     .from("homepage_info_blocks")
     .update({
       ...toDatabaseValues(values),
-      updated_by: admin.discord_user_id,
+      updated_by: authorization.discord_user_id,
     })
     .eq("id", id)
     .select("id")
@@ -119,7 +131,9 @@ export async function updateHomepageInfoBlockAction(
 
   invalidateHomepageInfoBlocks();
   await recordMutation({
-    actorId: admin.discord_user_id,
+    actorId: authorization.discord_user_id,
+    actorRole: authorization.role,
+    isAdmin: authorization.isAdmin,
     action: "homepage_info_block_updated",
     blockId: id,
     isActive: values.isActive,
@@ -130,7 +144,9 @@ export async function updateHomepageInfoBlockAction(
 export async function setHomepageInfoBlockActiveAction(
   formData: FormData
 ) {
-  const admin = await requireAdmin();
+  const authorization = await requireDynamicTeamCapability(
+    "homepage_content.manage"
+  );
   const id = getInfoBlockId(formData);
   const requestedValue = formData.get("is_active");
 
@@ -143,7 +159,7 @@ export async function setHomepageInfoBlockActiveAction(
     .from("homepage_info_blocks")
     .update({
       is_active: isActive,
-      updated_by: admin.discord_user_id,
+      updated_by: authorization.discord_user_id,
     })
     .eq("id", id)
     .select("id")
@@ -155,7 +171,9 @@ export async function setHomepageInfoBlockActiveAction(
 
   invalidateHomepageInfoBlocks();
   await recordMutation({
-    actorId: admin.discord_user_id,
+    actorId: authorization.discord_user_id,
+    actorRole: authorization.role,
+    isAdmin: authorization.isAdmin,
     action: isActive
       ? "homepage_info_block_activated"
       : "homepage_info_block_deactivated",
@@ -167,7 +185,9 @@ export async function setHomepageInfoBlockActiveAction(
 export async function deleteHomepageInfoBlockAction(
   formData: FormData
 ) {
-  const admin = await requireAdmin();
+  const authorization = await requireDynamicTeamCapability(
+    "homepage_content.manage"
+  );
   const id = getInfoBlockId(formData);
   const { data, error } = await supabaseAdmin
     .from("homepage_info_blocks")
@@ -182,7 +202,9 @@ export async function deleteHomepageInfoBlockAction(
 
   invalidateHomepageInfoBlocks();
   await recordMutation({
-    actorId: admin.discord_user_id,
+    actorId: authorization.discord_user_id,
+    actorRole: authorization.role,
+    isAdmin: authorization.isAdmin,
     action: "homepage_info_block_deleted",
     blockId: id,
   });

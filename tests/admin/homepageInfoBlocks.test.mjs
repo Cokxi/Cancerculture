@@ -5,15 +5,35 @@ import test from "node:test";
 const readRepoFile = (path) =>
   readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-test("every Homepage Info mutation requires central Admin authorization", async () => {
-  const actions = await readRepoFile(
-    "app/admin/homepage-info-blocks/actions.ts"
-  );
+test("the real Homepage Info page and every mutation require homepage_content.manage", async () => {
+  const [page, actions] = await Promise.all([
+    readRepoFile("app/admin/homepage-info-blocks/page.tsx"),
+    readRepoFile("app/admin/homepage-info-blocks/actions.ts"),
+  ]);
 
-  assert.equal(actions.match(/await requireAdmin\(\)/g)?.length, 4);
-  assert.doesNotMatch(actions, /formData\.get\("role"\)|isAdmin/);
-  assert.match(actions, /created_by: admin\.discord_user_id/);
-  assert.match(actions, /updated_by: admin\.discord_user_id/);
+  assert.match(
+    page,
+    /requireTeamCapabilityPage\(\s*"homepage_content\.manage",\s*"\/admin\/homepage-info-blocks"\s*\)/u
+  );
+  assert.equal(
+    actions.match(
+      /requireDynamicTeamCapability\(\s*"homepage_content\.manage"\s*\)/gu
+    )?.length,
+    4
+  );
+  assert.doesNotMatch(`${page}\n${actions}`, /requireAdmin(?:Page)?\(/u);
+  assert.doesNotMatch(actions, /formData\.get\("role"\)/);
+  assert.match(actions, /created_by: authorization\.discord_user_id/);
+  assert.match(actions, /updated_by: authorization\.discord_user_id/);
+  assert.match(
+    actions,
+    /actorType: isAdmin \? "admin" : "moderator"/u
+  );
+  assert.match(
+    actions,
+    /authorization_capability: "homepage_content\.manage"/u
+  );
+  assert.match(actions, /authorization_role: actorRole/u);
 });
 
 test("Admin actions implement Create, Edit, Toggle, and hard Delete", async () => {

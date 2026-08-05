@@ -105,6 +105,10 @@ const faqManagement = Object.freeze({
   type: "capability",
   capability: "faq.manage",
 } as const);
+const homepageContentManagement = Object.freeze({
+  type: "capability",
+  capability: "homepage_content.manage",
+} as const);
 const sponsorReportsView = Object.freeze({
   type: "capability",
   capability: "sponsorships.reports.view",
@@ -394,7 +398,7 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           href: "/admin/homepage-info-blocks",
           categoryId: "content",
           description: "Manage the public homepage information boxes.",
-          requirement: adminOnly,
+          requirement: homepageContentManagement,
           implemented: true,
         }),
         item({

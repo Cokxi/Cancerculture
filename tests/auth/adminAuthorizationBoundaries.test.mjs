@@ -209,6 +209,25 @@ test("Rules administration uses its exact capability while social logs remain Ad
   assert.match(socialLogs, /await requireAdminPage\(/);
 });
 
+test("Homepage Info administration uses its exact capability", async () => {
+  const [page, actions] = await Promise.all([
+    source("app/admin/homepage-info-blocks/page.tsx"),
+    source("app/admin/homepage-info-blocks/actions.ts"),
+  ]);
+
+  assert.match(
+    page,
+    /requireTeamCapabilityPage\(\s*"homepage_content\.manage",\s*"\/admin\/homepage-info-blocks"\s*\)/u
+  );
+  assert.equal(
+    actions.match(
+      /requireDynamicTeamCapability\(\s*"homepage_content\.manage"\s*\)/gu
+    )?.length,
+    4
+  );
+  assert.doesNotMatch(`${page}\n${actions}`, /requireAdmin(?:Page)?\(/u);
+});
+
 test("admin pages and owner actions keep explicit server guards", async () => {
   for (const file of [
     "app/admin/mods/page.tsx",
@@ -217,7 +236,6 @@ test("admin pages and owner actions keep explicit server guards", async () => {
     "app/admin/team/members/add/page.tsx",
     "app/admin/moderation/legal-review/page.tsx",
     "app/admin/coin-launches/page.tsx",
-    "app/admin/homepage-info-blocks/page.tsx",
   ]) {
     assert.match(
       await source(file),
