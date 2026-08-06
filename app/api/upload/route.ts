@@ -41,6 +41,8 @@ import {
   reserveSubmissionUpload,
   SubmissionUploadSagaError,
 } from "@/lib/upload/submissionUploadSaga";
+import { TURNSTILE_ACTIONS } from "@/lib/turnstile/shared";
+import { verifyTurnstileRequest } from "@/lib/turnstile/verify.server";
 
 async function failUpload({
   discordUserId,
@@ -155,6 +157,25 @@ export async function POST(req: Request) {
         error: "SUBMISSION_PHASE_CLOSED",
         status: 409,
       });
+    }
+
+    const turnstileResult = await verifyTurnstileRequest(
+      req,
+      TURNSTILE_ACTIONS.submissionUpload
+    );
+
+    if (turnstileResult.status === "rejected") {
+      return NextResponse.json(
+        { error: turnstileResult.code },
+        { status: 400 }
+      );
+    }
+
+    if (turnstileResult.status === "configuration_error") {
+      return NextResponse.json(
+        { error: turnstileResult.code },
+        { status: 503 }
+      );
     }
 
     const idempotencyKey = parseSubmissionUploadIdempotencyKey(

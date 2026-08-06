@@ -11,6 +11,7 @@ import {
   getVoteSubmissionById,
   getVoteSubmissions,
 } from "@/lib/vote/getVoteSubmissions";
+import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,7 @@ export default async function SubmissionsPage({
         initialSubmissionId={
           requestedId
         }
+        turnstileSiteKey={getTurnstileClientSiteKey()}
       />
     </PageWrapper>
   );

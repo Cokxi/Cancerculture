@@ -9,12 +9,33 @@ import {
 import { requireParticipation } from "@/lib/auth/participationGuard";
 import { logVote } from "@/lib/logging/logVote";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
+import { TURNSTILE_ACTIONS } from "@/lib/turnstile/shared";
+import { verifyTurnstileRequest } from "@/lib/turnstile/verify.server";
 import { getVoteEligibility } from "@/lib/vote/getVoteEligibility";
 
 export async function POST(req: Request) {
   try {
     const { membership, session } = await requireParticipation();
     const discordUserId = session.discord_user_id;
+    const turnstileResult = await verifyTurnstileRequest(
+      req,
+      TURNSTILE_ACTIONS.vote
+    );
+
+    if (turnstileResult.status === "rejected") {
+      return NextResponse.json(
+        { error: turnstileResult.code },
+        { status: 400 }
+      );
+    }
+
+    if (turnstileResult.status === "configuration_error") {
+      return NextResponse.json(
+        { error: turnstileResult.code },
+        { status: 503 }
+      );
+    }
+
     const voteEligibility = await getVoteEligibility(
       discordUserId,
       membership

@@ -70,6 +70,18 @@ test("blocked users are rejected before body parsing, decoding, intent and R2", 
   assert.ok(reserve < r2Put);
 });
 
+test("Turnstile is verified before upload body parsing and expensive work", () => {
+  const turnstile = routeSource.indexOf("verifyTurnstileRequest(");
+  const formData = routeSource.indexOf("req.formData()");
+  const decoder = routeSource.indexOf("processStaticImage(");
+  const reserve = routeSource.indexOf("reserveSubmissionUpload(");
+
+  assert.ok(turnstile > -1);
+  assert.ok(turnstile < formData);
+  assert.ok(formData < decoder);
+  assert.ok(decoder < reserve);
+});
+
 test("route hashes and stores only canonical server-processed bytes", () => {
   assert.match(routeSource, /const webpBuffer = processedImage\.buffer/);
   assert.match(routeSource, /createSubmissionContentHash\(webpBuffer\)/);

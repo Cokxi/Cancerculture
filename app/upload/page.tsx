@@ -15,6 +15,7 @@ import {
 import { getLatestCycleState } from "@/lib/cycles/currentCycle";
 import { createParticipationAccessState } from "@/lib/eligibility/participation";
 import type { UserSocialSettings } from "@/lib/socials/getUserSocialSettings";
+import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +122,7 @@ export default async function UploadPage() {
         showDiscordSyncDelayNotice={showDiscordSyncDelayNotice}
         currentCycleStatus={latestCycle?.status ?? null}
         pausedFromStatus={latestCycle?.paused_from_status ?? null}
+        turnstileSiteKey={getTurnstileClientSiteKey()}
       />
     </PageWrapper>
   );

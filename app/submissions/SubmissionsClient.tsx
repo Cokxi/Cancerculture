@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import DiscordCooldownTimer from "@/app/components/DiscordCooldownTimer";
 import DiscordSyncDelayNotice from "@/app/components/DiscordSyncDelayNotice";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
+import TurnstileWidget from "@/app/components/TurnstileWidget";
 import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
 import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
@@ -22,6 +23,10 @@ import {
   type VoteBlockedReason,
 } from "@/lib/vote/voteEligibilityState";
 import type { VoteSubmission } from "@/lib/vote/publicVoteSubmission";
+import {
+  TURNSTILE_ACTIONS,
+  TURNSTILE_TOKEN_HEADER,
+} from "@/lib/turnstile/shared";
 
 type Submission = VoteSubmission;
 
@@ -41,6 +46,7 @@ export default function SubmissionsClient({
   showDiscordSyncDelayNotice,
   sponsoredMeta,
   initialSubmissionId,
+  turnstileSiteKey,
 }: {
   cycleId: number;
   initialActiveSubmission: Submission | null;
@@ -57,6 +63,7 @@ export default function SubmissionsClient({
   showDiscordSyncDelayNotice: boolean;
   sponsoredMeta: SponsoredCycleMeta | null;
   initialSubmissionId: number | null;
+  turnstileSiteKey: string | null;
 }) {
   const router = useRouter();
   const [showOriginalSize, setShowOriginalSize] = useState(false);
@@ -130,6 +137,10 @@ export default function SubmissionsClient({
     useState<boolean | undefined>(undefined);
   const [waitingForDiscordJoin, setWaitingForDiscordJoin] =
     useState(false);
+  const [isVoting, setIsVoting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [voteError, setVoteError] = useState<string | null>(null);
   const [localVotes, setLocalVotes] = useState(
     Object.fromEntries(
       initialPage.items.map((s) => [s.id, s.vote_count])
@@ -299,7 +310,12 @@ export default function SubmissionsClient({
   const voteBlockedMessage = getVoteBlockedMessage();
 
   async function vote(submissionId: number) {
-    if (!votingEnabled || votedSubmissionIdSet.has(submissionId)) {
+    if (
+      !votingEnabled ||
+      votedSubmissionIdSet.has(submissionId) ||
+      isVoting ||
+      !turnstileToken
+    ) {
       return;
     }
 
@@ -309,83 +325,102 @@ export default function SubmissionsClient({
 
     if (effectiveVoteBlockedReason) return;
 
-    const fd = new FormData();
-    fd.append("submissionId", String(submissionId));
+    setIsVoting(true);
+    setVoteError(null);
 
-    const res = await fetch("/api/vote", {
-      method: "POST",
-      body: fd,
-    });
+    try {
+      const fd = new FormData();
+      fd.append("submissionId", String(submissionId));
 
-    if (!res.ok) {
+      const res = await fetch("/api/vote", {
+        method: "POST",
+        headers: { [TURNSTILE_TOKEN_HEADER]: turnstileToken },
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setTurnstileToken(null);
+        setTurnstileResetKey((current) => current + 1);
+
+        if (data?.error === "NOT_IN_DISCORD") {
+          setLocalVoteBlockedReason("not_in_discord");
+          setLocalShowDiscordSyncDelayNotice(false);
+          void loadVoteEligibility();
+          return;
+        }
+
+        if (data?.error === "JOINED_TOO_RECENTLY") {
+          const joinedAt =
+            typeof data.joinedAt === "string" ? data.joinedAt : null;
+
+          setLocalVoteBlockedReason("join_wait");
+          setLocalVoteCooldownJoinedAt(joinedAt);
+          setLocalShowDiscordSyncDelayNotice(false);
+          return;
+        }
+
+        if (data?.error === "MEMBERSHIP_PENDING") {
+          setLocalVoteBlockedReason("membership_pending");
+          setLocalShowDiscordSyncDelayNotice(false);
+          void loadVoteEligibility();
+          return;
+        }
+
+        if (data?.error === "MEMBERSHIP_UNAVAILABLE") {
+          setLocalVoteBlockedReason("dependency_unavailable");
+          setLocalShowDiscordSyncDelayNotice(false);
+          return;
+        }
+
+        if (data?.error === "PARTICIPATION_UNAVAILABLE") {
+          setLocalVoteBlockedReason("participation_hold");
+          setLocalShowDiscordSyncDelayNotice(false);
+          return;
+        }
+
+        setVoteError(
+          data?.error === "TURNSTILE_CONFIGURATION_ERROR"
+            ? "Verification is temporarily unavailable."
+            : "Vote verification failed. Please try again."
+        );
+        return;
+      }
+
       const data = await res.json().catch(() => null);
+      const nextVoteCount =
+        typeof data?.voteCount === "number"
+          ? data.voteCount
+          : usedVotes + 1;
 
-      if (data?.error === "NOT_IN_DISCORD") {
-        setLocalVoteBlockedReason("not_in_discord");
-        setLocalShowDiscordSyncDelayNotice(false);
-        void loadVoteEligibility();
-        return;
-      }
-
-      if (data?.error === "JOINED_TOO_RECENTLY") {
-        const joinedAt =
-          typeof data.joinedAt === "string" ? data.joinedAt : null;
-
-        setLocalVoteBlockedReason("join_wait");
-        setLocalVoteCooldownJoinedAt(joinedAt);
-        setLocalShowDiscordSyncDelayNotice(false);
-        return;
-      }
-
-      if (data?.error === "MEMBERSHIP_PENDING") {
-        setLocalVoteBlockedReason("membership_pending");
-        setLocalShowDiscordSyncDelayNotice(false);
-        void loadVoteEligibility();
-        return;
-      }
-
-      if (data?.error === "MEMBERSHIP_UNAVAILABLE") {
-        setLocalVoteBlockedReason("dependency_unavailable");
-        setLocalShowDiscordSyncDelayNotice(false);
-        return;
-      }
-
-      if (data?.error === "PARTICIPATION_UNAVAILABLE") {
-        setLocalVoteBlockedReason("participation_hold");
-        setLocalShowDiscordSyncDelayNotice(false);
-        return;
-      }
-
-      return;
+      setUsedVotes(nextVoteCount);
+      setVoted(
+        typeof data?.hasVoted === "boolean"
+          ? data.hasVoted
+          : nextVoteCount >= votesPerUser
+      );
+      setLocalVotes((v) => ({
+        ...v,
+        [submissionId]:
+          (v[submissionId] ??
+            submissions.find(
+              (submission) => submission.id === submissionId
+            )?.vote_count ??
+            0) + 1,
+      }));
+      setVotedSubmissionIdSet((current) => {
+        const next = new Set(current);
+        next.add(submissionId);
+        return next;
+      });
+      setActive(null);
+    } catch {
+      setTurnstileToken(null);
+      setTurnstileResetKey((current) => current + 1);
+      setVoteError("The vote could not be confirmed. Please try again.");
+    } finally {
+      setIsVoting(false);
     }
-
-    const data = await res.json().catch(() => null);
-    const nextVoteCount =
-      typeof data?.voteCount === "number"
-        ? data.voteCount
-        : usedVotes + 1;
-
-    setUsedVotes(nextVoteCount);
-    setVoted(
-      typeof data?.hasVoted === "boolean"
-        ? data.hasVoted
-        : nextVoteCount >= votesPerUser
-    );
-    setLocalVotes((v) => ({
-      ...v,
-      [submissionId]:
-        (v[submissionId] ??
-          submissions.find(
-            (submission) => submission.id === submissionId
-          )?.vote_count ??
-          0) + 1,
-    }));
-    setVotedSubmissionIdSet((current) => {
-      const next = new Set(current);
-      next.add(submissionId);
-      return next;
-    });
-    setActive(null);
   }
 
   return (
@@ -603,19 +638,36 @@ export default function SubmissionsClient({
                   !voteBlockedMessage &&
                   !votedSubmissionIdSet.has(active.id) &&
                   !voted && (
-                    <button
-                      onClick={() => vote(active.id)}
-                      disabled={
-                        effectiveVoteBlockedReason === "join_wait"
-                      }
-                      className={`rounded px-4 py-2 transition ${
-                        effectiveVoteBlockedReason === "join_wait"
-                          ? "cursor-not-allowed bg-orange-500/35 text-white/45"
-                          : "cursor-pointer bg-orange-500 hover:bg-orange-600"
-                      }`}
-                    >
-                      Vote
-                    </button>
+                    <div className="flex w-full max-w-sm flex-col items-center gap-3">
+                      <TurnstileWidget
+                        action={TURNSTILE_ACTIONS.vote}
+                        siteKey={turnstileSiteKey}
+                        resetKey={turnstileResetKey}
+                        onTokenChange={setTurnstileToken}
+                      />
+                      {voteError && (
+                        <p role="alert" className="text-center text-sm text-red-300">
+                          {voteError}
+                        </p>
+                      )}
+                      <button
+                        onClick={() => vote(active.id)}
+                        disabled={
+                          effectiveVoteBlockedReason === "join_wait" ||
+                          isVoting ||
+                          !turnstileToken
+                        }
+                        className={`rounded px-4 py-2 transition ${
+                          effectiveVoteBlockedReason === "join_wait" ||
+                          isVoting ||
+                          !turnstileToken
+                            ? "cursor-not-allowed bg-orange-500/35 text-white/45"
+                            : "cursor-pointer bg-orange-500 hover:bg-orange-600"
+                        }`}
+                      >
+                        {isVoting ? "Voting..." : "Vote"}
+                      </button>
+                    </div>
                   )}
 
                 {votingEnabled &&

@@ -1,6 +1,7 @@
 "use client";
 
 import HomeBlinkCell from "@/app/components/HomeBlinkCell";
+import TurnstileWidget from "@/app/components/TurnstileWidget";
 import DiscordSyncDelayNotice from "@/app/components/DiscordSyncDelayNotice";
 import { SocialPlatformBadge } from "@/app/components/profile/SocialUi";
 import ScannerDisplay from "@/app/components/upload/ScannerDisplay";
@@ -23,6 +24,10 @@ import {
   preflightBrowserImage,
   SUBMISSION_MEDIA_PROFILE,
 } from "@/lib/media/profiles";
+import {
+  TURNSTILE_ACTIONS,
+  TURNSTILE_TOKEN_HEADER,
+} from "@/lib/turnstile/shared";
 
 
 type PayoutChoice = "keep" | "donate" | "split";
@@ -55,6 +60,7 @@ export default function DesktopUpload({
   showDiscordSyncDelayNotice,
   currentCycleStatus,
   pausedFromStatus,
+  turnstileSiteKey,
 }: {
   hasActiveCycle: boolean;
   showSupportLink: boolean;
@@ -64,6 +70,7 @@ export default function DesktopUpload({
   showDiscordSyncDelayNotice: boolean;
   currentCycleStatus: string | null;
   pausedFromStatus: string | null;
+  turnstileSiteKey: string | null;
 }) {
 
   const { openOverlay } = useOverlay();
@@ -83,6 +90,8 @@ export default function DesktopUpload({
   const [customCharity, setCustomCharity] = useState("");
   const [successMode, setSuccessMode] = useState<"success" | "already">("success");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [completedCooldownKey, setCompletedCooldownKey] =
     useState<string | null>(null);
   const [rulesStatus, setRulesStatus] = useState<
@@ -403,7 +412,8 @@ useEffect(() => {
   if (
     submitState !== "ready" ||
     isSubmitting ||
-    rulesStatus !== "accepted"
+    rulesStatus !== "accepted" ||
+    !turnstileToken
   ) return;
 
     setIsSubmitting(true);
@@ -432,12 +442,15 @@ if (!file) {
           "Idempotency-Key":
             uploadAttemptKeyRef.current ??
             (uploadAttemptKeyRef.current = crypto.randomUUID()),
+          [TURNSTILE_TOKEN_HEADER]: turnstileToken,
         },
         body: formData,
       });
       const data = await res.json();
 
       if (!res.ok) {
+  setTurnstileToken(null);
+  setTurnstileResetKey((current) => current + 1);
   if (
     data.error === "NOT_IN_DISCORD" ||
     data.error === "JOINED_TOO_RECENTLY" ||
@@ -461,6 +474,8 @@ if (!file) {
       setSuccessMode("success");
       setUploadDone(true);
     } catch {
+      setTurnstileToken(null);
+      setTurnstileResetKey((current) => current + 1);
       alert(
         "The upload result could not be confirmed. Retry without changing the form; the same request key will be reused safely."
       );
@@ -774,13 +789,23 @@ if (!file) {
 
             
 {canSubmit && submitState === "ready" && rulesStatus === "accepted" && (
-  <div className="text-center mt-4">
+  <div className="mt-4 flex flex-col items-center text-center">
+                <TurnstileWidget
+                  action={TURNSTILE_ACTIONS.submissionUpload}
+                  siteKey={turnstileSiteKey}
+                  resetKey={turnstileResetKey}
+                  onTokenChange={setTurnstileToken}
+                />
+                {turnstileToken && (
+                  <>
                 <span className="upload-hint animate-soft-hint">
                   Hit it
                 </span>
                 <div className="upload-hint animate-soft-hint leading-none">
       ↓
     </div>
+                  </>
+                )}
               </div>
             )}
           </>
@@ -803,13 +828,17 @@ if (!file) {
   aria-disabled={
     !canSubmit ||
     submitState !== "ready" ||
-    rulesStatus !== "accepted"
+    rulesStatus !== "accepted" ||
+    isSubmitting ||
+    !turnstileToken
   }
   className={`mx-auto ${
     hasActiveCycle &&
     canSubmit &&
     submitState === "ready" &&
-    rulesStatus === "accepted"
+    rulesStatus === "accepted" &&
+    !isSubmitting &&
+    turnstileToken
       ? "cursor-pointer"
       : "opacity-60"
   }`}
