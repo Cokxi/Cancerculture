@@ -168,6 +168,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           implemented: true,
         }),
         item({
+          id: "cycle-vote-observations",
+          title: "Cycle Vote Observations",
+          href: "/admin/cycles/observations",
+          categoryId: "cycles",
+          description:
+            "Review privacy-bounded aggregate vote timing for calibration.",
+          requirement: adminOnly,
+          implemented: true,
+        }),
+        item({
           id: "cycle-logs",
           title: "Cycle Logs",
           href: "/admin/logs/cycles",

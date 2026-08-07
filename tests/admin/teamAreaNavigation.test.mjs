@@ -187,8 +187,27 @@ test("Cycle Management navigation needs only cycles.manage", () => {
   assert.equal(JSON.stringify(withoutGrant).includes("cycle-management"), false);
   assert.equal(rendered.includes("cycle-management"), true);
   assert.equal(rendered.includes("cycle-end-moderation"), true);
+  assert.equal(rendered.includes("cycle-vote-observations"), false);
   assert.equal(rendered.includes("cycle-logs"), false);
   assert.equal(rendered.includes("winner-payouts"), false);
+});
+
+test("Cycle Vote Observations remains Owner-only", () => {
+  const delegated = resolveTeamAreaNavigation(
+    context({
+      capabilities: ["cycles.manage", "logs.votes.view"],
+    })
+  );
+  const owner = resolveTeamAreaNavigation(context({ isAdmin: true }));
+
+  assert.equal(
+    JSON.stringify(delegated).includes("cycle-vote-observations"),
+    false
+  );
+  assert.equal(
+    JSON.stringify(owner).includes("cycle-vote-observations"),
+    true
+  );
 });
 
 test("Rules Content navigation needs only rules.manage", () => {
