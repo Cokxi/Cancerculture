@@ -194,29 +194,9 @@ export default async function PublicProfilePage({
                         </div>
                       )}
 
-                      {submission.is_disqualified ? (
-                        <div className="pt-2 text-red-400">
-                          Disqualified
-
-                          {submission.disqualification_reason_code && (
-                            <div className="mt-1 text-xs text-red-300">
-                              {formatReason(
-                                submission.disqualification_reason_code
-                              )}
-                            </div>
-                          )}
-
-                          {submission.disqualification_reason_text && (
-                            <div className="text-xs text-red-300">
-                              {submission.disqualification_reason_text}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="pt-2 text-green-400">
-                          Active
-                        </div>
-                      )}
+                      <div className="pt-2 text-green-400">
+                        Active
+                      </div>
                     </div>
                   </div>
                     );

@@ -81,6 +81,32 @@ test("the user directory needs its existing capability grant", () => {
   assert.equal(JSON.stringify(withGrant).includes("user-logs"), true);
 });
 
+test("user disqualification history needs only its exact read capability", () => {
+  const historyOnly = JSON.stringify(
+    resolveTeamAreaNavigation(
+      context({
+        capabilities: ["users.disqualified_submissions.view"],
+      })
+    )
+  );
+  const directoryOnly = JSON.stringify(
+    resolveTeamAreaNavigation(
+      context({ capabilities: ["users.directory.full.view"] })
+    )
+  );
+
+  assert.equal(
+    historyOnly.includes('"id":"user-disqualification-history"'),
+    true
+  );
+  assert.equal(historyOnly.includes('"id":"user-logs"'), false);
+  assert.equal(historyOnly.includes("moderation-logs"), false);
+  assert.equal(
+    directoryOnly.includes("user-disqualification-history"),
+    false
+  );
+});
+
 test("upload logs navigation needs only its exact read capability", () => {
   const withoutGrant = resolveTeamAreaNavigation(context());
   const withGrant = resolveTeamAreaNavigation(

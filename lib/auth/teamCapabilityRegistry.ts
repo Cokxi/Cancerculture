@@ -12,6 +12,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "users.flag.review",
   "users.directory.basic.view",
   "users.directory.full.view",
+  "users.disqualified_submissions.view",
   "users.upload_blocks.view",
   "users.website_bans.view",
   "users.website_bans.create",
@@ -343,6 +344,30 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 2,
     definitionHash:
       "df91b4c3c90ae2f90d5be05f77b70be1717e3b50892f705ff4ba477d969e81b1",
+  }),
+  "users.disqualified_submissions.view": defineCapability({
+    key: "users.disqualified_submissions.view",
+    displayName: "View User Disqualification History",
+    description:
+      "View a redacted profile-oriented history of current and reinstated submission disqualifications without gaining moderation powers.",
+    category: "User Moderation",
+    includedActions: [
+      "View current and reinstated submission disqualifications grouped by user and submission.",
+      "View cycle, transition status, timestamps, broad reason category, and a safe thumbnail or destination when separately permitted.",
+      "View the minimal current user identity needed to select and understand the affected profile.",
+    ],
+    excludedActions: [
+      "Disqualifying, reinstating, hiding, restoring, exporting, or otherwise changing submissions.",
+      "Viewing delegated free-text notes, exact reason codes, actor identities, evidence, object keys, request data, or before/after snapshots.",
+      "Viewing votes, refund details, identity history, ban history, flag history, or unrelated logs.",
+      "Publishing disqualification history on public profiles or exposing it to another ordinary user.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "0519db20cffc9d57d6feb8e54dca7633711cbebec26754ad986aac10685ce839",
   }),
   "users.upload_blocks.view": defineCapability({
     key: "users.upload_blocks.view",

@@ -69,6 +69,10 @@ const uploadBlockView = Object.freeze({
   type: "capability",
   capability: "users.upload_blocks.view",
 } as const);
+const userDisqualificationHistoryView = Object.freeze({
+  type: "capability",
+  capability: "users.disqualified_submissions.view",
+} as const);
 const uploadLogsView = Object.freeze({
   type: "capability",
   capability: "logs.uploads.view",
@@ -277,6 +281,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           categoryId: "logs",
           description: "Browse the authorized user directory view.",
           requirement: basicUserDirectory,
+          implemented: true,
+        }),
+        item({
+          id: "user-disqualification-history",
+          title: "User Disqualification History",
+          href: "/admin/users/disqualifications",
+          categoryId: "logs",
+          description:
+            "Review redacted current and reinstated submission disqualifications by user.",
+          requirement: userDisqualificationHistoryView,
           implemented: true,
         }),
         item({

@@ -206,26 +206,20 @@ export default async function MyProfilePage() {
                     <div className="text-red-400">
                       Disqualified
 
-                      {currentSubmission.disqualification_reason_code && (
+                      {(currentSubmission.disqualification_reason_code ||
+                        currentSubmission.disqualification_reason_category) && (
                         <div className="mt-1 text-[11px] text-red-300">
                           {formatReason(
-                            currentSubmission.disqualification_reason_code
+                            currentSubmission.disqualification_reason_code ??
+                              currentSubmission.disqualification_reason_category!
                           )}
                         </div>
                       )}
 
                       {currentSubmission.disqualification_reason_text && (
-                        <div className="text-[11px] text-red-300">
+                        <div className="mt-1 text-[11px] text-red-300">
+                          Explanation:{" "}
                           {currentSubmission.disqualification_reason_text}
-                        </div>
-                      )}
-
-                      {currentSubmission.disqualified_by_discord_username && (
-                        <div className="text-[11px] text-red-300">
-                          by{" "}
-                          {
-                            currentSubmission.disqualified_by_discord_username
-                          }
                         </div>
                       )}
                     </div>

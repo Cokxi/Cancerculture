@@ -17,7 +17,11 @@ type BasePublicSubmission = Awaited<
 
 export type PublicProfileSubmission = Omit<
   BasePublicSubmission,
-  "image_url"
+  | "image_url"
+  | "is_disqualified"
+  | "disqualification_reason_code"
+  | "disqualification_reason_text"
+  | "disqualified_by_discord_username"
 > & {
   image_url: string | null;
   public_visibility_status: SubmissionPublicVisibilityStatus;
@@ -100,6 +104,10 @@ export async function getPublicUserProfileData(
         return null;
       }
 
+      if (submission.is_disqualified) {
+        return null;
+      }
+
       const visibility =
         visibilityBySubmissionId.get(submission.id);
 
@@ -116,7 +124,13 @@ export async function getPublicUserProfileData(
       }
 
       return {
-        ...submission,
+        id: submission.id,
+        cycle_id: submission.cycle_id,
+        vote_count: submission.vote_count,
+        rank: submission.rank,
+        total: submission.total,
+        tie_count: submission.tie_count,
+        destination_href: submission.destination_href,
         image_url: showsSubmissionImagePublicly(
           visibility.status
         )

@@ -88,6 +88,10 @@ export default async function AdminUsersPage({
     authorization,
     "users.directory.full.view"
   );
+  const canViewDisqualificationHistory = hasResolvedTeamCapability(
+    authorization,
+    "users.disqualified_submissions.view"
+  );
   const canViewDirectory = canViewBasicDirectory || canViewFullDirectory;
   const canCreateFlags = hasResolvedTeamCapability(
     authorization,
@@ -110,11 +114,20 @@ export default async function AdminUsersPage({
     "users.website_bans.revoke"
   );
 
-  if (!canViewDirectory && !canCreateFlags && !canViewFlags) {
+  if (
+    !canViewDirectory &&
+    !canCreateFlags &&
+    !canViewFlags &&
+    !canViewDisqualificationHistory
+  ) {
     redirect("/403");
   }
 
   if (!canViewDirectory) {
+    if (canViewDisqualificationHistory) {
+      redirect("/admin/users/disqualifications");
+    }
+
     return (
       <div style={{ padding: 24 }}>
         <h1>User flag access</h1>
@@ -402,6 +415,28 @@ export default async function AdminUsersPage({
       activeFlagStatusByUser.get(user.discord_user_id) ?? null
     }
   />
+
+  {canViewDisqualificationHistory &&
+  publicProfileIdByDiscordUserId.get(user.discord_user_id) ? (
+    <div style={{ marginTop: 8 }}>
+      <Link
+        href={`/admin/users/disqualifications/${encodeURIComponent(
+          publicProfileIdByDiscordUserId.get(user.discord_user_id)!
+        )}`}
+        style={{
+          display: "inline-block",
+          border: "1px solid #ff9f1c",
+          borderRadius: 999,
+          padding: "5px 10px",
+          color: "#ff9f1c",
+          fontSize: 12,
+          textDecoration: "none",
+        }}
+      >
+        View User Moderation History
+      </Link>
+    </div>
+  ) : null}
 
 </td>
 

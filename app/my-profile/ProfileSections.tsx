@@ -199,26 +199,20 @@ export default function ProfileSections({
                     <div className="text-red-400">
                       Disqualified
 
-                      {submission.disqualification_reason_code && (
+                      {(submission.disqualification_reason_code ||
+                        submission.disqualification_reason_category) && (
                         <div className="mt-1 text-[11px] text-red-300">
                           {formatReason(
-                            submission.disqualification_reason_code
+                            submission.disqualification_reason_code ??
+                              submission.disqualification_reason_category!
                           )}
                         </div>
                       )}
 
                       {submission.disqualification_reason_text && (
                         <div className="mt-1 text-[11px] text-red-300">
+                          Explanation:{" "}
                           {submission.disqualification_reason_text}
-                        </div>
-                      )}
-
-                      {submission.disqualified_by_discord_username && (
-                        <div className="text-[11px] text-red-300">
-                          by{" "}
-                          {
-                            submission.disqualified_by_discord_username
-                          }
                         </div>
                       )}
                     </div>
@@ -269,6 +263,19 @@ export default function ProfileSections({
             No submissions yet.
           </div>
         )}
+      </Section>
+
+      <Section title="My Moderation History">
+        <p className="text-sm text-gray-300">
+          Review your private history of recorded submission
+          disqualifications and reinstatements.
+        </p>
+        <Link
+          href="/my-profile/disqualifications"
+          className="mt-3 inline-flex rounded-full border border-[var(--orange-dark)]/40 px-4 py-2 text-sm text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
+        >
+          Open moderation history
+        </Link>
       </Section>
 
       <Section title="My Votes">

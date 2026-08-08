@@ -13,6 +13,10 @@ import {
   getSubmissionPrivateData,
   type SubmissionPrivateData,
 } from "@/lib/submissions/getSubmissionPrivateData";
+import {
+  getDelegatedSubmissionModerationReason,
+  type DelegatedSubmissionModerationReason,
+} from "@/lib/admin/submissionModerationLogAccess";
 
 type BaseProfileSubmission = Awaited<
   ReturnType<typeof getUserSubmissions>
@@ -20,9 +24,11 @@ type BaseProfileSubmission = Awaited<
 
 export type ProfileSubmission = Omit<
   BaseProfileSubmission,
-  "image_url"
+  | "image_url"
+  | "disqualified_by_discord_username"
 > & {
   can_hide_from_profile: boolean;
+  disqualification_reason_category: DelegatedSubmissionModerationReason | null;
   hidden_from_profile_at: string | null;
   image_url: string | null;
   public_visibility_status: SubmissionPublicVisibilityStatus;
@@ -177,11 +183,28 @@ export async function getUserProfileData(
 
       return [
         {
-          ...submission,
+          id: submission.id,
+          cycle_id: submission.cycle_id,
+          is_disqualified: submission.is_disqualified,
+          disqualification_reason_code:
+            submission.disqualification_reason_code,
+          disqualification_reason_text:
+            submission.disqualification_reason_text,
+          vote_count: submission.vote_count,
+          rank: submission.rank,
+          total: submission.total,
+          tie_count: submission.tie_count,
+          destination_href: submission.destination_href,
           can_hide_from_profile:
             submission.is_disqualified &&
             cycleStatusById.get(submission.cycle_id) ===
               "finished",
+          disqualification_reason_category:
+            submission.is_disqualified
+              ? getDelegatedSubmissionModerationReason(
+                  submission.disqualification_reason_code
+                )
+              : null,
           hidden_from_profile_at:
             visibility.hiddenFromProfileAt,
           image_url: showsSubmissionImagePublicly(

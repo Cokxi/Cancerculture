@@ -24,6 +24,7 @@ const expectedKeys = [
   "users.flag.review",
   "users.directory.basic.view",
   "users.directory.full.view",
+  "users.disqualified_submissions.view",
   "users.upload_blocks.view",
   "users.website_bans.view",
   "users.website_bans.create",
@@ -61,7 +62,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains thirty known and twenty-eight active capability keys", () => {
+test("the server registry contains thirty-one known and twenty-nine active capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -90,6 +91,10 @@ test("the server registry contains thirty known and twenty-eight active capabili
   assert.equal(expectedKeys.includes("users.flag.create"), true);
   assert.equal(expectedKeys.includes("votes.refund_disqualified"), true);
   assert.equal(expectedKeys.includes("logs.vote_refunds.view"), true);
+  assert.equal(
+    expectedKeys.includes("users.disqualified_submissions.view"),
+    true
+  );
 });
 
 test("registry metadata is complete and hashes match canonical definitions", () => {
@@ -116,6 +121,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "5d0d0ab97601631a43f7ba87ba04d0007bf6534449774ac859f838e370cede48",
     "users.directory.full.view":
       "df91b4c3c90ae2f90d5be05f77b70be1717e3b50892f705ff4ba477d969e81b1",
+    "users.disqualified_submissions.view":
+      "0519db20cffc9d57d6feb8e54dca7633711cbebec26754ad986aac10685ce839",
     "users.upload_blocks.view":
       "174c20de72228105c16c01b98a9da10f232ecdbe2f9e6c1f0b309a1c37479204",
     "users.website_bans.view":
