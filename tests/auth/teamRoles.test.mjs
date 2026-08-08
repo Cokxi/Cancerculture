@@ -43,7 +43,6 @@ test("the complete capability matrix matches the role contract", () => {
       true,
       false,
       false,
-      false,
       true,
       true,
       false,
@@ -51,7 +50,6 @@ test("the complete capability matrix matches the role contract", () => {
     moderator: [
       true,
       true,
-      false,
       false,
       true,
       true,
@@ -63,10 +61,9 @@ test("the complete capability matrix matches the role contract", () => {
       true,
       true,
       true,
-      true,
       false,
     ],
-    admin: [true, true, true, true, true, true, true],
+    admin: [true, true, true, true, true, true],
   };
 
   for (const [role, values] of Object.entries(expected)) {

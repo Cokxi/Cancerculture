@@ -224,7 +224,6 @@ test("granular moderation capabilities use only the central registry, navigation
   for (const capability of [
     "canDisqualifyDuringVoting",
     "canReinstateDuringVoting",
-    "canRefundDisqualifiedVotes",
   ]) {
     const consumers = [];
     for (const file of files) {
@@ -234,4 +233,11 @@ test("granular moderation capabilities use only the central registry, navigation
     }
     assert.deepEqual(consumers, ["lib/auth/teamRoles.ts"]);
   }
+
+  assert.equal(
+    (await source("lib/auth/teamRoles.ts")).includes(
+      "canRefundDisqualifiedVotes"
+    ),
+    false
+  );
 });

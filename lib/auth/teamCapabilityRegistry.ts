@@ -20,10 +20,12 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "logs.uploads.view",
   "logs.avatar_uploads.view",
   "logs.votes.view",
+  "logs.vote_refunds.view",
   "logs.submission_moderation.view",
   "logs.team_authorization.view",
   "cycles.logs.view",
   "cycles.manage",
+  "votes.refund_disqualified",
   "rules.manage",
   "faq.manage",
   "homepage_content.manage",
@@ -518,6 +520,28 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     definitionHash:
       "991f2ef3ae5b454d3b1fec1c8fbc15ed64f845049553c6ba1cd07fe3bc0c09da",
   }),
+  "logs.vote_refunds.view": defineCapability({
+    key: "logs.vote_refunds.view",
+    displayName: "View Vote Refund History",
+    description:
+      "View the redacted append-only history of successful manual vote refunds without access to individual voter records.",
+    category: "Logs",
+    includedActions: [
+      "View paginated successful manual vote-refund events.",
+      "View each event's actor, cycle attempt, selected submission references, refunded vote counts, broad reason category, and timestamp.",
+    ],
+    excludedActions: [
+      "Executing vote refunds or changing submissions, cycles, or votes.",
+      "Viewing voter identifiers, original vote identifiers or timestamps, free-text reasons, request hashes, idempotency data, or raw payloads.",
+      "Viewing vote-attempt, cluster, network, device, abuse-detection, observation, or unrelated logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "d973a6edb746cd7740a5dd8142b34aad2be21ed60d66d0cf64a1ee2df1a67619",
+  }),
   "logs.submission_moderation.view": defineCapability({
     key: "logs.submission_moderation.view",
     displayName: "View Submission Moderation Logs",
@@ -609,6 +633,30 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "4f3e07f01bc453f594994689c3049e698ca2bd1d1c99e75927d161056033f710",
+  }),
+  "votes.refund_disqualified": defineCapability({
+    key: "votes.refund_disqualified",
+    displayName: "Refund Disqualified Submission Votes",
+    description:
+      "Selectively refund canonical votes from explicitly selected disqualified submissions only during the current open voting phase.",
+    category: "Vote Moderation",
+    includedActions: [
+      "View current-voting disqualified submissions and the refundable vote counts required for this action.",
+      "Select one or more disqualified submissions and atomically refund only their current canonical votes.",
+      "Return one available vote slot per refunded vote under the cycle's unchanged votes-per-user setting.",
+    ],
+    excludedActions: [
+      "Automatically refunding votes when a submission is disqualified or refunding every disqualified submission without explicit selection.",
+      "Disqualifying or reinstating submissions, restoring refunded votes, changing vote limits, editing votes, or repairing historical cycles.",
+      "Refunding eligible submissions or acting during paused, closed, finalizing, finished, draft, or historical cycle states.",
+      "Viewing refund history, individual voter identities, raw vote logs, observation details, or abuse-detection signals.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "bd49530c7905d71661f47b343ca8de9251d47c6c7712e84494563075ba8e68ab",
   }),
   "rules.manage": defineCapability({
     key: "rules.manage",

@@ -129,6 +129,25 @@ test("vote logs navigation needs only its exact read capability", () => {
   );
 });
 
+test("vote refunds and refund history require separate exact capabilities", () => {
+  const refundOnly = JSON.stringify(
+    resolveTeamAreaNavigation(
+      context({ capabilities: ["votes.refund_disqualified"] })
+    )
+  );
+  const historyOnly = JSON.stringify(
+    resolveTeamAreaNavigation(
+      context({ capabilities: ["logs.vote_refunds.view"] })
+    )
+  );
+
+  assert.equal(refundOnly.includes('"id":"vote-refunds"'), true);
+  assert.equal(refundOnly.includes("vote-refund-history"), false);
+  assert.equal(historyOnly.includes("vote-refund-history"), true);
+  assert.equal(historyOnly.includes('"id":"vote-refunds"'), false);
+  assert.equal(historyOnly.includes("vote-logs"), false);
+});
+
 test("submission moderation logs navigation needs only its exact read capability", () => {
   const withoutGrant = resolveTeamAreaNavigation(context());
   const withGrant = resolveTeamAreaNavigation(

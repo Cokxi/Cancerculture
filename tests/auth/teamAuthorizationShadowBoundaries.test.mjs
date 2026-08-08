@@ -184,12 +184,12 @@ test("legacy static voting booleans remain disconnected from granular registry k
   for (const capability of [
     "canDisqualifyDuringVoting",
     "canReinstateDuringVoting",
-    "canRefundDisqualifiedVotes",
   ]) {
     assert.match(teamRoles, new RegExp(capability));
     assert.doesNotMatch(registry, new RegExp(capability));
     assert.doesNotMatch(shadow, new RegExp(capability));
   }
+  assert.doesNotMatch(teamRoles, /canRefundDisqualifiedVotes/u);
 });
 
 test("the committed Foundation migration remains byte-for-byte unchanged", async () => {

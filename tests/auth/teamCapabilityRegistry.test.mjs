@@ -32,10 +32,12 @@ const expectedKeys = [
   "logs.uploads.view",
   "logs.avatar_uploads.view",
   "logs.votes.view",
+  "logs.vote_refunds.view",
   "logs.submission_moderation.view",
   "logs.team_authorization.view",
   "cycles.logs.view",
   "cycles.manage",
+  "votes.refund_disqualified",
   "rules.manage",
   "faq.manage",
   "homepage_content.manage",
@@ -59,7 +61,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains twenty-eight known and twenty-six active capability keys", () => {
+test("the server registry contains thirty known and twenty-eight active capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -86,7 +88,8 @@ test("the server registry contains twenty-eight known and twenty-six active capa
     []
   );
   assert.equal(expectedKeys.includes("users.flag.create"), true);
-  assert.equal(expectedKeys.includes("votes.refund_disqualified"), false);
+  assert.equal(expectedKeys.includes("votes.refund_disqualified"), true);
+  assert.equal(expectedKeys.includes("logs.vote_refunds.view"), true);
 });
 
 test("registry metadata is complete and hashes match canonical definitions", () => {
@@ -129,6 +132,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "d9b917101f9051d91eef9f2f20cbfa738fcd8787abe8283b0862d007416d5813",
     "logs.votes.view":
       "991f2ef3ae5b454d3b1fec1c8fbc15ed64f845049553c6ba1cd07fe3bc0c09da",
+    "logs.vote_refunds.view":
+      "d973a6edb746cd7740a5dd8142b34aad2be21ed60d66d0cf64a1ee2df1a67619",
     "logs.submission_moderation.view":
       "fc820ff4bea36171834588856c8f1ca09f0b0391d0b04ff6c0521fffa85d88e7",
     "logs.team_authorization.view":
@@ -137,6 +142,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "915c24cf6a167040c8637e59ca27a28510c6299b2ea417ae770f86e992924beb",
     "cycles.manage":
       "4f3e07f01bc453f594994689c3049e698ca2bd1d1c99e75927d161056033f710",
+    "votes.refund_disqualified":
+      "bd49530c7905d71661f47b343ca8de9251d47c6c7712e84494563075ba8e68ab",
     "rules.manage":
       "d7097dece0897ddcd924010a9a8cd48f427512231eaf7da77a28005536720887",
     "faq.manage":

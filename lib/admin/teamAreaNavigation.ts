@@ -81,6 +81,14 @@ const voteLogsView = Object.freeze({
   type: "capability",
   capability: "logs.votes.view",
 } as const);
+const voteRefundHistoryView = Object.freeze({
+  type: "capability",
+  capability: "logs.vote_refunds.view",
+} as const);
+const voteRefunds = Object.freeze({
+  type: "capability",
+  capability: "votes.refund_disqualified",
+} as const);
 const submissionModerationLogsView = Object.freeze({
   type: "capability",
   capability: "logs.submission_moderation.view",
@@ -211,6 +219,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           implemented: true,
         }),
         item({
+          id: "vote-refunds",
+          title: "Vote Refunds",
+          href: "/admin/moderation/vote-refunds",
+          categoryId: "moderation",
+          description:
+            "Selectively refund votes from confirmed disqualified submissions.",
+          requirement: voteRefunds,
+          implemented: true,
+        }),
+        item({
           id: "legal-review",
           title: "Legal Review",
           href: "/admin/moderation/legal-review",
@@ -286,6 +304,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           categoryId: "logs",
           description: "Browse redacted individual vote outcomes.",
           requirement: voteLogsView,
+          implemented: true,
+        }),
+        item({
+          id: "vote-refund-history",
+          title: "Vote Refund History",
+          href: "/admin/logs/vote-refunds",
+          categoryId: "logs",
+          description:
+            "Review the append-only history of successful manual vote refunds.",
+          requirement: voteRefundHistoryView,
           implemented: true,
         }),
         item({

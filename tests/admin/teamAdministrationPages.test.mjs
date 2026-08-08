@@ -243,7 +243,7 @@ test("page-specific server read models avoid loading unrelated Team data", async
   );
 });
 
-test("Roles & Permissions splits all twenty-six compact responsive rows into View and Actions", async () => {
+test("Roles & Permissions splits all twenty-eight compact responsive rows into View and Actions", async () => {
   const [page, shell, ui, registry] = await Promise.all([
     source("app/admin/team/roles/page.tsx"),
     source("app/admin/team/roles/RolesPermissionsClient.tsx"),
@@ -271,17 +271,19 @@ test("Roles & Permissions splits all twenty-six compact responsive rows into Vie
       "logs.uploads.view",
       "logs.avatar_uploads.view",
       "logs.votes.view",
+      "logs.vote_refunds.view",
       "logs.submission_moderation.view",
       "logs.team_authorization.view",
       "cycles.logs.view",
       "cycles.manage",
+      "votes.refund_disqualified",
       "rules.manage",
       "faq.manage",
       "homepage_content.manage",
       "sponsorships.reports.view",
       "winners.payouts.view",
     ].filter((key) => registry.includes(`"${key}"`)).length,
-    26
+    28
   );
   assert.match(shell, /capabilities=\{readModel\.capabilities\}/);
   assert.match(ui, /capabilitiesByTab\[activePermissionTab\]\.map/);
