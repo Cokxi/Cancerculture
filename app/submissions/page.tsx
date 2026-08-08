@@ -11,6 +11,10 @@ import {
   getVoteSubmissionById,
   getVoteSubmissions,
 } from "@/lib/vote/getVoteSubmissions";
+import {
+  getViewerVoteState,
+  type ViewerVoteState,
+} from "@/lib/vote/viewerVoteState.server";
 import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 
 export const dynamic = "force-dynamic";
@@ -96,9 +100,25 @@ export default async function SubmissionsPage({
   const requestedId = Number.isSafeInteger(requestedSubmissionId)
     ? requestedSubmissionId
     : null;
-  const [initialPage, sponsoredMeta] = await Promise.all([
+  const votingEnabled =
+    currentCycle.status === "voting_open" ||
+    currentCycle.status === "active";
+  const viewerVoteStatePromise: Promise<ViewerVoteState | null> =
+    discordUserId && votingEnabled
+      ? getViewerVoteState({
+          cycleId: currentCycle.id,
+          discordUserId,
+        }).catch((error) => {
+          console.error("[SUBMISSIONS] initial viewer vote state unavailable", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+          return null;
+        })
+      : Promise.resolve({ voteCount: 0, votedSubmissionIds: [] });
+  const [initialPage, sponsoredMeta, viewerVoteState] = await Promise.all([
     getVoteSubmissions({ cycleId: currentCycle.id }),
     getCycleSponsoredMeta(currentCycle.id),
+    viewerVoteStatePromise,
   ]);
   const initialActiveSubmission =
     requestedId &&
@@ -117,16 +137,17 @@ export default async function SubmissionsPage({
         cycleId={currentCycle.id}
         initialPage={initialPage}
         initialActiveSubmission={initialActiveSubmission}
-        hasVoted={false}
-        voteCount={0}
+        hasVoted={
+          (viewerVoteState?.voteCount ?? 0) >=
+          Math.max(1, Math.min(currentCycle.votes_per_user ?? 2, 10))
+        }
+        voteCount={viewerVoteState?.voteCount ?? 0}
         votesPerUser={
           Math.max(1, Math.min(currentCycle.votes_per_user ?? 2, 10))
         }
-        votedSubmissionIds={[]}
-        votingEnabled={
-          currentCycle.status === "voting_open" ||
-          currentCycle.status === "active"
-        }
+        votedSubmissionIds={viewerVoteState?.votedSubmissionIds ?? []}
+        initialVoteStateAvailable={viewerVoteState !== null}
+        votingEnabled={votingEnabled}
         isPaused={currentCycle.status === "paused"}
         discordUserId={discordUserId}
         voteBlockedReason={viewerBlockReason}

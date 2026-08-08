@@ -38,6 +38,7 @@ export default function SubmissionsClient({
   voteCount,
   votesPerUser,
   votedSubmissionIds,
+  initialVoteStateAvailable,
   votingEnabled,
   isPaused,
   discordUserId,
@@ -54,7 +55,8 @@ export default function SubmissionsClient({
   hasVoted: boolean;
   voteCount: number;
   votesPerUser: number;
-  votedSubmissionIds: number[];
+  votedSubmissionIds: readonly number[];
+  initialVoteStateAvailable: boolean;
   votingEnabled: boolean;
   isPaused: boolean;
   discordUserId: string | null;
@@ -126,6 +128,9 @@ export default function SubmissionsClient({
   );
   const [voted, setVoted] = useState(hasVoted);
   const [usedVotes, setUsedVotes] = useState(voteCount);
+  const [voteStateAvailable, setVoteStateAvailable] = useState(
+    initialVoteStateAvailable
+  );
   const [votedSubmissionIdSet, setVotedSubmissionIdSet] = useState(
     () => new Set(votedSubmissionIds)
   );
@@ -171,6 +176,7 @@ export default function SubmissionsClient({
       const data = await response.json();
 
       if (!response.ok) {
+        setVoteStateAvailable(false);
         setLocalShowDiscordSyncDelayNotice(false);
         setLocalVoteBlockedReason(
           data.status === "restricted"
@@ -210,6 +216,7 @@ export default function SubmissionsClient({
       );
       setUsedVotes(typeof data.voteCount === "number" ? data.voteCount : 0);
       setVoted(data.hasVoted === true);
+      setVoteStateAvailable(true);
       setVotedSubmissionIdSet(
         new Set(
           Array.isArray(data.votedSubmissionIds)
@@ -218,6 +225,7 @@ export default function SubmissionsClient({
         )
       );
     } catch {
+      setVoteStateAvailable(false);
       setLocalShowDiscordSyncDelayNotice(false);
       setLocalVoteBlockedReason("dependency_unavailable");
     }
@@ -394,6 +402,7 @@ export default function SubmissionsClient({
           : usedVotes + 1;
 
       setUsedVotes(nextVoteCount);
+      setVoteStateAvailable(true);
       setVoted(
         typeof data?.hasVoted === "boolean"
           ? data.hasVoted
@@ -430,7 +439,9 @@ export default function SubmissionsClient({
           {isPaused
             ? "CYCLE PAUSED"
             : votingEnabled
-              ? `VOTING OPEN - ${usedVotes}/${votesPerUser} VOTES USED`
+              ? voteStateAvailable
+                ? `VOTING OPEN - ${usedVotes}/${votesPerUser} VOTES USED`
+                : "VOTING OPEN - VOTE STATUS UNAVAILABLE"
               : "SUBMISSIONS OPEN - VOTING STARTS LATER"}
         </div>
         {submissions.map((s) => {
@@ -515,7 +526,9 @@ export default function SubmissionsClient({
                 {localVotes[active.id] ?? active.vote_count}
                 {votingEnabled && votesPerUser > 1 ? (
                   <span className="ml-3 text-white/60">
-                    Your votes: {usedVotes}/{votesPerUser}
+                    {voteStateAvailable
+                      ? `Your votes: ${usedVotes}/${votesPerUser}`
+                      : "Your vote status is loading…"}
                   </span>
                 ) : null}
               </span>

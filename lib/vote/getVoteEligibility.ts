@@ -4,6 +4,7 @@ import {
   getDiscordMembershipEligibility,
   type DiscordMembershipEligibility,
 } from "@/lib/eligibility/discordMembership";
+import { getViewerVoteState } from "@/lib/vote/viewerVoteState.server";
 
 export type VoteEligibility = {
   isBanned: boolean;
@@ -11,7 +12,7 @@ export type VoteEligibility = {
   hasVoted: boolean;
   voteCount: number;
   votesPerUser: number;
-  votedSubmissionIds: number[];
+  votedSubmissionIds: readonly number[];
   membership: DiscordMembershipEligibility;
 };
 
@@ -35,26 +36,14 @@ export async function getVoteEligibility(
 
   const userLog = userLogResult.data;
 
-  let votedSubmissionIds: number[] = [];
-
-  if (activeCycle?.id) {
-    const { data: voteRows, error: votesError } = await supabaseAdmin
-      .from("votes")
-      .select("submission_id")
-      .eq("cycle_id", activeCycle.id)
-      .eq("discord_user_id", discordUserId);
-
-    if (votesError) {
-      throw new Error("Vote eligibility dependency unavailable");
-    }
-
-    votedSubmissionIds = (voteRows ?? [])
-      .map((vote) => vote.submission_id)
-      .filter((submissionId): submissionId is number =>
-        Number.isInteger(submissionId)
-      );
-  }
-  const voteCount = votedSubmissionIds.length;
+  const viewerVoteState = activeCycle?.id
+    ? await getViewerVoteState({
+        cycleId: activeCycle.id,
+        discordUserId,
+      })
+    : { voteCount: 0, votedSubmissionIds: [] };
+  const votedSubmissionIds = viewerVoteState.votedSubmissionIds;
+  const voteCount = viewerVoteState.voteCount;
   const votesPerUser = Math.max(
     1,
     Math.min(activeCycle?.votes_per_user ?? 2, 10)
