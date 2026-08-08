@@ -59,7 +59,8 @@ test("duplicates, empty selections, invalid expectations, and oversized totals f
     { ...validRequest(), selections: [] },
     { ...validRequest(), selections: [first, first] },
     { ...validRequest(), expectedVotesPerUser: 0 },
-    { ...validRequest(), reasonText: "  " },
+    { ...validRequest(), reasonText: "x" },
+    { ...validRequest(), reasonText: { unexpected: true } },
     { ...validRequest(), idempotencyKey: "not-a-uuid" },
     {
       ...validRequest(),
@@ -78,5 +79,17 @@ test("duplicates, empty selections, invalid expectations, and oversized totals f
         error.status === 422 &&
         error.code === "INVALID_VOTE_REFUND_REQUEST"
     );
+  }
+});
+
+test("the optional audit note canonicalizes blank, null and missing values", () => {
+  for (const request of [
+    { ...validRequest(), reasonText: "  " },
+    { ...validRequest(), reasonText: null },
+    Object.fromEntries(
+      Object.entries(validRequest()).filter(([key]) => key !== "reasonText")
+    ),
+  ]) {
+    assert.equal(parseVoteRefundRequest(request).reasonText, null);
   }
 });

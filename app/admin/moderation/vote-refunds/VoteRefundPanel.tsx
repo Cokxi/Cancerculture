@@ -48,7 +48,6 @@ export default function VoteRefundPanel({
     if (
       pending ||
       selected.length === 0 ||
-      reasonText.trim().length < 3 ||
       confirmationText !== requiredConfirmation
     ) {
       return;
@@ -70,7 +69,7 @@ export default function VoteRefundPanel({
             expectedDisqualifiedAt: candidate.disqualifiedAt,
             expectedVoteCount: candidate.refundableVoteCount,
           })),
-          reasonText: reasonText.trim(),
+          reasonText: reasonText.trim() || null,
           idempotencyKey: idempotencyKeyRef.current,
         }),
       });
@@ -212,7 +211,7 @@ export default function VoteRefundPanel({
 
       <div className="mt-6 rounded-xl border border-red-300/20 bg-red-500/[0.06] p-4">
         <label className="block text-sm font-medium" htmlFor="refund-reason">
-          Required audit reason
+          Audit note (optional)
         </label>
         <textarea
           id="refund-reason"
@@ -228,7 +227,7 @@ export default function VoteRefundPanel({
         />
         <button
           type="button"
-          disabled={selected.length === 0 || reasonText.trim().length < 3}
+          disabled={selected.length === 0}
           onClick={() => {
             setConfirming(true);
             setConfirmationText("");
@@ -251,8 +250,8 @@ export default function VoteRefundPanel({
             This removes {selectedVoteCount} canonical vote
             {selectedVoteCount === 1 ? "" : "s"} from {selected.length}{" "}
             explicitly selected submission{selected.length === 1 ? "" : "s"}
-            in Cycle #{cycle.id}. A later reinstatement will not restore these
-            votes.
+            in Cycle #{cycle.id}. These submissions become permanently
+            unavailable for reinstatement.
           </p>
           <label className="mt-4 block text-sm" htmlFor="refund-confirmation">
             Type <strong>{requiredConfirmation}</strong> to confirm

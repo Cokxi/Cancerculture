@@ -165,13 +165,17 @@ export default async function DisqualifiedSubmissionsPage() {
                   ).toLocaleString()}
                 </div>
               )}
-              {canReinstate && (
+              {submission.vote_refund_id ? (
+                <div style={{ marginTop: 8, color: "#fcd34d" }}>
+                  Votes refunded · reinstatement unavailable
+                </div>
+              ) : canReinstate ? (
                 <ReinstateButton
                   submissionId={submission.id}
                   cycleId={currentCycle.id}
                   phase={currentCycle.status}
                 />
-              )}
+              ) : null}
             </div>
           </div>
         );

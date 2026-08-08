@@ -133,7 +133,7 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "logs.votes.view":
       "991f2ef3ae5b454d3b1fec1c8fbc15ed64f845049553c6ba1cd07fe3bc0c09da",
     "logs.vote_refunds.view":
-      "d973a6edb746cd7740a5dd8142b34aad2be21ed60d66d0cf64a1ee2df1a67619",
+      "f3e1102733e29e8338b95f831e89f9f09f7f7af70ce4dfcfce51cba450c358b2",
     "logs.submission_moderation.view":
       "fc820ff4bea36171834588856c8f1ca09f0b0391d0b04ff6c0521fffa85d88e7",
     "logs.team_authorization.view":
@@ -179,7 +179,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       deprecated ||
       activatedKeys.includes(key) ||
       key.startsWith("users.flag.") ||
-      key === "users.directory.full.view";
+      key === "users.directory.full.view" ||
+      key === "logs.vote_refunds.view";
     assert.equal(definition.assignableToNonAdmin, !deprecated);
     assert.equal(definition.lifecycle, deprecated ? "deprecated" : "active");
     assert.equal(

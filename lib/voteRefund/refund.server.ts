@@ -146,7 +146,7 @@ export async function refundDisqualifiedVotes(params: {
   expectedResetCount: number;
   expectedVotesPerUser: number;
   selections: readonly VoteRefundSelection[];
-  reasonText: string;
+  reasonText: string | null;
   idempotencyKey: string;
 }): Promise<VoteRefundResult> {
   let response;

@@ -99,7 +99,7 @@ async function getCycleEndModerationSubmissions(
   const { data, error, count } = await supabaseAdmin
     .from("submissions")
     .select(
-      "id, cycle_id, r2_key, is_disqualified, discord_user_id",
+      "id, cycle_id, r2_key, is_disqualified, discord_user_id, vote_refund_id, vote_refunded_at",
       { count: "exact" }
     )
     .eq("cycle_id", cycleId)
@@ -138,7 +138,7 @@ export async function getLiveModerationSubmissions(cycleId: number) {
   const { data, error } = await supabaseAdmin
     .from("submissions")
     .select(
-      "id, cycle_id, r2_key, is_disqualified, discord_user_id"
+      "id, cycle_id, r2_key, is_disqualified, discord_user_id, vote_refund_id, vote_refunded_at"
     )
     .eq("cycle_id", cycleId)
     .order("id", { ascending: false })
@@ -160,7 +160,7 @@ export async function getDisqualifiedModerationSubmissions(
   const { data, error } = await supabaseAdmin
     .from("submissions")
     .select(
-      "id, cycle_id, r2_key, is_disqualified, disqualification_reason_code, disqualification_reason_text, disqualified_at, disqualified_by_discord_username, discord_user_id"
+      "id, cycle_id, r2_key, is_disqualified, disqualification_reason_code, disqualification_reason_text, disqualified_at, disqualified_by_discord_username, discord_user_id, vote_refund_id, vote_refunded_at"
     )
     .eq("cycle_id", cycleId)
     .eq("is_disqualified", true)

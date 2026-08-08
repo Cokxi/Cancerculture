@@ -40,18 +40,19 @@ test("the additive migration registers two exact zero-grant capabilities", () =>
   assert.match(migration, /commit;\s*$/u);
   assert.match(migration, /set local lock_timeout = '5s'/u);
 
-  for (const key of [
-    "votes.refund_disqualified",
-    "logs.vote_refunds.view",
-  ]) {
-    const definition = TEAM_CAPABILITY_REGISTRY[key];
-    const hash = createHash("sha256")
-      .update(JSON.stringify(canonicalDefinition(definition)), "utf8")
-      .digest("hex");
-    assert.equal(hash, definition.definitionHash);
-    assert.match(migration, new RegExp(`'${key.replaceAll(".", "\\.")}'`, "u"));
-    assert.match(migration, new RegExp(hash, "u"));
-  }
+  const refundDefinition =
+    TEAM_CAPABILITY_REGISTRY["votes.refund_disqualified"];
+  const refundHash = createHash("sha256")
+    .update(JSON.stringify(canonicalDefinition(refundDefinition)), "utf8")
+    .digest("hex");
+  assert.equal(refundHash, refundDefinition.definitionHash);
+  assert.match(migration, /'votes\.refund_disqualified'/u);
+  assert.match(migration, new RegExp(refundHash, "u"));
+  assert.match(migration, /'logs\.vote_refunds\.view'/u);
+  assert.match(
+    migration,
+    /d973a6edb746cd7740a5dd8142b34aad2be21ed60d66d0cf64a1ee2df1a67619/u
+  );
 
   assert.doesNotMatch(
     migration,

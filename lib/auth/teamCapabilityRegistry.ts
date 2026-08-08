@@ -524,23 +524,26 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     key: "logs.vote_refunds.view",
     displayName: "View Vote Refund History",
     description:
-      "View the redacted append-only history of successful manual vote refunds without access to individual voter records.",
+      "View the redacted append-only history of successful manual vote refunds, with individual refunded voters available only when Vote Logs access is also granted.",
     category: "Logs",
     includedActions: [
-      "View paginated successful manual vote-refund events.",
-      "View each event's actor, cycle attempt, selected submission references, refunded vote counts, broad reason category, and timestamp.",
+      "View successful manual vote refunds grouped by cycle attempt and submission.",
+      "View each refunded submission's current thumbnail when available, submitter, refund actor, refunded vote count, broad reason category, and timestamp.",
+      "View individual refunded voter identities only together with the separate View Vote Logs capability.",
     ],
     excludedActions: [
       "Executing vote refunds or changing submissions, cycles, or votes.",
-      "Viewing voter identifiers, original vote identifiers or timestamps, free-text reasons, request hashes, idempotency data, or raw payloads.",
+      "Viewing individual refunded voters without the separate View Vote Logs capability.",
+      "Viewing free-text audit notes unless the caller is Owner.",
+      "Viewing original vote identifiers or timestamps, request hashes, idempotency data, or raw payloads.",
       "Viewing vote-attempt, cluster, network, device, abuse-detection, observation, or unrelated logs.",
     ],
     riskLevel: "high",
     lifecycle: "active",
     assignableToNonAdmin: true,
-    implementationVersion: 1,
+    implementationVersion: 2,
     definitionHash:
-      "d973a6edb746cd7740a5dd8142b34aad2be21ed60d66d0cf64a1ee2df1a67619",
+      "f3e1102733e29e8338b95f831e89f9f09f7f7af70ce4dfcfce51cba450c358b2",
   }),
   "logs.submission_moderation.view": defineCapability({
     key: "logs.submission_moderation.view",

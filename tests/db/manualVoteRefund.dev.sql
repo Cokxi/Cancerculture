@@ -13,7 +13,9 @@ create temporary table manual_vote_refund_fixture (
   stale_dq_id bigint not null,
   reinstated_id bigint not null,
   admin_id text not null,
-  delegated_id text not null
+  delegated_id text not null,
+  baseline_event_count bigint not null,
+  baseline_item_count bigint not null
 ) on commit drop;
 
 insert into manual_vote_refund_fixture
@@ -25,7 +27,9 @@ select
   8800000014,
   8800000015,
   admin_member.discord_user_id,
-  delegated_member.discord_user_id
+  delegated_member.discord_user_id,
+  (select count(*) from public.vote_refund_events),
+  (select count(*) from public.vote_refund_items)
 from lateral (
   select discord_user_id
   from public.team_members
@@ -65,7 +69,7 @@ begin
     or exists (
       select 1
       from public.voting_cycles
-      where id = 8800000001 or status::text = 'voting_open'
+      where id = 8800000001
     )
     or exists (
       select 1
@@ -81,6 +85,18 @@ begin
   end if;
 end;
 $preflight$;
+
+update public.voting_cycles
+set status = 'draft'
+where status::text in (
+  'active',
+  'submission_open',
+  'submission_closed',
+  'voting_open',
+  'voting_closed',
+  'paused',
+  'finalizing'
+);
 
 insert into public.voting_cycles (
   id,
@@ -166,7 +182,7 @@ begin
         'expectedDisqualifiedAt', v_selected_a_at
       )
     ),
-    'Rollback-only confirmed selective refund.',
+    null,
     '88000000-0000-4000-8000-000000000001'::uuid
   );
 
@@ -187,7 +203,7 @@ begin
         'expectedDisqualifiedAt', v_selected_b_at
       )
     ),
-    'Rollback-only confirmed selective refund.',
+    null,
     '88000000-0000-4000-8000-000000000001'::uuid
   );
 
@@ -207,7 +223,17 @@ begin
     )
     or (select count(*) from public.votes where submission_id = v_fixture.untouched_id) <> 2
     or (select count(*) from public.vote_refund_events where idempotency_key = '88000000-0000-4000-8000-000000000001') <> 1
+    or (select reason_text is not null from public.vote_refund_events where idempotency_key = '88000000-0000-4000-8000-000000000001')
     or (select count(*) from public.vote_refund_items where refund_id = '88000000-0000-4000-8000-000000000001') <> 5
+    or exists (
+      select 1 from public.submissions
+      where id in (v_fixture.selected_a_id, v_fixture.selected_b_id)
+        and (
+          vote_refund_id is distinct from '88000000-0000-4000-8000-000000000001'::uuid
+          or vote_refunded_at is null
+          or not is_disqualified
+        )
+    )
     or exists (
       select 1
       from public.vote_refund_items
@@ -236,11 +262,16 @@ begin
     if sqlerrm <> 'VOTE_REFUND_IDEMPOTENCY_CONFLICT' then raise; end if;
   end;
 
-  update public.submissions
-  set is_disqualified = false,
-      disqualification_type = null,
-      disqualified_at = null
-  where id = v_fixture.selected_a_id;
+  begin
+    update public.submissions
+    set is_disqualified = false,
+        disqualification_type = null,
+        disqualified_at = null
+    where id = v_fixture.selected_a_id;
+    raise exception 'MANUAL_VOTE_REFUND_REINSTATEMENT_ACCEPTED';
+  exception when sqlstate 'PT409' then
+    if sqlerrm <> 'VOTE_REFUNDED_SUBMISSION_REINSTATEMENT_BLOCKED' then raise; end if;
+  end;
   if exists (select 1 from public.votes where submission_id = v_fixture.selected_a_id) then
     raise exception 'MANUAL_VOTE_REFUND_REINSTATEMENT_RESTORED_VOTES';
   end if;
@@ -383,8 +414,10 @@ begin
   if (select count(*) from public.votes where submission_id = v_fixture.untouched_id) <> 2
     or (select count(*) from public.votes where submission_id = v_fixture.stale_dq_id) <> 1
     or (select count(*) from public.votes where submission_id = v_fixture.reinstated_id) <> 1
-    or (select count(*) from public.vote_refund_events) <> 1
-    or (select count(*) from public.vote_refund_items) <> 5 then
+    or (select count(*) from public.vote_refund_events) <>
+      v_fixture.baseline_event_count + 1
+    or (select count(*) from public.vote_refund_items) <>
+      v_fixture.baseline_item_count + 5 then
     raise exception 'MANUAL_VOTE_REFUND_FAILURE_PATH_MUTATED_STATE';
   end if;
 end;

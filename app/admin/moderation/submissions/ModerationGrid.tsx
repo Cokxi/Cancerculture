@@ -17,6 +17,8 @@ type Submission = {
   thumb_url: string;
   is_disqualified: boolean;
   discord_user_id: string | null;
+  vote_refund_id: string | null;
+  vote_refunded_at: string | null;
 };
 
 const RULE_VIOLATION_REASONS = [
@@ -361,6 +363,18 @@ export default function ModerationGrid({
                 </div>
               )}
             </>
+          ) : submission.is_disqualified && submission.vote_refund_id ? (
+            <div
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #a16207",
+                borderRadius: 4,
+                color: "#fcd34d",
+                fontSize: 12,
+              }}
+            >
+              Votes refunded · reinstatement unavailable
+            </div>
           ) : submission.is_disqualified && canReinstate ? (
             <button
               disabled={pendingAction === `reinstate:${submission.id}`}

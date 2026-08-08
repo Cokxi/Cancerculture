@@ -80,11 +80,14 @@ function mapRpcError(
     "MODERATION_SUBMISSION_NOT_FOUND",
     "MODERATION_SUBMISSION_CYCLE_CONFLICT",
     "MODERATION_EXPECTED_STATE_CONFLICT",
+    "VOTE_REFUNDED_SUBMISSION_REINSTATEMENT_BLOCKED",
   ]) {
     if (message.includes(code)) {
       return new SubmissionModerationError(
         409,
-        "The moderation state changed. Refresh and try again.",
+        code === "VOTE_REFUNDED_SUBMISSION_REINSTATEMENT_BLOCKED"
+          ? "This submission cannot be reinstated because its votes were refunded."
+          : "The moderation state changed. Refresh and try again.",
         code
       );
     }

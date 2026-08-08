@@ -25,14 +25,15 @@ test("refund execution and history use separate exact server-side capabilities",
   assert.doesNotMatch(teamRoles, /canRefundDisqualifiedVotes/u);
 });
 
-test("the UI requires explicit selection and warns that reinstatement cannot restore refunded votes", async () => {
+test("the UI requires explicit selection and confirms permanent reinstatement closure", async () => {
   const panel = await source(
     "app/admin/moderation/vote-refunds/VoteRefundPanel.tsx"
   );
 
   assert.match(panel, /Select all on this page/u);
   assert.match(panel, /Every other disqualified[\s\S]*submission keeps all of its votes/u);
-  assert.match(panel, /later reinstatement will not restore these[\s\S]*votes/u);
+  assert.match(panel, /permanently[\s\S]*unavailable for reinstatement/u);
+  assert.match(panel, /Audit note \(optional\)/u);
   assert.match(panel, /REFUND/u);
   assert.match(panel, /crypto\.randomUUID\(\)/u);
   assert.match(panel, /expectedDisqualifiedAt/u);
@@ -40,14 +41,16 @@ test("the UI requires explicit selection and warns that reinstatement cannot res
   assert.doesNotMatch(panel, /refund all disqualified/iu);
 });
 
-test("delegated history does not read or expose individual refund items", async () => {
+test("refund voter details require both exact log capabilities and omit raw vote data", async () => {
   const [historyRead, historyPage] = await Promise.all([
     source("lib/voteRefund/historyReadModel.server.ts"),
     source("app/admin/logs/vote-refunds/page.tsx"),
   ]);
 
-  assert.match(historyRead, /authorization\.isAdmin \? \["reason_text", "request_hash"\] : \[\]/u);
-  assert.doesNotMatch(historyRead, /\.from\("vote_refund_items"\)/u);
-  assert.doesNotMatch(historyRead, /voter_discord_user_id|original_vote_id/u);
-  assert.match(historyPage, /Individual voter[\s\S]*records are not exposed/u);
+  assert.match(historyRead, /hasResolvedTeamCapability\([\s\S]*"logs\.votes\.view"/u);
+  assert.match(historyRead, /\.from\("vote_refund_submission_audit"\)/u);
+  assert.match(historyRead, /authorization\.isAdmin \? \["reason_text"\] : \[\]/u);
+  assert.doesNotMatch(historyRead, /original_vote_id|vote_created_at|request_hash/u);
+  assert.match(historyPage, /additional Vote Logs permission/u);
+  assert.match(historyPage, /grouped by cycle and submission/u);
 });

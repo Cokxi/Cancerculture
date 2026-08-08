@@ -58,7 +58,9 @@ export function parseVoteRefundRequest(value: unknown) {
 
   const body = value as Record<string, unknown>;
   const reasonText =
-    typeof body.reasonText === "string" ? body.reasonText.trim() : "";
+    typeof body.reasonText === "string" && body.reasonText.trim()
+      ? body.reasonText.trim()
+      : null;
   const selections = Array.isArray(body.selections)
     ? body.selections.map(parseSelection).sort((left, right) =>
         left.submissionId - right.submissionId
@@ -82,8 +84,11 @@ export function parseVoteRefundRequest(value: unknown) {
     selections.length > MAX_VOTE_REFUND_SUBMISSIONS ||
     new Set(selectedIds).size !== selections.length ||
     expectedVoteTotal > MAX_VOTE_REFUND_ROWS ||
-    reasonText.length < 3 ||
-    reasonText.length > 1000 ||
+    (body.reasonText !== undefined &&
+      body.reasonText !== null &&
+      typeof body.reasonText !== "string") ||
+    (reasonText !== null &&
+      (reasonText.length < 3 || reasonText.length > 1000)) ||
     typeof body.idempotencyKey !== "string" ||
     !UUID_PATTERN.test(body.idempotencyKey)
   ) {

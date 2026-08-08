@@ -70,6 +70,12 @@ test("the server adapter performs exactly one atomic RPC with server-owned actor
   ]);
 });
 
+test("the server adapter forwards an omitted audit note as null", async () => {
+  await refundDisqualifiedVotes({ ...params, reasonText: null });
+
+  assert.equal(state.calls[0].parameters.p_reason_text, null);
+});
+
 test("database authorization, stale state, limits, validation and unknown failures remain distinct", async () => {
   const cases = [
     ["VOTE_REFUND_FORBIDDEN", 403],
