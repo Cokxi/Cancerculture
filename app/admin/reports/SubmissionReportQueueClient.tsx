@@ -606,7 +606,21 @@ export default function SubmissionReportQueueClient({
                         </div>
 
                         <section>
-                          <h3 className="text-lg font-semibold">Reports</h3>
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h3 className="text-lg font-semibold">Reports</h3>
+                            {typeof row.submissionActionHref === "string" &&
+                            typeof row.submissionActionLabel === "string" ? (
+                              <Link
+                                href={row.submissionActionHref}
+                                prefetch={false}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex cursor-pointer rounded-full border border-orange-300/50 px-4 py-2 text-sm font-semibold text-orange-100 outline-none transition hover:bg-orange-500/15 focus-visible:ring-2 focus-visible:ring-orange-300"
+                              >
+                                {row.submissionActionLabel}
+                              </Link>
+                            ) : null}
+                          </div>
                           <div className="mt-3 space-y-2">
                             {items(summary.reports).map((report) => (
                               <div

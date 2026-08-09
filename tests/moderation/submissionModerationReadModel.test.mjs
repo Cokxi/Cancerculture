@@ -145,6 +145,30 @@ test("submission query failures are controlled 503 errors", async () => {
   }
 });
 
+test("Live Moderation can load one focused Submission without scanning the first 50", async () => {
+  state.responses.set("submissions", {
+    data: [{ id: 125, cycle_id: 7 }],
+    error: null,
+  });
+
+  const result = await getLiveModerationSubmissions(7, 125);
+
+  assert.equal(result.length, 1);
+  assert.deepEqual(
+    state.calls.filter(
+      (entry) => entry[0] === "submissions" && entry[1] === "eq"
+    ),
+    [
+      ["submissions", "eq", "cycle_id", 7],
+      ["submissions", "eq", "id", 125],
+    ]
+  );
+  assert.deepEqual(
+    state.calls.find((entry) => entry[1] === "limit"),
+    ["submissions", "limit", 1]
+  );
+});
+
 test("Cycle End Moderation read model authorizes before loading all paginated submissions", async () => {
   state.responses.set("voting_cycles", {
     data: [{ id: 7, status: "voting_closed" }],
@@ -174,5 +198,37 @@ test("Cycle End Moderation read model authorizes before loading all paginated su
   assert.deepEqual(
     state.calls.find((entry) => entry[1] === "range"),
     ["submissions", "range", 48, 95]
+  );
+});
+
+test("Cycle End Moderation can load one focused Submission independently of pagination", async () => {
+  state.responses.set("voting_cycles", {
+    data: [{ id: 7, status: "voting_closed" }],
+    error: null,
+  });
+  state.responses.set("submissions", {
+    data: [{ id: 125, cycle_id: 7 }],
+    error: null,
+    count: 1,
+  });
+
+  const result = await loadCycleEndModerationReadModel(3, 125);
+
+  assert.deepEqual(state.authorizationCalls, ["cycles.manage"]);
+  assert.equal(result.submissions?.page, 1);
+  assert.equal(result.submissions?.hasPrevious, false);
+  assert.equal(result.submissions?.hasNext, false);
+  assert.deepEqual(
+    state.calls.filter(
+      (entry) => entry[0] === "submissions" && entry[1] === "eq"
+    ),
+    [
+      ["submissions", "eq", "cycle_id", 7],
+      ["submissions", "eq", "id", 125],
+    ]
+  );
+  assert.deepEqual(
+    state.calls.find((entry) => entry[1] === "range"),
+    ["submissions", "range", 0, 0]
   );
 });

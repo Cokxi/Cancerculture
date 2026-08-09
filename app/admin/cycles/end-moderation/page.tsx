@@ -10,17 +10,26 @@ export const dynamic = "force-dynamic";
 export default async function CycleEndModerationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; submission?: string }>;
 }) {
   await requireTeamCapabilityPage(
     "cycles.manage",
     "/admin/cycles/end-moderation"
   );
-  const requestedPage = Number((await searchParams).page ?? "1");
+  const params = await searchParams;
+  const requestedPage = Number(params.page ?? "1");
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0
     ? requestedPage
     : 1;
-  const readModel = await loadCycleEndModerationReadModel(page);
+  const requestedSubmissionId = Number(params.submission);
+  const focusedSubmissionId =
+    Number.isSafeInteger(requestedSubmissionId) && requestedSubmissionId > 0
+      ? requestedSubmissionId
+      : null;
+  const readModel = await loadCycleEndModerationReadModel(
+    page,
+    focusedSubmissionId
+  );
   const cycle = readModel.cycle;
 
   if (!cycle) {
@@ -71,8 +80,18 @@ export default async function CycleEndModerationPage({
         checked, idempotent, and audited.
       </p>
       <p className="mt-2 text-sm text-white/50">
-        Showing {submissions.length} of {result.total} submissions.
+        {focusedSubmissionId === null
+          ? `Showing ${submissions.length} of ${result.total} submissions.`
+          : `Focused Submission #${focusedSubmissionId}.`}
       </p>
+      {focusedSubmissionId !== null ? (
+        <Link
+          href="/admin/cycles/end-moderation"
+          className="mt-3 inline-flex cursor-pointer text-orange-300 underline underline-offset-4"
+        >
+          View all Cycle End submissions
+        </Link>
+      ) : null}
 
       {submissions.length > 0 ? (
         <ModerationGrid
@@ -80,13 +99,18 @@ export default async function CycleEndModerationPage({
           phase="voting_closed"
           canDisqualify
           canReinstate
+          focusedSubmissionId={focusedSubmissionId}
         />
       ) : (
-        <p className="mt-8 text-white/60">No submissions in this cycle.</p>
+        <p className="mt-8 text-white/60">
+          {focusedSubmissionId === null
+            ? "No submissions in this cycle."
+            : `Submission #${focusedSubmissionId} is not available in the Cycle End review.`}
+        </p>
       )}
 
       <nav className="mt-8 flex flex-wrap gap-3" aria-label="Pagination">
-        {result.hasPrevious ? (
+        {focusedSubmissionId === null && result.hasPrevious ? (
           <Link
             href={`?page=${page - 1}`}
             className="cursor-pointer rounded-md border border-white/20 px-4 py-2 hover:bg-white/10"
@@ -94,7 +118,7 @@ export default async function CycleEndModerationPage({
             Previous
           </Link>
         ) : null}
-        {result.hasNext ? (
+        {focusedSubmissionId === null && result.hasNext ? (
           <Link
             href={`?page=${page + 1}`}
             className="cursor-pointer rounded-md border border-white/20 px-4 py-2 hover:bg-white/10"

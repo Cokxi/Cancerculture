@@ -15,10 +15,19 @@ import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminModerationSubmissionsPage() {
+export default async function AdminModerationSubmissionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ submission?: string }>;
+}) {
   let authorization;
   let currentCycle;
   let submissions;
+  const requestedSubmissionId = Number((await searchParams).submission);
+  const focusedSubmissionId =
+    Number.isSafeInteger(requestedSubmissionId) && requestedSubmissionId > 0
+      ? requestedSubmissionId
+      : null;
 
   try {
     authorization = await getTeamAuthorizationContext();
@@ -28,7 +37,10 @@ export default async function AdminModerationSubmissionsPage() {
       currentCycle?.status ?? null
     );
     submissions = currentCycle
-      ? await getLiveModerationSubmissions(currentCycle.id)
+      ? await getLiveModerationSubmissions(
+          currentCycle.id,
+          focusedSubmissionId
+        )
       : [];
   } catch (error) {
     const destination = getTeamPageAccessRedirect(error);
@@ -74,9 +86,23 @@ export default async function AdminModerationSubmissionsPage() {
         Cycle #{currentCycle.id} · {currentCycle.status}
       </p>
 
+      {focusedSubmissionId !== null ? (
+        <p style={{ marginTop: 8 }}>
+          Focused Submission #{focusedSubmissionId} ·{" "}
+          <a
+            href="/admin/moderation/submissions"
+            style={{ color: "#ff9800", textDecoration: "underline" }}
+          >
+            View all current submissions
+          </a>
+        </p>
+      ) : null}
+
       {submissions.length === 0 ? (
         <p style={{ marginTop: 16, opacity: 0.7 }}>
-          No submissions found for the current cycle.
+          {focusedSubmissionId === null
+            ? "No submissions found for the current cycle."
+            : `Submission #${focusedSubmissionId} is not available in the current moderation cycle.`}
         </p>
       ) : (
         <ModerationGrid
@@ -84,6 +110,7 @@ export default async function AdminModerationSubmissionsPage() {
           phase={currentCycle.status}
           canDisqualify={canDisqualify}
           canReinstate={canReinstate}
+          focusedSubmissionId={focusedSubmissionId}
         />
       )}
     </div>

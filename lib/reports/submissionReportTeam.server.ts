@@ -10,6 +10,7 @@ import {
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
+import { canModerateSubmission } from "@/lib/moderation/submissionModerationAuthorization";
 import { getSubmissionDestinationHref } from "@/lib/submissions/getSubmissionDestinationHref";
 
 export type SubmissionReportArea = "live" | "finalized";
@@ -100,7 +101,70 @@ function can(
   return hasResolvedTeamCapability(authorization, capability);
 }
 
-async function addSafeQueueThumbnails(cases: JsonObject[]) {
+function getSubmissionAction(
+  item: JsonObject,
+  authorization: TeamAuthorizationContext,
+  historyHref: string | null
+) {
+  const submissionId = safeInteger(item.submissionId);
+  const cycleId = safeInteger(item.cycleId);
+  const cycleStatus = text(item.currentCycleStatus);
+  if (
+    submissionId === null ||
+    cycleId === null ||
+    item.currentAvailable !== true
+  ) {
+    return null;
+  }
+
+  if (cycleStatus === "submission_open" || cycleStatus === "voting_open") {
+    const canOpen = canModerateSubmission(
+      authorization,
+      cycleStatus,
+      "disqualify"
+    ) || canModerateSubmission(
+      authorization,
+      cycleStatus,
+      "reinstate"
+    );
+    return canOpen
+      ? Object.freeze({
+          href: `/admin/moderation/submissions?submission=${submissionId}`,
+          label: "Open Live Moderation",
+        })
+      : null;
+  }
+
+  if (cycleStatus === "voting_closed") {
+    const canOpen = canModerateSubmission(
+      authorization,
+      cycleStatus,
+      "disqualify"
+    ) || canModerateSubmission(
+      authorization,
+      cycleStatus,
+      "reinstate"
+    );
+    return canOpen
+      ? Object.freeze({
+          href: `/admin/cycles/end-moderation?submission=${submissionId}`,
+          label: "Open Cycle End Moderation",
+        })
+      : null;
+  }
+
+  return cycleStatus === "finished" && historyHref
+    ? Object.freeze({
+        href: historyHref,
+        label: "Open Cycle History",
+      })
+    : null;
+}
+
+async function addSafeQueueThumbnails(
+  cases: JsonObject[],
+  authorization: TeamAuthorizationContext
+) {
   const ids = Array.from(
     new Set(
       cases
@@ -135,10 +199,17 @@ async function addSafeQueueThumbnails(cases: JsonObject[]) {
             publicVisibilityStatus: text(item.currentVisibility),
           })
         : null;
+    const submissionAction = getSubmissionAction(
+      item,
+      authorization,
+      destinationHref
+    );
     return Object.freeze({
       ...item,
       thumbnailUrl: publicUrl ? getSubmissionThumbnailUrl(publicUrl) : null,
       destinationHref,
+      submissionActionHref: submissionAction?.href ?? null,
+      submissionActionLabel: submissionAction?.label ?? null,
     });
   });
 }
@@ -165,7 +236,7 @@ export async function loadSubmissionReportQueue(area: SubmissionReportArea) {
     }
   );
   if (error) throw readFailure(error);
-  const cases = await addSafeQueueThumbnails(asArray(data));
+  const cases = await addSafeQueueThumbnails(asArray(data), authorization);
   return Object.freeze({
     area,
     cases: Object.freeze(cases),

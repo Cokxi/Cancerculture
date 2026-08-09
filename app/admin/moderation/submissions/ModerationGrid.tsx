@@ -8,7 +8,7 @@ import {
   waitForModerationPendingPaint,
 } from "@/lib/moderation/moderationClientRequest";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Submission = {
   id: number;
@@ -43,11 +43,13 @@ export default function ModerationGrid({
   phase,
   canDisqualify,
   canReinstate,
+  focusedSubmissionId = null,
 }: {
   submissions: Submission[];
   phase: "submission_open" | "voting_open" | "voting_closed";
   canDisqualify: boolean;
   canReinstate: boolean;
+  focusedSubmissionId?: number | null;
 }) {
   const [openFor, setOpenFor] = useState<number | null>(null);
   const [disqualificationType, setDisqualificationType] =
@@ -60,6 +62,15 @@ export default function ModerationGrid({
   const [pendingAction, setPendingAction] = useState<string | null>(
     null
   );
+
+  useEffect(() => {
+    if (focusedSubmissionId === null) return;
+    const target = document.getElementById(
+      `moderation-submission-${focusedSubmissionId}`
+    );
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    target?.focus({ preventScroll: true });
+  }, [focusedSubmissionId, submissions]);
 
   async function handleDisqualify(id: number) {
     if (!tryBeginModerationRequest(requestPendingRef)) return;
@@ -160,15 +171,24 @@ export default function ModerationGrid({
         marginTop: 24,
       }}
     >
-      {submissions.map((submission) => (
+      {submissions.map((submission) => {
+        const isFocused = submission.id === focusedSubmissionId;
+        return (
         <div
           key={submission.id}
+          id={`moderation-submission-${submission.id}`}
+          tabIndex={isFocused ? -1 : undefined}
           style={{
-            border: "1px solid #222",
+            border: isFocused ? "2px solid #ff6a00" : "1px solid #222",
             padding: 12,
             borderRadius: 8,
             background: "#0b0b0b",
             color: "#fff",
+            boxShadow: isFocused
+              ? "0 0 24px rgba(255, 106, 0, 0.35)"
+              : undefined,
+            scrollMarginTop: 96,
+            outline: "none",
           }}
         >
           <a
@@ -400,7 +420,8 @@ export default function ModerationGrid({
             </button>
           ) : null}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

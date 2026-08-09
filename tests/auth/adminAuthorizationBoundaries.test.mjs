@@ -310,7 +310,7 @@ test("every Cycle Management surface enforces the exact cycles.manage capability
   );
   assert.match(
     cycleEndReadModel,
-    /loadCycleEndModerationReadModel[\s\S]*requireDynamicTeamCapability\("cycles\.manage"\)[\s\S]*getCurrentCycleEndModerationCycle\(\)[\s\S]*getCycleEndModerationSubmissions\(cycle\.id, page\)/
+    /loadCycleEndModerationReadModel[\s\S]*requireDynamicTeamCapability\("cycles\.manage"\)[\s\S]*getCurrentCycleEndModerationCycle\(\)[\s\S]*getCycleEndModerationSubmissions\([\s\S]*cycle\.id,[\s\S]*page,[\s\S]*focusedSubmissionId[\s\S]*\)/
   );
 });
 
