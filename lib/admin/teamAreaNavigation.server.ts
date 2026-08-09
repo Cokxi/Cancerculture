@@ -7,6 +7,7 @@ import {
   resolveTeamAreaNavigation,
   type ResolvedTeamAreaNavigation,
 } from "@/lib/admin/teamAreaNavigation";
+import { loadSubmissionReportUnreadCounts } from "@/lib/reports/submissionReportTeam.server";
 
 async function addFlagBadges(
   navigation: ResolvedTeamAreaNavigation,
@@ -48,6 +49,51 @@ async function addFlagBadges(
   );
 }
 
+async function addSubmissionReportBadges(
+  navigation: ResolvedTeamAreaNavigation,
+  authorization: Awaited<ReturnType<typeof getTeamAuthorizationContext>>
+): Promise<ResolvedTeamAreaNavigation> {
+  const hasReportArea =
+    authorization.isAdmin ||
+    authorization.resolvedCapabilities.includes("submissions.reports.live.view") ||
+    authorization.resolvedCapabilities.includes("submissions.reports.finalized.view");
+  if (!hasReportArea) return navigation;
+
+  try {
+    const counts = await loadSubmissionReportUnreadCounts(authorization);
+    return Object.freeze(
+      navigation.map((category) => {
+        const isModeration = category.id === "moderation";
+        return Object.freeze({
+          ...category,
+          badges:
+            isModeration && counts.total > 0
+              ? Object.freeze([`${counts.total} new`])
+              : category.badges,
+          items: Object.freeze(
+            category.items.map((entry) => {
+              const count =
+                entry.id === "live-submission-reports"
+                  ? counts.live
+                  : entry.id === "finalized-submission-reports"
+                    ? counts.finalized
+                    : 0;
+              return count > 0
+                ? Object.freeze({
+                    ...entry,
+                    badges: Object.freeze([`${count} new`]),
+                  })
+                : entry;
+            })
+          ),
+        });
+      })
+    );
+  } catch {
+    return navigation;
+  }
+}
+
 export const getResolvedTeamAreaNavigation = cache(async () => {
   const authorization = await getTeamAuthorizationContext();
   const navigation = resolveTeamAreaNavigation(authorization);
@@ -55,7 +101,8 @@ export const getResolvedTeamAreaNavigation = cache(async () => {
     authorization.isAdmin ||
     authorization.resolvedCapabilities.includes("users.flag.review");
 
-  return canReview
+  const withFlagBadges = canReview
     ? addFlagBadges(navigation, authorization.isAdmin)
     : navigation;
+  return addSubmissionReportBadges(await withFlagBadges, authorization);
 });

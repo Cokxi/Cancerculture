@@ -16,18 +16,47 @@ function NavigationGroups({
   onNavigate?: () => void;
 }) {
   const activeItem = findActiveTeamAreaItem(navigation, pathname);
+  const [openCategories, setOpenCategories] = useState<Set<string>>(
+    () => new Set(activeItem ? [activeItem.category.id] : [])
+  );
 
   return (
-    <div className="space-y-5">
-      {navigation.map((category) => (
-        <section key={category.id} aria-labelledby={`nav-${category.id}`}>
-          <h2
-            id={`nav-${category.id}`}
-            className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45"
+    <div className="space-y-2">
+      {navigation.map((category) => {
+        const open = openCategories.has(category.id);
+        const buttonId = `nav-${category.id}`;
+        const listId = `nav-${category.id}-items`;
+        return (
+        <section key={category.id} aria-labelledby={buttonId}>
+          <button
+            id={buttonId}
+            type="button"
+            aria-expanded={open}
+            aria-controls={listId}
+            onClick={() =>
+              setOpenCategories((current) => {
+                const next = new Set(current);
+                if (next.has(category.id)) next.delete(category.id);
+                else next.add(category.id);
+                return next;
+              })
+            }
+            className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55 outline-none hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-orange-300"
           >
-            {category.title}
-          </h2>
-          <ul className="mt-1 space-y-0.5">
+            <span>{category.title}</span>
+            <span className="flex items-center gap-1">
+              {category.badges?.map((badge) => (
+                <span
+                  key={badge}
+                  className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] normal-case tracking-normal text-red-200"
+                >
+                  {badge}
+                </span>
+              ))}
+              <span aria-hidden="true">{open ? "−" : "+"}</span>
+            </span>
+          </button>
+          <ul id={listId} hidden={!open} className="mt-1 space-y-0.5">
             {category.items.map((entry) => {
               const active =
                 activeItem?.entry.id === entry.id;
@@ -64,7 +93,7 @@ function NavigationGroups({
             })}
           </ul>
         </section>
-      ))}
+      )})}
     </div>
   );
 }
@@ -99,7 +128,7 @@ export default function TeamAreaShell({
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white/90 md:grid md:grid-cols-[240px_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-screen overflow-y-auto border-r border-white/10 bg-black/30 p-4 md:block">
+      <aside className="sticky top-0 hidden max-h-screen overflow-y-auto border-r border-white/10 bg-black/30 p-4 md:block">
         <div>
           <div className="mb-5 space-y-1 border-b border-white/10 pb-4">
             <Link
@@ -117,7 +146,11 @@ export default function TeamAreaShell({
             </Link>
           </div>
           <nav aria-label="Team Area navigation">
-            <NavigationGroups navigation={navigation} pathname={pathname} />
+            <NavigationGroups
+              key={`desktop-${pathname}`}
+              navigation={navigation}
+              pathname={pathname}
+            />
           </nav>
         </div>
       </aside>
@@ -190,6 +223,7 @@ export default function TeamAreaShell({
               </div>
               <nav aria-label="Team Area navigation">
                 <NavigationGroups
+                  key={`mobile-${pathname}`}
                   navigation={navigation}
                   pathname={pathname}
                   onNavigate={() => setMobileOpen(false)}

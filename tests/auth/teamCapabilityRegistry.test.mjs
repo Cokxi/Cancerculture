@@ -69,7 +69,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains thirty-eight known, thirty-one active, and five staged capability keys", () => {
+test("the server registry contains thirty-eight known, thirty-four active, and no staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -85,11 +85,8 @@ test("the server registry contains thirty-eight known, thirty-one active, and fi
       (key) =>
         ![
           "submissions.submission_phase.moderate",
-          "submissions.reports.live.view",
-          "submissions.reports.finalized.view",
+          "submissions.reports.view",
           "submissions.reports.assign",
-          "logs.submission_reporters.view",
-          "logs.submission_report_moderation.view",
           "users.flag",
         ].includes(key)
     )
@@ -98,13 +95,7 @@ test("the server registry contains thirty-eight known, thirty-one active, and fi
     expectedKeys.filter(
       (key) => TEAM_CAPABILITY_REGISTRY[key].lifecycle === "staged"
     ),
-    [
-      "submissions.reports.live.view",
-      "submissions.reports.finalized.view",
-      "submissions.reports.assign",
-      "logs.submission_reporters.view",
-      "logs.submission_report_moderation.view",
-    ]
+    []
   );
   assert.equal(expectedKeys.includes("users.flag.create"), true);
   assert.equal(expectedKeys.includes("votes.refund_disqualified"), true);
@@ -128,15 +119,15 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "submissions.voting_phase.reinstate":
       "4e4f1d199d4eb008d768676796bcf8ec34c2472c90d323fecbf7b247d7a36fe0",
     "submissions.reports.view":
-      "0f8bdec2e69427665a49067e4a2d2da7d4f81053b6f6e1f427cc262f26b7ef0e",
+      "1ac94f21aa019436dfae29e33349f7640fc3ea026586cb6c159c85b85245b1e9",
     "submissions.reports.review":
-      "a9c1de7076eac2fd58052833930038f01e48e1ea37da51fb1f696508b11575f1",
+      "490f3168bf6cb0b162384ced36e2c3a3156d933d14603eb340255b9242bbdb0a",
     "submissions.reports.live.view":
-      "aa31ce50a9b0cbf4862b9d35bde8f9e2219d90c3aedadce06eb0e1fba55d34b8",
+      "a32d78f7a26954a5465cd1f1ba05e871d0cf62e69721a7fa4cd83353562fa4fa",
     "submissions.reports.finalized.view":
-      "7e6f885d45c6195034e836609f4bdea52f33180c47cea8dfae07c74ef5a1b49c",
+      "878dc43e7c22ec06a968fd6c7fa069f936688ef5da82db1caf80b7bf9c462a4f",
     "submissions.reports.assign":
-      "06859ad3c5905a08471186dbbde2bc90238f0758be4edcfe525507a4e3db2752",
+      "7e8c8683353d35f1bc817a2967c64ff934cc1a905db8ab9beaf1a693713b3ea6",
     "users.flag":
       "4ec252dadafc8d9e149df225825f850fd90666e444fff4edaca43bd5d02b553c",
     "users.flag.create":
@@ -172,9 +163,9 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "logs.submission_moderation.view":
       "fc820ff4bea36171834588856c8f1ca09f0b0391d0b04ff6c0521fffa85d88e7",
     "logs.submission_reporters.view":
-      "a33f7a7290f09372bd03db6d4c0b8a8923b2c3ce18bcdd847493a58524658ca0",
+      "854f3ddd41413b3223ed220d4f6a86d4f6f14436ce05de6d225dd255e6dc7846",
     "logs.submission_report_moderation.view":
-      "5d584c66b113a543755dab6730df8de30362c1d2b5dccc46f8b74019756c76f7",
+      "848b90d2b81ec364bd0c122cdd2e31ad68380d0e82d2f921c90467229e8108d7",
     "logs.team_authorization.view":
       "69faf8e792eb9ee98366d3be382d6020ba46994b514c07c3ab2e970c716be1ba",
     "cycles.logs.view":
@@ -212,14 +203,9 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     assert.ok(definition.excludedActions.length > 0);
     const deprecated = [
       "submissions.submission_phase.moderate",
-      "users.flag",
-    ].includes(key);
-    const staged = [
-      "submissions.reports.live.view",
-      "submissions.reports.finalized.view",
+      "submissions.reports.view",
       "submissions.reports.assign",
-      "logs.submission_reporters.view",
-      "logs.submission_report_moderation.view",
+      "users.flag",
     ].includes(key);
     const versionTwo =
       deprecated ||
@@ -227,14 +213,15 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       key.startsWith("users.flag.") ||
       key === "users.directory.full.view" ||
       key === "logs.vote_refunds.view";
-    assert.equal(definition.assignableToNonAdmin, !deprecated && !staged);
+    const versionThree = key === "submissions.reports.review";
+    assert.equal(definition.assignableToNonAdmin, !deprecated);
     assert.equal(
       definition.lifecycle,
-      deprecated ? "deprecated" : staged ? "staged" : "active"
+      deprecated ? "deprecated" : "active"
     );
     assert.equal(
       definition.implementationVersion,
-      versionTwo ? 2 : 1
+      versionThree ? 3 : versionTwo ? 2 : 1
     );
     assert.equal(definition.definitionHash, expectedHashes[key]);
     assert.equal(hash, expectedHashes[key]);

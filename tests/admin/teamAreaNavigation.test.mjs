@@ -192,6 +192,30 @@ test("submission moderation logs navigation needs only its exact read capability
   assert.equal(JSON.stringify(withGrant).includes("social-logs"), false);
 });
 
+test("Submission Report queues and logs each need their exact capability", () => {
+  const live = JSON.stringify(resolveTeamAreaNavigation(context({
+    capabilities: ["submissions.reports.live.view"],
+  })));
+  const finalized = JSON.stringify(resolveTeamAreaNavigation(context({
+    capabilities: ["submissions.reports.finalized.view"],
+  })));
+  const reporters = JSON.stringify(resolveTeamAreaNavigation(context({
+    capabilities: ["logs.submission_reporters.view"],
+  })));
+  const workflow = JSON.stringify(resolveTeamAreaNavigation(context({
+    capabilities: ["logs.submission_report_moderation.view"],
+  })));
+
+  assert.equal(live.includes("live-submission-reports"), true);
+  assert.equal(live.includes("finalized-submission-reports"), false);
+  assert.equal(finalized.includes("finalized-submission-reports"), true);
+  assert.equal(finalized.includes("live-submission-reports"), false);
+  assert.equal(reporters.includes("submission-reporter-history"), true);
+  assert.equal(reporters.includes("submission-report-workflow-history"), false);
+  assert.equal(workflow.includes("submission-report-workflow-history"), true);
+  assert.equal(workflow.includes("submission-reporter-history"), false);
+});
+
 test("authorization history navigation needs only its exact read capability", () => {
   const withoutGrant = resolveTeamAreaNavigation(context());
   const withGrant = resolveTeamAreaNavigation(
@@ -448,6 +472,9 @@ test("desktop and mobile render the same resolved navigation", async () => {
   assert.match(shell, /findActiveTeamAreaItem\(navigation, pathname\)/);
   assert.match(shell, /activeItem\?\.entry\.id === entry\.id/);
   assert.match(shell, /aria-current=\{active \? "page"/);
+  assert.match(shell, /aria-expanded=\{open\}/);
+  assert.match(shell, /aria-controls=\{listId\}/);
+  assert.match(shell, /category\.badges/);
 });
 
 test("401/403 and 503 retain distinct controlled destinations", () => {

@@ -7,7 +7,8 @@ import {
 import { ACTIVE_TEAM_CAPABILITY_KEYS } from "../../lib/auth/teamCapabilityRegistry.ts";
 
 const expectedViewKeys = [
-  "submissions.reports.view",
+  "submissions.reports.live.view",
+  "submissions.reports.finalized.view",
   "users.flag.view",
   "users.directory.basic.view",
   "users.directory.full.view",
@@ -20,6 +21,8 @@ const expectedViewKeys = [
   "logs.votes.view",
   "logs.vote_refunds.view",
   "logs.submission_moderation.view",
+  "logs.submission_reporters.view",
+  "logs.submission_report_moderation.view",
   "logs.team_authorization.view",
   "cycles.logs.view",
   "sponsorships.reports.view",
@@ -60,7 +63,7 @@ test("every active capability is assigned once to its semantic tab", () => {
 
   assert.deepEqual(viewKeys, expectedViewKeys);
   assert.deepEqual(actionKeys, expectedActionKeys);
-  assert.equal(viewKeys.length, 17);
+  assert.equal(viewKeys.length, 20);
   assert.equal(actionKeys.length, 14);
   assert.equal(viewKeys.length + actionKeys.length, ACTIVE_TEAM_CAPABILITY_KEYS.length);
   assert.equal(new Set([...viewKeys, ...actionKeys]).size, ACTIVE_TEAM_CAPABILITY_KEYS.length);

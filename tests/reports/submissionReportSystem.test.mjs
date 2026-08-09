@@ -6,11 +6,14 @@ import { TEAM_CAPABILITY_REGISTRY } from "../../lib/auth/teamCapabilityRegistry.
 
 const root = new URL("../../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
-const [migration, activation, followUp, correction, route, panel, teamModule, ownModule, myReports, profileSections, accountNavigation, navigation, devTest] = await Promise.all([
+const [migration, activation, followUp, correction, cutover, simplification, authorizationFix, route, panel, teamModule, ownModule, myReports, profileSections, accountNavigation, navigation, devTest] = await Promise.all([
   read("supabase/migrations/20260809000100_submission_report_system.sql"),
   read("supabase/migrations/20260809000200_activate_submission_report_capabilities.sql"),
   read("supabase/migrations/20260809000300_submission_report_taxonomy_v2_and_my_reports.sql"),
   read("supabase/migrations/20260809000400_fix_submission_report_v2_append_only_creation.sql"),
+  read("supabase/migrations/20260809000600_submission_report_team_workflow_cutover.sql"),
+  read("supabase/migrations/20260809000800_simplify_submission_report_release_workflow.sql"),
+  read("supabase/migrations/20260809000900_fix_submission_report_review_authorization_v3.sql"),
   read("app/api/submission-reports/route.ts"),
   read("app/components/SubmissionReportPanel.tsx"),
   read("lib/reports/submissionReportTeam.server.ts"),
@@ -36,16 +39,36 @@ function canonical(definition) {
   };
 }
 
-test("Report capabilities are exact, active in code, and cryptographically matched", () => {
-  for (const key of ["submissions.reports.view", "submissions.reports.review"]) {
+test("legacy combined Report access is deprecated and exact V2 capabilities are active", () => {
+  const activeKeys = [
+    "submissions.reports.review",
+    "submissions.reports.live.view",
+    "submissions.reports.finalized.view",
+    "logs.submission_reporters.view",
+    "logs.submission_report_moderation.view",
+  ];
+  for (const key of activeKeys) {
     const definition = TEAM_CAPABILITY_REGISTRY[key];
     const hash = createHash("sha256").update(JSON.stringify(canonical(definition))).digest("hex");
     assert.equal(definition.definitionHash, hash);
     assert.equal(definition.lifecycle, "active");
     assert.equal(definition.assignableToNonAdmin, true);
-    assert.match(migration, new RegExp(hash, "u"));
-    assert.match(activation, new RegExp(hash, "u"));
+    assert.match(
+      key === "submissions.reports.review" ? simplification : cutover,
+      new RegExp(hash, "u")
+    );
   }
+  const legacy = TEAM_CAPABILITY_REGISTRY["submissions.reports.view"];
+  assert.equal(legacy.lifecycle, "deprecated");
+  assert.equal(legacy.assignableToNonAdmin, false);
+  assert.match(cutover, new RegExp(legacy.definitionHash, "u"));
+  const legacyAssign = TEAM_CAPABILITY_REGISTRY["submissions.reports.assign"];
+  assert.equal(legacyAssign.lifecycle, "deprecated");
+  assert.equal(legacyAssign.assignableToNonAdmin, false);
+  assert.match(simplification, new RegExp(legacyAssign.definitionHash, "u"));
+  assert.match(authorizationFix, /submissions\.reports\.review'[\s\S]*490f3168bf6cb0b162384ced36e2c3a3156d933d14603eb340255b9242bbdb0a/u);
+  assert.match(migration, /0f8bdec2e69427665a49067e4a2d2da7d4f81053b6f6e1f427cc262f26b7ef0e/u);
+  assert.match(activation, /a9c1de7076eac2fd58052833930038f01e48e1ea37da51fb1f696508b11575f1/u);
   assert.match(migration, /'high', false, false, 1/u);
   assert.doesNotMatch(migration, /(?:insert into|update|delete from) public\.team_role_capabilities/iu);
   assert.match(activation, /count\(\*\) from public\.capability_catalog\) <> 33/u);
@@ -165,12 +188,17 @@ test("Reporter User Logs show neutral action-case context without a score", () =
   assert.doesNotMatch(followUp, /reporter_score|success_rate|rank/iu);
 });
 
-test("Team queue and Reporter Logs share only the exact Report read capability", () => {
-  assert.match(teamModule, /requireDynamicTeamCapability\(\s*"submissions\.reports\.view"/u);
+test("Team queues, Reporter Logs, and workflow logs use separate exact capabilities", () => {
+  assert.match(teamModule, /submissions\.reports\.live\.view/u);
+  assert.match(teamModule, /submissions\.reports\.finalized\.view/u);
   assert.match(teamModule, /"submissions\.reports\.review"/u);
-  assert.doesNotMatch(teamModule, /users\.directory\.|logs\.submission_moderation/u);
-  assert.match(navigation, /href: "\/admin\/reports"/u);
+  assert.match(teamModule, /"logs\.submission_reporters\.view"/u);
+  assert.match(teamModule, /"logs\.submission_report_moderation\.view"/u);
+  assert.doesNotMatch(teamModule, /users\.directory\.|logs\.submission_moderation\.view/u);
+  assert.match(navigation, /href: "\/admin\/reports\/live"/u);
+  assert.match(navigation, /href: "\/admin\/reports\/finalized"/u);
   assert.match(navigation, /href: "\/admin\/reports\/users"/u);
+  assert.match(navigation, /href: "\/admin\/logs\/submission-reports"/u);
 });
 
 test("the rollback-only DEV contract covers replay, duplicates, stale review, reopen, retention, and removal", () => {

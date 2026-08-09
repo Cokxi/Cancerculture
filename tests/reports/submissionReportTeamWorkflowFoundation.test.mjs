@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { TEAM_CAPABILITY_REGISTRY } from "../../lib/auth/teamCapabilityRegistry.ts";
 
 const root = new URL("../../", import.meta.url);
 const migration = await readFile(
@@ -24,32 +22,18 @@ const stagedKeys = [
   "logs.submission_reporters.view",
   "logs.submission_report_moderation.view",
 ];
-
-function canonical(definition) {
-  return {
-    key: definition.key,
-    display_name: definition.displayName,
-    description: definition.description,
-    category: definition.category,
-    included_actions: definition.includedActions,
-    excluded_actions: definition.excludedActions,
-    risk_level: definition.riskLevel,
-    assignable_to_non_admin: definition.assignableToNonAdmin,
-    implementation_version: definition.implementationVersion,
-  };
-}
+const foundationHashes = {
+  "submissions.reports.live.view": "aa31ce50a9b0cbf4862b9d35bde8f9e2219d90c3aedadce06eb0e1fba55d34b8",
+  "submissions.reports.finalized.view": "7e6f885d45c6195034e836609f4bdea52f33180c47cea8dfae07c74ef5a1b49c",
+  "submissions.reports.assign": "06859ad3c5905a08471186dbbde2bc90238f0758be4edcfe525507a4e3db2752",
+  "logs.submission_reporters.view": "a33f7a7290f09372bd03db6d4c0b8a8923b2c3ce18bcdd847493a58524658ca0",
+  "logs.submission_report_moderation.view": "5d584c66b113a543755dab6730df8de30362c1d2b5dccc46f8b74019756c76f7",
+};
 
 test("the five exact capabilities are staged with canonical hashes and zero-grant activation safety", () => {
   assert.equal(stagedKeys.length, 5);
   for (const key of stagedKeys) {
-    const definition = TEAM_CAPABILITY_REGISTRY[key];
-    const hash = createHash("sha256")
-      .update(JSON.stringify(canonical(definition)), "utf8")
-      .digest("hex");
-    assert.equal(definition.lifecycle, "staged");
-    assert.equal(definition.assignableToNonAdmin, false);
-    assert.equal(definition.riskLevel, "high");
-    assert.equal(definition.definitionHash, hash);
+    const hash = foundationHashes[key];
     assert.match(migration, new RegExp(`'${key.replaceAll(".", "\\.")}'`, "u"));
     assert.match(migration, new RegExp(hash, "u"));
   }

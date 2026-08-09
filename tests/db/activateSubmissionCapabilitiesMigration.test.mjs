@@ -162,12 +162,12 @@ test("security, audit, ledger and mutation surfaces remain unchanged", () => {
 
 test("the registry preserves known definitions after later cutovers", () => {
   assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 38);
-  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 31);
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 34);
   assert.equal(
     Object.values(TEAM_CAPABILITY_REGISTRY).filter(
       (definition) => definition.lifecycle === "staged"
     ).length,
-    5
+    0
   );
   assert.deepEqual(
     [
@@ -191,4 +191,8 @@ test("the registry preserves known definitions after later cutovers", () => {
     "deprecated"
   );
   assert.equal(TEAM_CAPABILITY_REGISTRY["users.flag"].lifecycle, "deprecated");
+  assert.equal(
+    TEAM_CAPABILITY_REGISTRY["submissions.reports.assign"].lifecycle,
+    "deprecated"
+  );
 });

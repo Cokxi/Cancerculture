@@ -253,7 +253,7 @@ test("the immutable staged definitions remain predecessors within the later flag
     38
   );
   assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 38);
-  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 31);
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 34);
   assert.match(
     registry,
     /submissions\.submission_phase\.moderate[\s\S]*7d62383086022588673bb5c6cc7156851f99a7815d6f305d72bbfa2e0064789b/u

@@ -35,6 +35,7 @@ export type TeamAreaNavigationCategory = Readonly<{
   id: string;
   title: string;
   items: readonly TeamAreaNavigationItem[];
+  badges?: readonly string[];
 }>;
 
 export type ResolvedTeamAreaNavigation = readonly TeamAreaNavigationCategory[];
@@ -97,9 +98,21 @@ const submissionModerationLogsView = Object.freeze({
   type: "capability",
   capability: "logs.submission_moderation.view",
 } as const);
-const submissionReportView = Object.freeze({
+const liveSubmissionReportView = Object.freeze({
   type: "capability",
-  capability: "submissions.reports.view",
+  capability: "submissions.reports.live.view",
+} as const);
+const finalizedSubmissionReportView = Object.freeze({
+  type: "capability",
+  capability: "submissions.reports.finalized.view",
+} as const);
+const submissionReporterLogsView = Object.freeze({
+  type: "capability",
+  capability: "logs.submission_reporters.view",
+} as const);
+const submissionReportWorkflowLogsView = Object.freeze({
+  type: "capability",
+  capability: "logs.submission_report_moderation.view",
 } as const);
 const teamAuthorizationLogsView = Object.freeze({
   type: "capability",
@@ -255,13 +268,23 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           implemented: true,
         }),
         item({
-          id: "submission-reports",
-          title: "Submission Reports",
-          href: "/admin/reports",
+          id: "live-submission-reports",
+          title: "Live Cycle Reports",
+          href: "/admin/reports/live",
           categoryId: "moderation",
           description:
-            "Review case-centered Submission Reports without implicit moderation powers.",
-          requirement: submissionReportView,
+            "Review case-centered Reports for the current and pre-finalization cycle.",
+          requirement: liveSubmissionReportView,
+          implemented: true,
+        }),
+        item({
+          id: "finalized-submission-reports",
+          title: "Finalized Cycle Reports",
+          href: "/admin/reports/finalized",
+          categoryId: "moderation",
+          description:
+            "Review case-centered Reports for finalized cycle history.",
+          requirement: finalizedSubmissionReportView,
           implemented: true,
         }),
         item({
@@ -314,7 +337,17 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           categoryId: "logs",
           description:
             "Review reporter-centered Submission Report history without a reporter score.",
-          requirement: submissionReportView,
+          requirement: submissionReporterLogsView,
+          implemented: true,
+        }),
+        item({
+          id: "submission-report-workflow-history",
+          title: "Submission Report Workflow Log",
+          href: "/admin/logs/submission-reports",
+          categoryId: "logs",
+          description:
+            "Review append-only Submission Report Case workflow events.",
+          requirement: submissionReportWorkflowLogsView,
           implemented: true,
         }),
         item({
