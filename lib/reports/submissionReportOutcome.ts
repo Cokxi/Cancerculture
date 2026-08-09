@@ -10,6 +10,13 @@ export const SUBMISSION_REPORT_OUTCOME_LABELS = Object.freeze({
 export type SubmissionReportOutcomeCode =
   keyof typeof SUBMISSION_REPORT_OUTCOME_LABELS;
 
+export const SUBMISSION_REPORT_OUTCOME_FILTERS = Object.freeze([
+  Object.freeze({ value: null, label: "All outcomes" }),
+  ...Object.entries(SUBMISSION_REPORT_OUTCOME_LABELS).map(([value, label]) =>
+    Object.freeze({ value: value as SubmissionReportOutcomeCode, label })
+  ),
+]);
+
 export function isSubmissionReportOutcomeCode(
   value: unknown
 ): value is SubmissionReportOutcomeCode {
@@ -17,4 +24,10 @@ export function isSubmissionReportOutcomeCode(
     typeof value === "string" &&
     Object.hasOwn(SUBMISSION_REPORT_OUTCOME_LABELS, value)
   );
+}
+
+export function parseSubmissionReportOutcomeFilter(
+  value: unknown
+): SubmissionReportOutcomeCode | null {
+  return isSubmissionReportOutcomeCode(value) ? value : null;
 }

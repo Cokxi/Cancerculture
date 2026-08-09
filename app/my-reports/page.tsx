@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import BackButton from "@/app/components/ui/BackButton";
@@ -131,54 +132,90 @@ export default async function MyReportsPage({
             return (
               <article
                 key={text(report.reportId)}
-                className="rounded-2xl border border-white/10 bg-black/40 p-5"
+                className="grid gap-5 rounded-2xl border border-white/10 bg-black/40 p-5 sm:grid-cols-[160px_minmax(0,1fr)]"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="font-semibold text-orange-200">
-                      {reasonLabel(report.reasonCode)}
-                    </h2>
-                    <p className="mt-1 text-xs text-white/55">
-                      Submission #{submissionId} · Cycle #{cycleId} ·{" "}
-                      {text(report.phaseSnapshot)} · {text(report.createdAt)}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs text-orange-100">
-                    {outcomeLabel(report.outcomeCode)}
-                  </span>
+                <div>
+                  {typeof report.thumbnailUrl === "string" ? (
+                    destination ? (
+                      <Link
+                        href={destination}
+                        aria-label={`Open current public view of submission #${submissionId}`}
+                        className="block h-36 overflow-hidden rounded-xl border border-white/15 outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+                      >
+                        <Image
+                          src={report.thumbnailUrl}
+                          alt={`Current public preview of submission #${submissionId}`}
+                          width={400}
+                          height={240}
+                          unoptimized
+                          className="h-full w-full object-cover transition hover:scale-105"
+                        />
+                      </Link>
+                    ) : (
+                      <Image
+                        src={report.thumbnailUrl}
+                        alt={`Current public preview of submission #${submissionId}`}
+                        width={400}
+                        height={240}
+                        unoptimized
+                        className="h-36 w-full rounded-xl border border-white/15 object-cover"
+                      />
+                    )
+                  ) : (
+                    <div className="flex h-36 items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] px-3 text-center text-xs text-white/40">
+                      Current public preview unavailable
+                    </div>
+                  )}
                 </div>
 
-                <dl className="mt-4 space-y-2 text-sm">
-                  <div>
-                    <dt className="text-white/50">Detail</dt>
-                    <dd>
-                      {(SUBMISSION_REPORT_SUBCATEGORY_LABELS[subcategory] ??
-                        subcategory) || "Not recorded"}
-                    </dd>
-                  </div>
-                  {report.comment ? (
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <dt className="text-white/50">Your context</dt>
-                      <dd className="mt-1 whitespace-pre-wrap break-words rounded-lg bg-white/[0.04] p-3 text-white/75">
-                        {text(report.comment)}
+                      <h2 className="font-semibold text-orange-200">
+                        {reasonLabel(report.reasonCode)}
+                      </h2>
+                      <p className="mt-1 text-xs text-white/55">
+                        Submission #{submissionId} · Cycle #{cycleId} ·{" "}
+                        {text(report.phaseSnapshot)} · {text(report.createdAt)}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs text-orange-100">
+                      {outcomeLabel(report.outcomeCode)}
+                    </span>
+                  </div>
+
+                  <dl className="mt-4 space-y-2 text-sm">
+                    <div>
+                      <dt className="text-white/50">Detail</dt>
+                      <dd>
+                        {(SUBMISSION_REPORT_SUBCATEGORY_LABELS[subcategory] ??
+                          subcategory) || "Not recorded"}
                       </dd>
                     </div>
-                  ) : null}
-                </dl>
+                    {report.comment ? (
+                      <div>
+                        <dt className="text-white/50">Your context</dt>
+                        <dd className="mt-1 whitespace-pre-wrap break-words rounded-lg bg-white/[0.04] p-3 text-white/75">
+                          {text(report.comment)}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
 
-                {destination ? (
-                  <Link
-                    href={destination}
-                    className="mt-4 inline-flex cursor-pointer text-sm text-orange-300 underline underline-offset-4"
-                  >
-                    Open submission
-                  </Link>
-                ) : (
-                  <p className="mt-4 text-xs text-white/45">
-                    The submission is not currently available on a public
-                    surface.
-                  </p>
-                )}
+                  {destination ? (
+                    <Link
+                      href={destination}
+                      className="mt-4 inline-flex cursor-pointer text-sm text-orange-300 underline underline-offset-4"
+                    >
+                      Open submission
+                    </Link>
+                  ) : (
+                    <p className="mt-4 text-xs text-white/45">
+                      The submission is not currently available on a public
+                      surface.
+                    </p>
+                  )}
+                </div>
               </article>
             );
           })}

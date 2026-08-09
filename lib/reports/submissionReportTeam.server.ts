@@ -12,6 +12,8 @@ import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import { canModerateSubmission } from "@/lib/moderation/submissionModerationAuthorization";
 import { getSubmissionDestinationHref } from "@/lib/submissions/getSubmissionDestinationHref";
+import type { SubmissionReportOutcomeHistoryFilter } from "@/lib/reports/submissionReportOutcomeHistory";
+import { addVisibilitySafeSubmissionReportThumbnails } from "@/lib/reports/submissionReportThumbnail.server";
 
 export type SubmissionReportArea = "live" | "finalized";
 type JsonObject = Record<string, unknown>;
@@ -214,6 +216,64 @@ async function addSafeQueueThumbnails(
   });
 }
 
+async function addSafeReporterThumbnails(
+  history: JsonObject
+): Promise<JsonObject> {
+  const reports = asArray(history.reports);
+  const ids = Array.from(
+    new Set(
+      reports
+        .filter(
+          (item) =>
+            item.currentAvailable === true &&
+            item.currentDisqualified !== true &&
+            text(item.currentVisibility) === "visible"
+        )
+        .map((item) => safeInteger(item.submissionId))
+        .filter((id): id is number => id !== null)
+    )
+  );
+  const { data, error } = ids.length > 0
+    ? await supabaseAdmin
+        .from("submissions")
+        .select("id, r2_key, is_disqualified, public_visibility_status")
+        .in("id", ids)
+    : { data: [], error: null };
+  const keyById = new Map<number, string>();
+  if (!error) {
+    for (const row of data ?? []) {
+      const id = safeInteger(row.id);
+      const key = text(row.r2_key);
+      if (
+        id !== null &&
+        key &&
+        row.is_disqualified !== true &&
+        row.public_visibility_status === "visible"
+      ) {
+        keyById.set(id, key);
+      }
+    }
+  }
+
+  return Object.freeze({
+    ...history,
+    reports: Object.freeze(
+      reports.map((item) => {
+        const id = safeInteger(item.submissionId);
+        const publicUrl = id === null
+          ? undefined
+          : getPublicImageUrl(keyById.get(id));
+        return Object.freeze({
+          ...item,
+          thumbnailUrl: publicUrl
+            ? getSubmissionThumbnailUrl(publicUrl)
+            : null,
+        });
+      })
+    ),
+  });
+}
+
 export async function loadSubmissionReportLandingArea(): Promise<SubmissionReportArea> {
   const authorization = await getTeamAuthorizationContext();
   if (can(authorization, SUBMISSION_REPORT_AREA_CAPABILITIES.live)) return "live";
@@ -330,8 +390,9 @@ export async function loadSubmissionReporterHistory(publicProfileId: string) {
     }
   );
   if (error) throw readFailure(error);
+  const history = await addSafeReporterThumbnails(asObject(data));
   return Object.freeze({
-    history: Object.freeze(asObject(data)),
+    history,
     canViewLive: can(authorization, SUBMISSION_REPORT_AREA_CAPABILITIES.live),
     canViewFinalized: can(
       authorization,
@@ -390,23 +451,27 @@ export type SubmissionReportModerationCursor = Readonly<{
 }>;
 
 export async function loadSubmissionReportModerationEvents(
-  cursor: SubmissionReportModerationCursor | null = null
+  cursor: SubmissionReportModerationCursor | null = null,
+  outcomeFilter: SubmissionReportOutcomeHistoryFilter | null = null
 ) {
   const authorization = await requireDynamicTeamCapability(
     "logs.submission_report_moderation.view"
   );
   const { data, error } = await supabaseAdmin.rpc(
-    "list_submission_report_moderation_events_v2",
+    "list_submission_report_outcome_events_v3",
     {
       p_actor_discord_user_id: authorization.discord_user_id,
       p_before_occurred_at: cursor?.occurredAt ?? null,
       p_before_event_id: cursor?.eventId ?? null,
+      p_outcome_filter: outcomeFilter,
       p_limit: 50,
     }
   );
   if (error) throw readFailure(error);
   const page = asObject(data);
-  const events = asArray(page.events);
+  const events = await addVisibilitySafeSubmissionReportThumbnails(
+    asArray(page.events)
+  );
   const nextCursor = page.nextCursor === null ? null : asObject(page.nextCursor);
   const nextOccurredAt = nextCursor ? text(nextCursor.occurredAt) : null;
   const nextEventId = nextCursor ? text(nextCursor.eventId) : null;

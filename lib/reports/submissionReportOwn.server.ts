@@ -10,6 +10,7 @@ import {
   parseSubmissionReportCursor,
 } from "@/lib/reports/submissionReportCursor";
 import { SubmissionReportError } from "@/lib/reports/submissionReportRpc.server";
+import { addVisibilitySafeSubmissionReportThumbnails } from "@/lib/reports/submissionReportThumbnail.server";
 
 type JsonObject = Record<string, unknown>;
 const PAGE_SIZE = 25;
@@ -73,6 +74,8 @@ export async function loadOwnSubmissionReports({
   if (items.length !== reports.length) {
     throw new SubmissionReportError(503, "REPORT_SERVICE_UNAVAILABLE");
   }
+  const itemsWithThumbnails =
+    await addVisibilitySafeSubmissionReportThumbnails(items);
 
   let encodedNextCursor: string | null = null;
   if (nextCursor) {
@@ -95,7 +98,7 @@ export async function loadOwnSubmissionReports({
   }
 
   return Object.freeze({
-    items: Object.freeze(items),
+    items: itemsWithThumbnails,
     nextCursor: encodedNextCursor,
   });
 }

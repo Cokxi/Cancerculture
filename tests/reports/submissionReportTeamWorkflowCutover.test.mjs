@@ -66,7 +66,7 @@ test("server reads enforce area, reporter-log, workflow-log, and review capabili
   assert.match(server, /get_submission_report_case_summary_v2/u);
   assert.match(server, /get_submission_report_detail_v2/u);
   assert.match(server, /get_submission_report_unread_counts_v2/u);
-  assert.match(server, /list_submission_report_moderation_events_v2/u);
+  assert.match(server, /list_submission_report_outcome_events_v3/u);
   assert.match(server, /authorization\.isAdmin/u);
   assert.doesNotMatch(server, /submissions\.reports\.assign|list_submission_report_assignment_targets_v2/u);
   assert.doesNotMatch(server, /"submissions\.reports\.view"/u);
