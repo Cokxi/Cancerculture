@@ -4,7 +4,16 @@ import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
-const [migration, server, reporterPage, outcomePage, thumbnailServer, ownServer, myReportsPage] = await Promise.all([
+const [
+  migration,
+  server,
+  reporterPage,
+  outcomePage,
+  thumbnailServer,
+  ownServer,
+  myReportsPage,
+  myModerationHistoryPage,
+] = await Promise.all([
   read("supabase/migrations/20260809001000_submission_report_outcome_history.sql"),
   read("lib/reports/submissionReportTeam.server.ts"),
   read("app/admin/reports/users/[publicProfileId]/page.tsx"),
@@ -12,6 +21,7 @@ const [migration, server, reporterPage, outcomePage, thumbnailServer, ownServer,
   read("lib/reports/submissionReportThumbnail.server.ts"),
   read("lib/reports/submissionReportOwn.server.ts"),
   read("app/my-reports/page.tsx"),
+  read("app/my-profile/disqualifications/page.tsx"),
 ]);
 
 test("the outcome history migration is additive, capability-guarded, and hardened", () => {
@@ -103,4 +113,11 @@ test("Outcome History and My Reports share a fresh visibility-safe thumbnail bou
   assert.match(myReportsPage, /Open current public view of submission/u);
   assert.match(myReportsPage, /<Image/u);
   assert.doesNotMatch(thumbnailServer, /snapshot|copy|insert|update|delete/iu);
+});
+
+test("private report and moderation history rely on global profile navigation", () => {
+  for (const page of [myReportsPage, myModerationHistoryPage]) {
+    assert.doesNotMatch(page, /BackButton/u);
+    assert.doesNotMatch(page, /label="My Profile"/u);
+  }
 });
