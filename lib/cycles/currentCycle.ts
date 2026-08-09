@@ -54,6 +54,7 @@ export async function getCurrentPublicCycle() {
   return getNewestCycleByStatuses([
     "submission_open",
     "voting_open",
+    "voting_closed",
     "paused",
     "active",
   ]);

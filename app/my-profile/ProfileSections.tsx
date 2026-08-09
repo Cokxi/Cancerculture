@@ -265,6 +265,19 @@ export default function ProfileSections({
         )}
       </Section>
 
+      <Section title="My Reports">
+        <p className="text-sm text-gray-300">
+          Review the reports submitted by your account and their
+          privacy-safe status.
+        </p>
+        <Link
+          href="/my-reports"
+          className="mt-3 inline-flex cursor-pointer rounded-full border border-[var(--orange-dark)]/40 px-4 py-2 text-sm text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
+        >
+          View all reports
+        </Link>
+      </Section>
+
       <Section title="My Moderation History">
         <p className="text-sm text-gray-300">
           Review your private history of recorded submission

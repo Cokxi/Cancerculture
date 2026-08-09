@@ -18,6 +18,8 @@ const activatedKeys = [
 const expectedKeys = [
   "submissions.submission_phase.moderate",
   ...activatedKeys,
+  "submissions.reports.view",
+  "submissions.reports.review",
   "users.flag",
   "users.flag.create",
   "users.flag.view",
@@ -62,7 +64,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains thirty-one known and twenty-nine active capability keys", () => {
+test("the server registry contains thirty-three known and thirty-one active capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -109,6 +111,10 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "cb6ad152ee22b164b6c864f26dcaab25f10be3483bfa5b1f3a7b265c66a142de",
     "submissions.voting_phase.reinstate":
       "4e4f1d199d4eb008d768676796bcf8ec34c2472c90d323fecbf7b247d7a36fe0",
+    "submissions.reports.view":
+      "0f8bdec2e69427665a49067e4a2d2da7d4f81053b6f6e1f427cc262f26b7ef0e",
+    "submissions.reports.review":
+      "a9c1de7076eac2fd58052833930038f01e48e1ea37da51fb1f696508b11575f1",
     "users.flag":
       "4ec252dadafc8d9e149df225825f850fd90666e444fff4edaca43bd5d02b553c",
     "users.flag.create":

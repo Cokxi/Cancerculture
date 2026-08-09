@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
+import SubmissionReportPanel from "@/app/components/SubmissionReportPanel";
 import SubmissionSocialLinks from "@/app/components/profile/SubmissionSocialLinks";
 import ProfileLinkButton from "@/app/components/profile/ProfileLinkButton";
 import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
@@ -319,16 +320,20 @@ function SubmissionCard({
 
 function SubmissionModal({
   canModerate,
+  isAuthenticated,
   isAdmin,
   onClose,
   submission,
   sponsoredMeta,
+  turnstileSiteKey,
 }: {
   canModerate: boolean;
+  isAuthenticated: boolean;
   isAdmin: boolean;
   onClose: () => void;
   submission: CycleHistorySubmission;
   sponsoredMeta: SponsoredCycleMeta | null;
+  turnstileSiteKey: string | null;
 }) {
   const [showOriginalSize, setShowOriginalSize] =
     useState(false);
@@ -566,6 +571,19 @@ function SubmissionModal({
             />
           )}
 
+          {!submission.isDisqualified &&
+          !isSubmissionRemovedFromPublic(
+            submission.publicVisibilityStatus
+          ) ? (
+            <SubmissionReportPanel
+              isAuthenticated={isAuthenticated}
+              loginReturnPath={`/cycle-history?cycle=${submission.cycleId}#submission-${submission.id}`}
+              submissionId={submission.id}
+              surface="history"
+              turnstileSiteKey={turnstileSiteKey}
+            />
+          ) : null}
+
           {canModerate && (
             <div className="rounded-lg border border-white/10 bg-white/5 p-3">
               <div className="font-semibold text-[var(--orange-dark)]">
@@ -709,10 +727,14 @@ export default function CycleHistoryClient({
   canModerate,
   initialPage,
   isAdmin,
+  isAuthenticated,
+  turnstileSiteKey,
 }: {
   canModerate: boolean;
   initialPage: PublicPage<CycleHistoryCycleSummaryItem>;
   isAdmin: boolean;
+  isAuthenticated: boolean;
+  turnstileSiteKey: string | null;
 }) {
   const getCycleKey = useCallback(
     (cycle: CycleHistoryCycleSummaryItem) => cycle.id,
@@ -1127,6 +1149,7 @@ export default function CycleHistoryClient({
       {activeSubmission && (
         <SubmissionModal
           canModerate={canModerate}
+          isAuthenticated={isAuthenticated}
           isAdmin={isAdmin}
           submission={activeSubmission}
           sponsoredMeta={
@@ -1134,6 +1157,7 @@ export default function CycleHistoryClient({
               (cycle) => cycle.id === activeSubmission.cycleId
             )?.sponsoredMeta ?? null
           }
+          turnstileSiteKey={turnstileSiteKey}
           onClose={() => setActiveSubmission(null)}
         />
       )}

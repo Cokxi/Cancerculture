@@ -6,6 +6,8 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "submissions.submission_phase.reinstate",
   "submissions.voting_phase.disqualify",
   "submissions.voting_phase.reinstate",
+  "submissions.reports.view",
+  "submissions.reports.review",
   "users.flag",
   "users.flag.create",
   "users.flag.view",
@@ -208,6 +210,52 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 2,
     definitionHash:
       "4e4f1d199d4eb008d768676796bcf8ec34c2472c90d323fecbf7b247d7a36fe0",
+  }),
+  "submissions.reports.view": defineCapability({
+    key: "submissions.reports.view",
+    displayName: "View Submission Reports",
+    description:
+      "View the case-centered Submission Report queue and reporter-centered Report history without changing review or moderation state.",
+    category: "Submission Moderation",
+    includedActions: [
+      "View bounded Submission Report queue and case details.",
+      "View complete reporter-centered Submission Report history with minimal current identity.",
+      "View report reasons, optional reporter context, immutable phase snapshots, and case events.",
+    ],
+    excludedActions: [
+      "Acknowledging, reviewing, reopening, or closing Report cases.",
+      "Disqualifying, reinstating, hiding, deleting, banning, or otherwise sanctioning users or Submissions.",
+      "Viewing unrelated User Directory, Moderation Log, vote, security, or infrastructure data.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "0f8bdec2e69427665a49067e4a2d2da7d4f81053b6f6e1f427cc262f26b7ef0e",
+  }),
+  "submissions.reports.review": defineCapability({
+    key: "submissions.reports.review",
+    displayName: "Review Submission Report Cases",
+    description:
+      "Acknowledge and work Submission Report cases with optimistic concurrency while all actual moderation actions remain separately authorized.",
+    category: "Submission Moderation",
+    includedActions: [
+      "Acknowledge Reports through an explicit shared high-water cursor.",
+      "Start review, return a case to the queue, and close a case with an auditable disposition and note.",
+      "Reopen review only through the defined case workflow and expected-version contract.",
+    ],
+    excludedActions: [
+      "Reading the Report queue or reporter history without submissions.reports.view.",
+      "Disqualifying, reinstating, hiding, deleting, banning, or otherwise sanctioning users or Submissions.",
+      "Changing Report facts, reporter identity, reasons, counts, or append-only events.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "a9c1de7076eac2fd58052833930038f01e48e1ea37da51fb1f696508b11575f1",
   }),
   "users.flag": defineCapability({
     key: "users.flag",

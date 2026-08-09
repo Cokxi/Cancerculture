@@ -3,6 +3,7 @@ export const TURNSTILE_TOKEN_HEADER = "X-Turnstile-Token";
 export const TURNSTILE_ACTIONS = {
   vote: "vote",
   submissionUpload: "submission_upload",
+  submissionReport: "submission_report",
 } as const;
 
 export type TurnstileAction =

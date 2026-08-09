@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import DiscordCooldownTimer from "@/app/components/DiscordCooldownTimer";
 import DiscordSyncDelayNotice from "@/app/components/DiscordSyncDelayNotice";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
+import SubmissionReportPanel from "@/app/components/SubmissionReportPanel";
 import TurnstileWidget from "@/app/components/TurnstileWidget";
 import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
 import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
@@ -40,6 +41,7 @@ export default function SubmissionsClient({
   votedSubmissionIds,
   initialVoteStateAvailable,
   votingEnabled,
+  isVotingClosed,
   isPaused,
   discordUserId,
   voteBlockedReason,
@@ -58,6 +60,7 @@ export default function SubmissionsClient({
   votedSubmissionIds: readonly number[];
   initialVoteStateAvailable: boolean;
   votingEnabled: boolean;
+  isVotingClosed: boolean;
   isPaused: boolean;
   discordUserId: string | null;
   voteBlockedReason: VoteBlockedReason;
@@ -442,7 +445,9 @@ export default function SubmissionsClient({
               ? voteStateAvailable
                 ? `VOTING OPEN - ${usedVotes}/${votesPerUser} VOTES USED`
                 : "VOTING OPEN - VOTE STATUS UNAVAILABLE"
-              : "SUBMISSIONS OPEN - VOTING STARTS LATER"}
+              : isVotingClosed
+                ? "VOTING CLOSED - REPORTS REMAIN OPEN"
+                : "SUBMISSIONS OPEN - VOTING STARTS LATER"}
         </div>
         {submissions.map((s) => {
           const thumbSrc = getSubmissionThumbnailUrl(s.image_url);
@@ -693,6 +698,16 @@ export default function SubmissionsClient({
                     </span>
                   )}
               </div>
+            </div>
+
+            <div className="px-4 pb-4 text-white">
+              <SubmissionReportPanel
+                isAuthenticated={discordUserId !== null}
+                loginReturnPath={`/submissions?submission=${active.id}`}
+                submissionId={active.id}
+                surface="active"
+                turnstileSiteKey={turnstileSiteKey}
+              />
             </div>
 
             {sponsoredMeta?.enabled && sponsoredMeta.bannerUrl ? (

@@ -148,6 +148,7 @@ export default async function SubmissionsPage({
         votedSubmissionIds={viewerVoteState?.votedSubmissionIds ?? []}
         initialVoteStateAvailable={viewerVoteState !== null}
         votingEnabled={votingEnabled}
+        isVotingClosed={currentCycle.status === "voting_closed"}
         isPaused={currentCycle.status === "paused"}
         discordUserId={discordUserId}
         voteBlockedReason={viewerBlockReason}

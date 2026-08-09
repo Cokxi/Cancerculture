@@ -18,6 +18,7 @@ test("current public cycle links use the canonical submissions view", () => {
     "active",
     "submission_open",
     "voting_open",
+    "voting_closed",
     "paused",
   ]) {
     assert.equal(
@@ -49,7 +50,6 @@ test("unavailable or non-public submissions fail closed", () => {
     { publicVisibilityStatus: "removed" },
     { publicVisibilityStatus: "legal_review" },
     { publicVisibilityStatus: null },
-    { cycleStatus: "voting_closed" },
     { cycleStatus: "finished", publicVisibilityStatus: "removed" },
     { cycleId: 0 },
     { submissionId: 0 },

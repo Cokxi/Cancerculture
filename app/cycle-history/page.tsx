@@ -3,6 +3,8 @@ import CycleHistoryClient from "./CycleHistoryClient";
 import { getTeamMember } from "@/lib/auth/guards";
 import { getCycleHistorySummariesPage } from "@/lib/cycles/getCycleHistoryData";
 import { isAdminTeamRole } from "@/lib/auth/teamRoles";
+import { getSessionState } from "@/lib/auth/sessionState";
+import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 
 export default async function CycleHistoryPage() {
   let isAdmin = false;
@@ -14,9 +16,10 @@ export default async function CycleHistoryPage() {
     canModerate = isAdmin;
   } catch {}
 
-  const initialPage = await getCycleHistorySummariesPage({
-    isAdminView: isAdmin,
-  });
+  const [initialPage, sessionState] = await Promise.all([
+    getCycleHistorySummariesPage({ isAdminView: isAdmin }),
+    getSessionState(),
+  ]);
 
   return (
     <>
@@ -38,6 +41,8 @@ export default async function CycleHistoryPage() {
             canModerate={canModerate}
             initialPage={initialPage}
             isAdmin={isAdmin}
+            isAuthenticated={sessionState.status === "authenticated"}
+            turnstileSiteKey={getTurnstileClientSiteKey()}
           />
         )}
       </div>

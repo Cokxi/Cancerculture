@@ -97,6 +97,10 @@ const submissionModerationLogsView = Object.freeze({
   type: "capability",
   capability: "logs.submission_moderation.view",
 } as const);
+const submissionReportView = Object.freeze({
+  type: "capability",
+  capability: "submissions.reports.view",
+} as const);
 const teamAuthorizationLogsView = Object.freeze({
   type: "capability",
   capability: "logs.team_authorization.view",
@@ -251,6 +255,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           implemented: true,
         }),
         item({
+          id: "submission-reports",
+          title: "Submission Reports",
+          href: "/admin/reports",
+          categoryId: "moderation",
+          description:
+            "Review case-centered Submission Reports without implicit moderation powers.",
+          requirement: submissionReportView,
+          implemented: true,
+        }),
+        item({
           id: "blocked-users",
           title: "Blocked Users",
           href: "/admin/moderation/upload-blocks",
@@ -291,6 +305,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           description:
             "Review redacted current and reinstated submission disqualifications by user.",
           requirement: userDisqualificationHistoryView,
+          implemented: true,
+        }),
+        item({
+          id: "submission-reporter-history",
+          title: "Reporter User Logs",
+          href: "/admin/reports/users",
+          categoryId: "logs",
+          description:
+            "Review reporter-centered Submission Report history without a reporter score.",
+          requirement: submissionReportView,
           implemented: true,
         }),
         item({

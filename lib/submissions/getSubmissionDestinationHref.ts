@@ -7,6 +7,7 @@ const CURRENT_PUBLIC_CYCLE_STATUSES = new Set([
   "active",
   "submission_open",
   "voting_open",
+  "voting_closed",
   "paused",
 ]);
 
