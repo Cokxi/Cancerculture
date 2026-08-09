@@ -8,6 +8,9 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "submissions.voting_phase.reinstate",
   "submissions.reports.view",
   "submissions.reports.review",
+  "submissions.reports.live.view",
+  "submissions.reports.finalized.view",
+  "submissions.reports.assign",
   "users.flag",
   "users.flag.create",
   "users.flag.view",
@@ -25,6 +28,8 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "logs.votes.view",
   "logs.vote_refunds.view",
   "logs.submission_moderation.view",
+  "logs.submission_reporters.view",
+  "logs.submission_report_moderation.view",
   "logs.team_authorization.view",
   "cycles.logs.view",
   "cycles.manage",
@@ -256,6 +261,74 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "a9c1de7076eac2fd58052833930038f01e48e1ea37da51fb1f696508b11575f1",
+  }),
+  "submissions.reports.live.view": defineCapability({
+    key: "submissions.reports.live.view",
+    displayName: "View Live Cycle Submission Reports",
+    description:
+      "View case-centered Submission Reports for current and pre-finalization Cycles without changing workflow or moderation state.",
+    category: "Submission Moderation",
+    includedActions: [
+      "View bounded Live Cycle Report queue and Case summaries.",
+      "View minimal Report summaries and one authorized full Report detail.",
+      "Receive viewer-specific unread counts only for Live Cycle Reports.",
+    ],
+    excludedActions: [
+      "Viewing Finalized Cycle Reports or reporter-centered and workflow logs.",
+      "Claiming, reviewing, releasing, reassigning, or closing Report Cases.",
+      "Disqualifying, reinstating, hiding, deleting, banning, or otherwise sanctioning users or Submissions.",
+    ],
+    riskLevel: "high",
+    lifecycle: "staged",
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash:
+      "aa31ce50a9b0cbf4862b9d35bde8f9e2219d90c3aedadce06eb0e1fba55d34b8",
+  }),
+  "submissions.reports.finalized.view": defineCapability({
+    key: "submissions.reports.finalized.view",
+    displayName: "View Finalized Cycle Submission Reports",
+    description:
+      "View case-centered Submission Reports for finalized Cycles and safe unavailable-state fallbacks without changing workflow or moderation state.",
+    category: "Submission Moderation",
+    includedActions: [
+      "View bounded Finalized Cycle Report queue and Case summaries.",
+      "View minimal Report summaries and one authorized full Report detail.",
+      "Receive viewer-specific unread counts only for Finalized Cycle Reports.",
+    ],
+    excludedActions: [
+      "Viewing Live Cycle Reports or reporter-centered and workflow logs.",
+      "Claiming, reviewing, releasing, reassigning, or closing Report Cases.",
+      "Disqualifying, reinstating, hiding, deleting, banning, or otherwise sanctioning users or Submissions.",
+    ],
+    riskLevel: "high",
+    lifecycle: "staged",
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash:
+      "7e6f885d45c6195034e836609f4bdea52f33180c47cea8dfae07c74ef5a1b49c",
+  }),
+  "submissions.reports.assign": defineCapability({
+    key: "submissions.reports.assign",
+    displayName: "Reassign Submission Report Cases",
+    description:
+      "Force-release or reassign an actively claimed Submission Report Case under exact area-view and optimistic-concurrency checks.",
+    category: "Submission Moderation",
+    includedActions: [
+      "Force-release an actively claimed Report Case with an auditable reason.",
+      "Reassign an actively claimed Report Case to an eligible current Team reviewer.",
+    ],
+    excludedActions: [
+      "Viewing any Report queue or detail without the exact Live or Finalized View capability.",
+      "Claiming unassigned Cases, voluntarily releasing own Cases, reviewing, or closing Cases without submissions.reports.review.",
+      "Performing any underlying Submission or User moderation action.",
+    ],
+    riskLevel: "high",
+    lifecycle: "staged",
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash:
+      "06859ad3c5905a08471186dbbde2bc90238f0758be4edcfe525507a4e3db2752",
   }),
   "users.flag": defineCapability({
     key: "users.flag",
@@ -639,6 +712,50 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "fc820ff4bea36171834588856c8f1ca09f0b0391d0b04ff6c0521fffa85d88e7",
+  }),
+  "logs.submission_reporters.view": defineCapability({
+    key: "logs.submission_reporters.view",
+    displayName: "View Submission Reporter User Logs",
+    description:
+      "View reporter-centered Submission Report history as neutral human-review context without a reporter score or workflow access.",
+    category: "Submission Report Logs",
+    includedActions: [
+      "View a reporter-centered list and bounded Submission Report history.",
+      "View neutral counts of Reports in Cases closed with action without attributing causality.",
+    ],
+    excludedActions: [
+      "Viewing Live or Finalized Case queues, full Case workflow history, or unread badges.",
+      "Claiming, reviewing, releasing, reassigning, or closing Report Cases.",
+      "Viewing unrelated User Directory, moderation, vote, security, or infrastructure data.",
+    ],
+    riskLevel: "high",
+    lifecycle: "staged",
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash:
+      "a33f7a7290f09372bd03db6d4c0b8a8923b2c3ce18bcdd847493a58524658ca0",
+  }),
+  "logs.submission_report_moderation.view": defineCapability({
+    key: "logs.submission_report_moderation.view",
+    displayName: "View Submission Report Moderation Logs",
+    description:
+      "View the append-only Submission Report workflow audit with server-side redaction and no Report free text.",
+    category: "Submission Report Logs",
+    includedActions: [
+      "View allowlisted Case, Cycle, Submission, workflow event, outcome, actor display, role, and timestamp fields.",
+      "View claim, release, recovery, reassignment, close, and Report-caused reopen history.",
+    ],
+    excludedActions: [
+      "Viewing reporter comments, raw evidence, stable delegated actor identifiers, or security signals.",
+      "Viewing Live or Finalized Case queues or reporter-centered User Logs.",
+      "Claiming, reviewing, releasing, reassigning, closing, or performing underlying moderation actions.",
+    ],
+    riskLevel: "high",
+    lifecycle: "staged",
+    assignableToNonAdmin: false,
+    implementationVersion: 1,
+    definitionHash:
+      "5d584c66b113a543755dab6730df8de30362c1d2b5dccc46f8b74019756c76f7",
   }),
   "logs.team_authorization.view": defineCapability({
     key: "logs.team_authorization.view",

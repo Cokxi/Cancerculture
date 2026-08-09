@@ -250,9 +250,9 @@ test("the immutable staged definitions remain predecessors within the later flag
   assert.ok(registeredKeysBlock);
   assert.equal(
     [...registeredKeysBlock.matchAll(/"[a-z][a-z0-9_.]+"/gu)].length,
-    33
+    38
   );
-  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 33);
+  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 38);
   assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 31);
   assert.match(
     registry,

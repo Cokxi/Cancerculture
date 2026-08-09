@@ -20,6 +20,9 @@ const expectedKeys = [
   ...activatedKeys,
   "submissions.reports.view",
   "submissions.reports.review",
+  "submissions.reports.live.view",
+  "submissions.reports.finalized.view",
+  "submissions.reports.assign",
   "users.flag",
   "users.flag.create",
   "users.flag.view",
@@ -37,6 +40,8 @@ const expectedKeys = [
   "logs.votes.view",
   "logs.vote_refunds.view",
   "logs.submission_moderation.view",
+  "logs.submission_reporters.view",
+  "logs.submission_report_moderation.view",
   "logs.team_authorization.view",
   "cycles.logs.view",
   "cycles.manage",
@@ -64,7 +69,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains thirty-three known and thirty-one active capability keys", () => {
+test("the server registry contains thirty-eight known, thirty-one active, and five staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -80,6 +85,11 @@ test("the server registry contains thirty-three known and thirty-one active capa
       (key) =>
         ![
           "submissions.submission_phase.moderate",
+          "submissions.reports.live.view",
+          "submissions.reports.finalized.view",
+          "submissions.reports.assign",
+          "logs.submission_reporters.view",
+          "logs.submission_report_moderation.view",
           "users.flag",
         ].includes(key)
     )
@@ -88,7 +98,13 @@ test("the server registry contains thirty-three known and thirty-one active capa
     expectedKeys.filter(
       (key) => TEAM_CAPABILITY_REGISTRY[key].lifecycle === "staged"
     ),
-    []
+    [
+      "submissions.reports.live.view",
+      "submissions.reports.finalized.view",
+      "submissions.reports.assign",
+      "logs.submission_reporters.view",
+      "logs.submission_report_moderation.view",
+    ]
   );
   assert.equal(expectedKeys.includes("users.flag.create"), true);
   assert.equal(expectedKeys.includes("votes.refund_disqualified"), true);
@@ -115,6 +131,12 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "0f8bdec2e69427665a49067e4a2d2da7d4f81053b6f6e1f427cc262f26b7ef0e",
     "submissions.reports.review":
       "a9c1de7076eac2fd58052833930038f01e48e1ea37da51fb1f696508b11575f1",
+    "submissions.reports.live.view":
+      "aa31ce50a9b0cbf4862b9d35bde8f9e2219d90c3aedadce06eb0e1fba55d34b8",
+    "submissions.reports.finalized.view":
+      "7e6f885d45c6195034e836609f4bdea52f33180c47cea8dfae07c74ef5a1b49c",
+    "submissions.reports.assign":
+      "06859ad3c5905a08471186dbbde2bc90238f0758be4edcfe525507a4e3db2752",
     "users.flag":
       "4ec252dadafc8d9e149df225825f850fd90666e444fff4edaca43bd5d02b553c",
     "users.flag.create":
@@ -149,6 +171,10 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "f3e1102733e29e8338b95f831e89f9f09f7f7af70ce4dfcfce51cba450c358b2",
     "logs.submission_moderation.view":
       "fc820ff4bea36171834588856c8f1ca09f0b0391d0b04ff6c0521fffa85d88e7",
+    "logs.submission_reporters.view":
+      "a33f7a7290f09372bd03db6d4c0b8a8923b2c3ce18bcdd847493a58524658ca0",
+    "logs.submission_report_moderation.view":
+      "5d584c66b113a543755dab6730df8de30362c1d2b5dccc46f8b74019756c76f7",
     "logs.team_authorization.view":
       "69faf8e792eb9ee98366d3be382d6020ba46994b514c07c3ab2e970c716be1ba",
     "cycles.logs.view":
@@ -188,14 +214,24 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "submissions.submission_phase.moderate",
       "users.flag",
     ].includes(key);
+    const staged = [
+      "submissions.reports.live.view",
+      "submissions.reports.finalized.view",
+      "submissions.reports.assign",
+      "logs.submission_reporters.view",
+      "logs.submission_report_moderation.view",
+    ].includes(key);
     const versionTwo =
       deprecated ||
       activatedKeys.includes(key) ||
       key.startsWith("users.flag.") ||
       key === "users.directory.full.view" ||
       key === "logs.vote_refunds.view";
-    assert.equal(definition.assignableToNonAdmin, !deprecated);
-    assert.equal(definition.lifecycle, deprecated ? "deprecated" : "active");
+    assert.equal(definition.assignableToNonAdmin, !deprecated && !staged);
+    assert.equal(
+      definition.lifecycle,
+      deprecated ? "deprecated" : staged ? "staged" : "active"
+    );
     assert.equal(
       definition.implementationVersion,
       versionTwo ? 2 : 1
