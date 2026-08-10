@@ -107,7 +107,8 @@ test("workflow API and UI expose only the four agreed concurrency-safe operation
   assert.match(workflowRoute, /expectedRowVersion/u);
   assert.match(workflowRoute, /expectedLatestReportId/u);
   assert.match(workflowRoute, /idempotencyKey/u);
-  assert.match(workflowRoute, /note\.length < 10/u);
+  assert.match(workflowRoute, /operation === "forced_release" && note === null/u);
+  assert.match(workflowRoute, /noteHasValidLength/u);
   assert.match(queue, /crypto\.randomUUID\(\)/u);
   assert.match(queue, /Return to queue/u);
   assert.match(queue, /Admin override release/u);

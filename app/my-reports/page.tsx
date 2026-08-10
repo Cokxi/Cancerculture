@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import BackButton from "@/app/components/ui/BackButton";
 import { getSessionState } from "@/lib/auth/sessionState";
 import {
   SUBMISSION_REPORT_REASON_LABELS,
@@ -58,6 +59,7 @@ export default async function MyReportsPage({
   if (sessionState.status === "dependency_unavailable") {
     return (
       <main className="mx-auto max-w-4xl px-4 py-10 text-white">
+        <BackButton href="/" label="Home" />
         <div
           className="rounded-2xl border border-white/10 bg-black/70 p-8 text-center"
           role="status"
@@ -89,6 +91,7 @@ export default async function MyReportsPage({
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 px-4 py-10 text-white">
+      <BackButton href="/" label="Home" />
       <header className="rounded-2xl border border-white/10 bg-black/40 p-6">
         <h1 className="text-3xl font-[Permanent_Marker] text-[var(--orange-dark)]">
           My Reports

@@ -65,7 +65,7 @@ test("the application exposes the simplified workflow and derives override autho
   assert.match(queue, /Return to queue/u);
   assert.match(queue, /Admin override release/u);
   assert.match(queue, /disabled=\{pending\}[\s\S]*Return to queue/u);
-  assert.match(queue, /disabled=\{pending \|\| !noteReady\}[\s\S]*Admin override release/u);
+  assert.match(queue, /disabled=\{pending \|\| !requiredOverrideNoteReady\}[\s\S]*Admin override release/u);
   assert.doesNotMatch(`${server}\n${route}\n${queue}`, /recover_claim|"reassign"|assignment-targets/u);
   assert.match(registry, /submissions\.reports\.assign[\s\S]*lifecycle: "deprecated"/u);
 });

@@ -243,7 +243,7 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     category: "Submission Moderation",
     includedActions: [
       "Atomically claim an unassigned Case.",
-      "Return an owned Case to the open queue without a note, or close an owned Case with an allowlisted outcome and required note.",
+      "Return an owned Case to the open queue without a note, or close an owned Case with an allowlisted outcome and an optional note.",
       "Use expected status, row version, latest Report cursor, and idempotency on every workflow mutation.",
     ],
     excludedActions: [
@@ -254,9 +254,9 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     riskLevel: "high",
     lifecycle: "active",
     assignableToNonAdmin: true,
-    implementationVersion: 3,
+    implementationVersion: 4,
     definitionHash:
-      "490f3168bf6cb0b162384ced36e2c3a3156d933d14603eb340255b9242bbdb0a",
+      "106f2027e9ba597867aa4bafa80871f8432c3c27a3cae980061e09930b5b36e1",
   }),
   "submissions.reports.live.view": defineCapability({
     key: "submissions.reports.live.view",

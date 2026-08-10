@@ -269,7 +269,10 @@ function WorkflowActions({
     status === "closed" ||
     (status === "in_review" && !own && !canOverrideRelease)
   ) return null;
-  const noteReady = note.trim().length >= 10 && note.trim().length <= 1000;
+  const noteLength = note.trim().length;
+  const optionalCloseNoteReady =
+    noteLength === 0 || (noteLength >= 10 && noteLength <= 1000);
+  const requiredOverrideNoteReady = noteLength >= 10 && noteLength <= 1000;
 
   return (
     <section className="mt-5 rounded-xl border border-orange-300/20 bg-orange-500/[0.05] p-4">
@@ -277,7 +280,7 @@ function WorkflowActions({
       {status === "in_review" ? (
         <label className="mt-4 block text-sm">
           {own
-            ? "Close note (required only for Close Case)"
+            ? "Close note (optional)"
             : "Required Admin override reason"}
           <textarea
             value={note}
@@ -285,7 +288,7 @@ function WorkflowActions({
             maxLength={1000}
             rows={3}
             placeholder={own
-              ? "Explain the completed review (10–1000 characters)."
+              ? "Optional review context (10–1000 characters if provided)."
               : "Explain why the Admin override is required (10–1000 characters)."}
             className="mt-2 w-full rounded-lg border border-white/15 bg-black/40 p-3 outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
           />
@@ -335,7 +338,7 @@ function WorkflowActions({
             </button>
             <button
               type="button"
-              disabled={pending || !noteReady}
+              disabled={pending || !optionalCloseNoteReady}
               onClick={() => void mutate("close")}
               className="cursor-pointer rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -346,7 +349,7 @@ function WorkflowActions({
         {status === "in_review" && canOverrideRelease && !own ? (
           <button
             type="button"
-            disabled={pending || !noteReady}
+            disabled={pending || !requiredOverrideNoteReady}
             onClick={() => void mutate("forced_release")}
             className="cursor-pointer rounded-full border border-red-300/40 px-4 py-2 text-sm text-red-100 disabled:cursor-not-allowed disabled:opacity-40"
           >

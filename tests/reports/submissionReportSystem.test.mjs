@@ -6,7 +6,7 @@ import { TEAM_CAPABILITY_REGISTRY } from "../../lib/auth/teamCapabilityRegistry.
 
 const root = new URL("../../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
-const [migration, activation, followUp, correction, cutover, simplification, authorizationFix, route, panel, teamModule, ownModule, myReports, profileSections, accountNavigation, navigation, devTest] = await Promise.all([
+const [migration, activation, followUp, correction, cutover, simplification, authorizationFix, optionalCloseNote, route, panel, teamModule, ownModule, myReports, profileSections, accountNavigation, navigation, devTest] = await Promise.all([
   read("supabase/migrations/20260809000100_submission_report_system.sql"),
   read("supabase/migrations/20260809000200_activate_submission_report_capabilities.sql"),
   read("supabase/migrations/20260809000300_submission_report_taxonomy_v2_and_my_reports.sql"),
@@ -14,6 +14,7 @@ const [migration, activation, followUp, correction, cutover, simplification, aut
   read("supabase/migrations/20260809000600_submission_report_team_workflow_cutover.sql"),
   read("supabase/migrations/20260809000800_simplify_submission_report_release_workflow.sql"),
   read("supabase/migrations/20260809000900_fix_submission_report_review_authorization_v3.sql"),
+  read("supabase/migrations/20260810000100_optional_submission_report_close_note.sql"),
   read("app/api/submission-reports/route.ts"),
   read("app/components/SubmissionReportPanel.tsx"),
   read("lib/reports/submissionReportTeam.server.ts"),
@@ -54,7 +55,7 @@ test("legacy combined Report access is deprecated and exact V2 capabilities are 
     assert.equal(definition.lifecycle, "active");
     assert.equal(definition.assignableToNonAdmin, true);
     assert.match(
-      key === "submissions.reports.review" ? simplification : cutover,
+      key === "submissions.reports.review" ? optionalCloseNote : cutover,
       new RegExp(hash, "u")
     );
   }
@@ -67,6 +68,7 @@ test("legacy combined Report access is deprecated and exact V2 capabilities are 
   assert.equal(legacyAssign.assignableToNonAdmin, false);
   assert.match(simplification, new RegExp(legacyAssign.definitionHash, "u"));
   assert.match(authorizationFix, /submissions\.reports\.review'[\s\S]*490f3168bf6cb0b162384ced36e2c3a3156d933d14603eb340255b9242bbdb0a/u);
+  assert.match(optionalCloseNote, /submissions\.reports\.review'[\s\S]*106f2027e9ba597867aa4bafa80871f8432c3c27a3cae980061e09930b5b36e1/u);
   assert.match(migration, /0f8bdec2e69427665a49067e4a2d2da7d4f81053b6f6e1f427cc262f26b7ef0e/u);
   assert.match(activation, /a9c1de7076eac2fd58052833930038f01e48e1ea37da51fb1f696508b11575f1/u);
   assert.match(migration, /'high', false, false, 1/u);

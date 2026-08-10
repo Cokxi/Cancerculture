@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import DisqualificationHistoryList from "@/app/components/profile/DisqualificationHistoryList";
+import BackButton from "@/app/components/ui/BackButton";
 import { getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { getSessionState } from "@/lib/auth/sessionState";
 import { loadOwnDisqualificationHistory } from "@/lib/profile/disqualificationHistoryReadModel.server";
@@ -30,6 +31,7 @@ export default async function MyDisqualificationHistoryPage({
   if (sessionState.status === "dependency_unavailable") {
     return (
       <main className="mx-auto max-w-3xl px-4 py-10 text-white">
+        <BackButton href="/" label="Home" />
         <div
           className="rounded-2xl border border-white/10 bg-black/70 p-8 text-center"
           role="status"
@@ -59,6 +61,7 @@ export default async function MyDisqualificationHistoryPage({
 
   return (
     <main className="mx-auto max-w-4xl space-y-8 px-4 py-10 text-white">
+      <BackButton href="/" label="Home" />
       <header className="rounded-2xl border border-white/10 bg-black/40 p-6">
         <h1 className="text-3xl font-[Permanent_Marker] text-[var(--orange-dark)]">
           My Moderation History

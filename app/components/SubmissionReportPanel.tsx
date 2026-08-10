@@ -76,9 +76,11 @@ export default function SubmissionReportPanel({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const effectiveSubcategory =
+    reason === "other_rules_concern" ? "other" : subcategory;
   const contextRequired =
-    subcategory.length > 0 &&
-    submissionReportRequiresContext(reason, subcategory);
+    effectiveSubcategory.length > 0 &&
+    submissionReportRequiresContext(reason, effectiveSubcategory);
   const trimmedCommentLength = comment.trim().length;
   const minimumContextLength = contextRequired
     ? SUBMISSION_REPORT_REQUIRED_COMMENT_MIN_LENGTH
@@ -87,7 +89,7 @@ export default function SubmissionReportPanel({
     ? trimmedCommentLength >= minimumContextLength
     : trimmedCommentLength === 0 ||
       trimmedCommentLength >= minimumContextLength;
-  const editValid = subcategory.length > 0 && contextValid;
+  const editValid = effectiveSubcategory.length > 0 && contextValid;
 
   const contextLabel = useMemo(() => {
     if (contextRequired) {
@@ -155,7 +157,7 @@ export default function SubmissionReportPanel({
         body: JSON.stringify({
           submissionId,
           reason,
-          subcategory,
+          subcategory: effectiveSubcategory,
           comment: comment.trim() || null,
           idempotencyKey: requestId,
         }),
@@ -300,29 +302,31 @@ export default function SubmissionReportPanel({
                 </select>
               </label>
 
-              <label className="block text-sm">
-                <span className="mb-1 block text-white/80">
-                  More detail (required)
-                </span>
-                <select
-                  value={subcategory}
-                  required
-                  onChange={(event) => {
-                    setSubcategory(event.target.value);
-                    resetAttempt();
-                  }}
-                  className="w-full cursor-pointer rounded-lg border border-white/15 bg-black/70 px-3 py-2 text-white"
-                >
-                  <option value="" disabled>
-                    Select a category
-                  </option>
-                  {SUBMISSION_REPORT_SUBCATEGORIES[reason].map((value) => (
-                    <option key={value} value={value}>
-                      {SUBMISSION_REPORT_SUBCATEGORY_LABELS[value] ?? value}
+              {reason !== "other_rules_concern" ? (
+                <label className="block text-sm">
+                  <span className="mb-1 block text-white/80">
+                    More detail (required)
+                  </span>
+                  <select
+                    value={subcategory}
+                    required
+                    onChange={(event) => {
+                      setSubcategory(event.target.value);
+                      resetAttempt();
+                    }}
+                    className="w-full cursor-pointer rounded-lg border border-white/15 bg-black/70 px-3 py-2 text-white"
+                  >
+                    <option value="" disabled>
+                      Select a category
                     </option>
-                  ))}
-                </select>
-              </label>
+                    {SUBMISSION_REPORT_SUBCATEGORIES[reason].map((value) => (
+                      <option key={value} value={value}>
+                        {SUBMISSION_REPORT_SUBCATEGORY_LABELS[value] ?? value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
 
               {reason === "fair_play_manipulation" ? (
                 <p className="rounded-lg bg-orange-500/10 p-3 text-sm text-orange-100">
@@ -384,10 +388,16 @@ export default function SubmissionReportPanel({
                   <dt className="text-white/55">Reason</dt>
                   <dd>{SUBMISSION_REPORT_REASON_LABELS[reason]}</dd>
                 </div>
-                <div>
-                  <dt className="text-white/55">Detail</dt>
-                  <dd>{SUBMISSION_REPORT_SUBCATEGORY_LABELS[subcategory]}</dd>
-                </div>
+                {reason !== "other_rules_concern" ? (
+                  <div>
+                    <dt className="text-white/55">Detail</dt>
+                    <dd>
+                      {SUBMISSION_REPORT_SUBCATEGORY_LABELS[
+                        effectiveSubcategory
+                      ]}
+                    </dd>
+                  </div>
+                ) : null}
                 {comment.trim() ? (
                   <div>
                     <dt className="text-white/55">Context</dt>

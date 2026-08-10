@@ -38,7 +38,8 @@ function parse(value: unknown): SubmissionReportWorkflowInput | null {
       ? input.targetDiscordUserId.trim()
       : null;
   const operation = typeof input.operation === "string" ? input.operation : "";
-  const needsNote = ["forced_release", "close"].includes(operation);
+  const noteHasValidLength =
+    note === null || (note.length >= 10 && note.length <= 1000);
 
   if (
     typeof input.caseId !== "string" ||
@@ -57,8 +58,10 @@ function parse(value: unknown): SubmissionReportWorkflowInput | null {
       (!disposition || !DISPOSITIONS.has(disposition))) ||
     (operation !== "close" && disposition !== null) ||
     targetDiscordUserId !== null ||
-    (needsNote && (!note || note.length < 10 || note.length > 1000)) ||
-    (!needsNote && note !== null)
+    (operation === "forced_release" && note === null) ||
+    (["forced_release", "close"].includes(operation) &&
+      !noteHasValidLength) ||
+    (["claim", "release"].includes(operation) && note !== null)
   ) {
     return null;
   }

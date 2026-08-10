@@ -427,7 +427,7 @@ export async function manageSubmissionReportCase(
     throw new AuthError(403, "Forbidden", "TEAM_CAPABILITY_DENIED");
   }
   const { data, error } = await supabaseAdmin.rpc(
-    "manage_submission_report_case_v2",
+    "manage_submission_report_case_v3",
     {
       p_actor_discord_user_id: authorization.discord_user_id,
       p_case_id: input.caseId,

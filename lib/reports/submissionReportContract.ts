@@ -44,7 +44,7 @@ export const SUBMISSION_REPORT_REASON_LABELS: Readonly<
   rights_or_ownership: "Rights or ownership concern",
   fair_play_manipulation: "Fair-play manipulation",
   low_effort_or_off_topic: "Low effort or off topic",
-  other_rules_concern: "Other rules concern",
+  other_rules_concern: "Other",
 });
 
 export const SUBMISSION_REPORT_SUBCATEGORIES = Object.freeze({

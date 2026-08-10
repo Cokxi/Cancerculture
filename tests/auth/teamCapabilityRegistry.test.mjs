@@ -121,7 +121,7 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "submissions.reports.view":
       "1ac94f21aa019436dfae29e33349f7640fc3ea026586cb6c159c85b85245b1e9",
     "submissions.reports.review":
-      "490f3168bf6cb0b162384ced36e2c3a3156d933d14603eb340255b9242bbdb0a",
+      "106f2027e9ba597867aa4bafa80871f8432c3c27a3cae980061e09930b5b36e1",
     "submissions.reports.live.view":
       "a32d78f7a26954a5465cd1f1ba05e871d0cf62e69721a7fa4cd83353562fa4fa",
     "submissions.reports.finalized.view":
@@ -213,7 +213,7 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       key.startsWith("users.flag.") ||
       key === "users.directory.full.view" ||
       key === "logs.vote_refunds.view";
-    const versionThree = key === "submissions.reports.review";
+    const versionFour = key === "submissions.reports.review";
     assert.equal(definition.assignableToNonAdmin, !deprecated);
     assert.equal(
       definition.lifecycle,
@@ -221,7 +221,7 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     );
     assert.equal(
       definition.implementationVersion,
-      versionThree ? 3 : versionTwo ? 2 : 1
+      versionFour ? 4 : versionTwo ? 2 : 1
     );
     assert.equal(definition.definitionHash, expectedHashes[key]);
     assert.equal(hash, expectedHashes[key]);

@@ -115,9 +115,10 @@ test("Outcome History and My Reports share a fresh visibility-safe thumbnail bou
   assert.doesNotMatch(thumbnailServer, /snapshot|copy|insert|update|delete/iu);
 });
 
-test("private report and moderation history rely on global profile navigation", () => {
+test("private report and moderation history use the standard Home navigation", () => {
   for (const page of [myReportsPage, myModerationHistoryPage]) {
-    assert.doesNotMatch(page, /BackButton/u);
+    assert.match(page, /BackButton/u);
+    assert.match(page, /href="\/" label="Home"/u);
     assert.doesNotMatch(page, /label="My Profile"/u);
   }
 });
