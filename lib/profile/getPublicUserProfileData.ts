@@ -6,7 +6,7 @@ import {
   showsSubmissionImagePublicly,
 } from "@/lib/moderation/submissionPublicVisibility";
 import { getUserSubmissions } from "@/lib/queries/getUserSubmissions";
-import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { getPublicProfileAvatarPath } from "@/lib/profile/publicDiscordAvatar";
 import { getUserSocialLinks } from "@/lib/socials/getUserSocialLinks";
 import type { PublicSocialLink } from "@/lib/socials/types";
 import type { SubmissionPublicVisibilityStatus } from "@/lib/moderation/submissionPublicVisibility";
@@ -32,7 +32,6 @@ export type PublicProfileSubmission = Omit<
 export type PublicUserProfileData = {
   avatarUrl: string | null;
   currentDiscordUsername: string;
-  discordUserId: string;
   knownDiscordUsernames: string[];
   publicProfileId: string;
   showSocials: boolean;
@@ -57,9 +56,11 @@ export async function getPublicUserProfileData(
     notFound();
   }
 
+  const discordUserId = userLog.discord_user_id;
+
   const [submissions, socialLinks] = await Promise.all([
-    getUserSubmissions(userLog.discord_user_id),
-    getUserSocialLinks(userLog.discord_user_id),
+    getUserSubmissions(discordUserId),
+    getUserSocialLinks(discordUserId),
   ]);
 
   const submissionIds = submissions.map(
@@ -165,24 +166,20 @@ export async function getPublicUserProfileData(
     );
   }
 
-  const avatarUrl = userLog.avatar_key
-    ? getPublicImageUrl(userLog.avatar_key) ?? null
-    : userLog.discord_avatar
-      ? `https://cdn.discordapp.com/avatars/${userLog.discord_user_id}/${userLog.discord_avatar}.png`
+  const avatarUrl =
+    userLog.avatar_key || userLog.discord_avatar
+      ? getPublicProfileAvatarPath({
+          publicProfileId: userLog.public_profile_id,
+          versionSource: userLog.avatar_key
+            ? `${userLog.avatar_key}:${userLog.avatar_updated_at ?? ""}`
+            : userLog.discord_avatar ?? "",
+        })
       : null;
 
-  const cacheBustedAvatarUrl =
-    avatarUrl && userLog.avatar_updated_at
-      ? `${avatarUrl}${
-          avatarUrl.includes("?") ? "&" : "?"
-        }v=${encodeURIComponent(userLog.avatar_updated_at)}`
-      : avatarUrl;
-
   return {
-    avatarUrl: cacheBustedAvatarUrl,
+    avatarUrl,
     currentDiscordUsername:
       userLog.current_discord_username ?? "unknown",
-    discordUserId: userLog.discord_user_id,
     knownDiscordUsernames:
       userLog.known_discord_usernames ?? [],
     publicProfileId: userLog.public_profile_id,
