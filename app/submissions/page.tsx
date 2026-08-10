@@ -116,7 +116,10 @@ export default async function SubmissionsPage({
         })
       : Promise.resolve({ voteCount: 0, votedSubmissionIds: [] });
   const [initialPage, sponsoredMeta, viewerVoteState] = await Promise.all([
-    getVoteSubmissions({ cycleId: currentCycle.id }),
+    getVoteSubmissions({
+      cycleId: currentCycle.id,
+      viewerDiscordUserId: discordUserId,
+    }),
     getCycleSponsoredMeta(currentCycle.id),
     viewerVoteStatePromise,
   ]);
@@ -128,6 +131,7 @@ export default async function SubmissionsPage({
       ? await getVoteSubmissionById({
           cycleId: currentCycle.id,
           submissionId: requestedId,
+          viewerDiscordUserId: discordUserId,
         })
       : null;
 
@@ -150,7 +154,7 @@ export default async function SubmissionsPage({
         votingEnabled={votingEnabled}
         isVotingClosed={currentCycle.status === "voting_closed"}
         isPaused={currentCycle.status === "paused"}
-        discordUserId={discordUserId}
+        isAuthenticated={discordUserId !== null}
         voteBlockedReason={viewerBlockReason}
         voteCooldownJoinedAt={null}
         showDiscordSyncDelayNotice={false}

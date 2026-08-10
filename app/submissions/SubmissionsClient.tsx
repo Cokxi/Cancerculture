@@ -43,7 +43,7 @@ export default function SubmissionsClient({
   votingEnabled,
   isVotingClosed,
   isPaused,
-  discordUserId,
+  isAuthenticated,
   voteBlockedReason,
   voteCooldownJoinedAt,
   showDiscordSyncDelayNotice,
@@ -62,7 +62,7 @@ export default function SubmissionsClient({
   votingEnabled: boolean;
   isVotingClosed: boolean;
   isPaused: boolean;
-  discordUserId: string | null;
+  isAuthenticated: boolean;
   voteBlockedReason: VoteBlockedReason;
   voteCooldownJoinedAt: string | null;
   showDiscordSyncDelayNotice: boolean;
@@ -167,7 +167,7 @@ export default function SubmissionsClient({
       effectiveVoteBlockedReason === "membership_pending");
 
   const loadVoteEligibility = useCallback(async () => {
-    if (!discordUserId) return;
+    if (!isAuthenticated) return;
 
     setLocalVoteBlockedReason("membership_pending");
     setLocalShowDiscordSyncDelayNotice(false);
@@ -232,13 +232,13 @@ export default function SubmissionsClient({
       setLocalShowDiscordSyncDelayNotice(false);
       setLocalVoteBlockedReason("dependency_unavailable");
     }
-  }, [discordUserId]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (
       !active ||
       !votingEnabled ||
-      !discordUserId ||
+      !isAuthenticated ||
       eligibilityLoadedRef.current
     ) {
       return;
@@ -250,7 +250,7 @@ export default function SubmissionsClient({
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [active, discordUserId, loadVoteEligibility, votingEnabled]);
+  }, [active, isAuthenticated, loadVoteEligibility, votingEnabled]);
 
   useEffect(() => {
     if (!waitingForDiscordJoin) return;
@@ -476,7 +476,7 @@ export default function SubmissionsClient({
 
               <div className="absolute bottom-0 w-full bg-black/60 text-white text-sm p-2">
                 Votes: {localVotes[s.id] ?? s.vote_count}
-                {s.discord_user_id === discordUserId && (
+                {s.isOwnSubmission && (
                   <span className="ml-2 opacity-70">(you)</span>
                 )}
               </div>
@@ -543,7 +543,7 @@ export default function SubmissionsClient({
                   <span className="text-center text-xs text-white/60">
                     {isPaused ? "Cycle paused" : "Voting not open yet"}
                   </span>
-                ) : active.discord_user_id !== discordUserId &&
+                ) : !active.isOwnSubmission &&
                 effectiveVoteBlockedReason === "join_wait" ? (
                   <div className="flex flex-col items-center leading-tight">
                     <span className="text-[10px] uppercase tracking-[0.18em] text-white/55">
@@ -570,14 +570,14 @@ export default function SubmissionsClient({
                   >
                     Vote
                   </button>
-                ) : active.discord_user_id === discordUserId ? (
+                ) : active.isOwnSubmission ? (
                   <span className="opacity-70">
                     You cannot vote for your own submission
                   </span>
                 ) : null}
 
                 {votingEnabled &&
-                  active.discord_user_id !== discordUserId &&
+                  !active.isOwnSubmission &&
                   voteBlockedMessage && (
                     effectiveShowDiscordSyncDelayNotice ? (
                       <div className="max-w-sm text-center text-xs text-orange-200">
@@ -643,7 +643,7 @@ export default function SubmissionsClient({
                   )}
 
                 {votingEnabled &&
-                  active.discord_user_id !== discordUserId &&
+                  !active.isOwnSubmission &&
                   !voteBlockedMessage &&
                   votedSubmissionIdSet.has(active.id) && (
                     <span className="opacity-70">
@@ -652,7 +652,7 @@ export default function SubmissionsClient({
                   )}
 
                 {votingEnabled &&
-                  active.discord_user_id !== discordUserId &&
+                  !active.isOwnSubmission &&
                   !voteBlockedMessage &&
                   !votedSubmissionIdSet.has(active.id) &&
                   !voted && (
@@ -689,7 +689,7 @@ export default function SubmissionsClient({
                   )}
 
                 {votingEnabled &&
-                  active.discord_user_id !== discordUserId &&
+                  !active.isOwnSubmission &&
                   !voteBlockedMessage &&
                   !votedSubmissionIdSet.has(active.id) &&
                   voted && (
@@ -702,7 +702,7 @@ export default function SubmissionsClient({
 
             <div className="px-4 pb-4 text-white">
               <SubmissionReportPanel
-                isAuthenticated={discordUserId !== null}
+                isAuthenticated={isAuthenticated}
                 loginReturnPath={`/submissions?submission=${active.id}`}
                 submissionId={active.id}
                 surface="active"

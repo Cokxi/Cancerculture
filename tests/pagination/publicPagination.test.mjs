@@ -379,6 +379,7 @@ test("loaded current submissions retain vote and modal state", async () => {
   assert.match(client, /votedSubmissionIdSet\.has\(active\.id\)/);
   assert.match(
     client,
-    /active\.discord_user_id !== discordUserId/
+    /!active\.isOwnSubmission/
   );
+  assert.doesNotMatch(client, /discord_user_id|discordUserId/u);
 });

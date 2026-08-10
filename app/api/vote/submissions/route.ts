@@ -2,13 +2,27 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { getSessionState } from "@/lib/auth/sessionState";
 import { getCurrentPublicCycle } from "@/lib/cycles/currentCycle";
 import { getPublicPaginationErrorResponse } from "@/lib/pagination/getPublicPaginationErrorResponse";
 import { getVoteSubmissions } from "@/lib/vote/getVoteSubmissions";
 
 export async function GET(req: Request) {
   try {
-    const activeCycle = await getCurrentPublicCycle();
+    const [activeCycle, sessionState] = await Promise.all([
+      getCurrentPublicCycle(),
+      getSessionState(),
+    ]);
+
+    if (sessionState.status === "dependency_unavailable") {
+      return NextResponse.json(
+        { error: "Viewer state temporarily unavailable" },
+        {
+          status: 503,
+          headers: { "Cache-Control": "no-store" },
+        }
+      );
+    }
 
     if (!activeCycle) {
       return NextResponse.json(
@@ -52,6 +66,10 @@ export async function GET(req: Request) {
     const result = await getVoteSubmissions({
       cycleId,
       cursor,
+      viewerDiscordUserId:
+        sessionState.status === "authenticated"
+          ? sessionState.session.discord_user_id
+          : null,
     });
 
     return NextResponse.json(result, {

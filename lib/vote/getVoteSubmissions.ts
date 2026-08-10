@@ -25,7 +25,8 @@ type VoteRow = {
 
 async function addVoteCounts(
   cycleId: number,
-  rows: SubmissionRow[]
+  rows: SubmissionRow[],
+  viewerDiscordUserId: string | null
 ): Promise<VoteSubmission[]> {
   const submissionIds = rows.map((row) => row.id);
   const voteCounts = new Map<number, number>();
@@ -56,16 +57,20 @@ async function addVoteCounts(
     image_url:
       getPublicImageUrl(submission.r2_key) ?? "",
     vote_count: voteCounts.get(submission.id) ?? 0,
-    discord_user_id: submission.discord_user_id,
+    isOwnSubmission:
+      viewerDiscordUserId !== null &&
+      submission.discord_user_id === viewerDiscordUserId,
   }));
 }
 
 export async function getVoteSubmissions({
   cursor,
   cycleId,
+  viewerDiscordUserId = null,
 }: {
   cursor?: string | null;
   cycleId: number;
+  viewerDiscordUserId?: string | null;
 }): Promise<PublicPage<VoteSubmission>> {
   const context = { cycleId };
   const decodedCursor = cursor
@@ -98,7 +103,11 @@ export async function getVoteSubmissions({
   const rows = (data ?? []) as SubmissionRow[];
   const hasMore = rows.length > PUBLIC_SUBMISSION_PAGE_SIZE;
   const pageRows = rows.slice(0, PUBLIC_SUBMISSION_PAGE_SIZE);
-  const items = await addVoteCounts(cycleId, pageRows);
+  const items = await addVoteCounts(
+    cycleId,
+    pageRows,
+    viewerDiscordUserId
+  );
   const lastItem = items.at(-1);
 
   return {
@@ -119,9 +128,11 @@ export async function getVoteSubmissions({
 export async function getVoteSubmissionById({
   cycleId,
   submissionId,
+  viewerDiscordUserId = null,
 }: {
   cycleId: number;
   submissionId: number;
+  viewerDiscordUserId?: string | null;
 }) {
   const { data, error } = await supabaseAdmin
     .from("submissions")
@@ -142,6 +153,7 @@ export async function getVoteSubmissionById({
 
   return (await addVoteCounts(
     cycleId,
-    [data as SubmissionRow]
+    [data as SubmissionRow],
+    viewerDiscordUserId
   ))[0] ?? null;
 }
