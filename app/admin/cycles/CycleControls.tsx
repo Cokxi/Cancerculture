@@ -13,6 +13,8 @@ export default function CycleControls({
   currentPhaseStatus,
   pausedFromStatus,
   initialVotesPerUser,
+  initialSubmissionsPerUser,
+  initialUploadSuccessCooldownSeconds,
   resetPreview,
 }: {
   initialNextTheme: string;
@@ -21,6 +23,8 @@ export default function CycleControls({
   currentPhaseStatus: string | null;
   pausedFromStatus: string | null;
   initialVotesPerUser: number;
+  initialSubmissionsPerUser: number;
+  initialUploadSuccessCooldownSeconds: number;
   resetPreview: {
     submissions: number;
     votes: number;
@@ -31,6 +35,11 @@ export default function CycleControls({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [startTheme, setStartTheme] = useState("");
+  const [submissionsPerUser, setSubmissionsPerUser] = useState(
+    initialSubmissionsPerUser
+  );
+  const [uploadSuccessCooldownSeconds, setUploadSuccessCooldownSeconds] =
+    useState(initialUploadSuccessCooldownSeconds);
   const [nextTheme, setNextTheme] = useState(initialNextTheme);
   const [resetReason, setResetReason] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
@@ -74,6 +83,8 @@ export default function CycleControls({
           cycleId:
             currentPhaseStatus === "draft" ? currentCycleId : null,
           theme: startTheme,
+          submissionsPerUser,
+          uploadSuccessCooldownSeconds,
         }),
       });
 
@@ -219,6 +230,36 @@ export default function CycleControls({
             minWidth: 260,
           }}
         />
+
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Submissions per user
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={submissionsPerUser}
+            onChange={(event) =>
+              setSubmissionsPerUser(Number(event.target.value))
+            }
+            disabled={!canStart || loading}
+            style={{ padding: "6px 10px", width: 100 }}
+          />
+        </label>
+
+        <label style={{ display: "grid", gap: 4, fontSize: 13 }}>
+          Successful upload cooldown (seconds)
+          <input
+            type="number"
+            min={30}
+            max={300}
+            value={uploadSuccessCooldownSeconds}
+            onChange={(event) =>
+              setUploadSuccessCooldownSeconds(Number(event.target.value))
+            }
+            disabled={!canStart || loading}
+            style={{ padding: "6px 10px", width: 120 }}
+          />
+        </label>
 
         <button
           onClick={startCycle}

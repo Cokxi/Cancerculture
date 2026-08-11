@@ -53,6 +53,26 @@ test("the parser canonicalizes explicit selections and dynamic cycle expectation
   assert.equal(Object.isFrozen(parsed.selections), true);
 });
 
+test("vote limits accept 50 and reject values outside 1 through 50", () => {
+  assert.equal(
+    parseVoteRefundRequest({
+      ...validRequest(),
+      expectedVotesPerUser: 50,
+    }).expectedVotesPerUser,
+    50
+  );
+  assert.throws(
+    () =>
+      parseVoteRefundRequest({
+        ...validRequest(),
+        expectedVotesPerUser: 51,
+      }),
+    (error) =>
+      error instanceof AuthError &&
+      error.code === "INVALID_VOTE_REFUND_REQUEST"
+  );
+});
+
 test("duplicates, empty selections, invalid expectations, and oversized totals fail closed", () => {
   const first = validRequest().selections[0];
   const invalidRequests = [

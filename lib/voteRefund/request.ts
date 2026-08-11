@@ -79,7 +79,7 @@ export function parseVoteRefundRequest(value: unknown) {
     Number(body.expectedResetCount) < 0 ||
     !Number.isSafeInteger(body.expectedVotesPerUser) ||
     Number(body.expectedVotesPerUser) < 1 ||
-    Number(body.expectedVotesPerUser) > 10 ||
+    Number(body.expectedVotesPerUser) > 50 ||
     selections.length < 1 ||
     selections.length > MAX_VOTE_REFUND_SUBMISSIONS ||
     new Set(selectedIds).size !== selections.length ||

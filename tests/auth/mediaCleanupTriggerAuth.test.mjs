@@ -98,3 +98,27 @@ test("reset leases only cleanup jobs created by that reset", async () => {
     /Cycle reset succeeded, but queued media cleanup could not be started/
   );
 });
+
+test("reset reports immutable moderation dependencies as a safe conflict", async () => {
+  const resetSource = await readFile(
+    new URL("../../lib/cycles/resetCycle.ts", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(
+    resetSource,
+    /submission_disqualification_events_submission_id_fkey/
+  );
+  assert.match(resetSource, /user_flag_cases_submission_id_fkey/);
+  assert.match(resetSource, /error\.code === "23503"/);
+  assert.match(
+    resetSource,
+    /Cycle contains immutable moderation history and cannot be reset/
+  );
+  assert.match(resetSource, /status: 409/);
+  assert.match(resetSource, /\[cycle reset\]\[rpc\][\s\S]*code:/);
+  assert.doesNotMatch(
+    resetSource,
+    /console\.error\("\[cycle reset\]\[rpc\]", error\)/
+  );
+});

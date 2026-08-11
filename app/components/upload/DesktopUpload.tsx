@@ -28,6 +28,7 @@ import {
   TURNSTILE_ACTIONS,
   TURNSTILE_TOKEN_HEADER,
 } from "@/lib/turnstile/shared";
+import type { SubmissionUploadQuota } from "@/lib/upload/getUploadEligibility";
 
 
 type PayoutChoice = "keep" | "donate" | "split";
@@ -54,7 +55,7 @@ const CHARITY_OPTIONS = [
 export default function DesktopUpload({ 
   hasActiveCycle,
   showSupportLink,
-  forceSuccessState = false,
+  initialQuota,
   socialSettings,
   participationState,
   showDiscordSyncDelayNotice,
@@ -64,7 +65,7 @@ export default function DesktopUpload({
 }: {
   hasActiveCycle: boolean;
   showSupportLink: boolean;
-  forceSuccessState?: boolean;
+  initialQuota: SubmissionUploadQuota | null;
   socialSettings: UserSocialSettings;
   participationState: ParticipationAccessState;
   showDiscordSyncDelayNotice: boolean;
@@ -80,7 +81,9 @@ export default function DesktopUpload({
   const lastEligibilityRefreshAtRef = useRef(0);
   const participationAtCooldownCompletionRef =
     useRef<ParticipationAccessState | null>(null);
-  const [uploadDone, setUploadDone] = useState(forceSuccessState);
+  const [quota, setQuota] = useState(initialQuota);
+  const [submissionCooldownRemaining, setSubmissionCooldownRemaining] =
+    useState(initialQuota?.cooldownRemainingSeconds ?? 0);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState("");
@@ -89,6 +92,7 @@ export default function DesktopUpload({
   const [charity, setCharity] = useState<string | null>(null);
   const [customCharity, setCustomCharity] = useState("");
   const [successMode, setSuccessMode] = useState<"success" | "already">("success");
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
@@ -100,16 +104,51 @@ export default function DesktopUpload({
   
 
 useEffect(() => {
-  if (forceSuccessState) {
+  setQuota(initialQuota);
+  setSubmissionCooldownRemaining(
+    initialQuota?.cooldownRemainingSeconds ?? 0
+  );
+  if ((initialQuota?.remaining ?? 1) === 0) {
     setSuccessMode("already");
   }
-}, [forceSuccessState]);
+}, [initialQuota]);
+
+useEffect(() => {
+  if (!quota?.nextUploadAllowedAt || quota.remaining <= 0) {
+    setSubmissionCooldownRemaining(0);
+    return;
+  }
+
+  let refreshedAfterCooldown = false;
+  const updateRemaining = () => {
+    const remaining = Math.max(
+      0,
+      Math.ceil(
+        (new Date(quota.nextUploadAllowedAt!).getTime() - Date.now()) / 1000
+      )
+    );
+    setSubmissionCooldownRemaining(remaining);
+    if (remaining === 0 && !refreshedAfterCooldown) {
+      refreshedAfterCooldown = true;
+      router.refresh();
+    }
+  };
+
+  updateRemaining();
+  const intervalId = window.setInterval(updateRemaining, 1000);
+  return () => window.clearInterval(intervalId);
+}, [quota?.nextUploadAllowedAt, quota?.remaining, router]);
 
   const hasImage = !!file;
   const canUseForm =
     participationState.status === "eligible" ||
     participationState.status === "join_wait";
   const canSubmit = participationState.status === "eligible";
+  const uploadDone = quota?.remaining === 0;
+  const canSubmitUpload =
+    canSubmit &&
+    (quota?.remaining ?? 1) > 0 &&
+    submissionCooldownRemaining === 0;
   const cooldownKey =
     participationState.status === "join_wait"
       ? participationState.joinedAt ?? "unknown-join"
@@ -332,7 +371,7 @@ useEffect(() => {
 
 useEffect(() => {
   if (!hasActiveCycle) return;
-  if (!canSubmit) return;
+  if (!canSubmitUpload) return;
   if (submitState !== "ready") return;
   if (rulesStatus !== "unknown") return;
 
@@ -370,7 +409,7 @@ useEffect(() => {
   };
 
   checkRules();
-}, [canSubmit, hasActiveCycle, openOverlay, rulesStatus, submitState]);
+}, [canSubmitUpload, hasActiveCycle, openOverlay, rulesStatus, submitState]);
   const submitImage =
   submitState === "ready"
     ? "https://cdn.cancerculture.fun/webp/submit.confirm/sub3.webp"
@@ -408,7 +447,7 @@ useEffect(() => {
 
   const handleSubmit = async () => {
   if (!hasActiveCycle) return;
-  if (!canSubmit) return;
+  if (!canSubmitUpload) return;
   if (
     submitState !== "ready" ||
     isSubmitting ||
@@ -449,6 +488,53 @@ if (!file) {
       const data = await res.json();
 
       if (!res.ok) {
+  if (
+    data.error === "UPLOAD_COOLDOWN_ACTIVE" &&
+    typeof data.retryAfterSeconds === "number"
+  ) {
+    setSubmissionCooldownRemaining(data.retryAfterSeconds);
+    setQuota((current) =>
+      current
+        ? {
+            ...current,
+            used: typeof data.used === "number" ? data.used : current.used,
+            limit: typeof data.limit === "number" ? data.limit : current.limit,
+            remaining:
+              typeof data.remaining === "number"
+                ? data.remaining
+                : current.remaining,
+            cooldownRemainingSeconds: data.retryAfterSeconds,
+            nextUploadAllowedAt:
+              typeof data.nextUploadAllowedAt === "string"
+                ? data.nextUploadAllowedAt
+                : current.nextUploadAllowedAt,
+          }
+        : current
+    );
+    return;
+  }
+
+  if (data.error === "UPLOAD_LIMIT_REACHED") {
+    setSubmissionCooldownRemaining(0);
+    setQuota((current) =>
+      current
+        ? {
+            ...current,
+            used: current.limit,
+            remaining: 0,
+            cooldownRemainingSeconds: 0,
+            nextUploadAllowedAt: null,
+          }
+        : current
+    );
+    setSuccessMode("already");
+    setSuccessNotice(null);
+    setTurnstileToken(null);
+    setTurnstileResetKey((current) => current + 1);
+    router.refresh();
+    return;
+  }
+
   setTurnstileToken(null);
   setTurnstileResetKey((current) => current + 1);
   if (
@@ -471,8 +557,55 @@ if (!file) {
   return;
 }
 
-      setSuccessMode("success");
-      setUploadDone(true);
+      const nextQuota =
+        typeof data.used === "number" &&
+        typeof data.limit === "number" &&
+        typeof data.remaining === "number"
+          ? {
+              used: data.used,
+              limit: data.limit,
+              remaining: data.remaining,
+              cooldownSeconds: quota?.cooldownSeconds ?? 120,
+              cooldownRemainingSeconds:
+                typeof data.cooldownRemainingSeconds === "number"
+                  ? data.cooldownRemainingSeconds
+                  : 0,
+              nextUploadAllowedAt:
+                typeof data.nextUploadAllowedAt === "string"
+                  ? data.nextUploadAllowedAt
+                  : null,
+            }
+          : quota;
+      setQuota(nextQuota);
+      setSubmissionCooldownRemaining(
+        nextQuota?.cooldownRemainingSeconds ?? 0
+      );
+      setSuccessMode(
+        nextQuota?.remaining === 0 || data.alreadyCompleted
+          ? "already"
+          : "success"
+      );
+      setSuccessNotice(
+        nextQuota && nextQuota.remaining > 0
+          ? `Submission received. ${nextQuota.remaining} slot${nextQuota.remaining === 1 ? "" : "s"} remaining.`
+          : null
+      );
+      uploadAttemptKeyRef.current = null;
+      setFile(null);
+      setPreviewUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return null;
+      });
+      setWalletAddress("");
+      setPayoutChoice(null);
+      setSplitPercent(50);
+      setCharity(null);
+      setCustomCharity("");
+      setRulesStatus("unknown");
+      setTurnstileToken(null);
+      setTurnstileResetKey((current) => current + 1);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      router.refresh();
     } catch {
       setTurnstileToken(null);
       setTurnstileResetKey((current) => current + 1);
@@ -515,6 +648,34 @@ if (!file) {
   return (
     <div className="py-24">
       <div className="max-w-6xl mx-auto px-6 flex flex-col gap-14">
+
+        {quota ? (
+          <section
+            aria-live="polite"
+            className="mx-auto w-full max-w-xl rounded-2xl border border-[var(--orange-dark)]/30 bg-black/75 px-6 py-4 text-center text-white"
+          >
+            <div className="font-[Permanent_Marker] text-xl text-[var(--orange-dark)]">
+              {quota.used} of {quota.limit} submissions used
+            </div>
+            <div className="mt-1 text-sm text-white/75">
+              {quota.remaining} remaining
+            </div>
+            {submissionCooldownRemaining > 0 && quota.remaining > 0 ? (
+              <div className="mt-2 font-mono text-yellow-300">
+                Next upload in {submissionCooldownRemaining}s
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {successNotice ? (
+          <p
+            role="status"
+            className="mx-auto max-w-xl rounded-xl bg-green-950/80 px-5 py-3 text-center text-green-200"
+          >
+            {successNotice}
+          </p>
+        ) : null}
 
         {participationState.status !== "eligible" ? (
           <section
@@ -788,7 +949,7 @@ if (!file) {
             </fieldset>
 
             
-{canSubmit && submitState === "ready" && rulesStatus === "accepted" && (
+{canSubmitUpload && submitState === "ready" && rulesStatus === "accepted" && (
   <div className="mt-4 flex flex-col items-center text-center">
                 <TurnstileWidget
                   action={TURNSTILE_ACTIONS.submissionUpload}
@@ -826,7 +987,7 @@ if (!file) {
   onClick={handleSubmit}
   role="button"
   aria-disabled={
-    !canSubmit ||
+    !canSubmitUpload ||
     submitState !== "ready" ||
     rulesStatus !== "accepted" ||
     isSubmitting ||
@@ -834,7 +995,7 @@ if (!file) {
   }
   className={`mx-auto ${
     hasActiveCycle &&
-    canSubmit &&
+    canSubmitUpload &&
     submitState === "ready" &&
     rulesStatus === "accepted" &&
     !isSubmitting &&

@@ -6,6 +6,12 @@ import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { startCycleTransactional } from "@/lib/cycles/startCycle";
 import { getSponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
+import {
+  DEFAULT_SUBMISSIONS_PER_USER,
+  DEFAULT_UPLOAD_SUCCESS_COOLDOWN_SECONDS,
+  isValidSubmissionsPerUser,
+  isValidUploadSuccessCooldownSeconds,
+} from "@/lib/cycles/submissionSettings";
 
 export async function POST(req: Request) {
   try {
@@ -13,6 +19,14 @@ export async function POST(req: Request) {
       await requireDynamicTeamCapability("cycles.manage");
     const body = await req.json().catch(() => null);
     const theme = body?.theme;
+    const submissionsPerUser =
+      body?.submissionsPerUser === undefined
+        ? DEFAULT_SUBMISSIONS_PER_USER
+        : Number(body.submissionsPerUser);
+    const uploadSuccessCooldownSeconds =
+      body?.uploadSuccessCooldownSeconds === undefined
+        ? DEFAULT_UPLOAD_SUCCESS_COOLDOWN_SECONDS
+        : Number(body.uploadSuccessCooldownSeconds);
     const requestedCycleId =
       body?.cycleId === null || body?.cycleId === undefined
         ? null
@@ -24,6 +38,24 @@ export async function POST(req: Request) {
     ) {
       return NextResponse.json(
         { error: "Invalid cycle id" },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidSubmissionsPerUser(submissionsPerUser)) {
+      return NextResponse.json(
+        { error: "Submissions per user must be between 1 and 20" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !isValidUploadSuccessCooldownSeconds(
+        uploadSuccessCooldownSeconds
+      )
+    ) {
+      return NextResponse.json(
+        { error: "Upload cooldown must be between 30 and 300 seconds" },
         { status: 400 }
       );
     }
@@ -86,6 +118,8 @@ export async function POST(req: Request) {
       actorDiscordUserId: authorization.discord_user_id,
       cycleId: requestedCycleId,
       settings: {
+        submissionsPerUser,
+        uploadSuccessCooldownSeconds,
         theme: resolvedTheme,
         themeSource: manualTheme
           ? "manual"
@@ -110,6 +144,9 @@ export async function POST(req: Request) {
         status: result.status,
         submission_starts_at: result.startedAt,
         reset_count: result.resetCount,
+        submissions_per_user: result.submissionsPerUser,
+        upload_success_cooldown_seconds:
+          result.uploadSuccessCooldownSeconds,
       },
       alreadyStarted: result.alreadyStarted,
       createdCycle: result.createdCycle,

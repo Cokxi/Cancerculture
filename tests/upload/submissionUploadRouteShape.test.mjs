@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [routeSource, clientSource, sagaSource, adminSource, avatarSource] = await Promise.all([
+const [
+  routeSource,
+  clientSource,
+  sagaSource,
+  adminSource,
+  avatarSource,
+  uploadLogSource,
+  eligibilitySource,
+] = await Promise.all([
   readFile(new URL("../../app/api/upload/route.ts", import.meta.url), "utf8"),
   readFile(
     new URL(
@@ -21,6 +29,11 @@ const [routeSource, clientSource, sagaSource, adminSource, avatarSource] = await
   ),
   readFile(
     new URL("../../app/api/upload-avatar/route.ts", import.meta.url),
+    "utf8"
+  ),
+  readFile(new URL("../../lib/logging/logUpload.ts", import.meta.url), "utf8"),
+  readFile(
+    new URL("../../lib/upload/getUploadEligibility.ts", import.meta.url),
     "utf8"
   ),
 ]);
@@ -43,12 +56,47 @@ test("client creates and retains a cryptographically random request key", () => 
   assert.match(clientSource, /uploadAttemptKeyRef/);
 });
 
-test("only a completed operation with the same user request key passes the early duplicate check", () => {
-  assert.match(routeSource, /hasCompletedSubmissionUploadOperation/);
-  assert.match(routeSource, /alreadyUploaded && !isCompletedReplay/);
+test("upload UI renders quota, cooldown and resets only the completed Submission form", () => {
+  assert.match(clientSource, /quota\.used[\s\S]*quota\.limit/);
+  assert.match(clientSource, /quota\.remaining/);
+  assert.match(clientSource, /submissionCooldownRemaining/);
+  assert.match(clientSource, /refreshedAfterCooldown/);
+  assert.match(clientSource, /uploadAttemptKeyRef\.current = null/);
+  assert.match(clientSource, /setFile\(null\)/);
+  assert.doesNotMatch(clientSource, /forceSuccessState/);
+});
+
+test("authoritative upload responses drive cooldown and the existing exhausted-limit view without a browser reload", () => {
+  const successBranch = clientSource.slice(
+    clientSource.indexOf("const nextQuota ="),
+    clientSource.indexOf("} catch {")
+  );
+  const limitBranch = clientSource.slice(
+    clientSource.indexOf('data.error === "UPLOAD_LIMIT_REACHED"'),
+    clientSource.indexOf(
+      "\n  setTurnstileToken(null);",
+      clientSource.indexOf('data.error === "UPLOAD_LIMIT_REACHED"')
+    )
+  );
+
+  assert.ok(
+    successBranch.indexOf("setSubmissionCooldownRemaining(") <
+      successBranch.indexOf("router.refresh()")
+  );
+  assert.match(successBranch, /nextQuota\?\.remaining === 0[\s\S]*?"already"/);
+  assert.match(limitBranch, /setSuccessMode\("already"\)/);
+  assert.match(limitBranch, /router\.refresh\(\)/);
+  assert.doesNotMatch(clientSource, /window\.location\.reload|location\.reload/);
+});
+
+test("completed replay bypasses early quota and cooldown while retaining the same fingerprint path", () => {
+  assert.match(routeSource, /getCompletedSubmissionUploadOperation/);
+  assert.match(routeSource, /!isCompletedReplay && uploadEligibility\.quota\?\.remaining === 0/);
+  assert.match(routeSource, /!isCompletedReplay &&[\s\S]*?cooldownRemainingSeconds/);
   assert.match(sagaSource, /\.eq\("discord_user_id", discordUserId\)/);
   assert.match(sagaSource, /\.eq\("idempotency_key", idempotencyKey\)/);
   assert.match(sagaSource, /\.eq\("status", "completed"\)/);
+  assert.ok(routeSource.indexOf("req.formData()") < routeSource.indexOf("reserveSubmissionUpload({"));
 });
 
 test("compensation delegates only to the shared cleanup queue orchestrator", () => {
@@ -80,6 +128,38 @@ test("Turnstile is verified before upload body parsing and expensive work", () =
   assert.ok(turnstile < formData);
   assert.ok(formData < decoder);
   assert.ok(decoder < reserve);
+  const replayBranch = routeSource.slice(
+    routeSource.indexOf("const isCompletedReplay"),
+    routeSource.indexOf("const turnstileResult")
+  );
+  assert.doesNotMatch(replayBranch, /return[\s\S]*verifyTurnstileRequest/);
+  assert.doesNotMatch(routeSource, /if \(!isCompletedReplay\) \{[\s\S]*verifyTurnstileRequest/);
+});
+
+test("quota and cooldown return before Turnstile, body decoding, image work and R2", () => {
+  const quota = routeSource.indexOf("uploadEligibility.quota?.remaining === 0");
+  const cooldown = routeSource.indexOf("cooldownRemainingSeconds ?? 0");
+  const turnstile = routeSource.indexOf("verifyTurnstileRequest(");
+  const formData = routeSource.indexOf("req.formData()");
+  const decoder = routeSource.indexOf("processStaticImage(");
+  const r2Put = routeSource.indexOf("new PutObjectCommand");
+
+  assert.ok(quota > -1 && quota < turnstile);
+  assert.ok(cooldown > quota && cooldown < turnstile);
+  assert.ok(turnstile < formData);
+  assert.ok(formData < decoder);
+  assert.ok(decoder < r2Put);
+  assert.match(routeSource, /status: 429/);
+  assert.match(routeSource, /"Retry-After": String\(retryAfterSeconds\)/);
+  assert.match(routeSource, /error: "UPLOAD_COOLDOWN_ACTIVE"/);
+});
+
+test("quota and upload-log dependency failures remain safely observable", () => {
+  assert.match(eligibilitySource, /\[upload eligibility\]\[quota response\]/);
+  assert.match(uploadLogSource, /const \{ error \} = await/);
+  assert.match(uploadLogSource, /\[upload log\]\[insert\]/);
+  assert.match(uploadLogSource, /error\.code/);
+  assert.doesNotMatch(uploadLogSource, /console\.error\("\[UPLOAD LOG\]", error\)/);
 });
 
 test("route hashes and stores only canonical server-processed bytes", () => {

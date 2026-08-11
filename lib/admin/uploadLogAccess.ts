@@ -5,6 +5,7 @@ export type DelegatedUploadLogReason =
   | "submission_limit"
   | "upload_blocked"
   | "upload_failed"
+  | "upload_in_progress"
   | "validation_failed";
 
 export function getDelegatedUploadLogReason(
@@ -43,10 +44,12 @@ export function getDelegatedUploadLogReason(
     normalizedReason === "dependency_unavailable" ||
     normalizedReason.startsWith("r2_") ||
     normalizedReason.includes("dependency") ||
-    normalizedReason.includes("cleanup") ||
-    normalizedReason === "upload_in_progress"
+    normalizedReason.includes("cleanup")
   ) {
     return "service_unavailable";
+  }
+  if (normalizedReason === "upload_in_progress") {
+    return "upload_in_progress";
   }
 
   return "upload_failed";

@@ -5,7 +5,10 @@ import { getSessionState } from "@/lib/auth/sessionState";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
 import { formatReason } from "@/lib/profile/formatReason";
 import { getUserProfileData } from "@/lib/profile/getUserProfileData";
-import type { ProfileSubmission } from "@/lib/profile/getUserProfileData";
+import type {
+  CurrentProfileSubmission,
+  ProfileSubmission,
+} from "@/lib/profile/getUserProfileData";
 import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import ProfileSocialsSection from "@/app/components/profile/ProfileSocialsSection";
 import { redirect } from "next/navigation";
@@ -49,6 +52,113 @@ function renderPublicVisibilityStatus(
   }
 
   return null;
+}
+
+function CurrentSubmissionCard({
+  submission,
+}: {
+  submission: CurrentProfileSubmission;
+}) {
+  const privateData = submission.privateData;
+
+  return (
+    <article className="flex flex-col items-center rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/40 p-4">
+      {submission.image_url ? (
+        <Image
+          src={getSubmissionThumbnailUrl(submission.image_url)}
+          className="mb-3 h-48 w-48 rounded object-cover"
+          alt={`Submission ${submission.id} for cycle ${submission.cycle_id}`}
+          width={192}
+          height={192}
+          unoptimized
+        />
+      ) : (
+        <div className="mb-3 flex h-48 w-48 items-center justify-center rounded bg-orange-200/20 text-4xl">
+          {renderPublicVisibilityStatus(submission) ? "-" : "?"}
+        </div>
+      )}
+
+      <p className="text-sm text-gray-300">
+        Cycle #{submission.cycle_id} / Submission #{submission.id}
+      </p>
+      <p className="text-sm text-gray-300">Votes: {submission.vote_count}</p>
+      <p className="text-sm text-gray-300">Rank: {renderRank(submission)}</p>
+
+      <div className="mt-2 text-xs">
+        {submission.is_disqualified ? (
+          <div className="text-red-400">
+            Disqualified
+            {(submission.disqualification_reason_code ||
+              submission.disqualification_reason_category) && (
+              <div className="mt-1 text-[11px] text-red-300">
+                {formatReason(
+                  submission.disqualification_reason_code ??
+                    submission.disqualification_reason_category!
+                )}
+              </div>
+            )}
+            {submission.disqualification_reason_text && (
+              <div className="mt-1 text-[11px] text-red-300">
+                Explanation: {submission.disqualification_reason_text}
+              </div>
+            )}
+          </div>
+        ) : renderPublicVisibilityStatus(submission) ? (
+          <div className="text-yellow-300">
+            {renderPublicVisibilityStatus(submission)}
+            {submission.public_visibility_reason_code && (
+              <div className="mt-1 text-[11px] text-yellow-200">
+                {formatReason(submission.public_visibility_reason_code)}
+              </div>
+            )}
+            {submission.public_visibility_reason_text && (
+              <div className="text-[11px] text-yellow-200">
+                {submission.public_visibility_reason_text}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-green-400">Active</div>
+        )}
+      </div>
+
+      {privateData && (
+        <div className="mt-4 w-full max-w-md rounded-lg bg-white/5 p-3 text-left text-sm text-white">
+          <div className="font-semibold text-[var(--orange-dark)]">
+            Your saved submission details
+          </div>
+          <div className="mt-2">
+            <strong>Wallet:</strong>{" "}
+            {privateData.wallet_address
+              ? privateData.wallet_address
+              : privateData.payout_choice === "donate"
+                ? "No wallet required for full donation"
+                : "Not provided"}
+          </div>
+          <div className="mt-1">
+            <strong>Payout:</strong> {privateData.payout_choice}
+          </div>
+          {privateData.payout_choice === "split" &&
+            privateData.split_percent !== null && (
+              <>
+                <div className="mt-1">
+                  <strong>You receive:</strong> {privateData.split_percent}%
+                </div>
+                <div className="mt-1">
+                  <strong>Charity receives:</strong>{" "}
+                  {100 - privateData.split_percent}%
+                </div>
+              </>
+            )}
+          {privateData.charity && (
+            <div className="mt-1">
+              <strong>Charity:</strong> {privateData.charity}
+            </div>
+          )}
+        </div>
+      )}
+    </article>
+  );
 }
 
 export default async function MyProfilePage() {
@@ -95,14 +205,14 @@ export default async function MyProfilePage() {
     activeCycleId,
     avatarUrl,
     currentDiscordUsername,
-    currentSubmission,
-    currentSubmissionPrivateData,
+    currentSubmissions,
     discordUserId,
     joinedDate,
     showSocialsOnProfile,
     showSocialsOnSubmissions,
     socialLinks,
     submissions,
+    uploadQuota,
     votes,
   } = await getUserProfileData(session.discord_user_id);
 
@@ -166,159 +276,46 @@ export default async function MyProfilePage() {
             Current Cycle
           </h2>
 
-          <div className="flex flex-col items-center rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/40 p-4">
-            {currentSubmission?.image_url ? (
-              <Image
-                src={getSubmissionThumbnailUrl(currentSubmission.image_url)}
-                className="mb-3 h-48 w-48 rounded object-cover"
-                alt={`Submission for cycle ${currentSubmission.cycle_id}`}
-                width={192}
-                height={192}
-                unoptimized
-              />
-            ) : (
-              <div className="mb-3 flex h-48 w-48 items-center justify-center rounded bg-orange-200/20 text-4xl">
-                {currentSubmission &&
-                renderPublicVisibilityStatus(currentSubmission)
-                  ? "-"
-                  : activeCycleId
-                    ? "?"
-                    : "-"}
-              </div>
-            )}
-
-            {currentSubmission ? (
-              <>
-                <p className="text-sm text-gray-300">
-                  Cycle: {currentSubmission.cycle_id}
-                </p>
-
-                <p className="text-sm text-gray-300">
-                  Votes: {currentSubmission.vote_count}
-                </p>
-
-                <p className="text-sm text-gray-300">
-                  Rank: {renderRank(currentSubmission)}
-                </p>
-
-                <div className="mt-2 text-xs">
-                  {currentSubmission.is_disqualified ? (
-                    <div className="text-red-400">
-                      Disqualified
-
-                      {(currentSubmission.disqualification_reason_code ||
-                        currentSubmission.disqualification_reason_category) && (
-                        <div className="mt-1 text-[11px] text-red-300">
-                          {formatReason(
-                            currentSubmission.disqualification_reason_code ??
-                              currentSubmission.disqualification_reason_category!
-                          )}
-                        </div>
-                      )}
-
-                      {currentSubmission.disqualification_reason_text && (
-                        <div className="mt-1 text-[11px] text-red-300">
-                          Explanation:{" "}
-                          {currentSubmission.disqualification_reason_text}
-                        </div>
-                      )}
-                    </div>
-                  ) : renderPublicVisibilityStatus(
-                      currentSubmission
-                    ) ? (
-                    <div className="text-yellow-300">
-                      {renderPublicVisibilityStatus(
-                        currentSubmission
-                      )}
-
-                      {currentSubmission.public_visibility_reason_code && (
-                        <div className="mt-1 text-[11px] text-yellow-200">
-                          {formatReason(
-                            currentSubmission.public_visibility_reason_code
-                          )}
-                        </div>
-                      )}
-
-                      {currentSubmission.public_visibility_reason_text && (
-                        <div className="text-[11px] text-yellow-200">
-                          {
-                            currentSubmission.public_visibility_reason_text
-                          }
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-green-400">Active</div>
-                  )}
+          {uploadQuota && (
+            <div className="rounded-lg border border-[var(--orange-dark)]/40 bg-black/30 p-4 text-center text-sm text-gray-200">
+              <strong className="text-[var(--orange-dark)]">
+                {uploadQuota.used} of {uploadQuota.limit} submissions used
+              </strong>
+              <div>{uploadQuota.remaining} remaining</div>
+              {uploadQuota.cooldownRemainingSeconds > 0 && (
+                <div className="mt-1 text-yellow-300">
+                  Next upload in about {uploadQuota.cooldownRemainingSeconds} seconds
                 </div>
+              )}
+            </div>
+          )}
 
-                {currentSubmissionPrivateData && (
-                  <div className="mt-4 w-full max-w-md rounded-lg bg-white/5 p-3 text-left text-sm text-white">
-                    <div className="font-semibold text-[var(--orange-dark)]">
-                      Your saved submission details
-                    </div>
-
-                    <div className="mt-2">
-                      <strong>Wallet:</strong>{" "}
-                      {currentSubmissionPrivateData.wallet_address
-                        ? currentSubmissionPrivateData.wallet_address
-                        : currentSubmissionPrivateData.payout_choice ===
-                            "donate"
-                        ? "No wallet required for full donation"
-                        : "Not provided"}
-                    </div>
-
-                    <div className="mt-1">
-                      <strong>Payout:</strong>{" "}
-                      {currentSubmissionPrivateData.payout_choice}
-                    </div>
-
-                    {currentSubmissionPrivateData.payout_choice ===
-                      "split" &&
-                      currentSubmissionPrivateData.split_percent !== null && (
-                        <>
-                          <div className="mt-1">
-                            <strong>You receive:</strong>{" "}
-                            {currentSubmissionPrivateData.split_percent}%
-                          </div>
-                          <div className="mt-1">
-                            <strong>Charity receives:</strong>{" "}
-                            {100 -
-                              currentSubmissionPrivateData.split_percent}
-                            %
-                          </div>
-                        </>
-                      )}
-
-                    {currentSubmissionPrivateData.charity && (
-                      <div className="mt-1">
-                        <strong>Charity:</strong>{" "}
-                        {currentSubmissionPrivateData.charity}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : activeCycleId ? (
-              <div className="space-y-1 text-center">
-                <p className="text-sm text-gray-200">
-                  No submission in the active cycle yet.
-                </p>
-                <p className="text-xs text-gray-400">
-                  Your current slot for cycle #{activeCycleId} is still empty.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1 text-center">
-                <p className="text-sm text-gray-200">
-                  No active cycle right now.
-                </p>
-                <p className="text-xs text-gray-400">
-                  Your current submission will show up here once a new cycle starts.
-                </p>
-              </div>
-            )}
-          </div>
+          {currentSubmissions.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {currentSubmissions.map((submission) => (
+                <CurrentSubmissionCard
+                  key={submission.id}
+                  submission={submission}
+                />
+              ))}
+            </div>
+          ) : activeCycleId ? (
+            <div className="rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/40 p-4 text-center">
+              <p className="text-sm text-gray-200">
+                No submission in the current cycle yet.
+              </p>
+              <p className="text-xs text-gray-400">
+                Your available slots for cycle #{activeCycleId} will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/40 p-4 text-center">
+              <p className="text-sm text-gray-200">No current cycle right now.</p>
+              <p className="text-xs text-gray-400">
+                Your submissions will show up here once a new cycle starts.
+              </p>
+            </div>
+          )}
         </div>
 
         <ProfileSections submissions={submissions} votes={votes} />

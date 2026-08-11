@@ -14,11 +14,20 @@ type UploadEligibilityOptions = {
 
 export type DiscordMembershipStatus = DiscordMembershipEligibility;
 
+export type SubmissionUploadQuota = {
+  used: number;
+  limit: number;
+  remaining: number;
+  cooldownSeconds: number;
+  cooldownRemainingSeconds: number;
+  nextUploadAllowedAt: string | null;
+};
+
 export type UploadEligibility = {
   isBanned: boolean;
   banReason: string | null;
   activeCycleId: number | null;
-  alreadyUploaded: boolean;
+  quota: SubmissionUploadQuota | null;
   isUploadBlocked: boolean;
   hasAcceptedRules: boolean;
   membership: DiscordMembershipStatus | null;
@@ -64,17 +73,15 @@ export async function getUploadEligibility({
   } catch {
     throw new UploadEligibilityDependencyError();
   }
-  let alreadyUploaded = false;
+  let quota: SubmissionUploadQuota | null = null;
   let isUploadBlocked = false;
 
   if (activeCycle?.id) {
-    const [existingResult, abuseResult] = await Promise.all([
-      supabaseAdmin
-        .from("submissions")
-        .select("id")
-        .eq("cycle_id", activeCycle.id)
-        .eq("discord_user_id", discordUserId)
-        .maybeSingle(),
+    const [quotaResult, abuseResult] = await Promise.all([
+      supabaseAdmin.rpc("get_submission_upload_quota", {
+        p_cycle_id: activeCycle.id,
+        p_discord_user_id: discordUserId,
+      }),
       supabaseAdmin
         .from("submission_upload_abuse_states")
         .select("blocked_at")
@@ -83,15 +90,45 @@ export async function getUploadEligibility({
         .maybeSingle(),
     ]);
 
-    if (existingResult.error || abuseResult.error) {
-      console.error("[upload eligibility][existing submission]", {
+    if (quotaResult.error || abuseResult.error) {
+      console.error("[upload eligibility][quota]", {
         abuseCode: abuseResult.error?.code ?? null,
-        submissionCode: existingResult.error?.code ?? null,
+        quotaCode: quotaResult.error?.code ?? null,
       });
       throw new UploadEligibilityDependencyError();
     }
 
-    alreadyUploaded = Boolean(existingResult.data);
+    const quotaData = quotaResult.data as Record<string, unknown> | null;
+    if (
+      !quotaData ||
+      quotaData.outcome !== "status" ||
+      typeof quotaData.used !== "number" ||
+      typeof quotaData.limit !== "number" ||
+      typeof quotaData.remaining !== "number" ||
+      typeof quotaData.cooldownSeconds !== "number" ||
+      typeof quotaData.cooldownRemainingSeconds !== "number" ||
+      !(
+        typeof quotaData.nextUploadAllowedAt === "string" ||
+        quotaData.nextUploadAllowedAt === null
+      )
+    ) {
+      console.error("[upload eligibility][quota response]", {
+        outcome:
+          typeof quotaData?.outcome === "string"
+            ? quotaData.outcome
+            : "INVALID",
+      });
+      throw new UploadEligibilityDependencyError();
+    }
+
+    quota = {
+      used: quotaData.used,
+      limit: quotaData.limit,
+      remaining: quotaData.remaining,
+      cooldownSeconds: quotaData.cooldownSeconds,
+      cooldownRemainingSeconds: quotaData.cooldownRemainingSeconds,
+      nextUploadAllowedAt: quotaData.nextUploadAllowedAt,
+    };
     isUploadBlocked = Boolean(abuseResult.data?.blocked_at);
   }
 
@@ -114,7 +151,7 @@ export async function getUploadEligibility({
     isBanned: userLog?.is_banned === true,
     banReason: userLog?.ban_reason ?? null,
     activeCycleId: activeCycle?.id ?? null,
-    alreadyUploaded,
+    quota,
     isUploadBlocked,
     hasAcceptedRules:
       userLog?.accepted_rules_version === currentRules?.current_version,

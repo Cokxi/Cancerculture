@@ -46,7 +46,7 @@ export async function getVoteEligibility(
   const voteCount = viewerVoteState.voteCount;
   const votesPerUser = Math.max(
     1,
-    Math.min(activeCycle?.votes_per_user ?? 2, 10)
+    Math.min(activeCycle?.votes_per_user ?? 2, 50)
   );
 
   return {

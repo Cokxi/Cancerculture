@@ -116,7 +116,7 @@ export default async function UploadPage() {
             : phaseAllowsUploads
         }
         showSupportLink
-        forceSuccessState={uploadEligibility?.alreadyUploaded ?? false}
+        initialQuota={uploadEligibility?.quota ?? null}
         socialSettings={socialSettings}
         participationState={participationState}
         showDiscordSyncDelayNotice={showDiscordSyncDelayNotice}

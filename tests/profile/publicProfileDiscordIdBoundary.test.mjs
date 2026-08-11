@@ -465,6 +465,14 @@ test("public profile source and markup consumers contain no Discord ID field or 
 
   assert.doesNotMatch(readModel, /discordUserId:\s*string/u);
   assert.doesNotMatch(returnedProfile, /discordUserId\s*:/u);
+  assert.doesNotMatch(
+    readModel,
+    /submission_private_data|getSubmissionPrivateData|wallet_address|payout_choice|split_percent/u
+  );
+  assert.doesNotMatch(
+    returnedProfile,
+    /wallet|payout|charity|discord_user_id/iu
+  );
   assert.doesNotMatch(page, /discordUserId|cdn\.discordapp\.com/u);
   assert.match(page, /profile\.knownDiscordUsernames/u);
   assert.match(page, /profile\.submissions/u);

@@ -85,8 +85,8 @@ export async function setVotesPerUserAction(formData: FormData) {
     await requireDynamicTeamCapability("cycles.manage");
   const votesPerUser = getPositiveInteger(formData, "votes_per_user");
 
-  if (!votesPerUser || votesPerUser > 10) {
-    throw new Error("Votes per user must be between 1 and 10");
+  if (!votesPerUser || votesPerUser > 50) {
+    throw new Error("Votes per user must be between 1 and 50");
   }
 
   const cycle = await getLatestOpenishCycle(["submission_open"]);

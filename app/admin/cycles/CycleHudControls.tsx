@@ -101,7 +101,7 @@ export default function CycleHudControls({
                 name="votes_per_user"
                 type="number"
                 min="1"
-                max="10"
+                max="50"
                 defaultValue={initialVotesPerUser}
                 className="w-20 rounded-md bg-white/90 px-3 py-2 text-black"
               />

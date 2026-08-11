@@ -128,7 +128,7 @@ async function loadPublishedRulesContent(): Promise<PublishedRulesContent> {
 
 export const getPublishedRulesContent = unstable_cache(
   loadPublishedRulesContent,
-  ["published-rules-content-v1"],
+  ["published-rules-content-v2"],
   {
     tags: [RULES_CONTENT_CACHE_TAG],
     revalidate: 86_400,

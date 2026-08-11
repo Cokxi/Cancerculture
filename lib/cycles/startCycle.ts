@@ -3,6 +3,8 @@ import "server-only";
 import { supabaseAdmin } from "@/lib/db/admin";
 
 export type StartCycleSettings = {
+  submissionsPerUser: number;
+  uploadSuccessCooldownSeconds: number;
   theme: string | null;
   themeSource: "manual" | "next_cycle_theme" | "none";
   rewardDescription: string | null;
@@ -25,6 +27,8 @@ export type StartCycleResult = {
   reusedDraft: boolean;
   reusedResetDraft: boolean;
   resetCount: number;
+  submissionsPerUser: number;
+  uploadSuccessCooldownSeconds: number;
 };
 
 const BAD_REQUEST_MESSAGES = new Set([
@@ -54,7 +58,9 @@ function isStartCycleResult(value: unknown): value is StartCycleResult {
     typeof result.createdCycle === "boolean" &&
     typeof result.reusedDraft === "boolean" &&
     typeof result.reusedResetDraft === "boolean" &&
-    typeof result.resetCount === "number"
+    typeof result.resetCount === "number" &&
+    typeof result.submissionsPerUser === "number" &&
+    typeof result.uploadSuccessCooldownSeconds === "number"
   );
 }
 

@@ -25,6 +25,11 @@ const BAD_REQUEST_MESSAGES = new Set([
   "RESET_REASON_TOO_LONG",
 ]);
 
+const IMMUTABLE_MODERATION_HISTORY_CONSTRAINTS = [
+  "submission_disqualification_events_submission_id_fkey",
+  "user_flag_cases_submission_id_fkey",
+] as const;
+
 function isResetCycleResult(value: unknown): value is ResetCycleResult {
   if (!value || typeof value !== "object") {
     return false;
@@ -89,7 +94,24 @@ export async function resetCycleTransactional({
       );
     }
 
-    console.error("[cycle reset][rpc]", error);
+    const dependencyContext = `${error.message} ${error.details ?? ""}`;
+    if (
+      error.code === "23503" &&
+      IMMUTABLE_MODERATION_HISTORY_CONSTRAINTS.some((constraint) =>
+        dependencyContext.includes(constraint)
+      )
+    ) {
+      throw Object.assign(
+        new Error(
+          "Cycle contains immutable moderation history and cannot be reset"
+        ),
+        { status: 409 }
+      );
+    }
+
+    console.error("[cycle reset][rpc]", {
+      code: error.code ?? "UNKNOWN",
+    });
     throw Object.assign(new Error("Cycle reset failed"), {
       status: 503,
     });

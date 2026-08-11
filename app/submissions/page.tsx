@@ -143,11 +143,11 @@ export default async function SubmissionsPage({
         initialActiveSubmission={initialActiveSubmission}
         hasVoted={
           (viewerVoteState?.voteCount ?? 0) >=
-          Math.max(1, Math.min(currentCycle.votes_per_user ?? 2, 10))
+          Math.max(1, Math.min(currentCycle.votes_per_user ?? 2, 50))
         }
         voteCount={viewerVoteState?.voteCount ?? 0}
         votesPerUser={
-          Math.max(1, Math.min(currentCycle.votes_per_user ?? 2, 10))
+          Math.max(1, Math.min(currentCycle.votes_per_user ?? 2, 50))
         }
         votedSubmissionIds={viewerVoteState?.votedSubmissionIds ?? []}
         initialVoteStateAvailable={viewerVoteState !== null}

@@ -89,6 +89,26 @@ test("missing profile rows retain existing defaults", async () => {
   );
 });
 
+test("current-cycle submissions use one bounded private-data batch and id pairing", async () => {
+  const profile = await readRepoFile("lib/profile/getUserProfileData.ts");
+  const privateData = await readRepoFile(
+    "lib/submissions/getSubmissionPrivateData.ts"
+  );
+  const page = await readRepoFile("app/my-profile/page.tsx");
+
+  assert.match(profile, /currentSubmissionRows[\s\S]*?\.slice\(0, 20\)/);
+  assert.match(profile, /getSubmissionPrivateDataBatch\(/);
+  assert.match(profile, /privateDataBySubmissionId\.get\(submission\.id\)/);
+  assert.doesNotMatch(profile, /await getSubmissionPrivateData\(currentSubmission/);
+  assert.match(privateData, /\.in\("submission_id", boundedIds\)/);
+  assert.match(privateData, /new Map<number, SubmissionPrivateData>/);
+  assert.match(page, /currentSubmissions\.map/);
+  assert.match(page, /submission\.privateData/);
+  assert.match(page, /uploadQuota\.used/);
+  assert.match(page, /uploadQuota\.remaining/);
+  assert.match(profile, /\[my profile\]\[upload quota response\]/);
+});
+
 test("OAuth return paths remain internal and reject external input", async () => {
   const origin = new URL("https://cancerculture.example");
   const loginRoute = await readRepoFile(

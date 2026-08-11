@@ -85,6 +85,8 @@ begin
     starts_at,
     submission_starts_at,
     votes_per_user,
+    submissions_per_user,
+    upload_success_cooldown_seconds,
     allow_self_vote
   ) values (
     v_cycle_id,
@@ -92,6 +94,8 @@ begin
     transaction_timestamp() - interval '1 hour',
     transaction_timestamp() - interval '1 hour',
     2,
+    2,
+    30,
     false
   );
 
@@ -306,6 +310,54 @@ begin
     'image/webp',
     100
   );
+  if v_result ->> 'outcome' <> 'cooldown_active' then
+    raise exception 'SUCCESS_COOLDOWN_NOT_AUTHORITATIVE: %', v_result;
+  end if;
+
+  update public.submission_upload_operations
+  set completed_at = clock_timestamp() - interval '31 seconds'
+  where id = v_operation_id;
+
+  v_result := public.reserve_submission_upload(
+    v_session_a,
+    '92000000-0000-4000-8000-000000000004',
+    repeat('1', 64),
+    repeat('2', 64),
+    'image/webp',
+    100
+  );
+  if v_result ->> 'outcome' <> 'reserved' then
+    raise exception 'SEQUENTIAL_SECOND_UPLOAD_NOT_RESERVED: %', v_result;
+  end if;
+
+  perform public.mark_submission_upload_r2_uploaded(
+    (v_result ->> 'operationId')::uuid,
+    v_session_a,
+    null
+  );
+  v_result := public.commit_submission_upload(
+    (v_result ->> 'operationId')::uuid,
+    v_session_a,
+    'wallet-a-2',
+    'keep',
+    null,
+    null
+  );
+  if v_result ->> 'outcome' <> 'completed'
+    or (v_result ->> 'used')::integer <> 2
+    or (v_result ->> 'remaining')::integer <> 0
+  then
+    raise exception 'SEQUENTIAL_SECOND_UPLOAD_NOT_COMMITTED: %', v_result;
+  end if;
+
+  v_result := public.reserve_submission_upload(
+    v_session_a,
+    '92000000-0000-4000-8000-000000000006',
+    repeat('5', 64),
+    repeat('6', 64),
+    'image/webp',
+    100
+  );
   if v_result ->> 'outcome' <> 'upload_limit_reached' then
     raise exception 'UPLOAD_LIMIT_NOT_AUTHORITATIVE: %', v_result;
   end if;
@@ -503,6 +555,19 @@ begin
     );
     if v_result ->> 'outcome' <> 'cleanup_pending' then
       raise exception 'INJECTED_FAILURE_WAS_NOT_COMPENSATABLE_%', v_failure_stage;
+    end if;
+
+    v_result := public.get_submission_upload_quota(
+      v_cycle_id,
+      v_failure_user
+    );
+    if (v_result ->> 'used')::integer <> 0
+      or (v_result ->> 'remaining')::integer <> 2
+      or (v_result ->> 'cooldownRemainingSeconds')::integer <> 0
+    then
+      raise exception 'COMPENSATION_CONSUMED_SLOT_OR_COOLDOWN_%: %',
+        v_failure_stage,
+        v_result;
     end if;
   end loop;
 

@@ -33,7 +33,7 @@ type CycleUpdateResult = {
 };
 
 export const DEFAULT_VOTES_PER_USER = 2;
-export const MAX_VOTES_PER_USER = 10;
+export const MAX_VOTES_PER_USER = 50;
 
 function addMinutes(date: Date, minutes: number) {
   return new Date(date.getTime() + minutes * 60 * 1000);

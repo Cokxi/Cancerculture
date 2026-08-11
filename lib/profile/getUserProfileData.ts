@@ -1,4 +1,4 @@
-import { getActiveCycle } from "@/lib/cycles/getActiveCycle";
+import { getLatestCycleState } from "@/lib/cycles/currentCycle";
 import { supabaseServer } from "@/lib/db/server";
 import { getUserSubmissions } from "@/lib/queries/getUserSubmissions";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
@@ -10,9 +10,10 @@ import {
   type SubmissionPublicVisibilityStatus,
 } from "@/lib/moderation/submissionPublicVisibility";
 import {
-  getSubmissionPrivateData,
+  getSubmissionPrivateDataBatch,
   type SubmissionPrivateData,
 } from "@/lib/submissions/getSubmissionPrivateData";
+import type { SubmissionUploadQuota } from "@/lib/upload/getUploadEligibility";
 import {
   getDelegatedSubmissionModerationReason,
   type DelegatedSubmissionModerationReason,
@@ -43,19 +44,23 @@ export type ProfileVote = {
   image_url: string | null;
 };
 
+export type CurrentProfileSubmission = ProfileSubmission & {
+  privateData: SubmissionPrivateData | null;
+};
+
 export type UserProfileData = {
   activeCycleId: number | null;
   avatarUrl: string | null;
   avatarUpdatedAt: string | null;
   currentDiscordUsername: string | null;
-  currentSubmissionPrivateData: SubmissionPrivateData | null;
-  currentSubmission: ProfileSubmission | null;
+  currentSubmissions: CurrentProfileSubmission[];
   discordUserId: string;
   joinedDate: string | null;
   showSocialsOnProfile: boolean;
   showSocialsOnSubmissions: boolean;
   socialLinks: UserSocialLink[];
   submissions: ProfileSubmission[];
+  uploadQuota: SubmissionUploadQuota | null;
   votes: ProfileVote[];
 };
 
@@ -78,7 +83,7 @@ export async function getUserProfileData(
         .eq("discord_user_id", discordUserId)
         .maybeSingle(),
       getUserSubmissions(discordUserId),
-      getActiveCycle(),
+      getLatestCycleState(),
       supabaseServer
         .from("votes")
         .select("cycle_id, submission_id, created_at")
@@ -263,15 +268,72 @@ export async function getUserProfileData(
     image_url: voteSubmissionMap.get(vote.submission_id) ?? null,
   }));
 
-  const activeCycleId = activeCycle?.id ?? null;
-  const currentSubmission = activeCycleId
-    ? submissions.find(
-        (submission) => submission.cycle_id === activeCycleId
-      ) ?? null
-    : null;
-  const currentSubmissionPrivateData = currentSubmission
-    ? await getSubmissionPrivateData(currentSubmission.id)
-    : null;
+  const currentCycleStatuses = new Set([
+    "active",
+    "submission_open",
+    "submission_closed",
+    "voting_open",
+    "voting_closed",
+    "paused",
+    "finalizing",
+  ]);
+  const activeCycleId =
+    activeCycle && currentCycleStatuses.has(activeCycle.status)
+      ? activeCycle.id
+      : null;
+  const currentSubmissionRows = activeCycleId
+    ? submissions
+        .filter((submission) => submission.cycle_id === activeCycleId)
+        .slice(0, 20)
+    : [];
+  const [privateDataBySubmissionId, quotaResult] = await Promise.all([
+    getSubmissionPrivateDataBatch(
+      currentSubmissionRows.map((submission) => submission.id)
+    ),
+    activeCycleId
+      ? supabaseServer.rpc("get_submission_upload_quota", {
+          p_cycle_id: activeCycleId,
+          p_discord_user_id: discordUserId,
+        })
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  const currentSubmissions: CurrentProfileSubmission[] =
+    currentSubmissionRows.map((submission) => ({
+      ...submission,
+      privateData: privateDataBySubmissionId.get(submission.id) ?? null,
+    }));
+  const quotaData = quotaResult.data as Record<string, unknown> | null;
+  const uploadQuota: SubmissionUploadQuota | null =
+    quotaData?.outcome === "status" &&
+    typeof quotaData.used === "number" &&
+    typeof quotaData.limit === "number" &&
+    typeof quotaData.remaining === "number" &&
+    typeof quotaData.cooldownSeconds === "number" &&
+    typeof quotaData.cooldownRemainingSeconds === "number" &&
+    (typeof quotaData.nextUploadAllowedAt === "string" ||
+      quotaData.nextUploadAllowedAt === null)
+      ? {
+          used: quotaData.used,
+          limit: quotaData.limit,
+          remaining: quotaData.remaining,
+          cooldownSeconds: quotaData.cooldownSeconds,
+          cooldownRemainingSeconds: quotaData.cooldownRemainingSeconds,
+          nextUploadAllowedAt: quotaData.nextUploadAllowedAt,
+        }
+      : null;
+
+  if (quotaResult.error) {
+    console.error("[my profile][upload quota]", {
+      code: quotaResult.error.code,
+    });
+  } else if (activeCycleId && uploadQuota === null) {
+    console.error("[my profile][upload quota response]", {
+      outcome:
+        typeof quotaData?.outcome === "string"
+          ? quotaData.outcome
+          : "INVALID",
+    });
+  }
 
   return {
     activeCycleId,
@@ -279,8 +341,7 @@ export async function getUserProfileData(
     avatarUpdatedAt,
     currentDiscordUsername:
       userLog?.current_discord_username ?? null,
-    currentSubmissionPrivateData,
-    currentSubmission,
+    currentSubmissions,
     discordUserId,
     joinedDate,
     showSocialsOnProfile: userLog?.show_socials ?? false,
@@ -288,6 +349,7 @@ export async function getUserProfileData(
       userLog?.show_socials_on_submissions ?? false,
     socialLinks,
     submissions,
+    uploadQuota,
     votes,
   };
 }

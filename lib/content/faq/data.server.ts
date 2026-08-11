@@ -84,7 +84,7 @@ async function loadPublishedFaqContent(): Promise<FaqRevisionSummary> {
 
 export const getPublishedFaqContent = unstable_cache(
   loadPublishedFaqContent,
-  ["published-faq-content-v1"],
+  ["published-faq-content-v2"],
   {
     tags: [FAQ_CONTENT_CACHE_TAG],
     revalidate: 86_400,

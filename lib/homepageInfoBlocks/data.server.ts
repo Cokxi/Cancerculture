@@ -71,7 +71,7 @@ async function loadActiveHomepageInfoBlocks() {
 
 export const getActiveHomepageInfoBlocks = unstable_cache(
   loadActiveHomepageInfoBlocks,
-  ["homepage-info-blocks-active-v1"],
+  ["homepage-info-blocks-active-v2"],
   {
     tags: [HOMEPAGE_INFO_BLOCKS_CACHE_TAG],
     revalidate: 86_400,

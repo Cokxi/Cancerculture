@@ -31,6 +31,8 @@ declare
   v_state text;
   v_finalization_cycle_id constant bigint := 2000000300;
   v_finalization_submission_id constant bigint := 8000000300;
+  v_finalization_submission_two constant bigint := 8000000301;
+  v_finalization_submission_three constant bigint := 8000000302;
 begin
   if exists (
     select 1
@@ -46,7 +48,9 @@ begin
     where id in (
       v_submission_one,
       v_submission_two,
-      v_finalization_submission_id
+      v_finalization_submission_id,
+      v_finalization_submission_two,
+      v_finalization_submission_three
     )
   ) then
     raise exception 'RESET_TEST_ID_COLLISION';
@@ -514,25 +518,43 @@ begin
     r2_key,
     discord_username_at_upload,
     public_visibility_status
-  ) values (
-    v_finalization_submission_id,
-    v_finalization_cycle_id,
-    'reset-test-finalization-submitter',
-    'clean',
-    v_finalization_cycle_id::text || '/00000000-0000-0000-0000-000000000300.webp',
-    'finalization-test',
-    'visible'
-  );
+  ) values
+    (
+      v_finalization_submission_id,
+      v_finalization_cycle_id,
+      'reset-test-finalization-submitter-a',
+      'clean',
+      v_finalization_cycle_id::text || '/00000000-0000-0000-0000-000000000300.webp',
+      'finalization-test-a-1',
+      'visible'
+    ),
+    (
+      v_finalization_submission_two,
+      v_finalization_cycle_id,
+      'reset-test-finalization-submitter-a',
+      'clean',
+      v_finalization_cycle_id::text || '/00000000-0000-0000-0000-000000000301.webp',
+      'finalization-test-a-2',
+      'visible'
+    ),
+    (
+      v_finalization_submission_three,
+      v_finalization_cycle_id,
+      'reset-test-finalization-submitter-b',
+      'clean',
+      v_finalization_cycle_id::text || '/00000000-0000-0000-0000-000000000302.webp',
+      'finalization-test-b',
+      'visible'
+    );
 
   insert into public.submission_private_data (
     submission_id,
     wallet_address,
     payout_choice
-  ) values (
-    v_finalization_submission_id,
-    'finalization-test-wallet',
-    'keep'
-  );
+  ) values
+    (v_finalization_submission_id, 'finalization-wallet-a-1', 'keep'),
+    (v_finalization_submission_two, 'finalization-wallet-a-2', 'keep'),
+    (v_finalization_submission_three, 'finalization-wallet-b', 'keep');
 
   v_result := public.finalize_cycle(
     v_finalization_cycle_id,
@@ -540,14 +562,29 @@ begin
   );
 
   if (v_result ->> 'finalStatus') <> 'finished'
-    or (v_result ->> 'rankedSubmissionCount')::integer <> 1
-    or (v_result ->> 'winnerCount')::integer <> 1
+    or (v_result ->> 'rankedSubmissionCount')::integer <> 3
+    or (v_result ->> 'winnerCount')::integer <> 3
     or not exists (
       select 1
       from public.voting_cycles
       where id = v_finalization_cycle_id
         and status = 'finished'
     )
+    or (
+      select count(*)
+      from public.winner_public_profiles
+      where cycle_id = v_finalization_cycle_id
+        and abs(win_share - (1.0 / 3.0)) < 0.000000001
+    ) <> 3
+    or abs((
+      select sum(winner.win_share)
+      from public.winner_public_profiles winner
+      join public.submissions submission
+        on submission.id = winner.submission_id
+      where winner.cycle_id = v_finalization_cycle_id
+        and submission.discord_user_id =
+          'reset-test-finalization-submitter-a'
+    ) - (2.0 / 3.0)) >= 0.000000001
   then
     raise exception 'SCENARIO_K_FINALIZATION_REGRESSION: %', v_result;
   end if;

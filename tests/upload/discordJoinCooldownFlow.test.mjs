@@ -30,7 +30,11 @@ test("join_wait permits preparation but keeps submission gated", () => {
   assert.doesNotMatch(source, /while the join wait finishes/);
   assert.match(source, /<DiscordCooldownTimer/);
   assert.match(source, /const canSubmit = participationState\.status === "eligible"/);
-  assert.match(source, /if \(!canSubmit\) return/);
+  assert.match(
+    source,
+    /const canSubmitUpload =[\s\S]*canSubmit &&[\s\S]*submissionCooldownRemaining === 0/
+  );
+  assert.match(source, /if \(!canSubmitUpload\) return/);
 });
 
 test("timer completion confirms membership without destructive navigation", () => {

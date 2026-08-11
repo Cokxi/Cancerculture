@@ -35,7 +35,7 @@ import {
   commitSubmissionUpload,
   compensateSubmissionUpload,
   getSubmissionUploadAbuseStatus,
-  hasCompletedSubmissionUploadOperation,
+  getCompletedSubmissionUploadOperation,
   markSubmissionUploadR2Uploaded,
   registerInvalidSubmissionUpload,
   reserveSubmissionUpload,
@@ -80,6 +80,40 @@ function providerErrorCode(error: unknown) {
   }
 
   return "R2_UPLOAD_FAILED";
+}
+
+function cooldownResponse({
+  used,
+  limit,
+  remaining,
+  cooldownRemainingSeconds,
+  nextUploadAllowedAt,
+}: {
+  used?: number;
+  limit?: number;
+  remaining?: number;
+  cooldownRemainingSeconds?: number;
+  nextUploadAllowedAt?: string | null;
+}) {
+  const retryAfterSeconds = Math.max(
+    1,
+    Math.ceil(cooldownRemainingSeconds ?? 1)
+  );
+
+  return NextResponse.json(
+    {
+      error: "UPLOAD_COOLDOWN_ACTIVE",
+      retryAfterSeconds,
+      used,
+      limit,
+      remaining,
+      nextUploadAllowedAt: nextUploadAllowedAt ?? null,
+    },
+    {
+      status: 429,
+      headers: { "Retry-After": String(retryAfterSeconds) },
+    }
+  );
 }
 
 export async function POST(req: Request) {
@@ -159,6 +193,35 @@ export async function POST(req: Request) {
       });
     }
 
+    const idempotencyKey = parseSubmissionUploadIdempotencyKey(
+      req.headers.get(SUBMISSION_UPLOAD_IDEMPOTENCY_HEADER)
+    );
+    const completedReplay =
+      await getCompletedSubmissionUploadOperation({
+        discordUserId: authenticatedDiscordUserId,
+        idempotencyKey,
+      });
+
+    const isCompletedReplay =
+      completedReplay?.cycleId === uploadEligibility.activeCycleId;
+
+    if (!isCompletedReplay && uploadEligibility.quota?.remaining === 0) {
+      return failUpload({
+        discordUserId,
+        cycleId: uploadEligibility.activeCycleId,
+        reason: "upload_limit_reached",
+        error: "UPLOAD_LIMIT_REACHED",
+        status: 409,
+      });
+    }
+
+    if (
+      !isCompletedReplay &&
+      (uploadEligibility.quota?.cooldownRemainingSeconds ?? 0) > 0
+    ) {
+      return cooldownResponse(uploadEligibility.quota ?? {});
+    }
+
     const turnstileResult = await verifyTurnstileRequest(
       req,
       TURNSTILE_ACTIONS.submissionUpload
@@ -176,26 +239,6 @@ export async function POST(req: Request) {
         { error: turnstileResult.code },
         { status: 503 }
       );
-    }
-
-    const idempotencyKey = parseSubmissionUploadIdempotencyKey(
-      req.headers.get(SUBMISSION_UPLOAD_IDEMPOTENCY_HEADER)
-    );
-    const isCompletedReplay = uploadEligibility.alreadyUploaded
-      ? await hasCompletedSubmissionUploadOperation({
-          discordUserId: authenticatedDiscordUserId,
-          idempotencyKey,
-        })
-      : false;
-
-    if (uploadEligibility.alreadyUploaded && !isCompletedReplay) {
-      return failUpload({
-        discordUserId,
-        cycleId: uploadEligibility.activeCycleId,
-        reason: "duplicate_submission",
-        error: "UPLOAD_LIMIT_REACHED",
-        status: 409,
-      });
     }
 
     cycleId = uploadEligibility.activeCycleId;
@@ -243,6 +286,7 @@ export async function POST(req: Request) {
         success: true,
         alreadyCompleted: true,
         submissionId: reservation.submissionId,
+        ...uploadEligibility.quota,
       });
     }
 
@@ -311,6 +355,11 @@ export async function POST(req: Request) {
       success: true,
       alreadyCompleted: completed.outcome === "already_completed",
       submissionId: completed.submissionId,
+      used: completed.used,
+      limit: completed.limit,
+      remaining: completed.remaining,
+      cooldownRemainingSeconds: completed.cooldownRemainingSeconds,
+      nextUploadAllowedAt: completed.nextUploadAllowedAt,
     });
   } catch (error) {
     await compensateOnce(
@@ -403,6 +452,10 @@ export async function POST(req: Request) {
     }
 
     if (error instanceof SubmissionUploadSagaError) {
+      if (error.code === "UPLOAD_COOLDOWN_ACTIVE") {
+        return cooldownResponse(error.details);
+      }
+
       return failUpload({
         discordUserId,
         cycleId,

@@ -462,6 +462,95 @@ test("the Vote endpoint still rejects a self-vote before the atomic RPC", async 
   ]);
 });
 
+test("multiple own Submissions are all marked and each self-vote is rejected before RPC", async () => {
+  state.sessionState = {
+    status: "authenticated",
+    session: { discord_user_id: VIEWER_ID },
+  };
+  state.submissionRows = [
+    {
+      id: 11,
+      cycle_id: CYCLE_ID,
+      r2_key: "submission-11.webp",
+      discord_user_id: VIEWER_ID,
+      public_visibility_status: "visible",
+      is_disqualified: false,
+    },
+    {
+      id: 13,
+      cycle_id: CYCLE_ID,
+      r2_key: "submission-13.webp",
+      discord_user_id: VIEWER_ID,
+      public_visibility_status: "visible",
+      is_disqualified: false,
+    },
+    {
+      id: 12,
+      cycle_id: CYCLE_ID,
+      r2_key: "submission-12.webp",
+      discord_user_id: OTHER_OWNER_ID,
+      public_visibility_status: "visible",
+      is_disqualified: false,
+    },
+  ];
+
+  const listResponse = await getPublicVoteSubmissions(
+    new Request(`https://example.test/api/vote/submissions?cycleId=${CYCLE_ID}`)
+  );
+  const listPayload = await listResponse.json();
+  assert.deepEqual(
+    listPayload.items.map(({ id, isOwnSubmission }) => ({
+      id,
+      isOwnSubmission,
+    })),
+    [
+      { id: 11, isOwnSubmission: true },
+      { id: 13, isOwnSubmission: true },
+      { id: 12, isOwnSubmission: false },
+    ]
+  );
+
+  for (const submissionId of [11, 13]) {
+    const formData = new FormData();
+    formData.set("submissionId", String(submissionId));
+    const response = await castVote(
+      new Request("https://example.test/api/vote", {
+        method: "POST",
+        body: formData,
+      })
+    );
+    assert.equal(response.status, 403);
+  }
+  assert.equal(state.rpcCalls.length, 0);
+});
+
+test("all active application vote bounds use the expanded maximum 50", async () => {
+  const [eligibility, page, transitions, action, controls, refund] =
+    await Promise.all([
+      source("lib/vote/getVoteEligibility.ts"),
+      source("app/submissions/page.tsx"),
+      source("lib/cycles/phaseTransitions.ts"),
+      source("app/admin/cycles/phaseActions.ts"),
+      source("app/admin/cycles/CycleHudControls.tsx"),
+      source("lib/voteRefund/request.ts"),
+    ]);
+
+  for (const activeSource of [
+    eligibility,
+    page,
+    transitions,
+    action,
+    controls,
+    refund,
+  ]) {
+    assert.match(activeSource, /50/u);
+    assert.doesNotMatch(
+      activeSource,
+      /expectedVotesPerUser\) > 10|MAX_VOTES_PER_USER = 10|max=\{10\}|Math\.min\([^\n]*, 10\)/u
+    );
+  }
+});
+
 test("the public DTO and client carry only isOwnSubmission while server enforcement remains atomic", async () => {
   const [
     publicType,

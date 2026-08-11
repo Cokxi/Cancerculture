@@ -13,11 +13,13 @@ test("delegated upload reasons preserve only bounded product categories", () => 
     ["upload_blocked_for_cycle", "upload_blocked"],
     ["cycle_not_open", "cycle_unavailable"],
     ["duplicate_submission", "submission_limit"],
+    ["upload_limit_reached", "submission_limit"],
     ["media_file_too_large", "validation_failed"],
     ["validation_failed", "validation_failed"],
     ["dependency_unavailable", "service_unavailable"],
     ["r2_provider_error", "service_unavailable"],
     ["upload_cleanup_pending", "service_unavailable"],
+    ["upload_in_progress", "upload_in_progress"],
     ["internal_error", "upload_failed"],
     ["unexpected_database_detail", "upload_failed"],
   ]);

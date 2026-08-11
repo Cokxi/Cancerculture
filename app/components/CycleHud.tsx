@@ -4,6 +4,10 @@ import {
   getCycleSponsoredMeta,
   type SponsoredCycleMeta,
 } from "@/lib/cycles/sponsoredCycle";
+import {
+  DEFAULT_SUBMISSIONS_PER_USER,
+  isValidSubmissionsPerUser,
+} from "@/lib/cycles/submissionSettings";
 import { supabaseAdmin } from "@/lib/db/admin";
 import CycleCountdown from "./CycleCountdown";
 import SponsorImpressionTracker from "./SponsorImpressionTracker";
@@ -27,6 +31,7 @@ const CYCLE_HUD_SELECT = `
   submission_ends_at,
   voting_ends_at,
   votes_per_user,
+  submissions_per_user,
   ends_at,
   is_sponsored,
   sponsorship_id,
@@ -44,6 +49,7 @@ type CycleHudRow = {
   submission_ends_at: string | null;
   voting_ends_at: string | null;
   votes_per_user: number | null;
+  submissions_per_user: number | null;
   ends_at: string | null;
   is_sponsored: boolean | null;
   sponsorship_id: number | null;
@@ -54,6 +60,18 @@ type CycleHudRow = {
 
 function normalizeString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeVotesPerUser(value: number | null) {
+  return Number.isInteger(value) && value !== null && value >= 1 && value <= 50
+    ? value
+    : 2;
+}
+
+function normalizeSubmissionsPerUser(value: number | null) {
+  return isValidSubmissionsPerUser(value)
+    ? value
+    : DEFAULT_SUBMISSIONS_PER_USER;
 }
 
 function getCyclePriority(status: CycleHudStatus) {
@@ -112,6 +130,13 @@ async function getPreferredCycle() {
     .order("id", { ascending: false })
     .limit(12);
 
+  if (relevantResult.error) {
+    console.error("[cycle hud][relevant cycles]", {
+      code: relevantResult.error.code,
+    });
+    throw new Error("Cycle HUD data is unavailable");
+  }
+
   const relevantCycles = (relevantResult.data ??
     []) as CycleHudRow[];
   const relevantCycle = choosePreferredCycle(relevantCycles);
@@ -126,6 +151,13 @@ async function getPreferredCycle() {
     .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (latestResult.error) {
+    console.error("[cycle hud][latest cycle]", {
+      code: latestResult.error.code,
+    });
+    throw new Error("Cycle HUD data is unavailable");
+  }
 
   return (latestResult.data as CycleHudRow | null) ?? null;
 }
@@ -142,6 +174,12 @@ function getDisplayState({
     sponsoredMeta?.enabled && sponsoredMeta.companyName.length > 0
       ? "Sponsored Cycle"
       : themeFromCycle || "Open Cycle";
+  const perUserLimits = {
+    votesPerUser: normalizeVotesPerUser(cycle.votes_per_user),
+    submissionsPerUser: normalizeSubmissionsPerUser(
+      cycle.submissions_per_user
+    ),
+  };
 
   switch (cycle.status) {
     case "submission_open": {
@@ -156,10 +194,7 @@ function getDisplayState({
         timerExpiredLabel: "Submission phase is ending…",
         timerEndAt: endAt,
         isTimerActive: Boolean(endAtMs && Number.isFinite(endAtMs)),
-        votesPerUser:
-          cycle.votes_per_user && cycle.votes_per_user !== 2
-            ? cycle.votes_per_user
-            : null,
+        ...perUserLimits,
       };
     }
 
@@ -175,10 +210,7 @@ function getDisplayState({
         timerExpiredLabel: "Voting phase is ending…",
         timerEndAt: endAt,
         isTimerActive: Boolean(endAtMs && Number.isFinite(endAtMs)),
-        votesPerUser:
-          cycle.votes_per_user && cycle.votes_per_user !== 2
-            ? cycle.votes_per_user
-            : null,
+        ...perUserLimits,
       };
     }
 
@@ -191,10 +223,7 @@ function getDisplayState({
         timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
-        votesPerUser:
-          cycle.votes_per_user && cycle.votes_per_user !== 2
-            ? cycle.votes_per_user
-            : null,
+        ...perUserLimits,
       };
 
     case "submission_closed":
@@ -206,7 +235,7 @@ function getDisplayState({
         timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
-        votesPerUser: null,
+        ...perUserLimits,
       };
 
     case "voting_closed":
@@ -218,7 +247,7 @@ function getDisplayState({
         timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
-        votesPerUser: null,
+        ...perUserLimits,
       };
 
     case "finalizing":
@@ -230,7 +259,7 @@ function getDisplayState({
         timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
-        votesPerUser: null,
+        ...perUserLimits,
       };
 
     case "completed":
@@ -242,7 +271,7 @@ function getDisplayState({
         timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
-        votesPerUser: null,
+        ...perUserLimits,
       };
 
     case "finished":
@@ -254,7 +283,7 @@ function getDisplayState({
         timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
-        votesPerUser: null,
+        ...perUserLimits,
       };
 
     case "active": {
@@ -269,7 +298,7 @@ function getDisplayState({
         timerExpiredLabel: "Cycle phase is ending…",
         timerEndAt: endAt,
         isTimerActive: Boolean(endAtMs && Number.isFinite(endAtMs)),
-        votesPerUser: null,
+        ...perUserLimits,
       };
     }
 
@@ -282,7 +311,7 @@ function getDisplayState({
         timerExpiredLabel: null,
         timerEndAt: null,
         isTimerActive: false,
-        votesPerUser: null,
+        ...perUserLimits,
       };
   }
 }
@@ -403,16 +432,23 @@ export default async function CycleHud() {
           </div>
         ) : null}
 
-        {displayState.votesPerUser ? (
-          <div className="font-['Permanent_Marker'] text-xs">
-            <span className="text-[var(--orange-main)]">
-              Votes per user:{" "}
-            </span>
-            <span className="text-green-400">
-              {displayState.votesPerUser}
-            </span>
-          </div>
-        ) : null}
+        <div className="font-['Permanent_Marker'] text-xs">
+          <span className="text-[var(--orange-main)]">
+            Submissions per user:{" "}
+          </span>
+          <span className="text-green-400">
+            {displayState.submissionsPerUser}
+          </span>
+        </div>
+
+        <div className="font-['Permanent_Marker'] text-xs">
+          <span className="text-[var(--orange-main)]">
+            Votes per user:{" "}
+          </span>
+          <span className="text-green-400">
+            {displayState.votesPerUser}
+          </span>
+        </div>
 
         {nextCycleTheme.length > 0 && (
           <div className="font-['Permanent_Marker'] text-xs">

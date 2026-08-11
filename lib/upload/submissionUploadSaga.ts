@@ -6,6 +6,14 @@ import type { NormalizedSubmissionPrivateData } from "@/lib/upload/submissionUpl
 
 type RpcResult = Record<string, unknown>;
 
+export type SubmissionUploadQuotaState = {
+  used: number;
+  limit: number;
+  remaining: number;
+  cooldownRemainingSeconds: number;
+  nextUploadAllowedAt: string | null;
+};
+
 export type ReservedSubmissionUpload = {
   outcome: "reserved";
   operationId: string;
@@ -19,17 +27,23 @@ export type CompletedSubmissionUpload = {
   cycleId: number;
   submissionId: number;
   socialSnapshotCount?: number;
-};
+} & Partial<SubmissionUploadQuotaState>;
 
 export class SubmissionUploadSagaError extends Error {
   code: string;
   status: number;
+  details: Partial<SubmissionUploadQuotaState>;
 
-  constructor(code: string, status: number) {
+  constructor(
+    code: string,
+    status: number,
+    details: Partial<SubmissionUploadQuotaState> = {}
+  ) {
     super(code);
     this.name = "SubmissionUploadSagaError";
     this.code = code;
     this.status = status;
+    this.details = details;
   }
 }
 
@@ -54,6 +68,7 @@ const OUTCOME_HTTP_ERRORS: Record<
   blocked: { code: "UPLOAD_BLOCKED_FOR_CYCLE", status: 403 },
   cycle_not_open: { code: "SUBMISSION_PHASE_CLOSED", status: 409 },
   upload_limit_reached: { code: "UPLOAD_LIMIT_REACHED", status: 409 },
+  cooldown_active: { code: "UPLOAD_COOLDOWN_ACTIVE", status: 429 },
   upload_in_progress: { code: "UPLOAD_IN_PROGRESS", status: 409 },
   in_progress: { code: "UPLOAD_IN_PROGRESS", status: 409 },
   cleanup_pending: { code: "UPLOAD_CLEANUP_PENDING", status: 409 },
@@ -89,12 +104,35 @@ function getOutcome(value: unknown) {
   return value.outcome;
 }
 
-function throwForOutcome(outcome: string): never {
+function getQuotaDetails(value: unknown): Partial<SubmissionUploadQuotaState> {
+  if (!isRpcResult(value)) return {};
+
+  return {
+    ...(typeof value.used === "number" ? { used: value.used } : {}),
+    ...(typeof value.limit === "number" ? { limit: value.limit } : {}),
+    ...(typeof value.remaining === "number"
+      ? { remaining: value.remaining }
+      : {}),
+    ...(typeof value.cooldownRemainingSeconds === "number"
+      ? { cooldownRemainingSeconds: value.cooldownRemainingSeconds }
+      : {}),
+    ...(typeof value.nextUploadAllowedAt === "string" ||
+    value.nextUploadAllowedAt === null
+      ? { nextUploadAllowedAt: value.nextUploadAllowedAt }
+      : {}),
+  };
+}
+
+function throwForOutcome(outcome: string, value?: unknown): never {
   const mapped = OUTCOME_HTTP_ERRORS[outcome] ?? {
     code: "UPLOAD_DEPENDENCY_UNAVAILABLE",
     status: 503,
   };
-  throw new SubmissionUploadSagaError(mapped.code, mapped.status);
+  throw new SubmissionUploadSagaError(
+    mapped.code,
+    mapped.status,
+    getQuotaDetails(value)
+  );
 }
 
 function throwRpcFailure(
@@ -157,7 +195,7 @@ export async function getSubmissionUploadAbuseStatus({
   throwForOutcome(outcome);
 }
 
-export async function hasCompletedSubmissionUploadOperation({
+export async function getCompletedSubmissionUploadOperation({
   discordUserId,
   idempotencyKey,
 }: {
@@ -166,14 +204,20 @@ export async function hasCompletedSubmissionUploadOperation({
 }) {
   const { data, error } = await supabaseAdmin
     .from("submission_upload_operations")
-    .select("id")
+    .select("id, cycle_id, submission_id")
     .eq("discord_user_id", discordUserId)
     .eq("idempotency_key", idempotencyKey)
     .eq("status", "completed")
     .maybeSingle();
 
   if (error) throwRpcFailure("completed-replay-check", error);
-  return Boolean(data);
+  if (!data || typeof data.submission_id !== "number") return null;
+
+  return {
+    operationId: data.id,
+    cycleId: data.cycle_id,
+    submissionId: data.submission_id,
+  };
 }
 
 export async function registerInvalidSubmissionUpload({
@@ -207,7 +251,7 @@ export async function registerInvalidSubmissionUpload({
     return { blocked: false, counted: false };
   }
 
-  throwForOutcome(outcome);
+  throwForOutcome(outcome, data);
 }
 
 export async function reserveSubmissionUpload({
@@ -259,7 +303,7 @@ export async function reserveSubmissionUpload({
     return data as ReservedSubmissionUpload;
   }
 
-  throwForOutcome(outcome);
+  throwForOutcome(outcome, data);
 }
 
 export async function markSubmissionUploadR2Uploaded({
@@ -289,7 +333,7 @@ export async function markSubmissionUploadR2Uploaded({
     return;
   }
 
-  throwForOutcome(outcome);
+  throwForOutcome(outcome, data);
 }
 
 export async function commitSubmissionUpload({
@@ -327,7 +371,7 @@ export async function commitSubmissionUpload({
     return data as CompletedSubmissionUpload;
   }
 
-  throwForOutcome(outcome);
+  throwForOutcome(outcome, data);
 }
 
 export async function compensateSubmissionUpload({

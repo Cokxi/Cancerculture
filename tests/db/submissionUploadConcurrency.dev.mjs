@@ -31,6 +31,7 @@ const sessions = {
 };
 const idempotencyKeys = {
   same: randomUUID(),
+  limitSeed: randomUUID(),
   limitA: randomUUID(),
   limitB: randomUUID(),
   independentA: randomUUID(),
@@ -247,12 +248,15 @@ async function setupFixtures(databaseUrl) {
       $guard$;
 
       insert into public.voting_cycles (
-        id, status, starts_at, submission_starts_at
+        id, status, starts_at, submission_starts_at,
+        submissions_per_user, upload_success_cooldown_seconds
       ) values (
         ${cycleId},
         'submission_open',
         transaction_timestamp() - interval '1 hour',
-        transaction_timestamp() - interval '1 hour'
+        transaction_timestamp() - interval '1 hour',
+        2,
+        30
       );
 
       with rules as (
@@ -315,6 +319,39 @@ async function testSameIdempotencyKey(databaseUrl) {
 }
 
 async function testOneRemainingSlot(databaseUrl) {
+  const seedReservation = await rpc(
+    databaseUrl,
+    "reserve_submission_upload",
+    reservationArgs({
+      session: sessions.limit,
+      key: idempotencyKeys.limitSeed,
+      fingerprint: "7".repeat(64),
+      content: "8".repeat(64),
+    })
+  );
+  if (seedReservation.outcome !== "reserved") {
+    throw new Error("The quota seed could not be reserved.");
+  }
+  await markUploaded(
+    databaseUrl,
+    seedReservation.operationId,
+    sessions.limit
+  );
+  const seedCommit = await commitKeep(
+    databaseUrl,
+    seedReservation.operationId,
+    sessions.limit
+  );
+  if (seedCommit.outcome !== "completed") {
+    throw new Error("The quota seed could not be committed.");
+  }
+  await runSql(
+    databaseUrl,
+    `update public.submission_upload_operations
+     set completed_at = clock_timestamp() - interval '31 seconds'
+     where id = ${sqlText(seedReservation.operationId)}::uuid;`
+  );
+
   const definitions = [
     {
       session: sessions.limit,
@@ -339,6 +376,9 @@ async function testOneRemainingSlot(databaseUrl) {
   const results = await Promise.all(attempts);
   const reservedIndex = results.findIndex(
     (result) => result.outcome === "reserved"
+  );
+  const blockedIndex = results.findIndex(
+    (result) => result.outcome === "upload_in_progress"
   );
   const reserved = results.filter((result) => result.outcome === "reserved");
   const blocked = results.filter(
@@ -376,6 +416,36 @@ async function testOneRemainingSlot(databaseUrl) {
     throw new Error("A committed retry was not a stable success.");
   }
 
+  const blockedRetry = await rpc(
+    databaseUrl,
+    "reserve_submission_upload",
+    reservationArgs(definitions[blockedIndex])
+  );
+  if (
+    blockedRetry.outcome !== "upload_limit_reached" ||
+    blockedRetry.used !== 2 ||
+    blockedRetry.limit !== 2 ||
+    blockedRetry.remaining !== 0
+  ) {
+    throw new Error("The losing final-slot retry did not observe exhausted quota.");
+  }
+
+  const quota = await rpc(
+    databaseUrl,
+    "get_submission_upload_quota",
+    `${cycleId}, ${sqlText(users.limit)}`
+  );
+  if (
+    quota.outcome !== "status" ||
+    quota.used !== 2 ||
+    quota.limit !== 2 ||
+    quota.remaining !== 0 ||
+    quota.cooldownRemainingSeconds !== 0 ||
+    quota.nextUploadAllowedAt !== null
+  ) {
+    throw new Error("The final-slot quota projection was not stable.");
+  }
+
   await runSql(
     databaseUrl,
     `
@@ -385,8 +455,25 @@ async function testOneRemainingSlot(databaseUrl) {
           select count(*) from public.submissions
           where cycle_id = ${cycleId}
             and discord_user_id = ${sqlText(users.limit)}
-        ) <> 1 then
+        ) <> 2 then
           raise exception 'CONCURRENT_UPLOAD_LIMIT_ASSERTION_FAILED';
+        end if;
+
+        if (
+          select count(*) from public.submission_upload_operations
+          where cycle_id = ${cycleId}
+            and discord_user_id = ${sqlText(users.limit)}
+        ) <> 2 then
+          raise exception 'CONCURRENT_UPLOAD_OPERATION_ASSERTION_FAILED';
+        end if;
+
+        if exists (
+          select 1 from public.submission_upload_operations
+          where cycle_id = ${cycleId}
+            and discord_user_id = ${sqlText(users.limit)}
+            and status <> 'completed'
+        ) then
+          raise exception 'CONCURRENT_UPLOAD_LEFT_ACTIVE_OPERATION';
         end if;
       end;
       $assert$;
