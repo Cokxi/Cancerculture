@@ -159,6 +159,8 @@ test("the accessible rules confirmation and generic multiple-report hint are pre
   assert.match(panel, /already been reported multiple times/u);
   assert.doesNotMatch(panel, /existingReportCount|exactReportCount/u);
   assert.match(panel, /TurnstileWidget/u);
+  assert.match(panel, /Report not sent/u);
+  assert.match(panel, /submitErrorRef\.current\?\.focus\(\)/u);
   assert.ok(
     panel.indexOf('step === "success" ? (') <
       panel.indexOf("eligibility?.alreadyReported ? ("),

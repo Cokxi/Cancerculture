@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TurnstileWidget from "@/app/components/TurnstileWidget";
 import {
   SUBMISSION_REPORT_COMMENT_MAX_LENGTH,
@@ -15,14 +15,15 @@ import {
   type SubmissionReportReason,
   type SubmissionReportSurface,
 } from "@/lib/reports/submissionReportContract";
-import {
-  TURNSTILE_ACTIONS,
-  TURNSTILE_TOKEN_HEADER,
-} from "@/lib/turnstile/shared";
+import { TURNSTILE_ACTIONS } from "@/lib/turnstile/shared";
 import {
   POST_VOTING_REPORT_BLOCK_REASON,
   POST_VOTING_REPORT_CLOSED_TEXT,
 } from "@/lib/cycles/postVoting";
+import {
+  createSubmissionReportIdempotencyKey,
+  submitSubmissionReportFromClient,
+} from "@/lib/reports/submissionReportClient";
 
 type Eligibility = Readonly<{
   canReport: boolean;
@@ -49,6 +50,10 @@ function errorMessage(code: string | null) {
       return "Reporting is temporarily unavailable. Please try again later.";
     case "IDEMPOTENCY_CONFLICT":
       return "The report changed after an earlier attempt. Review it and try again.";
+    case "REPORT_NETWORK_ERROR":
+      return "The report request did not reach the server. Check your connection or site blocking, then verify and try again.";
+    case "REPORT_CLIENT_UNAVAILABLE":
+      return "This browser could not securely start the report request. Reload the page and try again.";
     default:
       return "The report could not be submitted. Please try again.";
   }
@@ -84,6 +89,7 @@ export default function SubmissionReportPanel({
   const [idempotencyKey, setIdempotencyKey] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const submitErrorRef = useRef<HTMLParagraphElement>(null);
 
   const effectiveSubcategory =
     reason === "other_rules_concern" ? "other" : subcategory;
@@ -175,29 +181,31 @@ export default function SubmissionReportPanel({
     };
   }, [expanded, isAuthenticated, loadEligibility, reportingOpen, step]);
 
+  useEffect(() => {
+    if (submitError) {
+      submitErrorRef.current?.focus();
+    }
+  }, [submitError]);
+
   async function submitReport() {
     if (!confirmed || !turnstileToken || submitting || !editValid) return;
-    const requestId = idempotencyKey ?? crypto.randomUUID();
-    setIdempotencyKey(requestId);
     setSubmitting(true);
     setSubmitError(null);
 
     try {
-      const response = await fetch("/api/submission-reports", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          [TURNSTILE_TOKEN_HEADER]: turnstileToken,
-        },
-        body: JSON.stringify({
+      const requestId =
+        idempotencyKey ?? createSubmissionReportIdempotencyKey();
+      setIdempotencyKey(requestId);
+      const { data, response } = await submitSubmissionReportFromClient(
+        {
           submissionId,
           reason,
           subcategory: effectiveSubcategory,
           comment: comment.trim() || null,
           idempotencyKey: requestId,
-        }),
-      });
-      const data = await response.json().catch(() => null);
+        },
+        turnstileToken,
+      );
       if (!response.ok) {
         if (data?.error === "ALREADY_REPORTED") {
           setEligibility((current) => ({
@@ -498,7 +506,15 @@ export default function SubmissionReportPanel({
                 onTokenChange={setTurnstileToken}
               />
               {submitError ? (
-                <p role="alert" className="text-sm text-red-200">
+                <p
+                  ref={submitErrorRef}
+                  role="alert"
+                  tabIndex={-1}
+                  className="rounded-lg border border-red-300/30 bg-red-950/60 p-3 text-sm font-medium text-red-100 outline-none focus:ring-2 focus:ring-red-300/50"
+                >
+                  <span className="mb-1 block font-semibold">
+                    Report not sent
+                  </span>
                   {submitError}
                 </p>
               ) : null}

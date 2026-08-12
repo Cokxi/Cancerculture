@@ -58,6 +58,9 @@ mock.module(new URL("../../lib/turnstile/verify.server.ts", import.meta.url), {
 });
 
 const { POST } = await import("../../app/api/submission-reports/route.ts");
+const { POST: SAFETY_FEEDBACK_POST } = await import(
+  "../../app/api/safety-feedback/route.ts"
+);
 
 function request() {
   return new Request("http://localhost/api/submission-reports", {
@@ -94,6 +97,22 @@ test("an open phase reaches Turnstile and the atomic create RPC", async () => {
   state.rpcClosed = false;
 
   const response = await POST(request());
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(state.events, [
+    "session",
+    "phase-check",
+    "turnstile",
+    "rpc-create",
+  ]);
+});
+
+test("the browser-safe endpoint uses the identical guarded creation path", async () => {
+  state.events = [];
+  state.earlyClosed = false;
+  state.rpcClosed = false;
+
+  const response = await SAFETY_FEEDBACK_POST(request());
 
   assert.equal(response.status, 201);
   assert.deepEqual(state.events, [
