@@ -7,6 +7,7 @@ export type PublicWallItem = {
   submission_id: number;
   image_url: string | null;
   cycle_id: number;
+  cycle_number: number;
   created_at: string | null;
   discord_username: string;
   public_profile_id: string | null;
@@ -21,4 +22,3 @@ export type PublicWallItem = {
   social_links: SubmissionSocialLink[];
   sponsored_meta: SponsoredCycleMeta | null;
 };
-

@@ -53,7 +53,7 @@ export default async function DisqualifiedSubmissionsPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <h1>Disqualified Submissions – Cycle #{currentCycle.id}</h1>
+      <h1>Disqualified Submissions – Cycle internal ID #{currentCycle.id}</h1>
       <p style={{ marginTop: 8, opacity: 0.7 }}>
         Current phase: {currentCycle.status}
       </p>

@@ -270,7 +270,7 @@ export default function ShameGrid({
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_316px] md:items-start">
                 <div className="space-y-3">
                   <div className="text-lg font-semibold">
-                    Cycle #{active.cycle_id}
+                    Cycle #{active.cycle_number}
                   </div>
 
                   <div className="text-sm opacity-80">

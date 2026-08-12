@@ -127,6 +127,7 @@ export async function getPublicUserProfileData(
       return {
         id: submission.id,
         cycle_id: submission.cycle_id,
+        cycle_number: submission.cycle_number,
         vote_count: submission.vote_count,
         rank: submission.rank,
         total: submission.total,

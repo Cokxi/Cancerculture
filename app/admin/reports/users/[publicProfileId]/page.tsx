@@ -114,7 +114,7 @@ export default async function SubmissionReporterHistoryPage({
                       {reason(report.reasonCode)}
                     </div>
                     <div className="mt-1 text-xs text-white/55">
-                      Submission #{number(report.submissionId)} · Cycle #{number(report.cycleId)} · {text(report.phaseSnapshot)} · {text(report.createdAt)}
+                      Submission #{number(report.submissionId)} · Cycle internal ID #{number(report.cycleId)} · {text(report.phaseSnapshot)} · {text(report.createdAt)}
                     </div>
                   </div>
                   {canOpenCase(report) ? (

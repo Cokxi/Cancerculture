@@ -25,6 +25,7 @@ mock.module(new URL("../../node_modules/next/navigation.js", import.meta.url), {
 const publicSubmission = {
   id: 41,
   cycle_id: 9,
+  cycle_number: 7,
   vote_count: 17,
   rank: 2,
   total: 20,
@@ -213,6 +214,7 @@ test("uploaded avatars, username history, submissions, and public Socials remain
     {
       id: publicSubmission.id,
       cycle_id: publicSubmission.cycle_id,
+      cycle_number: publicSubmission.cycle_number,
       vote_count: publicSubmission.vote_count,
       rank: publicSubmission.rank,
       total: publicSubmission.total,

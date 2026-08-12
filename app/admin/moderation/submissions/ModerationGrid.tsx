@@ -214,7 +214,7 @@ export default function ModerationGrid({
           </a>
 
           <div style={{ fontSize: 12 }}>
-            Cycle #{submission.cycle_id}
+            Cycle internal ID #{submission.cycle_id}
           </div>
 
           <div style={{ fontSize: 11, opacity: 0.6 }}>

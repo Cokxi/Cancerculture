@@ -9,6 +9,7 @@ import {
   isValidSubmissionsPerUser,
 } from "@/lib/cycles/submissionSettings";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { requirePublicCycleNumber } from "@/lib/cycles/publicCycleNumber";
 import CycleCountdown from "./CycleCountdown";
 import SponsorImpressionTracker from "./SponsorImpressionTracker";
 
@@ -26,6 +27,7 @@ const RELEVANT_CYCLE_STATUSES = [
 
 const CYCLE_HUD_SELECT = `
   id,
+  public_number,
   status,
   theme,
   submission_ends_at,
@@ -44,6 +46,7 @@ type CycleHudStatus = (typeof RELEVANT_CYCLE_STATUSES)[number] | string;
 
 type CycleHudRow = {
   id: number;
+  public_number: number | null;
   status: CycleHudStatus;
   theme: string | null;
   submission_ends_at: string | null;
@@ -375,7 +378,9 @@ export default async function CycleHud() {
 
         <div className="font-['Permanent_Marker']">
           <span className="text-[var(--orange-main)]">Cycle: </span>
-          <span className="text-green-400">{cycle.id}</span>
+          <span className="text-green-400">
+            {requirePublicCycleNumber(cycle.public_number)}
+          </span>
         </div>
 
         {sponsoredMeta?.enabled &&

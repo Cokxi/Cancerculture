@@ -28,9 +28,11 @@ import type {
   CycleHistorySubmission,
   CycleHistoryWinnerProfile,
 } from "./cycleHistoryTypes";
+import { requirePublicCycleNumber } from "./publicCycleNumber";
 
 type CycleRow = {
   id: number;
+  public_number: number | null;
   theme: string | null;
   status: string;
   starts_at: string | null;
@@ -143,7 +145,7 @@ export async function getCycleHistorySummariesPage({
   let query = supabaseAdmin
     .from("voting_cycles")
     .select(
-      "id, theme, status, starts_at, ends_at, finalized_at, created_at"
+      "id, public_number, theme, status, starts_at, ends_at, finalized_at, created_at"
     )
     .eq("status", "finished")
     .order("id", { ascending: false })
@@ -168,6 +170,7 @@ export async function getCycleHistorySummariesPage({
     pageRows.map(
       async (cycle): Promise<CycleHistoryCycleSummaryItem> => ({
         id: cycle.id,
+        cycleNumber: requirePublicCycleNumber(cycle.public_number),
         theme: cycle.theme,
         status: cycle.status,
         startedAt: cycle.starts_at,
@@ -315,7 +318,7 @@ export async function getCycleHistorySubmissionPage({
     : null;
   const cycleResult = await supabaseAdmin
     .from("voting_cycles")
-    .select("id")
+    .select("id, public_number")
     .eq("id", cycleId)
     .eq("status", "finished")
     .maybeSingle();
@@ -329,6 +332,9 @@ export async function getCycleHistorySubmissionPage({
   if (!cycleResult.data) {
     return null;
   }
+  const cycleNumber = requirePublicCycleNumber(
+    cycleResult.data.public_number
+  );
 
   let submissionsQuery = supabaseAdmin
     .from("submissions")
@@ -445,6 +451,7 @@ export async function getCycleHistorySubmissionPage({
       return {
         id: submission.id,
         cycleId: submission.cycle_id,
+        cycleNumber,
         imageUrl:
           isAdminView || showsSubmissionImagePublicly(visibility)
             ? getPublicImageUrl(submission.r2_key) ?? null

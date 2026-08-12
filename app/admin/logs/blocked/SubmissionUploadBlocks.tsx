@@ -95,7 +95,7 @@ export default function SubmissionUploadBlocks({
                 </span>
               </div>
               <div className="mt-2 text-white/70">
-                Cycle {state.cycle_id} · current attempts {state.invalid_attempt_count}/5
+                Cycle internal ID {state.cycle_id} · current attempts {state.invalid_attempt_count}/5
                 · total {state.total_invalid_attempt_count} · blocks {state.block_count}
               </div>
               <div className="mt-1 text-xs text-white/50">

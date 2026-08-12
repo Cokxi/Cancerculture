@@ -119,7 +119,7 @@ export default async function WinnerLogsPage() {
                 className="rounded-xl border border-white/10 bg-black/40 p-5"
               >
                 <summary className="cursor-pointer font-semibold text-orange-300">
-                  Cycle #{cycleId}
+                  Cycle internal ID #{cycleId}
                   {themeByCycleId.get(cycleId)
                     ? ` - ${themeByCycleId.get(cycleId)}`
                     : ""}{" "}

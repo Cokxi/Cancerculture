@@ -250,7 +250,7 @@ export default function VoteRefundPanel({
             This removes {selectedVoteCount} canonical vote
             {selectedVoteCount === 1 ? "" : "s"} from {selected.length}{" "}
             explicitly selected submission{selected.length === 1 ? "" : "s"}
-            in Cycle #{cycle.id}. These submissions become permanently
+            in Cycle internal ID #{cycle.id}. These submissions become permanently
             unavailable for reinstatement.
           </p>
           <label className="mt-4 block text-sm" htmlFor="refund-confirmation">

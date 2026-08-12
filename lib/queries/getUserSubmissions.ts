@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/db/server";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { getSubmissionDestinationHref } from "@/lib/submissions/getSubmissionDestinationHref";
+import { requirePublicCycleNumber } from "@/lib/cycles/publicCycleNumber";
 
 type UserSubmissionRow = {
   id: number;
@@ -28,6 +29,7 @@ type CycleCountRow = {
 type CycleStatusRow = {
   id: number;
   status: string;
+  public_number: number | null;
 };
 
 export async function getUserSubmissions(discord_user_id: string) {
@@ -76,7 +78,7 @@ export async function getUserSubmissions(discord_user_id: string) {
 
   const { data: cycleRows } = await supabase
     .from("voting_cycles")
-    .select("id, status")
+    .select("id, status, public_number")
     .in("id", cycleIds);
 
   const tieMap = new Map<string, number>();
@@ -91,6 +93,12 @@ export async function getUserSubmissions(discord_user_id: string) {
     ((cycleRows ?? []) as CycleStatusRow[]).map((cycle) => [
       cycle.id,
       cycle.status,
+    ])
+  );
+  const cycleNumberById = new Map(
+    ((cycleRows ?? []) as CycleStatusRow[]).map((cycle) => [
+      cycle.id,
+      requirePublicCycleNumber(cycle.public_number),
     ])
   );
 
@@ -121,6 +129,9 @@ export async function getUserSubmissions(discord_user_id: string) {
     return {
       id: item.id,
       cycle_id: item.cycle_id,
+      cycle_number: requirePublicCycleNumber(
+        cycleNumberById.get(item.cycle_id)
+      ),
       image_url: getPublicImageUrl(item.r2_key) ?? "",
       is_disqualified: item.is_disqualified,
       disqualification_reason_code: item.disqualification_reason_code ?? null,

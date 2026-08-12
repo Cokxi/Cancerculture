@@ -200,7 +200,7 @@ export default async function VoteRefundHistoryPage({
               <div className="mb-3 flex flex-wrap items-end justify-between gap-2 border-b border-white/10 pb-2">
                 <div>
                   <h2 className="text-lg font-semibold">
-                    Cycle #{cycle.cycleId}
+                    Cycle internal ID #{cycle.cycleId}
                   </h2>
                   <p className="text-xs text-white/40">
                     Attempt {cycle.resetCount}

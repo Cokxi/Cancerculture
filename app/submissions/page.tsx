@@ -16,6 +16,7 @@ import {
   type ViewerVoteState,
 } from "@/lib/vote/viewerVoteState.server";
 import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
+import { requirePublicCycleNumber } from "@/lib/cycles/publicCycleNumber";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +140,7 @@ export default async function SubmissionsPage({
     <PageWrapper>
       <SubmissionsClient
         cycleId={currentCycle.id}
+        cycleNumber={requirePublicCycleNumber(currentCycle.public_number)}
         initialPage={initialPage}
         initialActiveSubmission={initialActiveSubmission}
         hasVoted={

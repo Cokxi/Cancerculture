@@ -16,6 +16,10 @@ import {
   SUBMISSION_REPORT_OUTCOME_LABELS,
 } from "@/lib/reports/submissionReportOutcome";
 import { getSubmissionDestinationHref } from "@/lib/submissions/getSubmissionDestinationHref";
+import {
+  getPublicCycleNumberMap,
+  requirePublicCycleNumber,
+} from "@/lib/cycles/publicCycleNumber";
 
 const MY_REPORTS_PATH = "/my-reports";
 
@@ -88,6 +92,9 @@ export default async function MyReportsPage({
     throw error;
   }
   const reports = page.items;
+  const publicNumberByCycleId = await getPublicCycleNumberMap(
+    reports.map((report) => number(report.cycleId))
+  );
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 px-4 py-10 text-white">
@@ -113,6 +120,9 @@ export default async function MyReportsPage({
           {reports.map((report) => {
             const submissionId = number(report.submissionId);
             const cycleId = number(report.cycleId);
+            const cycleNumber = requirePublicCycleNumber(
+              publicNumberByCycleId.get(cycleId)
+            );
             const destination =
               report.currentAvailable === true
                 ? getSubmissionDestinationHref({
@@ -174,7 +184,7 @@ export default async function MyReportsPage({
                         {reasonLabel(report.reasonCode)}
                       </h2>
                       <p className="mt-1 text-xs text-white/55">
-                        Submission #{submissionId} · Cycle #{cycleId} ·{" "}
+                        Submission #{submissionId} · Cycle #{cycleNumber} ·{" "}
                         {text(report.phaseSnapshot)} · {text(report.createdAt)}
                       </p>
                     </div>

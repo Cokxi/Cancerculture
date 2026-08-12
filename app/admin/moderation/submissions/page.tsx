@@ -83,7 +83,7 @@ export default async function AdminModerationSubmissionsPage({
     <div style={{ padding: 24 }}>
       <h1>Admin – Moderation (Submissions)</h1>
       <p style={{ marginTop: 8, opacity: 0.7 }}>
-        Cycle #{currentCycle.id} · {currentCycle.status}
+        Cycle internal ID #{currentCycle.id} · {currentCycle.status}
       </p>
 
       {focusedSubmissionId !== null ? (

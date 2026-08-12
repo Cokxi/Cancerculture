@@ -72,7 +72,7 @@ export default async function CycleEndModerationPage({
         Critical pre-finalization review
       </p>
       <h1 className="mt-2 text-2xl font-semibold">
-        Cycle End Moderation · Cycle #{cycle.id}
+        Cycle End Moderation · Cycle internal ID #{cycle.id}
       </h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-white/65">
         Voting is closed. Review the submissions before manually finalizing

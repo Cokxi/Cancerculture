@@ -57,7 +57,7 @@ export default async function VoteRefundsPage({
         </p>
       ) : readModel.candidates.length === 0 ? (
         <p className="rounded-xl border border-white/10 p-5 text-sm text-white/50">
-          Cycle #{readModel.cycle.id} has no disqualified submissions with
+          Cycle internal ID #{readModel.cycle.id} has no disqualified submissions with
           refundable votes on this page.
         </p>
       ) : (

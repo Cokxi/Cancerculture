@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/db/admin";
 
 type CurrentCycleRow = {
   id: number;
+  public_number: number | null;
   status: string;
   votes_per_user?: number | null;
   submissions_per_user?: number | null;
@@ -21,7 +22,7 @@ async function getNewestCycleByStatuses(
   const { data, error } = await supabaseAdmin
     .from("voting_cycles")
     .select(
-      "id, status, votes_per_user, submissions_per_user, upload_success_cooldown_seconds"
+      "id, public_number, status, votes_per_user, submissions_per_user, upload_success_cooldown_seconds"
     )
     .in("status", statuses)
     .order("id", { ascending: false })
@@ -70,7 +71,7 @@ export async function getLatestCycleState() {
   const { data, error } = await supabaseAdmin
     .from("voting_cycles")
     .select(
-      "id, status, votes_per_user, submissions_per_user, upload_success_cooldown_seconds, paused_from_status"
+      "id, public_number, status, votes_per_user, submissions_per_user, upload_success_cooldown_seconds, paused_from_status"
     )
     .order("id", { ascending: false })
     .limit(1)

@@ -128,7 +128,7 @@ export default function BlockedCycleLogList({
 
 
     {u.blocked_cycles.map((cycle) => (
-      <div key={cycle}>Cycle {cycle}</div>
+      <div key={cycle}>Cycle internal ID {cycle}</div>
     ))}
   </div>
 )}

@@ -30,7 +30,7 @@ export default async function AdminCyclesPage() {
   const currentCycleResult = await supabaseAdmin
     .from("voting_cycles")
     .select(
-      "id, status, votes_per_user, submissions_per_user, upload_success_cooldown_seconds, paused_from_status, reset_at"
+      "id, public_number, status, votes_per_user, submissions_per_user, upload_success_cooldown_seconds, paused_from_status, reset_at"
     )
     .in("status", [
       "draft",
@@ -98,6 +98,7 @@ export default async function AdminCyclesPage() {
         initialNextTheme={initialNextTheme}
         initialSponsoredDraft={initialSponsoredDraft}
         currentCycleId={currentCycle?.id ?? null}
+        currentCycleNumber={currentCycle?.public_number ?? null}
         currentPhaseStatus={currentCycle?.status ?? null}
         pausedFromStatus={currentCycle?.paused_from_status ?? null}
         initialVotesPerUser={currentCycle?.votes_per_user ?? 2}

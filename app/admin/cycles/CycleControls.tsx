@@ -10,6 +10,7 @@ export default function CycleControls({
   initialNextTheme,
   initialSponsoredDraft,
   currentCycleId,
+  currentCycleNumber,
   currentPhaseStatus,
   pausedFromStatus,
   initialVotesPerUser,
@@ -20,6 +21,7 @@ export default function CycleControls({
   initialNextTheme: string;
   initialSponsoredDraft: SponsoredCycleDraft;
   currentCycleId: number | null;
+  currentCycleNumber: number | null;
   currentPhaseStatus: string | null;
   pausedFromStatus: string | null;
   initialVotesPerUser: number;
@@ -94,7 +96,9 @@ export default function CycleControls({
         throw new Error(data.error || "Unknown error");
       }
 
-      setMessage("Cycle successfully started");
+      setMessage(
+        `Public Cycle #${data.cycle.publicNumber} successfully started (internal ID #${data.cycle.id})`
+      );
       setStartTheme("");
       router.refresh();
     } catch (error) {
@@ -160,8 +164,8 @@ export default function CycleControls({
 
       const reset = data.reset;
       const baseMessage = reset.alreadyReset
-        ? `Cycle #${reset.cycleNumber} was already a clean reset draft.`
-        : `Cycle #${reset.cycleNumber} reset to Draft: ${reset.removedSubmissions} submissions and ${reset.removedVotes} votes removed.`;
+        ? `Public Cycle #${reset.cycleNumber} (internal ID #${reset.cycleId}) was already a clean reset draft.`
+        : `Public Cycle #${reset.cycleNumber} (internal ID #${reset.cycleId}) reset to Draft: ${reset.removedSubmissions} submissions and ${reset.removedVotes} votes removed.`;
 
       setMessage(
         data.cleanup?.warning
@@ -305,9 +309,11 @@ export default function CycleControls({
             Reset Cycle
           </h2>
           <p style={{ lineHeight: 1.5 }}>
-            Reset Cycle #{currentCycleId}? All submissions, votes and
+            Reset {currentCycleNumber
+              ? `public Cycle #${currentCycleNumber} (internal ID #${currentCycleId})`
+              : `Cycle internal ID #${currentCycleId}`}? All submissions, votes and
             unfinished result data from this attempt will be removed. The
-            same cycle number will return to Draft and can be started again.
+            same public Cycle number will return to Draft and can be started again.
             No public bot announcement will be sent.
           </p>
           <p>

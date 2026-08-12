@@ -33,6 +33,7 @@ type Submission = VoteSubmission;
 
 export default function SubmissionsClient({
   cycleId,
+  cycleNumber,
   initialActiveSubmission,
   initialPage,
   hasVoted,
@@ -52,6 +53,7 @@ export default function SubmissionsClient({
   turnstileSiteKey,
 }: {
   cycleId: number;
+  cycleNumber: number;
   initialActiveSubmission: Submission | null;
   initialPage: PublicPage<Submission>;
   hasVoted: boolean;
@@ -439,15 +441,15 @@ export default function SubmissionsClient({
     <>
       <div className="min-h-screen pt-20 px-6 pb-6 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 content-start">
         <div className="col-span-full pb-3 text-center font-['Permanent_Marker'] text-[var(--orange-main)]">
-          {isPaused
-            ? "CYCLE PAUSED"
+          {`CYCLE #${cycleNumber} · ${isPaused
+            ? "PAUSED"
             : votingEnabled
               ? voteStateAvailable
                 ? `VOTING OPEN - ${usedVotes}/${votesPerUser} VOTES USED`
                 : "VOTING OPEN - VOTE STATUS UNAVAILABLE"
               : isVotingClosed
                 ? "VOTING CLOSED - REPORTS REMAIN OPEN"
-                : "SUBMISSIONS OPEN - VOTING STARTS LATER"}
+                : "SUBMISSIONS OPEN - VOTING STARTS LATER"}`}
         </div>
         {submissions.map((s) => {
           const thumbSrc = getSubmissionThumbnailUrl(s.image_url);

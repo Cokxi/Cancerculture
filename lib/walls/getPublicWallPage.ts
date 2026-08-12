@@ -20,6 +20,10 @@ import {
   getSubmissionSocialLinksBySubmissionIds,
 } from "@/lib/socials/getSubmissionSocialLinks";
 import type { PublicWallItem } from "./publicWallTypes";
+import {
+  getPublicCycleNumberMap,
+  requirePublicCycleNumber,
+} from "@/lib/cycles/publicCycleNumber";
 
 export type PublicWall = "fame" | "shame";
 
@@ -158,7 +162,12 @@ export async function getPublicWallPage({
   const cycleIds = Array.from(
     new Set(visibleRows.map((winner) => winner.cycle_id))
   );
-  const [userLogsResult, socialLinksBySubmissionId, sponsorEntries] =
+  const [
+    userLogsResult,
+    socialLinksBySubmissionId,
+    sponsorEntries,
+    publicNumberByCycleId,
+  ] =
     await Promise.all([
       discordUserIds.length > 0
         ? supabaseServer
@@ -175,6 +184,7 @@ export async function getPublicWallPage({
           await getCycleSponsoredMeta(cycleId),
         ] as const)
       ),
+      getPublicCycleNumberMap(cycleIds),
     ]);
 
   if (userLogsResult.error) {
@@ -202,6 +212,9 @@ export async function getPublicWallPage({
       submission_id: winner.submission_id,
       image_url: getPublicImageUrl(winner.r2_key) ?? null,
       cycle_id: winner.cycle_id,
+      cycle_number: requirePublicCycleNumber(
+        publicNumberByCycleId.get(winner.cycle_id)
+      ),
       created_at: winner.created_at,
       discord_username:
         submission.discord_username_at_upload ?? "unknown",

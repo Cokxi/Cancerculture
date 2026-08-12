@@ -15,6 +15,7 @@ export type CycleHistoryWinnerProfile = {
 export type CycleHistorySubmission = {
   id: number;
   cycleId: number;
+  cycleNumber: number;
   imageUrl: string | null;
   isDisqualified: boolean;
   disqualificationReasonCode: string | null;
@@ -35,6 +36,7 @@ export type CycleHistorySubmission = {
 
 export type CycleHistoryCycleSummary = {
   id: number;
+  cycleNumber: number;
   theme: string | null;
   status: string;
   startedAt: string | null;
@@ -48,4 +50,3 @@ export type CycleHistoryCycleSummaryItem =
   CycleHistoryCycleSummary & {
     sponsoredMeta: SponsoredCycleMeta | null;
   };
-

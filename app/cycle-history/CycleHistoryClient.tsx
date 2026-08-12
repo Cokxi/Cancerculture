@@ -157,11 +157,9 @@ function PublicVisibilityBanner({
 }
 
 function SubmissionPreview({
-  cycleId,
   isAdmin,
   submission,
 }: {
-  cycleId: number;
   isAdmin: boolean;
   submission: CycleHistorySubmission;
 }) {
@@ -176,7 +174,7 @@ function SubmissionPreview({
     return (
       <Image
         src={getSubmissionThumbnailUrl(submission.imageUrl)}
-        alt={`Cycle ${cycleId} submission ${submission.id}`}
+        alt={`Cycle ${submission.cycleNumber} submission ${submission.id}`}
         width={400}
         height={224}
         unoptimized
@@ -207,13 +205,11 @@ function SubmissionPreview({
 }
 
 function SubmissionCard({
-  cycleId,
   isDeepLinkTarget,
   isAdmin,
   onOpen,
   submission,
 }: {
-  cycleId: number;
   isDeepLinkTarget: boolean;
   isAdmin: boolean;
   onOpen: (submission: CycleHistorySubmission) => void;
@@ -244,7 +240,6 @@ function SubmissionCard({
       }`}
     >
       <SubmissionPreview
-        cycleId={cycleId}
         isAdmin={isAdmin}
         submission={submission}
       />
@@ -489,7 +484,7 @@ function SubmissionModal({
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_316px] md:items-start">
             <div className="space-y-3">
               <div className="text-lg font-semibold">
-                Cycle #{submission.cycleId}
+                Cycle #{submission.cycleNumber}
               </div>
 
               <div className="text-sm opacity-80">
@@ -1053,7 +1048,7 @@ export default function CycleHistoryClient({
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-[Permanent_Marker] text-[var(--orange-dark)]">
-                    Cycle #{cycle.id}
+                    Cycle #{cycle.cycleNumber}
                   </h2>
                   <p className="mt-1 text-sm text-white/70">
                     Theme: {cycle.theme ?? "Open Cycle"}
@@ -1101,7 +1096,6 @@ export default function CycleHistoryClient({
                       {submissions.map((submission) => (
                         <SubmissionCard
                           key={submission.id}
-                          cycleId={cycle.id}
                           isDeepLinkTarget={
                             submission.id === deepLinkedSubmissionId
                           }

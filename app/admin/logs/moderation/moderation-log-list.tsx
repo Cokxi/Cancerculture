@@ -116,7 +116,7 @@ export default function ModerationLogList() {
               }}
             >
               <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-                {cycleId === "unknown" ? "No Cycle" : `Cycle #${cycleId}`} (
+                {cycleId === "unknown" ? "No Cycle" : `Cycle internal ID #${cycleId}`} (
                 {cycleLogs.length})
               </summary>
 

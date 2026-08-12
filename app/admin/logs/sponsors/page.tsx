@@ -132,7 +132,7 @@ export default async function SponsorLogsPage() {
                       {sponsorship.sponsor_name}
                     </h2>
                     <div className="mt-1 text-sm text-white/60">
-                      Cycle #{sponsorship.cycle_id}
+                      Cycle internal ID #{sponsorship.cycle_id}
                     </div>
                     <a
                       href={sponsorship.sponsor_link}

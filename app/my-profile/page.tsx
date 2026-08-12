@@ -67,7 +67,7 @@ function CurrentSubmissionCard({
         <Image
           src={getSubmissionThumbnailUrl(submission.image_url)}
           className="mb-3 h-48 w-48 rounded object-cover"
-          alt={`Submission ${submission.id} for cycle ${submission.cycle_id}`}
+          alt={`Submission ${submission.id} for cycle ${submission.cycle_number}`}
           width={192}
           height={192}
           unoptimized
@@ -79,7 +79,7 @@ function CurrentSubmissionCard({
       )}
 
       <p className="text-sm text-gray-300">
-        Cycle #{submission.cycle_id} / Submission #{submission.id}
+        Cycle #{submission.cycle_number} / Submission #{submission.id}
       </p>
       <p className="text-sm text-gray-300">Votes: {submission.vote_count}</p>
       <p className="text-sm text-gray-300">Rank: {renderRank(submission)}</p>
@@ -203,6 +203,7 @@ export default async function MyProfilePage() {
   const session = sessionState.session;
   const {
     activeCycleId,
+    activeCycleNumber,
     avatarUrl,
     currentDiscordUsername,
     currentSubmissions,
@@ -305,7 +306,7 @@ export default async function MyProfilePage() {
                 No submission in the current cycle yet.
               </p>
               <p className="text-xs text-gray-400">
-                Your available slots for cycle #{activeCycleId} will appear here.
+                Your available slots for cycle #{activeCycleNumber} will appear here.
               </p>
             </div>
           ) : (

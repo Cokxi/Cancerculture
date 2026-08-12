@@ -135,7 +135,7 @@ export default async function PublicProfilePage({
                           <Image
                             src={getSubmissionThumbnailUrl(submission.image_url)}
                             className="h-40 w-40 rounded object-cover transition hover:opacity-85"
-                            alt={`Submission for cycle ${submission.cycle_id}`}
+                            alt={`Submission for cycle ${submission.cycle_number}`}
                             width={160}
                             height={160}
                             unoptimized
@@ -145,7 +145,7 @@ export default async function PublicProfilePage({
                         <Image
                           src={getSubmissionThumbnailUrl(submission.image_url)}
                           className="h-40 w-40 rounded object-cover"
-                          alt={`Submission for cycle ${submission.cycle_id}`}
+                          alt={`Submission for cycle ${submission.cycle_number}`}
                           width={160}
                           height={160}
                           unoptimized
@@ -158,7 +158,7 @@ export default async function PublicProfilePage({
                     )}
 
                     <div className="space-y-2 text-sm text-gray-300">
-                      <div>Cycle: {submission.cycle_id}</div>
+                      <div>Cycle: {submission.cycle_number}</div>
                       <div>Votes: {submission.vote_count}</div>
                       <div>Rank: {renderRank(submission)}</div>
 

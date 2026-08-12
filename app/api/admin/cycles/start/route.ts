@@ -141,6 +141,7 @@ export async function POST(req: Request) {
       success: true,
       cycle: {
         id: result.cycleId,
+        publicNumber: result.cycleNumber,
         status: result.status,
         submission_starts_at: result.startedAt,
         reset_count: result.resetCount,

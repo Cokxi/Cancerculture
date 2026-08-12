@@ -68,7 +68,7 @@ export default function DisqualificationHistoryList({
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-semibold text-white">
-                  Cycle #{item.cycleId} · Submission #{item.submissionId}
+                  Cycle #{item.cycleNumber} · Submission #{item.submissionId}
                 </h2>
                 <span
                   className={

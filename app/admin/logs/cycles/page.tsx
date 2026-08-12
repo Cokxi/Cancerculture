@@ -52,7 +52,7 @@ function CycleLogCard({ entry, isAdmin }: { entry: CycleLogEntry; isAdmin: boole
           </p>
         </div>
         <span className="rounded border border-white/15 px-2 py-0.5 text-xs text-white/65">
-          Cycle {entry.cycleId ?? "unknown"}
+          Cycle internal ID {entry.cycleId ?? "unknown"}
         </span>
       </div>
 

@@ -558,7 +558,7 @@ export default function SubmissionReportQueueClient({
                           Submission #{number(row.submissionId)}
                         </h2>
                         <p className="mt-1 text-sm text-white/55">
-                          Cycle #{number(row.cycleId)} · {number(row.reportCount)} {number(row.reportCount) === 1 ? "Report" : "Reports"} · latest {date(row.latestReportAt)} UTC
+                          Cycle internal ID #{number(row.cycleId)} · {number(row.reportCount)} {number(row.reportCount) === 1 ? "Report" : "Reports"} · latest {date(row.latestReportAt)} UTC
                         </p>
                         <p className="mt-2 text-sm text-white/65">
                           {row.assignedToDisplayName

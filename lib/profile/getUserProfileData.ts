@@ -15,6 +15,10 @@ import {
 } from "@/lib/submissions/getSubmissionPrivateData";
 import type { SubmissionUploadQuota } from "@/lib/upload/getUploadEligibility";
 import {
+  getPublicCycleNumberMap,
+  requirePublicCycleNumber,
+} from "@/lib/cycles/publicCycleNumber";
+import {
   getDelegatedSubmissionModerationReason,
   type DelegatedSubmissionModerationReason,
 } from "@/lib/admin/submissionModerationLogAccess";
@@ -39,6 +43,7 @@ export type ProfileSubmission = Omit<
 
 export type ProfileVote = {
   cycle_id: number;
+  cycle_number: number;
   submission_id: number;
   created_at: string;
   image_url: string | null;
@@ -50,6 +55,7 @@ export type CurrentProfileSubmission = ProfileSubmission & {
 
 export type UserProfileData = {
   activeCycleId: number | null;
+  activeCycleNumber: number | null;
   avatarUrl: string | null;
   avatarUpdatedAt: string | null;
   currentDiscordUsername: string | null;
@@ -190,6 +196,7 @@ export async function getUserProfileData(
         {
           id: submission.id,
           cycle_id: submission.cycle_id,
+          cycle_number: submission.cycle_number,
           is_disqualified: submission.is_disqualified,
           disqualification_reason_code:
             submission.disqualification_reason_code,
@@ -226,6 +233,10 @@ export async function getUserProfileData(
   );
 
   const voteRows = votesResult.data ?? [];
+  const publicNumberByCycleId = await getPublicCycleNumberMap([
+    ...voteRows.map((vote) => vote.cycle_id),
+    ...(activeCycle?.public_number ? [activeCycle.id] : []),
+  ]);
   const submissionIds = Array.from(
     new Set(voteRows.map((vote) => vote.submission_id))
   );
@@ -263,6 +274,9 @@ export async function getUserProfileData(
 
   const votes: ProfileVote[] = voteRows.map((vote) => ({
     cycle_id: vote.cycle_id,
+    cycle_number: requirePublicCycleNumber(
+      publicNumberByCycleId.get(vote.cycle_id)
+    ),
     submission_id: vote.submission_id,
     created_at: vote.created_at,
     image_url: voteSubmissionMap.get(vote.submission_id) ?? null,
@@ -281,6 +295,11 @@ export async function getUserProfileData(
     activeCycle && currentCycleStatuses.has(activeCycle.status)
       ? activeCycle.id
       : null;
+  const activeCycleNumber = activeCycleId
+    ? requirePublicCycleNumber(
+        publicNumberByCycleId.get(activeCycleId)
+      )
+    : null;
   const currentSubmissionRows = activeCycleId
     ? submissions
         .filter((submission) => submission.cycle_id === activeCycleId)
@@ -337,6 +356,7 @@ export async function getUserProfileData(
 
   return {
     activeCycleId,
+    activeCycleNumber,
     avatarUrl: cacheBustedAvatarUrl,
     avatarUpdatedAt,
     currentDiscordUsername:

@@ -20,6 +20,10 @@ import {
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import { getSubmissionDestinationHref } from "@/lib/submissions/getSubmissionDestinationHref";
+import {
+  getPublicCycleNumberMap,
+  requirePublicCycleNumber,
+} from "@/lib/cycles/publicCycleNumber";
 
 const PAGE_SIZE = 25;
 
@@ -79,6 +83,7 @@ export type DisqualificationHistoryEvent = Readonly<{
 export type DisqualificationHistoryItem = Readonly<{
   submissionId: number;
   cycleId: number;
+  cycleNumber: number;
   status: "currently_disqualified" | "reinstated";
   imageUrl: string | null;
   destinationHref: string | null;
@@ -207,6 +212,9 @@ async function readHistoryPage({
 
   const rows = (data ?? []) as RawHistoryRow[];
   const visibleRows = rows.slice(0, PAGE_SIZE);
+  const publicNumberByCycleId = await getPublicCycleNumberMap(
+    visibleRows.map((row) => row.cycle_id)
+  );
   const items = visibleRows.map((row): DisqualificationHistoryItem => {
     const rawEvents = parseEvents(row.events);
     if (rawEvents.length !== row.event_count || rawEvents.length === 0) {
@@ -234,6 +242,9 @@ async function readHistoryPage({
     return Object.freeze({
       submissionId: row.submission_id,
       cycleId: row.cycle_id,
+      cycleNumber: requirePublicCycleNumber(
+        publicNumberByCycleId.get(row.cycle_id)
+      ),
       status: row.current_is_disqualified
         ? "currently_disqualified"
         : "reinstated",
