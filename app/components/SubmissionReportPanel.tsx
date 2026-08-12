@@ -314,11 +314,12 @@ export default function SubmissionReportPanel({
         </button>
       </div>
 
-      {loadingEligibility ? (
+      {/* Unmounting a verified Turnstile widget clears its single-use token. */}
+      {loadingEligibility && !eligibility ? (
         <p role="status" className="mt-4 text-sm text-white/70">
           Checking availability…
         </p>
-      ) : eligibilityError ? (
+      ) : eligibilityError && !eligibility ? (
         <div className="mt-4 text-sm text-red-200">
           <p role="alert">{eligibilityError}</p>
           <button
