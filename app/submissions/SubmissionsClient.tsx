@@ -477,6 +477,16 @@ export default function SubmissionsClient({
                 className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
               />
 
+              {isAuthenticated &&
+              voteStateAvailable &&
+              !s.isOwnSubmission &&
+              votedSubmissionIdSet.has(s.id) ? (
+                <span className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full border border-emerald-200/70 bg-emerald-600 text-xl font-bold text-white shadow-lg">
+                  <span aria-hidden="true">✓</span>
+                  <span className="sr-only">Already voted</span>
+                </span>
+              ) : null}
+
               <div className="absolute bottom-0 w-full bg-black/60 text-white text-sm p-2">
                 Votes: {localVotes[s.id] ?? s.vote_count}
                 {s.isOwnSubmission && (

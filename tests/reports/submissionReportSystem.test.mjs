@@ -156,7 +156,10 @@ test("the accessible rules confirmation and generic multiple-report hint are pre
   assert.match(panel, /helping keep this project safe/u);
   assert.match(panel, /cursor-pointer/u);
   assert.doesNotMatch(panel, /No subcategory|cannot be withdrawn/u);
-  assert.match(panel, /already been reported multiple times/u);
+  assert.match(
+    panel,
+    /Several reports about this submission have already reached the[\s\S]*team\. Please submit another report only if you can add relevant[\s\S]*information\./u,
+  );
   assert.doesNotMatch(panel, /existingReportCount|exactReportCount/u);
   assert.match(panel, /TurnstileWidget/u);
   assert.match(panel, /Report not sent/u);

@@ -446,9 +446,6 @@ export default function SubmissionReportQueueClient({
   }, [initialCaseId, openCase]);
 
   async function openReport(caseId: string, reportId: string) {
-    const wasUnread = items(summaries[caseId]?.reports).some(
-      (report) => report.reportId === reportId && report.isRead !== true
-    );
     setDetailLoading(true);
     setMessage(null);
     try {
@@ -475,16 +472,6 @@ export default function SubmissionReportQueueClient({
           },
         };
       });
-      if (wasUnread) setCaseRows((current) =>
-        current.map((row) =>
-          row.caseId === caseId
-            ? {
-                ...row,
-                unreadReportCount: Math.max(0, number(row.unreadReportCount) - 1),
-              }
-            : row
-        )
-      );
       router.refresh();
     } finally {
       setDetailLoading(false);
@@ -508,7 +495,7 @@ export default function SubmissionReportQueueClient({
             const caseId = text(row.caseId, "");
             const summary = summaries[caseId];
             const isExpanded = expanded.has(caseId);
-            const unread = number(row.unreadReportCount);
+            const workBacklog = number(row.workBacklogReportCount);
             return (
               <article
                 key={caseId}
@@ -544,13 +531,13 @@ export default function SubmissionReportQueueClient({
                           <span className="rounded-full bg-white/10 px-2 py-1 text-white/70">
                             {statusLabel(row.status)}
                           </span>
-                          {unread > 0 ? (
+                          {workBacklog > 0 ? (
                             <span className="rounded-full bg-red-500/20 px-2 py-1 font-semibold text-red-200">
-                              {unread} new {unread === 1 ? "Report" : "Reports"}
+                              {workBacklog} new {workBacklog === 1 ? "Report" : "Reports"}
                             </span>
                           ) : (
                             <span className="rounded-full bg-white/[0.06] px-2 py-1 text-white/45">
-                              All Reports read
+                              No new work
                             </span>
                           )}
                         </div>
@@ -635,11 +622,12 @@ export default function SubmissionReportQueueClient({
                                     <span className="font-medium text-orange-200">
                                       {reasonLabel(report.reasonCode)}
                                     </span>
+                                    {report.isNew === true ? (
+                                      <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-semibold text-red-200">New</span>
+                                    ) : null}
                                     {report.isRead === true ? (
                                       <span className="text-xs text-white/40">Read</span>
-                                    ) : (
-                                      <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-semibold text-red-200">New</span>
-                                    )}
+                                    ) : null}
                                   </div>
                                   <div className="mt-1 text-xs text-white/50">
                                     {date(report.createdAt)} UTC · {text(report.phaseSnapshot)}

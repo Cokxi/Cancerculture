@@ -446,8 +446,9 @@ export default function SubmissionReportPanel({
             <>
               {eligibility.hasMultipleExistingReports ? (
                 <p className="rounded-lg bg-orange-500/10 p-3 text-sm text-orange-200">
-                  This submission has already been reported multiple times. The
-                  team can review it; you may still send your own first report.
+                  Several reports about this submission have already reached the
+                  team. Please submit another report only if you can add relevant
+                  information.
                 </p>
               ) : null}
               <dl className="space-y-2 rounded-lg bg-black/30 p-3 text-sm">
