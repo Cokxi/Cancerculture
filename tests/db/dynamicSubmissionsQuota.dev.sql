@@ -122,7 +122,9 @@ begin
       'quota-wallet-' || v_submission_number::text,
       'keep',
       null,
-      null
+      null,
+      1200,
+      800
     );
     if v_result ->> 'outcome' <> 'completed'
       or (v_result ->> 'used')::integer <> v_submission_number

@@ -349,6 +349,8 @@ export async function POST(req: Request) {
       operationId,
       sessionId,
       privateData,
+      mediaWidth: processedImage.width,
+      mediaHeight: processedImage.height,
     });
 
     return NextResponse.json({

@@ -173,7 +173,7 @@ async function commitKeep(databaseUrl, operationId, sessionId) {
   return rpc(
     databaseUrl,
     "commit_submission_upload",
-    `${sqlText(operationId)}::uuid, ${sqlText(sessionId)}::uuid, 'wallet', 'keep', null, null`
+    `${sqlText(operationId)}::uuid, ${sqlText(sessionId)}::uuid, 'wallet', 'keep', null, null, 1200, 800`
   );
 }
 

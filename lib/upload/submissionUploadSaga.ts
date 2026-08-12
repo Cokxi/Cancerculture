@@ -340,15 +340,21 @@ export async function commitSubmissionUpload({
   operationId,
   sessionId,
   privateData,
+  mediaWidth,
+  mediaHeight,
 }: {
   operationId: string;
   sessionId: string;
   privateData: NormalizedSubmissionPrivateData;
+  mediaWidth: number;
+  mediaHeight: number;
 }): Promise<CompletedSubmissionUpload> {
   const { data, error } = await supabaseAdmin.rpc(
     "commit_submission_upload",
     {
       p_charity: privateData.charity,
+      p_media_height: mediaHeight,
+      p_media_width: mediaWidth,
       p_operation_id: operationId,
       p_payout_choice: privateData.payoutChoice,
       p_session_id: sessionId,

@@ -439,6 +439,8 @@ async function createMedia() {
   return {
     body,
     contentSha256: createHash("sha256").update(body).digest("hex"),
+    width: processed.width,
+    height: processed.height,
   };
 }
 
@@ -487,6 +489,8 @@ async function runSuccessCase(media) {
     operationId: reservation.operationId,
     sessionId: sessions.success,
     privateData,
+    mediaWidth: media.width,
+    mediaHeight: media.height,
   });
   assert.equal(completed.outcome, "completed");
 
@@ -578,6 +582,8 @@ async function runCompensationCase(media) {
       operationId: reservation.operationId,
       sessionId: sessions.compensated,
       privateData,
+      mediaWidth: media.width,
+      mediaHeight: media.height,
     });
   } catch (error) {
     commitError = error;

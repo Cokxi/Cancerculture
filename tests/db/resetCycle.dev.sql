@@ -259,14 +259,32 @@ begin
     submission_id,
     vote_count,
     is_winner,
-    rank
+    rank,
+    final_vote_count,
+    rank_in_cycle,
+    tie_group,
+    finalized_at,
+    feed_eligible,
+    feed_trash,
+    feed_classification_version,
+    is_disqualified_at_finalization,
+    public_visibility_status_at_finalization
   ) values (
     6000000001,
     v_data_cycle_id,
     v_submission_one,
     1,
     true,
-    1
+    1,
+    1,
+    1,
+    1,
+    transaction_timestamp(),
+    true,
+    false,
+    1,
+    false,
+    'visible'
   );
 
   insert into public.winner_public_profiles (

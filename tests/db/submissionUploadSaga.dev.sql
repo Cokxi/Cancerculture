@@ -233,7 +233,9 @@ begin
     'wallet-a',
     'split',
     50,
-    'Synthetic Charity'
+    'Synthetic Charity',
+    1200,
+    800
   );
   if v_result ->> 'outcome' <> 'completed' then
     raise exception 'ATOMIC_UPLOAD_COMMIT_FAILED: %', v_result;
@@ -296,7 +298,9 @@ begin
     'wallet-b',
     'keep',
     null,
-    null
+    null,
+    1200,
+    800
   );
   if v_result ->> 'outcome' <> 'completed' then
     raise exception 'SECOND_USER_COMMIT_FAILED: %', v_result;
@@ -341,7 +345,9 @@ begin
     'wallet-a-2',
     'keep',
     null,
-    null
+    null,
+    1200,
+    800
   );
   if v_result ->> 'outcome' <> 'completed'
     or (v_result ->> 'used')::integer <> 2
@@ -387,7 +393,9 @@ begin
     'wallet-c',
     'keep',
     null,
-    null
+    null,
+    1200,
+    800
   );
   if v_result ->> 'outcome' <> 'cycle_not_open'
     or exists (
@@ -515,7 +523,9 @@ begin
         'wallet-failure',
         'keep',
         null,
-        null
+        null,
+        1200,
+        800
       );
       raise exception 'INJECTED_DATABASE_FAILURE_WAS_NOT_RAISED';
     exception
@@ -616,7 +626,9 @@ begin
       'wallet-constraint',
       'keep',
       null,
-      null
+      null,
+      1200,
+      800
     );
     raise exception 'CONSTRAINT_FAILURE_WAS_NOT_RAISED';
   exception
@@ -716,7 +728,7 @@ begin
     'execute'
   ) or has_function_privilege(
     'authenticated',
-    'public.commit_submission_upload(uuid,uuid,text,text,integer,text)',
+    'public.commit_submission_upload(uuid,uuid,text,text,integer,text,integer,integer)',
     'execute'
   ) or has_function_privilege(
     'authenticated',

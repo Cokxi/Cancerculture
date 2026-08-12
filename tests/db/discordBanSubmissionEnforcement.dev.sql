@@ -214,6 +214,9 @@ begin
     tie_group,
     finalized_at,
     feed_eligible,
+    feed_trash,
+    feed_classification_version,
+    is_disqualified_at_finalization,
     public_visibility_status_at_finalization
   ) values (
     v_history_cycle_id,
@@ -226,6 +229,9 @@ begin
     1,
     v_base - interval '12 hours',
     true,
+    false,
+    1,
+    false,
     'visible'
   );
 
