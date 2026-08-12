@@ -12,6 +12,7 @@ import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
 import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
 import { DISCORD_INVITE_URL } from "@/lib/discordInvite";
 import type { SponsoredCycleMeta } from "@/lib/cycles/sponsoredCycle";
+import { POST_VOTING_WRAPPING_UP_TEXT } from "@/lib/cycles/postVoting";
 import {
   PARTICIPATION_HOLD_TEXT,
   PARTICIPATION_HOLD_TITLE,
@@ -448,7 +449,7 @@ export default function SubmissionsClient({
                 ? `VOTING OPEN - ${usedVotes}/${votesPerUser} VOTES USED`
                 : "VOTING OPEN - VOTE STATUS UNAVAILABLE"
               : isVotingClosed
-                ? "VOTING CLOSED - REPORTS REMAIN OPEN"
+                ? POST_VOTING_WRAPPING_UP_TEXT
                 : "SUBMISSIONS OPEN - VOTING STARTS LATER"}`}
         </div>
         {submissions.map((s) => {
@@ -708,6 +709,7 @@ export default function SubmissionsClient({
                 loginReturnPath={`/submissions?submission=${active.id}`}
                 submissionId={active.id}
                 surface="active"
+                reportingOpen={!isVotingClosed}
                 turnstileSiteKey={turnstileSiteKey}
               />
             </div>

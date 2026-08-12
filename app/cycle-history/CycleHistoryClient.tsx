@@ -575,6 +575,7 @@ function SubmissionModal({
               loginReturnPath={`/cycle-history?cycle=${submission.cycleId}#submission-${submission.id}`}
               submissionId={submission.id}
               surface="history"
+              reportingOpen
               turnstileSiteKey={turnstileSiteKey}
             />
           ) : null}

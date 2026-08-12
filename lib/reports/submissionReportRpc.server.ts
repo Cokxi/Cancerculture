@@ -10,6 +10,7 @@ import {
   SUBMISSION_REPORT_TAXONOMY_VERSION,
   type SubmissionReportCreateInput,
 } from "@/lib/reports/submissionReportContract";
+import { POST_VOTING_REPORT_BLOCK_REASON } from "@/lib/cycles/postVoting";
 
 type RpcError = Readonly<{
   code?: string | null;
@@ -39,6 +40,9 @@ function rpcError(error: RpcError): SubmissionReportError {
   }
   if (message.includes("SUBMISSION_REPORT_NOT_REPORTABLE")) {
     return new SubmissionReportError(404, "SUBMISSION_NOT_REPORTABLE");
+  }
+  if (message.includes("SUBMISSION_REPORT_PHASE_CLOSED")) {
+    return new SubmissionReportError(409, "REPORTING_CLOSED");
   }
   if (message.includes("SUBMISSION_REPORT_INVALID")) {
     return new SubmissionReportError(400, "INVALID_REPORT");
@@ -93,7 +97,28 @@ export async function getSubmissionReportEligibility({
     alreadyReported: result.alreadyReported === true,
     hasMultipleExistingReports:
       result.hasMultipleExistingReports === true,
+    blockedReason:
+      result.blockedReason === POST_VOTING_REPORT_BLOCK_REASON
+        ? POST_VOTING_REPORT_BLOCK_REASON
+        : null,
   });
+}
+
+export async function assertSubmissionReportCreationOpen({
+  discordUserId,
+  submissionId,
+}: {
+  discordUserId: string;
+  submissionId: number;
+}) {
+  const eligibility = await getSubmissionReportEligibility({
+    discordUserId,
+    submissionId,
+  });
+
+  if (eligibility.blockedReason === POST_VOTING_REPORT_BLOCK_REASON) {
+    throw new SubmissionReportError(409, "REPORTING_CLOSED");
+  }
 }
 
 export async function createSubmissionReport({

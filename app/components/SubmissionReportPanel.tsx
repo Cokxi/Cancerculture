@@ -19,11 +19,16 @@ import {
   TURNSTILE_ACTIONS,
   TURNSTILE_TOKEN_HEADER,
 } from "@/lib/turnstile/shared";
+import {
+  POST_VOTING_REPORT_BLOCK_REASON,
+  POST_VOTING_REPORT_CLOSED_TEXT,
+} from "@/lib/cycles/postVoting";
 
 type Eligibility = Readonly<{
   canReport: boolean;
   alreadyReported: boolean;
   hasMultipleExistingReports: boolean;
+  blockedReason: typeof POST_VOTING_REPORT_BLOCK_REASON | null;
 }>;
 
 function errorMessage(code: string | null) {
@@ -32,6 +37,8 @@ function errorMessage(code: string | null) {
       return "You already reported this submission.";
     case "SUBMISSION_NOT_REPORTABLE":
       return "This submission is no longer available for reporting.";
+    case "REPORTING_CLOSED":
+      return POST_VOTING_REPORT_CLOSED_TEXT;
     case "TURNSTILE_REQUIRED":
     case "TURNSTILE_INVALID":
       return "Verification expired or failed. Please verify again.";
@@ -52,12 +59,14 @@ export default function SubmissionReportPanel({
   loginReturnPath,
   submissionId,
   surface,
+  reportingOpen,
   turnstileSiteKey,
 }: {
   isAuthenticated: boolean;
   loginReturnPath: string;
   submissionId: number;
   surface: SubmissionReportSurface;
+  reportingOpen: boolean;
   turnstileSiteKey: string | null;
 }) {
   const reasons = SUBMISSION_REPORT_REASONS_BY_SURFACE[surface];
@@ -140,6 +149,32 @@ export default function SubmissionReportPanel({
     }
   }, [isAuthenticated, submissionId]);
 
+  useEffect(() => {
+    if (
+      !expanded ||
+      !isAuthenticated ||
+      !reportingOpen ||
+      step === "success"
+    ) {
+      return;
+    }
+
+    const refreshEligibility = () => {
+      if (document.visibilityState === "visible") {
+        void loadEligibility();
+      }
+    };
+    const intervalId = window.setInterval(refreshEligibility, 15_000);
+    window.addEventListener("focus", refreshEligibility);
+    document.addEventListener("visibilitychange", refreshEligibility);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshEligibility);
+      document.removeEventListener("visibilitychange", refreshEligibility);
+    };
+  }, [expanded, isAuthenticated, loadEligibility, reportingOpen, step]);
+
   async function submitReport() {
     if (!confirmed || !turnstileToken || submitting || !editValid) return;
     const requestId = idempotencyKey ?? crypto.randomUUID();
@@ -170,6 +205,16 @@ export default function SubmissionReportPanel({
             alreadyReported: true,
             hasMultipleExistingReports:
               current?.hasMultipleExistingReports ?? false,
+            blockedReason: current?.blockedReason ?? null,
+          }));
+        }
+        if (data?.error === "REPORTING_CLOSED") {
+          setEligibility((current) => ({
+            canReport: false,
+            alreadyReported: current?.alreadyReported ?? false,
+            hasMultipleExistingReports:
+              current?.hasMultipleExistingReports ?? false,
+            blockedReason: POST_VOTING_REPORT_BLOCK_REASON,
           }));
         }
         throw new Error(data?.error ?? "REPORT_FAILED");
@@ -181,6 +226,7 @@ export default function SubmissionReportPanel({
         alreadyReported: true,
         hasMultipleExistingReports:
           current?.hasMultipleExistingReports ?? false,
+        blockedReason: current?.blockedReason ?? null,
       }));
     } catch (error) {
       setSubmitError(
@@ -191,6 +237,18 @@ export default function SubmissionReportPanel({
       setTurnstileResetKey((value) => value + 1);
       setSubmitting(false);
     }
+  }
+
+  const reportingClosed =
+    !reportingOpen ||
+    eligibility?.blockedReason === POST_VOTING_REPORT_BLOCK_REASON;
+
+  if (reportingClosed && step !== "success") {
+    return (
+      <p role="status" className="text-sm text-white/65">
+        {POST_VOTING_REPORT_CLOSED_TEXT}
+      </p>
+    );
   }
 
   if (!isAuthenticated) {

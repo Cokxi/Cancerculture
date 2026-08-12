@@ -6,6 +6,7 @@ import {
   parseSubmissionReportCreateInput,
 } from "@/lib/reports/submissionReportContract";
 import {
+  assertSubmissionReportCreationOpen,
   createSubmissionReport,
   submissionReportErrorResponse,
 } from "@/lib/reports/submissionReportRpc.server";
@@ -17,30 +18,6 @@ const MAX_BODY_BYTES = 4_096;
 export async function POST(request: Request) {
   try {
     const session = await requireSession();
-    const turnstile = await verifyTurnstileRequest(
-      request,
-      TURNSTILE_ACTIONS.submissionReport
-    );
-
-    if (turnstile.status === "rejected") {
-      return NextResponse.json(
-        { error: turnstile.code },
-        { status: 400 }
-      );
-    }
-    if (turnstile.status === "configuration_error") {
-      return NextResponse.json(
-        { error: turnstile.code },
-        { status: 503 }
-      );
-    }
-    if (turnstile.status === "provider_unavailable") {
-      return NextResponse.json(
-        { error: "TURNSTILE_PROVIDER_UNAVAILABLE" },
-        { status: 503 }
-      );
-    }
-
     const declaredLength = Number(request.headers.get("content-length"));
     if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
       return NextResponse.json(
@@ -68,6 +45,35 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "INVALID_REPORT" },
         { status: 400 }
+      );
+    }
+
+    await assertSubmissionReportCreationOpen({
+      discordUserId: session.discord_user_id,
+      submissionId: input.submissionId,
+    });
+
+    const turnstile = await verifyTurnstileRequest(
+      request,
+      TURNSTILE_ACTIONS.submissionReport
+    );
+
+    if (turnstile.status === "rejected") {
+      return NextResponse.json(
+        { error: turnstile.code },
+        { status: 400 }
+      );
+    }
+    if (turnstile.status === "configuration_error") {
+      return NextResponse.json(
+        { error: turnstile.code },
+        { status: 503 }
+      );
+    }
+    if (turnstile.status === "provider_unavailable") {
+      return NextResponse.json(
+        { error: "TURNSTILE_PROVIDER_UNAVAILABLE" },
+        { status: 503 }
       );
     }
 

@@ -10,6 +10,7 @@ import {
 } from "@/lib/cycles/submissionSettings";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { requirePublicCycleNumber } from "@/lib/cycles/publicCycleNumber";
+import { POST_VOTING_WRAPPING_UP_TEXT } from "@/lib/cycles/postVoting";
 import CycleCountdown from "./CycleCountdown";
 import SponsorImpressionTracker from "./SponsorImpressionTracker";
 
@@ -244,7 +245,7 @@ function getDisplayState({
     case "voting_closed":
       return {
         displayTheme,
-        displayStatus: "VOTING CLOSED",
+        displayStatus: POST_VOTING_WRAPPING_UP_TEXT,
         statusClassName: "text-red-600",
         timerLabel: null,
         timerExpiredLabel: null,
