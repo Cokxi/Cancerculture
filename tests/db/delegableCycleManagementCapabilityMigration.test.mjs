@@ -153,7 +153,12 @@ test("reset cleanup and sponsored draft inputs stay narrowly server-controlled",
     /create or replace function public\.claim_media_cleanup_jobs_by_ids/u
   );
   assert.match(migration, /where queue\.id = any\(p_job_ids\)/u);
-  assert.match(resetRoute, /queueIds: targetedQueueIds/u);
+  assert.match(
+    resetRoute,
+    /processTargetedR2CleanupQueue\([\s\S]*reset\.r2CleanupQueueIds/u
+  );
+  assert.match(resetRoute, /verifyR2CleanupQueuePostflight/u);
+  assert.doesNotMatch(resetRoute, /r2CleanupQueueIds\.slice/u);
   assert.match(cleanupWorker, /claim_media_cleanup_jobs_by_ids/u);
   assert.match(cleanupWorker, /if \(queueIds\)[\s\S]*claimDueJobsByIds/u);
   assert.match(

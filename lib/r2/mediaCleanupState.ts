@@ -1,6 +1,8 @@
 export const MEDIA_CLEANUP_BATCH_SIZE = 10;
 export const MEDIA_CLEANUP_CONCURRENCY = 4;
 export const MEDIA_CLEANUP_LEASE_SECONDS = 120;
+export const MEDIA_CLEANUP_MAX_DUE_BATCHES = 10;
+export const MEDIA_CLEANUP_MAX_TARGETED_JOBS = 20;
 
 export type ClaimedMediaCleanupJob = {
   job_id: number;
@@ -36,6 +38,33 @@ export type MediaCleanupBatchResult = {
   staleResults: number;
   confirmationFailures: number;
   deletionFailures: number;
+};
+
+export type MediaCleanupRunResult = MediaCleanupBatchResult & {
+  batchesAttempted: number;
+  batchFailures: number;
+  drainComplete: boolean;
+};
+
+export type MediaCleanupQueuePostflight = {
+  expectedJobs: number;
+  completedQueueJobs: number;
+  retryableQueueJobs: number;
+  processingQueueJobs: number;
+  terminalQueueJobs: number;
+  missingQueueJobs: number;
+  unexpectedQueueRows: number;
+  objectsMissing: number;
+  objectsPresent: number;
+  objectVerificationFailures: number;
+  drained: boolean;
+};
+
+export type MediaCleanupQueuePostflightRow = {
+  id: number;
+  storage_provider: string;
+  storage_key: string;
+  status: string;
 };
 
 type CleanupFailure = Error & {
@@ -108,6 +137,219 @@ export function isCanonicalQueuedStorageKey(storageKey: string) {
   );
 }
 
+export function createEmptyMediaCleanupBatchResult(): MediaCleanupBatchResult {
+  return {
+    claimed: 0,
+    completed: 0,
+    deleted: 0,
+    alreadyMissing: 0,
+    retryScheduled: 0,
+    terminalFailures: 0,
+    staleResults: 0,
+    confirmationFailures: 0,
+    deletionFailures: 0,
+  };
+}
+
+export function mergeMediaCleanupBatchResult(
+  aggregate: MediaCleanupBatchResult,
+  batch: MediaCleanupBatchResult
+) {
+  for (const key of Object.keys(
+    createEmptyMediaCleanupBatchResult()
+  ) as Array<keyof MediaCleanupBatchResult>) {
+    aggregate[key] += batch[key];
+  }
+}
+
+function createEmptyMediaCleanupRunResult(): MediaCleanupRunResult {
+  return {
+    ...createEmptyMediaCleanupBatchResult(),
+    batchesAttempted: 0,
+    batchFailures: 0,
+    drainComplete: false,
+  };
+}
+
+export function chunkTargetedMediaCleanupQueueIds(
+  queueIds: readonly number[]
+) {
+  if (
+    queueIds.length > MEDIA_CLEANUP_MAX_TARGETED_JOBS ||
+    queueIds.some(
+      (queueId) => !Number.isSafeInteger(queueId) || queueId <= 0
+    ) ||
+    new Set(queueIds).size !== queueIds.length
+  ) {
+    throw new TypeError("Invalid targeted media cleanup jobs");
+  }
+
+  const batches: number[][] = [];
+  for (let index = 0; index < queueIds.length; index += MEDIA_CLEANUP_BATCH_SIZE) {
+    batches.push(queueIds.slice(index, index + MEDIA_CLEANUP_BATCH_SIZE));
+  }
+  return batches;
+}
+
+export async function drainDueMediaCleanupBatches({
+  processBatch,
+  maxBatches = MEDIA_CLEANUP_MAX_DUE_BATCHES,
+}: {
+  processBatch: () => Promise<MediaCleanupBatchResult>;
+  maxBatches?: number;
+}): Promise<MediaCleanupRunResult> {
+  if (!Number.isSafeInteger(maxBatches) || maxBatches < 1 || maxBatches > 100) {
+    throw new TypeError("Invalid media cleanup drain limit");
+  }
+
+  const result = createEmptyMediaCleanupRunResult();
+
+  for (let index = 0; index < maxBatches; index += 1) {
+    const batch = await processBatch();
+    result.batchesAttempted += 1;
+    mergeMediaCleanupBatchResult(result, batch);
+
+    if (batch.claimed < MEDIA_CLEANUP_BATCH_SIZE) {
+      result.drainComplete = true;
+      return result;
+    }
+  }
+
+  return result;
+}
+
+export async function processTargetedMediaCleanupBatches({
+  queueIds,
+  processBatch,
+}: {
+  queueIds: readonly number[];
+  processBatch: (batch: readonly number[]) => Promise<MediaCleanupBatchResult>;
+}): Promise<MediaCleanupRunResult> {
+  const batches = chunkTargetedMediaCleanupQueueIds(queueIds);
+  const result = createEmptyMediaCleanupRunResult();
+
+  for (const batch of batches) {
+    result.batchesAttempted += 1;
+    try {
+      mergeMediaCleanupBatchResult(result, await processBatch(batch));
+    } catch {
+      result.batchFailures += 1;
+      return result;
+    }
+  }
+
+  result.drainComplete = true;
+  return result;
+}
+
+export async function verifyTargetedMediaCleanupPostflight({
+  queueIds,
+  rows,
+  probeObject,
+}: {
+  queueIds: readonly number[];
+  rows: readonly MediaCleanupQueuePostflightRow[];
+  probeObject: (
+    row: MediaCleanupQueuePostflightRow
+  ) => Promise<"missing" | "present">;
+}): Promise<MediaCleanupQueuePostflight> {
+  chunkTargetedMediaCleanupQueueIds(queueIds);
+  const expectedIds = new Set(queueIds);
+  const rowsById = new Map<number, MediaCleanupQueuePostflightRow>();
+  let unexpectedQueueRows = 0;
+
+  for (const row of rows) {
+    if (!expectedIds.has(row.id) || rowsById.has(row.id)) {
+      unexpectedQueueRows += 1;
+      continue;
+    }
+    rowsById.set(row.id, row);
+  }
+
+  const postflight: MediaCleanupQueuePostflight = {
+    expectedJobs: queueIds.length,
+    completedQueueJobs: 0,
+    retryableQueueJobs: 0,
+    processingQueueJobs: 0,
+    terminalQueueJobs: 0,
+    missingQueueJobs: 0,
+    unexpectedQueueRows,
+    objectsMissing: 0,
+    objectsPresent: 0,
+    objectVerificationFailures: 0,
+    drained: false,
+  };
+
+  const probeRows: MediaCleanupQueuePostflightRow[] = [];
+
+  for (const queueId of queueIds) {
+    const row = rowsById.get(queueId);
+    if (!row) {
+      postflight.missingQueueJobs += 1;
+      continue;
+    }
+
+    if (row.status === "completed") {
+      postflight.completedQueueJobs += 1;
+    } else if (row.status === "pending" || row.status === "failed") {
+      postflight.retryableQueueJobs += 1;
+    } else if (row.status === "processing") {
+      postflight.processingQueueJobs += 1;
+    } else {
+      postflight.terminalQueueJobs += 1;
+    }
+
+    if (
+      row.storage_provider === "r2" &&
+      isCanonicalQueuedStorageKey(row.storage_key)
+    ) {
+      probeRows.push(row);
+    } else {
+      postflight.objectVerificationFailures += 1;
+    }
+  }
+
+  let nextIndex = 0;
+  async function worker() {
+    while (true) {
+      const row = probeRows[nextIndex];
+      nextIndex += 1;
+      if (!row) return;
+
+      try {
+        const outcome = await probeObject(row);
+        if (outcome === "missing") {
+          postflight.objectsMissing += 1;
+        } else {
+          postflight.objectsPresent += 1;
+        }
+      } catch {
+        postflight.objectVerificationFailures += 1;
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(MEDIA_CLEANUP_CONCURRENCY, probeRows.length) },
+      () => worker()
+    )
+  );
+
+  postflight.drained =
+    postflight.completedQueueJobs === postflight.expectedJobs &&
+    postflight.objectsMissing === postflight.expectedJobs &&
+    postflight.retryableQueueJobs === 0 &&
+    postflight.processingQueueJobs === 0 &&
+    postflight.terminalQueueJobs === 0 &&
+    postflight.missingQueueJobs === 0 &&
+    postflight.unexpectedQueueRows === 0 &&
+    postflight.objectsPresent === 0 &&
+    postflight.objectVerificationFailures === 0;
+
+  return postflight;
+}
+
 function recordLeaseResult(
   aggregate: MediaCleanupBatchResult,
   result: MediaCleanupLeaseResult
@@ -151,15 +393,8 @@ export async function processClaimedMediaCleanupJobs({
   concurrency?: number;
 }): Promise<MediaCleanupBatchResult> {
   const aggregate: MediaCleanupBatchResult = {
+    ...createEmptyMediaCleanupBatchResult(),
     claimed: jobs.length,
-    completed: 0,
-    deleted: 0,
-    alreadyMissing: 0,
-    retryScheduled: 0,
-    terminalFailures: 0,
-    staleResults: 0,
-    confirmationFailures: 0,
-    deletionFailures: 0,
   };
 
   if (jobs.length === 0) {

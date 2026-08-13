@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cancerculture-media-cleanup-live",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-13",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  },
+  "vars": {
+    "MEDIA_CLEANUP_ENVIRONMENT": "live",
+    "MEDIA_CLEANUP_TARGET_URL": "https://cancerculture.fun/api/internal/media-cleanup/process-due"
+  },
+  "secrets": {
+    "required": ["MEDIA_CLEANUP_TRIGGER_SECRET"]
+  },
+  "triggers": {
+    "crons": ["*/10 * * * *"]
+  }
+}

@@ -2,7 +2,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { authorizeInternalTrigger } from "@/lib/auth/internalTriggerAuth";
-import { processR2CleanupQueue } from "@/lib/r2/processMediaCleanupQueue";
+import {
+  isMatchingMediaCleanupEnvironment,
+  MEDIA_CLEANUP_ENVIRONMENT_HEADER,
+  resolveWebsiteMediaCleanupEnvironment,
+} from "@/lib/r2/mediaCleanupEnvironment";
+import {
+  getMediaCleanupQueueHealth,
+  processDueR2CleanupQueue,
+} from "@/lib/r2/processMediaCleanupQueue";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
@@ -28,17 +36,44 @@ export async function POST(req: Request) {
     );
   }
 
+  const environment = resolveWebsiteMediaCleanupEnvironment(
+    process.env.NEXT_PUBLIC_SUPABASE_URL
+  );
+  if (
+    !isMatchingMediaCleanupEnvironment({
+      requested: req.headers.get(MEDIA_CLEANUP_ENVIRONMENT_HEADER),
+      website: environment,
+    })
+  ) {
+    return NextResponse.json(
+      { error: "Media cleanup trigger is unavailable" },
+      { status: 503, headers: NO_STORE_HEADERS }
+    );
+  }
+
   try {
-    const result = await processR2CleanupQueue();
+    const result = await processDueR2CleanupQueue();
+    const queue = await getMediaCleanupQueueHealth();
+    const dueDrained =
+      queue.dueRetryPending === 0 && queue.expiredProcessing === 0;
 
     return NextResponse.json(
       {
+        environment,
         claimed: result.claimed,
         completed: result.completed,
+        recoveredUploads: result.recoveredUploads,
+        queuedFromRecovery: result.queuedFromRecovery,
         retryScheduled: result.retryScheduled,
         terminalFailures: result.terminalFailures,
         staleResults: result.staleResults,
         confirmationFailures: result.confirmationFailures,
+        deletionFailures: result.deletionFailures,
+        batchesAttempted: result.batchesAttempted,
+        batchLimitReached: !result.drainComplete,
+        dueDrained,
+        fullyDrained: queue.outstanding === 0,
+        queue,
       },
       { headers: NO_STORE_HEADERS }
     );

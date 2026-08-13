@@ -8,14 +8,18 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import { r2 } from "@/lib/r2";
 import {
   createMediaCleanupError,
+  drainDueMediaCleanupBatches,
   isMissingR2ObjectError,
   MEDIA_CLEANUP_BATCH_SIZE,
   MEDIA_CLEANUP_CONCURRENCY,
   MEDIA_CLEANUP_LEASE_SECONDS,
   processClaimedMediaCleanupJobs,
+  processTargetedMediaCleanupBatches,
+  verifyTargetedMediaCleanupPostflight,
   type ClaimedMediaCleanupJob,
   type MediaCleanupBatchResult,
   type MediaCleanupLeaseResult,
+  type MediaCleanupQueuePostflightRow,
   type MediaDeleteOutcome,
 } from "@/lib/r2/mediaCleanupState";
 
@@ -239,6 +243,16 @@ async function deleteQueuedR2Object(
   return "deleted";
 }
 
+async function processClaimedJobs(jobs: ClaimedMediaCleanupJob[]) {
+  return processClaimedMediaCleanupJobs({
+    jobs,
+    concurrency: MEDIA_CLEANUP_CONCURRENCY,
+    deleteObject: deleteQueuedR2Object,
+    completeJob,
+    failJob,
+  });
+}
+
 export async function processR2CleanupQueue(
   options: { queueIds?: readonly number[] } = {}
 ): Promise<MediaCleanupBatchResult> {
@@ -255,11 +269,150 @@ export async function processR2CleanupQueue(
     jobs = await claimDueJobs();
   }
 
-  return processClaimedMediaCleanupJobs({
-    jobs,
-    concurrency: MEDIA_CLEANUP_CONCURRENCY,
-    deleteObject: deleteQueuedR2Object,
-    completeJob,
-    failJob,
+  return processClaimedJobs(jobs);
+}
+
+export async function processDueR2CleanupQueue() {
+  const recovery = await recoverStaleSubmissionUploads();
+  const result = await drainDueMediaCleanupBatches({
+    processBatch: async () => processClaimedJobs(await claimDueJobs()),
+  });
+
+  return {
+    ...result,
+    recoveredUploads: recovery.recovered,
+    queuedFromRecovery: recovery.queued,
+  };
+}
+
+export async function processTargetedR2CleanupQueue(
+  queueIds: readonly number[]
+) {
+  const result = await processTargetedMediaCleanupBatches({
+    queueIds,
+    processBatch: async (batch) =>
+      processClaimedJobs(await claimDueJobsByIds(batch)),
+  });
+
+  if (result.batchFailures > 0) {
+    console.error("[media cleanup][targeted drain incomplete]", {
+      batchFailures: result.batchFailures,
+      batchesAttempted: result.batchesAttempted,
+    });
+  }
+
+  return result;
+}
+
+async function countQueueRows({
+  statuses,
+  dueColumn,
+  dueAt,
+}: {
+  statuses: readonly string[];
+  dueColumn?: "next_attempt_at" | "locked_until";
+  dueAt?: string;
+}) {
+  let query = supabaseAdmin
+    .from("media_cleanup_queue")
+    .select("id", { count: "exact", head: true })
+    .in("status", statuses);
+
+  if (dueColumn && dueAt) {
+    query = query.lte(dueColumn, dueAt);
+  }
+
+  const { count, error } = await query;
+  if (error || typeof count !== "number") {
+    console.error("[media cleanup][queue health]", {
+      code: error?.code ?? "INVALID_COUNT",
+    });
+    throw new Error("Media cleanup queue health could not be read");
+  }
+
+  return count;
+}
+
+export async function getMediaCleanupQueueHealth() {
+  const now = new Date().toISOString();
+  const [retryPending, dueRetryPending, processing, expiredProcessing, dead] =
+    await Promise.all([
+      countQueueRows({ statuses: ["pending", "failed"] }),
+      countQueueRows({
+        statuses: ["pending", "failed"],
+        dueColumn: "next_attempt_at",
+        dueAt: now,
+      }),
+      countQueueRows({ statuses: ["processing"] }),
+      countQueueRows({
+        statuses: ["processing"],
+        dueColumn: "locked_until",
+        dueAt: now,
+      }),
+      countQueueRows({ statuses: ["dead"] }),
+    ]);
+
+  return {
+    retryPending,
+    dueRetryPending,
+    processing,
+    expiredProcessing,
+    dead,
+    outstanding: retryPending + processing + dead,
+  };
+}
+
+function isPostflightRow(value: unknown): value is MediaCleanupQueuePostflightRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.id === "number" &&
+    typeof row.storage_provider === "string" &&
+    typeof row.storage_key === "string" &&
+    typeof row.status === "string"
+  );
+}
+
+export async function verifyR2CleanupQueuePostflight(
+  queueIds: readonly number[]
+) {
+  if (queueIds.length === 0) {
+    return verifyTargetedMediaCleanupPostflight({
+      queueIds,
+      rows: [],
+      probeObject: async () => "missing",
+    });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("media_cleanup_queue")
+    .select("id, storage_provider, storage_key, status")
+    .in("id", queueIds);
+
+  if (error || !Array.isArray(data) || !data.every(isPostflightRow)) {
+    console.error("[media cleanup][targeted postflight]", {
+      code: error?.code ?? "INVALID_RESPONSE",
+    });
+    throw new Error("Targeted media cleanup postflight could not be read");
+  }
+
+  return verifyTargetedMediaCleanupPostflight({
+    queueIds,
+    rows: data,
+    probeObject: async (row) => {
+      const bucket = assertR2Configuration();
+      try {
+        await r2.send(
+          new HeadObjectCommand({
+            Bucket: bucket,
+            Key: row.storage_key,
+          })
+        );
+        return "present";
+      } catch (probeError) {
+        if (isMissingR2ObjectError(probeError)) return "missing";
+        throw probeError;
+      }
+    },
   });
 }

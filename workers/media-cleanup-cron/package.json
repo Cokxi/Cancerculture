@@ -1,0 +1,13 @@
+{
+  "name": "cancerculture-media-cleanup-cron",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:dev": "wrangler deploy --dry-run --config wrangler.dev.jsonc --outdir .wrangler-dist/dev",
+    "check:live": "wrangler deploy --dry-run --config wrangler.live.jsonc --outdir .wrangler-dist/live"
+  },
+  "devDependencies": {
+    "wrangler": "4.123.0"
+  }
+}

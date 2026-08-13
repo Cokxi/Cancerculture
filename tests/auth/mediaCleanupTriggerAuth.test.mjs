@@ -74,10 +74,9 @@ test("media cleanup route has a dedicated secret and accepts no work selection i
   );
   assert.doesNotMatch(routeSource, /storage_key|lease_token|queueId|bucket/i);
   assert.match(routeSource, /Cache-Control/);
-  assert.equal(
-    routeSource.match(/await processR2CleanupQueue\(\)/g)?.length,
-    1
-  );
+  assert.match(routeSource, /await processDueR2CleanupQueue\(\)/u);
+  assert.match(routeSource, /await getMediaCleanupQueueHealth\(\)/u);
+  assert.match(routeSource, /MEDIA_CLEANUP_ENVIRONMENT_HEADER/u);
 });
 
 test("reset leases only cleanup jobs created by that reset", async () => {
@@ -89,10 +88,11 @@ test("reset leases only cleanup jobs created by that reset", async () => {
   assert.match(resetRouteSource, /await resetCycleTransactional/);
   assert.match(
     resetRouteSource,
-    /processR2CleanupQueue\(\{[\s\S]*queueIds: targetedQueueIds[\s\S]*\}\)/
+    /processTargetedR2CleanupQueue\([\s\S]*reset\.r2CleanupQueueIds/
   );
-  assert.match(resetRouteSource, /reset\.r2CleanupQueueIds\.slice\(0, 20\)/);
-  assert.doesNotMatch(resetRouteSource, /await processR2CleanupQueue\(\)/);
+  assert.match(resetRouteSource, /verifyR2CleanupQueuePostflight/u);
+  assert.doesNotMatch(resetRouteSource, /r2CleanupQueueIds\.slice/u);
+  assert.doesNotMatch(resetRouteSource, /await processR2CleanupQueue\(\)/u);
   assert.match(
     resetRouteSource,
     /Cycle reset succeeded, but queued media cleanup could not be started/

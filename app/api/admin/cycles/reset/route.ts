@@ -4,7 +4,11 @@ import { NextResponse } from "next/server";
 import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
 import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { resetCycleTransactional } from "@/lib/cycles/resetCycle";
-import { processR2CleanupQueue } from "@/lib/r2/processMediaCleanupQueue";
+import {
+  processTargetedR2CleanupQueue,
+  verifyR2CleanupQueuePostflight,
+} from "@/lib/r2/processMediaCleanupQueue";
+import type { MediaCleanupQueuePostflight } from "@/lib/r2/mediaCleanupState";
 
 const MAX_REASON_LENGTH = 1000;
 
@@ -57,29 +61,47 @@ export async function POST(req: Request) {
     let cleanup;
 
     try {
-      const targetedQueueIds = reset.r2CleanupQueueIds.slice(0, 20);
-      const result = targetedQueueIds.length > 0
-        ? await processR2CleanupQueue({ queueIds: targetedQueueIds })
-        : {
-            claimed: 0,
-            completed: 0,
-            retryScheduled: 0,
-            terminalFailures: 0,
-            staleResults: 0,
-            confirmationFailures: 0,
-          };
-      const remainingQueued = Math.max(
-        0,
-        reset.r2CleanupQueueIds.length - result.completed
+      const result = await processTargetedR2CleanupQueue(
+        reset.r2CleanupQueueIds
       );
+      let postflight: MediaCleanupQueuePostflight | null = null;
+
+      try {
+        postflight = await verifyR2CleanupQueuePostflight(
+          reset.r2CleanupQueueIds
+        );
+      } catch (postflightError) {
+        console.error("[cycle reset][media cleanup postflight unavailable]", {
+          errorName:
+            postflightError instanceof Error
+              ? postflightError.name
+              : "UnknownError",
+        });
+      }
+
+      const remainingQueued = postflight
+        ? Math.max(
+            0,
+            postflight.expectedJobs - postflight.completedQueueJobs
+          )
+        : Math.max(0, reset.r2CleanupQueueIds.length - result.completed);
+      const drained =
+        result.batchFailures === 0 && postflight?.drained === true;
       cleanup = {
         claimed: result.claimed,
         completed: result.completed,
         retryScheduled: result.retryScheduled,
         terminalFailures: result.terminalFailures,
         staleResults: result.staleResults,
+        confirmationFailures: result.confirmationFailures,
+        deletionFailures: result.deletionFailures,
+        batchesAttempted: result.batchesAttempted,
+        batchFailures: result.batchFailures,
         remainingQueued,
+        drained,
+        postflight,
         warning:
+          !drained ||
           remainingQueued > 0 ||
           result.retryScheduled > 0 ||
           result.terminalFailures > 0 ||
@@ -101,7 +123,13 @@ export async function POST(req: Request) {
         retryScheduled: 0,
         terminalFailures: 0,
         staleResults: 0,
+        confirmationFailures: 0,
+        deletionFailures: 0,
+        batchesAttempted: 0,
+        batchFailures: 1,
         remainingQueued: reset.r2CleanupQueueIds.length,
+        drained: false,
+        postflight: null,
         warning:
           "Cycle reset succeeded, but queued media cleanup could not be started.",
       };
