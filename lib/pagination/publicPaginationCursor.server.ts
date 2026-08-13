@@ -1,11 +1,13 @@
 import "server-only";
 import {
   decodePublicPaginationCursor,
+  decodePublicPaginationCursorForScope,
   encodePublicPaginationCursor,
   PUBLIC_PAGINATION_CURSOR_SECRET_MIN_LENGTH,
 } from "./publicPaginationCursor";
 import type {
   PublicPaginationCursorPayload,
+  PublicPaginationCursorPayloadForScope,
   PublicPaginationScope,
 } from "./publicPagination";
 
@@ -59,15 +61,30 @@ export function encodeServerPublicPaginationCursor(
   );
 }
 
-export function decodeServerPublicPaginationCursor(
+export function decodeServerPublicPaginationCursor<
+  Scope extends PublicPaginationScope,
+>(
   cursor: string,
-  expectedScope: PublicPaginationScope,
+  expectedScope: Scope,
   expectedContext: PublicPaginationCursorPayload["context"]
-) {
+): PublicPaginationCursorPayloadForScope<Scope> {
   return decodePublicPaginationCursor(
     cursor,
     expectedScope,
     expectedContext,
+    getCursorSecret()
+  );
+}
+
+export function decodeServerPublicPaginationCursorForScope<
+  Scope extends PublicPaginationScope,
+>(
+  cursor: string,
+  expectedScope: Scope
+): PublicPaginationCursorPayloadForScope<Scope> {
+  return decodePublicPaginationCursorForScope(
+    cursor,
+    expectedScope,
     getCursorSecret()
   );
 }

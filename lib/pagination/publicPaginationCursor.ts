@@ -7,6 +7,7 @@ import {
   PUBLIC_PAGINATION_SCOPES,
   type PaginationView,
   type PublicPaginationCursorPayload,
+  type PublicPaginationCursorPayloadForScope,
   type PublicPaginationScope,
 } from "./publicPagination";
 
@@ -55,6 +56,14 @@ function isId(value: unknown): value is number {
     typeof value === "number" &&
     Number.isSafeInteger(value) &&
     value > 0
+  );
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0
   );
 }
 
@@ -158,6 +167,64 @@ function validatePayload(
     return value as PublicPaginationCursorPayload;
   }
 
+  if (value.scope === PUBLIC_PAGINATION_SCOPES.feedLive) {
+    if (
+      !hasExactKeys(value.context, [
+        "cycleId",
+        "feed",
+        "resetCount",
+      ]) ||
+      !hasExactKeys(value.values, [
+        "createdAt",
+        "submissionId",
+      ]) ||
+      value.context.feed !== "live" ||
+      !isId(value.context.cycleId) ||
+      !isNonNegativeInteger(value.context.resetCount) ||
+      !isCanonicalTimestamp(value.values.createdAt) ||
+      !isId(value.values.submissionId)
+    ) {
+      return fail();
+    }
+
+    return value as PublicPaginationCursorPayload;
+  }
+
+  const finalizedFeedByScope = {
+    [PUBLIC_PAGINATION_SCOPES.feedTop10]: "top10",
+    [PUBLIC_PAGINATION_SCOPES.feedAll]: "all",
+    [PUBLIC_PAGINATION_SCOPES.feedTrash]: "trash",
+  } as const;
+  const finalizedFeed =
+    finalizedFeedByScope[
+      value.scope as keyof typeof finalizedFeedByScope
+    ];
+
+  if (finalizedFeed) {
+    if (
+      !hasExactKeys(value.context, [
+        "classificationVersion",
+        "feed",
+      ]) ||
+      !hasExactKeys(value.values, [
+        "cycleId",
+        "finalizedAt",
+        "rankInCycle",
+        "submissionId",
+      ]) ||
+      value.context.feed !== finalizedFeed ||
+      !isId(value.context.classificationVersion) ||
+      !isCanonicalTimestamp(value.values.finalizedAt) ||
+      !isId(value.values.cycleId) ||
+      !isId(value.values.rankInCycle) ||
+      !isId(value.values.submissionId)
+    ) {
+      return fail();
+    }
+
+    return value as PublicPaginationCursorPayload;
+  }
+
   return fail();
 }
 
@@ -205,12 +272,13 @@ export function encodePublicPaginationCursor(
   return `${body}.${signature}`;
 }
 
-export function decodePublicPaginationCursor(
+export function decodePublicPaginationCursorForScope<
+  Scope extends PublicPaginationScope,
+>(
   cursor: string,
-  expectedScope: PublicPaginationScope,
-  expectedContext: PublicPaginationCursorPayload["context"],
+  expectedScope: Scope,
   secret: string
-) {
+): PublicPaginationCursorPayloadForScope<Scope> {
   if (
     typeof cursor !== "string" ||
     cursor.length === 0 ||
@@ -265,10 +333,28 @@ export function decodePublicPaginationCursor(
 
   const payload = validatePayload(decoded);
 
-  if (
-    payload.scope !== expectedScope ||
-    !contextsMatch(payload.context, expectedContext)
-  ) {
+  if (payload.scope !== expectedScope) {
+    return fail();
+  }
+
+  return payload as PublicPaginationCursorPayloadForScope<Scope>;
+}
+
+export function decodePublicPaginationCursor<
+  Scope extends PublicPaginationScope,
+>(
+  cursor: string,
+  expectedScope: Scope,
+  expectedContext: PublicPaginationCursorPayload["context"],
+  secret: string
+): PublicPaginationCursorPayloadForScope<Scope> {
+  const payload = decodePublicPaginationCursorForScope(
+    cursor,
+    expectedScope,
+    secret
+  );
+
+  if (!contextsMatch(payload.context, expectedContext)) {
     return fail();
   }
 

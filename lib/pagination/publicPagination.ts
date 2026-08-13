@@ -7,6 +7,10 @@ export const PUBLIC_PAGINATION_SCOPES = {
   shame: "shame",
   historyCycles: "history-cycles",
   historySubmissions: "history-submissions",
+  feedLive: "feed-live",
+  feedTop10: "feed-top-10",
+  feedAll: "feed-all",
+  feedTrash: "feed-trash",
 } as const;
 
 export type PublicPaginationScope =
@@ -46,5 +50,44 @@ export type PublicPaginationCursorPayload =
       scope: typeof PUBLIC_PAGINATION_SCOPES.historySubmissions;
       context: { cycleId: number; view: PaginationView };
       values: { id: number };
+    }
+  | {
+      version: typeof PUBLIC_PAGINATION_CURSOR_VERSION;
+      scope: typeof PUBLIC_PAGINATION_SCOPES.feedLive;
+      context: {
+        feed: "live";
+        cycleId: number;
+        resetCount: number;
+      };
+      values: {
+        createdAt: string;
+        submissionId: number;
+      };
+    }
+  | {
+      version: typeof PUBLIC_PAGINATION_CURSOR_VERSION;
+      scope:
+        | typeof PUBLIC_PAGINATION_SCOPES.feedTop10
+        | typeof PUBLIC_PAGINATION_SCOPES.feedAll
+        | typeof PUBLIC_PAGINATION_SCOPES.feedTrash;
+      context: {
+        feed: "top10" | "all" | "trash";
+        classificationVersion: number;
+      };
+      values: {
+        finalizedAt: string;
+        cycleId: number;
+        rankInCycle: number;
+        submissionId: number;
+      };
     };
 
+export type PublicPaginationCursorPayloadForScope<
+  Scope extends PublicPaginationScope,
+> = PublicPaginationCursorPayload extends infer Payload
+  ? Payload extends { scope: infer PayloadScope }
+    ? Scope extends PayloadScope
+      ? Payload
+      : never
+    : never
+  : never;
