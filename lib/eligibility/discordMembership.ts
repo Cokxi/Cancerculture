@@ -2,6 +2,8 @@ import "server-only";
 
 import { AuthError } from "@/lib/auth/AuthError";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { evaluateDiscordSyncHealth } from "@/lib/discord/discordSyncHealth";
+import { readDiscordSyncHealth } from "@/lib/discord/readDiscordSyncHealth";
 import {
   DISCORD_MEMBERSHIP_COOLDOWN_MINUTES,
   getDiscordMembershipCooldown,
@@ -36,6 +38,21 @@ type DiscordMemberStateRow = {
   discord_membership_observed_at: string | null;
   is_in_discord: boolean | null;
 };
+
+async function hasAuthoritativeCurrentMembershipSnapshot() {
+  const healthRow = await readDiscordSyncHealth();
+  if (!healthRow) return false;
+
+  const health = evaluateDiscordSyncHealth({
+    now: new Date(),
+    lastHeartbeatAt: healthRow.last_heartbeat_at,
+    lastFullReconciliationSucceededAt:
+      healthRow.last_full_reconciliation_succeeded_at,
+    lastFailureAt: healthRow.last_failure_at,
+  });
+
+  return health.status === "healthy";
+}
 
 export async function getDiscordMembershipEligibility(
   discordUserId: string
@@ -74,21 +91,40 @@ export async function getDiscordMembershipEligibility(
     };
   }
 
+  if (!memberState) {
+    const absenceIsAuthoritative =
+      await hasAuthoritativeCurrentMembershipSnapshot();
+
+    return {
+      isInDiscord: false,
+      isEligible: false,
+      isDiscordBanned: false,
+      membershipKnown: absenceIsAuthoritative,
+      dependencyUnavailable: false,
+      membershipObservedAt: null,
+      joinedAt: null,
+      joinedTooRecently: false,
+      retryAfterMs: 0,
+      reason: absenceIsAuthoritative
+        ? "not_in_discord"
+        : "membership_pending",
+    };
+  }
+
   if (
-    !memberState ||
     !isDiscordMembershipObservationFresh(
-      memberState?.discord_membership_observed_at
+      memberState.discord_membership_observed_at
     )
   ) {
     return {
-      isInDiscord: memberState?.is_in_discord === true,
+      isInDiscord: memberState.is_in_discord === true,
       isEligible: false,
       isDiscordBanned: false,
       membershipKnown: false,
       dependencyUnavailable: false,
       membershipObservedAt:
-        memberState?.discord_membership_observed_at ?? null,
-      joinedAt: memberState?.discord_joined_at ?? null,
+        memberState.discord_membership_observed_at,
+      joinedAt: memberState.discord_joined_at,
       joinedTooRecently: false,
       retryAfterMs: 0,
       reason: "membership_pending",
