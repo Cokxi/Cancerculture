@@ -113,6 +113,27 @@ test("Dense Rank at or below ten includes every tie at the boundary", () => {
   );
 });
 
+test("synthetic finalized Feed smoke separates Top 10, All, Trash, and zero-Vote rows", () => {
+  const classification = classifyFinalizedSubmissions(
+    entries([20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 11, 9, 8, 7, 6, 5, 4, 1, 0, 0]),
+  );
+  const topTenIds = classification
+    .filter((entry) => entry.feedEligible && entry.rankInCycle <= 10)
+    .map((entry) => entry.submissionId);
+  const allIds = classification
+    .filter((entry) => entry.feedEligible && !entry.feedTrash)
+    .map((entry) => entry.submissionId);
+
+  assert.deepEqual(topTenIds, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  assert.equal(allIds.length, 17);
+  assert.equal(allIds.includes(18), false);
+  assert.deepEqual(trashIds(classification), [18]);
+  assert.equal(
+    classification.slice(18).every((entry) => !entry.feedEligible),
+    true,
+  );
+});
+
 test("finalization replay produces byte-for-byte equivalent classification data", () => {
   const input = entries([0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89]);
   const first = classifyFinalizedSubmissions(input);

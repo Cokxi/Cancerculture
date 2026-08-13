@@ -187,6 +187,7 @@ test("desktop and mobile home navigation expose the intended links", () => {
       "info",
       "upload",
       "submissions",
+      "spread",
       "faq",
       "rules",
       "wall-fame",

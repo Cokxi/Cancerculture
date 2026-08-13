@@ -14,6 +14,12 @@ export const HOME_NAVIGATION_ITEMS: HomeNavigationItem[] = [
     href: "/submissions",
     showInDesktopBar: true,
   },
+  {
+    id: "spread",
+    label: "The Spread",
+    href: "/spread",
+    showInDesktopBar: true,
+  },
   { id: "faq", label: "FAQ", href: "/faq", showInDesktopBar: true },
   { id: "rules", label: "Rules", href: "/rules", showInDesktopBar: true },
   {
