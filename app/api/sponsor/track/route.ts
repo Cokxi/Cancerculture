@@ -3,10 +3,12 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import {
   getSponsorViewerHash,
+  hasSponsorMeasurementConsent,
   isSponsorEventType,
   isSponsorTrackingSurface,
   recordSponsorEvent,
   SPONSOR_TRACKING_COOKIE,
+  SPONSOR_TRACKING_COOKIE_MAX_AGE_SECONDS,
 } from "@/lib/sponsors/tracking";
 
 export async function POST(req: Request) {
@@ -17,7 +19,8 @@ export async function POST(req: Request) {
     !Number.isInteger(sponsorshipId) ||
     sponsorshipId <= 0 ||
     !isSponsorEventType(body?.eventType) ||
-    !isSponsorTrackingSurface(body?.surface)
+    !isSponsorTrackingSurface(body?.surface) ||
+    body?.surface === "spread"
   ) {
     return NextResponse.json(
       { error: "Invalid sponsor tracking event" },
@@ -25,10 +28,20 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!(await hasSponsorMeasurementConsent())) {
+    return new NextResponse(null, {
+      status: 204,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   const { anonymousViewerId, viewerHash } =
     await getSponsorViewerHash();
 
-  const response = NextResponse.json({ ok: true });
+  const response = NextResponse.json(
+    { ok: true },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 
   if (anonymousViewerId) {
     response.cookies.set(
@@ -37,9 +50,9 @@ export async function POST(req: Request) {
       {
         httpOnly: true,
         sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
+        secure: true,
         path: "/",
-        maxAge: 60 * 60 * 24 * 180,
+        maxAge: SPONSOR_TRACKING_COOKIE_MAX_AGE_SECONDS,
       }
     );
   }

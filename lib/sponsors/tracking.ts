@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash, randomUUID } from "crypto";
+import { createHmac, randomUUID } from "crypto";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";
 
@@ -9,6 +9,7 @@ export const SPONSOR_TRACKING_SURFACES = [
   "history_modal",
   "fame_modal",
   "shame_modal",
+  "spread",
 ] as const;
 
 export const SPONSOR_EVENT_TYPES = [
@@ -23,7 +24,10 @@ export type SponsorEventType =
   (typeof SPONSOR_EVENT_TYPES)[number];
 
 export const SPONSOR_TRACKING_COOKIE = "sponsor_viewer_id";
-export const SPONSOR_TRACKING_COOLDOWN_HOURS = 24;
+export const SPONSOR_TRACKING_CONSENT_COOKIE =
+  "sponsor_analytics_consent";
+export const SPONSOR_TRACKING_COOKIE_MAX_AGE_SECONDS =
+  30 * 24 * 60 * 60;
 
 export function isSponsorTrackingSurface(
   value: unknown
@@ -46,11 +50,7 @@ export function isSponsorEventType(
 }
 
 function getTrackingSalt() {
-  return (
-    process.env.SPONSOR_TRACKING_SALT ??
-    process.env.OWNER_HASH_SECRET ??
-    ""
-  );
+  return process.env.SPONSOR_MEASUREMENT_HMAC_SECRET ?? "";
 }
 
 function hashViewerId(rawViewerId: string) {
@@ -60,9 +60,19 @@ function hashViewerId(rawViewerId: string) {
     return null;
   }
 
-  return createHash("sha256")
-    .update(`${salt}:${rawViewerId}`)
+  return createHmac("sha256", salt)
+    .update(rawViewerId)
     .digest("hex");
+}
+
+export async function getSponsorMeasurementConsent() {
+  const cookieStore = await cookies();
+  const value = cookieStore.get(SPONSOR_TRACKING_CONSENT_COOKIE)?.value;
+  return value === "granted" || value === "denied" ? value : "unknown";
+}
+
+export async function hasSponsorMeasurementConsent() {
+  return (await getSponsorMeasurementConsent()) === "granted";
 }
 
 export async function getSponsorViewerHash() {
@@ -100,59 +110,50 @@ export async function getSponsorViewerHash() {
 
 export async function recordSponsorEvent({
   eventType,
+  feedKind = null,
   sponsorshipId,
   surface,
   viewerHash,
 }: {
   eventType: SponsorEventType;
+  feedKind?: "live" | "top10" | "all" | "trash" | null;
   sponsorshipId: number;
   surface: SponsorTrackingSurface;
   viewerHash: string;
 }) {
-  const cutoff = new Date(
-    Date.now() -
-      SPONSOR_TRACKING_COOLDOWN_HOURS * 60 * 60 * 1000
-  ).toISOString();
+  if (
+    (surface === "spread" && !feedKind) ||
+    (surface !== "spread" && feedKind !== null)
+  ) {
+    return { status: "skipped" as const };
+  }
 
-  const existingResult = await supabaseAdmin
-    .from("sponsor_tracking_events")
-    .select("id")
-    .eq("sponsorship_id", sponsorshipId)
-    .eq("event_type", eventType)
-    .eq("surface", surface)
-    .eq("viewer_hash", viewerHash)
-    .gte("created_at", cutoff)
-    .limit(1)
-    .maybeSingle();
+  const result = await supabaseAdmin.rpc("record_sponsor_event_v2", {
+    p_event_type: eventType,
+    p_feed_kind: feedKind,
+    p_sponsorship_id: sponsorshipId,
+    p_surface: surface,
+    p_viewer_hash: viewerHash,
+  });
 
-  if (existingResult.error) {
+  if (result.error) {
     console.warn(
-      "[sponsor tracking][dedupe]",
-      existingResult.error.message
+      "[sponsor tracking][rpc]",
+      { code: result.error.code }
     );
     return { status: "skipped" as const };
   }
 
-  if (existingResult.data) {
-    return { status: "deduped" as const };
-  }
+  const outcome =
+    result.data &&
+    typeof result.data === "object" &&
+    "outcome" in result.data
+      ? String(result.data.outcome)
+      : "";
 
-  const insertResult = await supabaseAdmin
-    .from("sponsor_tracking_events")
-    .insert({
-      sponsorship_id: sponsorshipId,
-      event_type: eventType,
-      surface,
-      viewer_hash: viewerHash,
-    });
-
-  if (insertResult.error) {
-    console.warn(
-      "[sponsor tracking][insert]",
-      insertResult.error.message
-    );
-    return { status: "skipped" as const };
-  }
-
-  return { status: "tracked" as const };
+  return outcome === "tracked"
+    ? { status: "tracked" as const }
+    : outcome === "deduped"
+      ? { status: "deduped" as const }
+      : { status: "skipped" as const };
 }

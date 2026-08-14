@@ -236,9 +236,11 @@ mock.module(
   },
 );
 
-const { getCommunityFeedPage, resolveCommunityFeedAnchor } = await import(
-  "../../lib/feed/communityFeedReadModel.server.ts"
-);
+const {
+  getCommunityFeedPage,
+  resolveCommunityFeedAnchor,
+  resolveCommunityFeedMediaSource,
+} = await import("../../lib/feed/communityFeedReadModel.server.ts");
 
 function currentCycle(overrides = {}) {
   return {
@@ -329,7 +331,12 @@ test("Live pagination filters hidden intermediate rows before LIMIT across multi
     }),
   );
   const visible = Array.from({ length: 50 }, (_, index) =>
-    liveSubmission(index),
+    liveSubmission(index, {
+      created_at: liveSubmission(index).created_at.replace(
+        ".000Z",
+        ".000123+00:00",
+      ),
+    }),
   );
   state.submissions = [...hidden, ...visible];
 
@@ -338,6 +345,7 @@ test("Live pagination filters hidden intermediate rows before LIMIT across multi
   assert.equal(first.items.length, 48);
   assert.equal(first.hasMore, true);
   assert.equal(first.nextCursor, `live:${visible[47].id}`);
+  assert.equal(state.encoded.at(-1).tuple.createdAt, visible[47].created_at);
   assert.deepEqual(
     first.items.map((item) => item.submissionId),
     visible.slice(0, 48).map((row) => row.id),
@@ -423,6 +431,7 @@ test("Top 10 keeps every Dense-Rank tie, All excludes Trash, and Trash uses only
 test("finalized ordering and full-tuple cursors remain stable across pages", async () => {
   state.results = Array.from({ length: 50 }, (_, index) =>
     finalizedResult(index, {
+      finalized_at: "2026-08-11T20:00:00.730016+00:00",
       rank_in_cycle: Math.floor(index / 2) + 1,
       submission_id: 3000 + index,
       final_vote_count: 100 - Math.floor(index / 2),
@@ -439,6 +448,8 @@ test("finalized ordering and full-tuple cursors remain stable across pages", asy
     "rankInCycle",
     "submissionId",
   ]);
+  assert.equal(tuple.finalizedAt, "2026-08-11T20:00:00.730016+00:00");
+  assert.equal(first.items[0].finalizedAt, "2026-08-11T20:00:00.730Z");
 
   state.decodedFinalized = {
     context: { feed: "all", classificationVersion: 1 },
@@ -556,6 +567,50 @@ test("hidden, DQ, and missing direct anchors fail closed", async () => {
     assert.equal(resolution.item, null);
     assert.equal(resolution.resumeCursor, null);
   }
+});
+
+test("Feed media source rechecks visible, DQ, legal-review, classification, and current Live context", async () => {
+  const visible = finalizedResult(0, { submission_id: 6100 });
+  const hidden = finalizedResult(1, {
+    submission_id: 6101,
+    submission: { public_visibility_status: "removed" },
+  });
+  const legalReview = finalizedResult(2, {
+    submission_id: 6102,
+    submission: { public_visibility_status: "legal_review" },
+  });
+  const disqualified = finalizedResult(3, {
+    submission_id: 6103,
+    submission: { is_disqualified: true },
+  });
+  const ineligible = finalizedResult(4, {
+    submission_id: 6104,
+    feed_eligible: false,
+  });
+  state.results = [visible, hidden, legalReview, disqualified, ineligible];
+
+  assert.deepEqual(
+    await resolveCommunityFeedMediaSource({ feed: "all", submissionId: 6100 }),
+    { r2Key: visible.submissions.r2_key },
+  );
+  for (const submissionId of [6101, 6102, 6103, 6104, 6199]) {
+    assert.equal(
+      await resolveCommunityFeedMediaSource({ feed: "all", submissionId }),
+      null,
+    );
+  }
+
+  const live = liveSubmission(0);
+  state.submissions = [live];
+  assert.deepEqual(
+    await resolveCommunityFeedMediaSource({ feed: "live", submissionId: live.id }),
+    { r2Key: live.r2_key },
+  );
+  state.cycles = [];
+  assert.equal(
+    await resolveCommunityFeedMediaSource({ feed: "live", submissionId: live.id }),
+    null,
+  );
 });
 
 test("submission_closed remains part of the one current Live Cycle", async () => {

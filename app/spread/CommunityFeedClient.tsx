@@ -9,6 +9,7 @@ import {
   type CSSProperties,
 } from "react";
 import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
+import CommunityFeedSponsor from "@/app/spread/CommunityFeedSponsor";
 import {
   COMMUNITY_FEEDS,
   type CommunityFeedContext,
@@ -134,6 +135,11 @@ export function CommunityFeedCard({
           </div>
         )}
       </div>
+
+      <CommunityFeedSponsor
+        feed={feed}
+        submissionId={item.submissionId}
+      />
 
       <div className="px-4 py-3 text-xs text-white/50 sm:px-5">
         <time dateTime={item.finalizedAt ?? item.createdAt}>

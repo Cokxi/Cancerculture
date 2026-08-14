@@ -7,6 +7,7 @@ const state = {
   processError: null,
   processCalls: 0,
   healthCalls: 0,
+  retentionCalls: 0,
 };
 
 mock.module(
@@ -46,6 +47,18 @@ mock.module(
   },
 );
 
+mock.module(
+  new URL("../../lib/sponsors/retention.server.ts", import.meta.url),
+  {
+    namedExports: {
+      async pruneSponsorMeasurementRetention() {
+        state.retentionCalls += 1;
+        return { rawEventsDeleted: 0, aggregatesDeleted: 0 };
+      },
+    },
+  },
+);
+
 const route = await import(
   "../../app/api/internal/media-cleanup/process-due/route.ts"
 );
@@ -68,6 +81,7 @@ test.beforeEach(() => {
   state.processError = null;
   state.processCalls = 0;
   state.healthCalls = 0;
+  state.retentionCalls = 0;
 });
 
 test.after(() => {
@@ -86,6 +100,7 @@ test("empty queue is an authenticated, environment-bound safe no-op", async () =
   assert.equal(body.fullyDrained, true);
   assert.equal(state.processCalls, 1);
   assert.equal(state.healthCalls, 1);
+  assert.equal(state.retentionCalls, 1);
 });
 
 test("missing, wrong, or mixed-environment authorization never starts cleanup", async () => {
@@ -100,6 +115,7 @@ test("missing, wrong, or mixed-environment authorization never starts cleanup", 
 
   assert.equal(state.processCalls, 0);
   assert.equal(state.healthCalls, 0);
+  assert.equal(state.retentionCalls, 0);
 });
 
 test("website processing failures are bounded and return 503", async () => {

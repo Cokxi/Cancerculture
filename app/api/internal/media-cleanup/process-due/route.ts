@@ -11,6 +11,7 @@ import {
   getMediaCleanupQueueHealth,
   processDueR2CleanupQueue,
 } from "@/lib/r2/processMediaCleanupQueue";
+import { pruneSponsorMeasurementRetention } from "@/lib/sponsors/retention.server";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
 
   try {
     const result = await processDueR2CleanupQueue();
+    const sponsorRetention = await pruneSponsorMeasurementRetention();
     const queue = await getMediaCleanupQueueHealth();
     const dueDrained =
       queue.dueRetryPending === 0 && queue.expiredProcessing === 0;
@@ -73,6 +75,7 @@ export async function POST(req: Request) {
         batchLimitReached: !result.drainComplete,
         dueDrained,
         fullyDrained: queue.outstanding === 0,
+        sponsorRetention,
         queue,
       },
       { headers: NO_STORE_HEADERS }

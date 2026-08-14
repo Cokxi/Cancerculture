@@ -26,7 +26,7 @@ export default function SponsoredBanner({
       ? `/api/sponsor/click?sponsorshipId=${sponsorshipId}&surface=${surface}`
       : sponsorLink;
   const bannerContent = (
-    <>
+    <div className="relative">
       {sponsorshipId && surface ? (
         <SponsorImpressionTracker
           sponsorshipId={sponsorshipId}
@@ -49,7 +49,7 @@ export default function SponsoredBanner({
           className="object-cover"
         />
       </div>
-    </>
+    </div>
   );
 
   if (trackedHref) {

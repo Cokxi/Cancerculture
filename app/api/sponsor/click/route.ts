@@ -4,9 +4,11 @@ import { NextResponse } from "next/server";
 import { getCycleSponsorshipById } from "@/lib/cycles/sponsoredCycle";
 import {
   getSponsorViewerHash,
+  hasSponsorMeasurementConsent,
   isSponsorTrackingSurface,
   recordSponsorEvent,
   SPONSOR_TRACKING_COOKIE,
+  SPONSOR_TRACKING_COOKIE_MAX_AGE_SECONDS,
 } from "@/lib/sponsors/tracking";
 
 export async function GET(req: Request) {
@@ -17,7 +19,8 @@ export async function GET(req: Request) {
   if (
     !Number.isInteger(sponsorshipId) ||
     sponsorshipId <= 0 ||
-    !isSponsorTrackingSurface(surface)
+    !isSponsorTrackingSurface(surface) ||
+    surface === "spread"
   ) {
     return NextResponse.redirect(new URL("/", req.url));
   }
@@ -28,8 +31,10 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  const { anonymousViewerId, viewerHash } =
-    await getSponsorViewerHash();
+  const consented = await hasSponsorMeasurementConsent();
+  const { anonymousViewerId, viewerHash } = consented
+    ? await getSponsorViewerHash()
+    : { anonymousViewerId: null, viewerHash: null };
 
   if (viewerHash) {
     await recordSponsorEvent({
@@ -49,9 +54,9 @@ export async function GET(req: Request) {
       {
         httpOnly: true,
         sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
+        secure: true,
         path: "/",
-        maxAge: 60 * 60 * 24 * 180,
+        maxAge: SPONSOR_TRACKING_COOKIE_MAX_AGE_SECONDS,
       }
     );
   }

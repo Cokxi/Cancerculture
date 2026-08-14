@@ -74,6 +74,20 @@ export type FinalizedFeedCursorTuple = {
   submissionId: number;
 };
 
+const PRECISE_UTC_TIMESTAMP_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|\+00:00)$/u;
+
+export function getCommunityFeedMediaPath(
+  feed: CommunityFeedKind,
+  submissionId: number
+) {
+  if (!Number.isSafeInteger(submissionId) || submissionId <= 0) {
+    throw new TypeError("Invalid community Feed media submission id");
+  }
+
+  return `/api/community-feed/media/${submissionId}?feed=${feed}`;
+}
+
 export function getLiveFeedKeysetFilter({
   createdAt,
   submissionId,
@@ -106,4 +120,18 @@ export function canonicalFeedTimestamp(value: string) {
   }
 
   return parsed.toISOString();
+}
+
+export function preciseFeedCursorTimestamp(value: string) {
+  const parsed = new Date(value);
+
+  if (
+    !PRECISE_UTC_TIMESTAMP_PATTERN.test(value) ||
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 19) !== value.slice(0, 19)
+  ) {
+    throw new Error("COMMUNITY_FEED_CURSOR_TIMESTAMP_INVALID");
+  }
+
+  return value;
 }

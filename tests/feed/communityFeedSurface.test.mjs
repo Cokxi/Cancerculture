@@ -6,11 +6,11 @@ import {
   mergeCommunityFeedItems,
 } from "../../lib/feed/communityFeedSurface.ts";
 
-function item(id = 10) {
+function item(id = 10, feed = "all") {
   return {
     submissionId: id,
     cycleNumber: 4,
-    imageUrl: `https://images.example/${id}.webp`,
+    imageUrl: `/api/community-feed/media/${id}?feed=${feed}`,
     mediaWidth: 1200,
     mediaHeight: 900,
     createdAt: "2026-08-13T08:00:00.000Z",
@@ -40,7 +40,7 @@ test("the browser accepts only the exact allowlisted Feed page and DTO", () => {
         feed: "live",
         items: [
           {
-            ...item(),
+            ...item(10, "live"),
             finalizedAt: null,
             finalVoteCount: null,
             rankInCycle: null,
@@ -62,6 +62,8 @@ test("the browser accepts only the exact allowlisted Feed page and DTO", () => {
     page({ items: [{ ...item(), moderationReason: "private" }] }),
     page({ items: [{ ...item(), cycleId: 9 }] }),
     page({ items: [{ ...item(), imageUrl: "http://unsafe.example/a" }] }),
+    page({ items: [{ ...item(), imageUrl: "https://images.example/a.webp" }] }),
+    page({ items: [{ ...item(), imageUrl: "/api/community-feed/media/10?feed=live" }] }),
     page({ items: [{ ...item(), mediaHeight: null }] }),
     page({ feed: "live" }),
     page({ items: [{ ...item(), finalizedAt: null }] }),

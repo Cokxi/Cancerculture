@@ -2,6 +2,7 @@ import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
 import { supabaseAdmin } from "@/lib/db/admin";
 import {
   getSponsorReportStats,
+  type SponsorTrackingAggregateForReport,
   type SponsorTrackingEventForReport,
 } from "@/lib/sponsors/report";
 import type {
@@ -24,7 +25,13 @@ type TrackingEventRow = {
   event_type: SponsorEventType;
   surface: SponsorTrackingSurface;
   viewer_hash: string;
+  feed_kind: "live" | "top10" | "all" | "trash" | null;
+  measurement_window_start: string | null;
   created_at: string;
+};
+
+type TrackingAggregateRow = SponsorTrackingAggregateForReport & {
+  sponsorship_id: number;
 };
 
 function formatPercent(value: number) {
@@ -70,17 +77,26 @@ export default async function SponsorLogsPage() {
   const sponsorshipIds = sponsorships.map(
     (sponsorship) => sponsorship.id
   );
-  const eventsResult =
+  const [eventsResult, aggregatesResult] =
     sponsorshipIds.length > 0
-      ? await supabaseAdmin
+      ? await Promise.all([
+          supabaseAdmin
           .from("sponsor_tracking_events")
           .select(
-            "sponsorship_id, event_type, surface, viewer_hash, created_at"
+            "sponsorship_id, event_type, surface, feed_kind, viewer_hash, measurement_window_start, created_at"
           )
-          .in("sponsorship_id", sponsorshipIds)
-      : { data: [], error: null };
+          .in("sponsorship_id", sponsorshipIds),
+          supabaseAdmin
+            .from("sponsor_tracking_aggregates")
+            .select("sponsorship_id, event_type, surface, feed_kind, event_count")
+            .in("sponsorship_id", sponsorshipIds),
+        ])
+      : [
+          { data: [], error: null },
+          { data: [], error: null },
+        ];
 
-  if (eventsResult.error) {
+  if (eventsResult.error || aggregatesResult.error) {
     return (
       <div>
         <h1 className="text-3xl font-[Permanent_Marker] text-[var(--orange-dark)]">
@@ -95,11 +111,18 @@ export default async function SponsorLogsPage() {
 
   const events = (eventsResult.data ?? []) as TrackingEventRow[];
   const eventsBySponsorshipId = new Map<number, TrackingEventRow[]>();
+  const aggregatesBySponsorshipId = new Map<number, TrackingAggregateRow[]>();
 
   for (const event of events) {
     eventsBySponsorshipId.set(event.sponsorship_id, [
       ...(eventsBySponsorshipId.get(event.sponsorship_id) ?? []),
       event,
+    ]);
+  }
+  for (const aggregate of (aggregatesResult.data ?? []) as TrackingAggregateRow[]) {
+    aggregatesBySponsorshipId.set(aggregate.sponsorship_id, [
+      ...(aggregatesBySponsorshipId.get(aggregate.sponsorship_id) ?? []),
+      aggregate,
     ]);
   }
 
@@ -118,7 +141,8 @@ export default async function SponsorLogsPage() {
           {sponsorships.map((sponsorship) => {
             const stats = getSponsorReportStats(
               (eventsBySponsorshipId.get(sponsorship.id) ??
-                []) as SponsorTrackingEventForReport[]
+                []) as SponsorTrackingEventForReport[],
+              aggregatesBySponsorshipId.get(sponsorship.id) ?? []
             );
 
             return (
@@ -183,7 +207,7 @@ export default async function SponsorLogsPage() {
                   </div>
                   <div className="rounded-lg bg-white/5 p-3">
                     <div className="text-xs text-white/50">
-                      Unique Views
+                      Unique Views (30d)
                     </div>
                     <div className="mt-1 text-2xl font-semibold">
                       {stats.uniqueViews}
@@ -199,7 +223,7 @@ export default async function SponsorLogsPage() {
                   </div>
                   <div className="rounded-lg bg-white/5 p-3">
                     <div className="text-xs text-white/50">
-                      Unique Clicks
+                      Unique Clicks (30d)
                     </div>
                     <div className="mt-1 text-2xl font-semibold">
                       {stats.uniqueClicks}
@@ -221,9 +245,9 @@ export default async function SponsorLogsPage() {
                       <tr>
                         <th className="py-2">Surface</th>
                         <th className="py-2">Impressions</th>
-                        <th className="py-2">Unique Views</th>
+                        <th className="py-2">Unique Views (30d)</th>
                         <th className="py-2">Clicks</th>
-                        <th className="py-2">Unique Clicks</th>
+                        <th className="py-2">Unique Clicks (30d)</th>
                       </tr>
                     </thead>
                     <tbody>

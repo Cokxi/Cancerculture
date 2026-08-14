@@ -1,5 +1,6 @@
 import {
   COMMUNITY_FEEDS,
+  getCommunityFeedMediaPath,
   type CommunityFeedContext,
   type CommunityFeedItem,
   type CommunityFeedKind,
@@ -70,16 +71,13 @@ function isNullablePositiveInteger(value: unknown): value is number | null {
   return value === null || isPositiveInteger(value);
 }
 
-function isNullableUrl(value: unknown): value is string | null {
+function isNullableFeedMediaPath(
+  value: unknown,
+  feed: CommunityFeedKind,
+  submissionId: number
+): value is string | null {
   if (value === null) return true;
-  if (typeof value !== "string" || value.length === 0) return false;
-
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:";
-  } catch {
-    return false;
-  }
+  return value === getCommunityFeedMediaPath(feed, submissionId);
 }
 
 function isTimestamp(value: unknown): value is string {
@@ -92,13 +90,16 @@ function isNullableTimestamp(value: unknown): value is string | null {
   return value === null || isTimestamp(value);
 }
 
-function isCommunityFeedItem(value: unknown): value is CommunityFeedItem {
+function isCommunityFeedItem(
+  value: unknown,
+  feed: CommunityFeedKind
+): value is CommunityFeedItem {
   if (!isRecord(value) || !hasExactKeys(value, ITEM_KEYS)) return false;
 
   return (
     isPositiveInteger(value.submissionId) &&
     isPositiveInteger(value.cycleNumber) &&
-    isNullableUrl(value.imageUrl) &&
+    isNullableFeedMediaPath(value.imageUrl, feed, value.submissionId) &&
     isNullablePositiveInteger(value.mediaWidth) &&
     isNullablePositiveInteger(value.mediaHeight) &&
     ((value.mediaWidth === null && value.mediaHeight === null) ||
@@ -148,11 +149,12 @@ export function isCommunityFeedPage(
   value: unknown
 ): value is CommunityFeedPage {
   if (!isRecord(value) || !hasExactKeys(value, PAGE_KEYS)) return false;
+  if (!isCommunityFeedKind(value.feed)) return false;
+  const feed = value.feed;
 
   const baseValid =
-    isCommunityFeedKind(value.feed) &&
     Array.isArray(value.items) &&
-    value.items.every(isCommunityFeedItem) &&
+    value.items.every((item) => isCommunityFeedItem(item, feed)) &&
     (value.nextCursor === null ||
       (typeof value.nextCursor === "string" && value.nextCursor.length > 0)) &&
     typeof value.hasMore === "boolean" &&

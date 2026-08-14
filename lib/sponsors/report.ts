@@ -2,12 +2,26 @@ import type {
   SponsorEventType,
   SponsorTrackingSurface,
 } from "@/lib/sponsors/tracking";
+import type { CommunityFeedKind } from "@/lib/feed/communityFeed";
+
+export type SponsorReportSurfaceKey =
+  | SponsorTrackingSurface
+  | `spread:${CommunityFeedKind}`;
 
 export type SponsorTrackingEventForReport = {
   event_type: SponsorEventType;
   surface: SponsorTrackingSurface;
   viewer_hash: string;
+  feed_kind?: CommunityFeedKind | null;
+  measurement_window_start?: string | null;
   created_at?: string;
+};
+
+export type SponsorTrackingAggregateForReport = {
+  event_type: SponsorEventType;
+  surface: SponsorTrackingSurface;
+  feed_kind: CommunityFeedKind | null;
+  event_count: number;
 };
 
 export type SponsorSurfaceReport = {
@@ -21,13 +35,14 @@ export type SponsorReportStats = {
   clicks: number;
   ctr: number;
   impressions: number;
-  surfaceStats: Map<SponsorTrackingSurface, SponsorSurfaceReport>;
+  surfaceStats: Map<SponsorReportSurfaceKey, SponsorSurfaceReport>;
   uniqueClicks: number;
   uniqueViews: number;
 };
 
 export function getSponsorReportStats(
-  events: SponsorTrackingEventForReport[]
+  events: SponsorTrackingEventForReport[],
+  aggregates?: SponsorTrackingAggregateForReport[]
 ): SponsorReportStats {
   const impressions = events.filter(
     (event) => event.event_type === "impression"
@@ -36,7 +51,7 @@ export function getSponsorReportStats(
     (event) => event.event_type === "click"
   );
   const surfaceStats = new Map<
-    SponsorTrackingSurface,
+    SponsorReportSurfaceKey,
     {
       clicks: number;
       impressions: number;
@@ -45,9 +60,36 @@ export function getSponsorReportStats(
     }
   >();
 
+  const surfaceKey = (
+    surface: SponsorTrackingSurface,
+    feedKind: CommunityFeedKind | null | undefined
+  ): SponsorReportSurfaceKey =>
+    surface === "spread" && feedKind
+      ? `spread:${feedKind}`
+      : surface;
+
+  if (aggregates) {
+    for (const aggregate of aggregates) {
+      const key = surfaceKey(aggregate.surface, aggregate.feed_kind);
+      const current = surfaceStats.get(key) ?? {
+        clicks: 0,
+        impressions: 0,
+        uniqueClicks: new Set<string>(),
+        uniqueViews: new Set<string>(),
+      };
+      if (aggregate.event_type === "impression") {
+        current.impressions += aggregate.event_count;
+      } else {
+        current.clicks += aggregate.event_count;
+      }
+      surfaceStats.set(key, current);
+    }
+  }
+
   for (const event of events) {
+    const key = surfaceKey(event.surface, event.feed_kind);
     const current =
-      surfaceStats.get(event.surface) ?? {
+      surfaceStats.get(key) ?? {
         clicks: 0,
         impressions: 0,
         uniqueClicks: new Set<string>(),
@@ -55,23 +97,32 @@ export function getSponsorReportStats(
       };
 
     if (event.event_type === "impression") {
-      current.impressions += 1;
+      if (!aggregates) current.impressions += 1;
       current.uniqueViews.add(event.viewer_hash);
     } else {
-      current.clicks += 1;
+      if (!aggregates) current.clicks += 1;
       current.uniqueClicks.add(event.viewer_hash);
     }
 
-    surfaceStats.set(event.surface, current);
+    surfaceStats.set(key, current);
   }
 
+  const aggregateImpressions = aggregates?.filter(
+    (aggregate) => aggregate.event_type === "impression"
+  ).reduce((sum, aggregate) => sum + aggregate.event_count, 0);
+  const aggregateClicks = aggregates?.filter(
+    (aggregate) => aggregate.event_type === "click"
+  ).reduce((sum, aggregate) => sum + aggregate.event_count, 0);
+  const impressionCount = aggregateImpressions ?? impressions.length;
+  const clickCount = aggregateClicks ?? clicks.length;
+
   return {
-    clicks: clicks.length,
+    clicks: clickCount,
     ctr:
-      impressions.length > 0
-        ? (clicks.length / impressions.length) * 100
+      impressionCount > 0
+        ? (clickCount / impressionCount) * 100
         : 0,
-    impressions: impressions.length,
+    impressions: impressionCount,
     surfaceStats: new Map(
       Array.from(surfaceStats.entries()).map(
         ([surface, stats]) => [

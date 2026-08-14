@@ -38,6 +38,10 @@ const transpiled = ts.transpileModule(componentSource, {
   .replace(
     'import LoadMoreButton from "@/app/components/ui/LoadMoreButton";',
     "const LoadMoreButton = () => null;",
+  )
+  .replace(
+    'import CommunityFeedSponsor from "@/app/spread/CommunityFeedSponsor";',
+    "const CommunityFeedSponsor = () => null;",
   );
 const componentPath = path.join(tempDirectory, "CommunityFeedClient.mjs");
 await writeFile(componentPath, transpiled, "utf8");

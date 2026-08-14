@@ -5,12 +5,13 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import {
   PUBLIC_SUBMISSION_PAGE_SIZE,
 } from "@/lib/pagination/publicPagination";
-import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
 import {
   COMMUNITY_FEED_CLASSIFICATION_VERSION,
   canonicalFeedTimestamp,
   getFinalizedFeedKeysetFilter,
+  getCommunityFeedMediaPath,
   getLiveFeedKeysetFilter,
+  preciseFeedCursorTimestamp,
   type CommunityFeedAnchorResolution,
   type CommunityFeedContext,
   type CommunityFeedItem,
@@ -165,7 +166,7 @@ function finalizedContext(): Extract<
 
 function liveTuple(row: LiveSubmissionRow): LiveFeedCursorTuple {
   return {
-    createdAt: canonicalFeedTimestamp(row.created_at),
+    createdAt: preciseFeedCursorTimestamp(row.created_at),
     submissionId: row.id,
   };
 }
@@ -181,7 +182,7 @@ function finalizedTuple(
   }
 
   return {
-    finalizedAt: canonicalFeedTimestamp(row.finalized_at),
+    finalizedAt: preciseFeedCursorTimestamp(row.finalized_at),
     cycleId: row.cycle_id,
     rankInCycle: row.rank_in_cycle,
     submissionId: row.submission_id,
@@ -199,7 +200,9 @@ function mapLiveItem(
   return {
     submissionId: row.id,
     cycleNumber,
-    imageUrl: getPublicImageUrl(row.r2_key) ?? null,
+    imageUrl: row.r2_key
+      ? getCommunityFeedMediaPath("live", row.id)
+      : null,
     mediaWidth: row.media_width,
     mediaHeight: row.media_height,
     createdAt: canonicalFeedTimestamp(row.created_at),
@@ -210,7 +213,8 @@ function mapLiveItem(
 }
 
 function mapFinalizedItem(
-  row: FinalizedFeedRow
+  row: FinalizedFeedRow,
+  feed: FinalizedCommunityFeedKind
 ): CommunityFeedItem {
   const submission = embeddedRow(row.submissions);
   const cycle = embeddedRow(row.voting_cycles);
@@ -231,11 +235,13 @@ function mapFinalizedItem(
   return {
     submissionId: row.submission_id,
     cycleNumber: requirePublicCycleNumber(cycle.public_number),
-    imageUrl: getPublicImageUrl(submission.r2_key) ?? null,
+    imageUrl: submission.r2_key
+      ? getCommunityFeedMediaPath(feed, row.submission_id)
+      : null,
     mediaWidth: submission.media_width,
     mediaHeight: submission.media_height,
     createdAt: canonicalFeedTimestamp(submission.created_at),
-    finalizedAt: finalizedTuple(row).finalizedAt,
+    finalizedAt: canonicalFeedTimestamp(finalizedTuple(row).finalizedAt),
     finalVoteCount: row.final_vote_count,
     rankInCycle: row.rank_in_cycle,
   };
@@ -560,7 +566,7 @@ async function getFinalizedFeedPage(
   const lastRow = pageRows.at(-1);
 
   return {
-    items: pageRows.map(mapFinalizedItem),
+    items: pageRows.map((row) => mapFinalizedItem(row, feed)),
     nextCursor:
       hasMore && lastRow
         ? encodeFinalizedFeedCursor({
@@ -609,7 +615,7 @@ export async function resolveCommunityFeedAnchor({
         submissionId,
         status: "resolved",
         context,
-        item: mapFinalizedItem(anchor),
+        item: mapFinalizedItem(anchor, feed),
         resumeCursor: encodeFinalizedFeedCursor({
           feed,
           tuple: finalizedTuple(anchor),
@@ -623,4 +629,61 @@ export async function resolveCommunityFeedAnchor({
         item: null,
         resumeCursor: null,
       };
+}
+
+export async function resolveCommunityFeedMediaSource({
+  feed,
+  submissionId,
+}: {
+  feed: CommunityFeedKind;
+  submissionId: number;
+}): Promise<{ r2Key: string } | null> {
+  requireSubmissionId(submissionId);
+
+  if (feed === "live") {
+    const cycle = await getCurrentLiveFeedCycle();
+    if (!cycle) return null;
+
+    const submission = await getLiveAnchorRow(cycle.id, submissionId);
+    const verifiedCycle = await getCurrentLiveFeedCycle();
+
+    if (
+      !submission?.r2_key ||
+      !liveCyclesMatch(cycle, verifiedCycle)
+    ) {
+      return null;
+    }
+
+    return { r2Key: submission.r2_key };
+  }
+
+  const result = await getFinalizedAnchorRow(feed, submissionId);
+  if (!result) return null;
+
+  const submission = embeddedRow(result.submissions);
+  return submission.r2_key ? { r2Key: submission.r2_key } : null;
+}
+
+export async function resolveCommunityFeedCycleSource({
+  feed,
+  submissionId,
+}: {
+  feed: CommunityFeedKind;
+  submissionId: number;
+}): Promise<{ cycleId: number } | null> {
+  requireSubmissionId(submissionId);
+
+  if (feed === "live") {
+    const cycle = await getCurrentLiveFeedCycle();
+    if (!cycle) return null;
+
+    const submission = await getLiveAnchorRow(cycle.id, submissionId);
+    const verifiedCycle = await getCurrentLiveFeedCycle();
+    return submission && liveCyclesMatch(cycle, verifiedCycle)
+      ? { cycleId: cycle.id }
+      : null;
+  }
+
+  const result = await getFinalizedAnchorRow(feed, submissionId);
+  return result ? { cycleId: result.cycle_id } : null;
 }

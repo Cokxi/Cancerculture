@@ -2,7 +2,6 @@ export const MEDIA_CLEANUP_BATCH_SIZE = 10;
 export const MEDIA_CLEANUP_CONCURRENCY = 4;
 export const MEDIA_CLEANUP_LEASE_SECONDS = 120;
 export const MEDIA_CLEANUP_MAX_DUE_BATCHES = 10;
-export const MEDIA_CLEANUP_MAX_TARGETED_JOBS = 20;
 
 export type ClaimedMediaCleanupJob = {
   job_id: number;
@@ -175,7 +174,6 @@ export function chunkTargetedMediaCleanupQueueIds(
   queueIds: readonly number[]
 ) {
   if (
-    queueIds.length > MEDIA_CLEANUP_MAX_TARGETED_JOBS ||
     queueIds.some(
       (queueId) => !Number.isSafeInteger(queueId) || queueId <= 0
     ) ||

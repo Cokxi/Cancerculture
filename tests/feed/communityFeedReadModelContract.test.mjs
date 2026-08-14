@@ -128,4 +128,6 @@ test("the public DTO is an explicit privacy allowlist", () => {
   );
   assert.doesNotMatch(itemType, /cycleId:/u);
   assert.match(itemType, /cycleNumber:/u);
+  assert.doesNotMatch(readModel, /getPublicImageUrl|R2_PUBLIC_BASE_URL/u);
+  assert.match(readModel, /getCommunityFeedMediaPath/u);
 });

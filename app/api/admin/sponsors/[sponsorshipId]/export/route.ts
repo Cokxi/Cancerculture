@@ -8,6 +8,7 @@ import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import {
   getSponsorReportStats,
   serializeSponsorSurfaceStats,
+  type SponsorTrackingAggregateForReport,
   type SponsorTrackingEventForReport,
 } from "@/lib/sponsors/report";
 
@@ -60,14 +61,21 @@ export async function GET(
       );
     }
 
-    const { data: events, error: eventsError } =
-      await supabaseAdmin
+    const [eventsResult, aggregatesResult] = await Promise.all([
+      supabaseAdmin
         .from("sponsor_tracking_events")
-        .select("event_type, surface, viewer_hash, created_at")
+        .select(
+          "event_type, surface, feed_kind, viewer_hash, measurement_window_start, created_at"
+        )
         .eq("sponsorship_id", sponsorshipId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true }),
+      supabaseAdmin
+        .from("sponsor_tracking_aggregates")
+        .select("event_type, surface, feed_kind, event_count")
+        .eq("sponsorship_id", sponsorshipId),
+    ]);
 
-    if (eventsError) {
+    if (eventsResult.error || aggregatesResult.error) {
       return NextResponse.json(
         { error: "Failed to load sponsor tracking events" },
         { status: 500 }
@@ -75,12 +83,13 @@ export async function GET(
     }
 
     const stats = getSponsorReportStats(
-      (events ?? []) as SponsorTrackingEventForReport[]
+      (eventsResult.data ?? []) as SponsorTrackingEventForReport[],
+      (aggregatesResult.data ?? []) as SponsorTrackingAggregateForReport[]
     );
     const exportPayload = {
       exported_at: new Date().toISOString(),
       note:
-        "Unique views and clicks are counted from pseudonymous viewer hashes with the configured cooldown window. Raw viewer hashes are intentionally not included in this export.",
+        "Totals use retained daily aggregates. Unique views and clicks cover the rolling 30-day pseudonymous raw-data window. Raw viewer hashes are intentionally not included in this export.",
       sponsorship: {
         id: sponsorship.id,
         cycle_id: sponsorship.cycle_id,

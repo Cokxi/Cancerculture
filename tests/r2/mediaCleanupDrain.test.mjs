@@ -12,7 +12,7 @@ function batch(overrides = {}) {
   return { ...createEmptyMediaCleanupBatchResult(), ...overrides };
 }
 
-for (const count of [0, 1, 10, 11, 20]) {
+for (const count of [0, 1, 10, 11, 20, 21, 48]) {
   test(`targeted reset cleanup covers all ${count} queue jobs in true ten-item batches`, async () => {
     const queueIds = Array.from({ length: count }, (_, index) => index + 1);
     const seen = [];
@@ -27,7 +27,12 @@ for (const count of [0, 1, 10, 11, 20]) {
     assert.deepEqual(seen, queueIds);
     assert.deepEqual(
       chunkTargetedMediaCleanupQueueIds(queueIds).map((ids) => ids.length),
-      count === 0 ? [] : count <= 10 ? [count] : [10, count - 10],
+      count === 0
+        ? []
+        : Array.from(
+            { length: Math.ceil(count / 10) },
+            (_, batchIndex) => Math.min(10, count - batchIndex * 10),
+          ),
     );
     assert.equal(result.completed, count);
     assert.equal(result.batchFailures, 0);
@@ -71,7 +76,7 @@ test("due cleanup reports a bounded incomplete drain instead of skipping work", 
 });
 
 test("targeted partial success is retained without claiming complete drain", async () => {
-  const queueIds = Array.from({ length: 20 }, (_, index) => index + 1);
+  const queueIds = Array.from({ length: 48 }, (_, index) => index + 1);
   let calls = 0;
   const result = await processTargetedMediaCleanupBatches({
     queueIds,
@@ -87,8 +92,19 @@ test("targeted partial success is retained without claiming complete drain", asy
   assert.equal(result.drainComplete, false);
 });
 
+test("targeted cleanup rejects invalid and duplicate queue ids without truncating valid work", () => {
+  assert.throws(
+    () => chunkTargetedMediaCleanupQueueIds([1, 2, 2]),
+    /Invalid targeted media cleanup jobs/,
+  );
+  assert.throws(
+    () => chunkTargetedMediaCleanupQueueIds([1, 0, 3]),
+    /Invalid targeted media cleanup jobs/,
+  );
+});
+
 test("reset postflight requires both completed queue state and missing R2 objects", async () => {
-  const rows = Array.from({ length: 11 }, (_, index) => ({
+  const rows = Array.from({ length: 48 }, (_, index) => ({
     id: index + 1,
     storage_provider: "r2",
     storage_key: `cycle/${index + 1}.webp`,
@@ -100,8 +116,8 @@ test("reset postflight requires both completed queue state and missing R2 object
     probeObject: async () => "missing",
   });
 
-  assert.equal(postflight.completedQueueJobs, 11);
-  assert.equal(postflight.objectsMissing, 11);
+  assert.equal(postflight.completedQueueJobs, 48);
+  assert.equal(postflight.objectsMissing, 48);
   assert.equal(postflight.drained, true);
 });
 

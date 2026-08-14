@@ -83,6 +83,23 @@ function isCanonicalTimestamp(value: unknown): value is string {
   );
 }
 
+function isPreciseUtcTimestamp(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|\+00:00)$/u.test(
+      value
+    )
+  ) {
+    return false;
+  }
+
+  const parsed = new Date(value);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 19) === value.slice(0, 19)
+  );
+}
+
 function validatePayload(
   value: unknown
 ): PublicPaginationCursorPayload {
@@ -181,7 +198,7 @@ function validatePayload(
       value.context.feed !== "live" ||
       !isId(value.context.cycleId) ||
       !isNonNegativeInteger(value.context.resetCount) ||
-      !isCanonicalTimestamp(value.values.createdAt) ||
+      !isPreciseUtcTimestamp(value.values.createdAt) ||
       !isId(value.values.submissionId)
     ) {
       return fail();
@@ -214,7 +231,7 @@ function validatePayload(
       ]) ||
       value.context.feed !== finalizedFeed ||
       !isId(value.context.classificationVersion) ||
-      !isCanonicalTimestamp(value.values.finalizedAt) ||
+      !isPreciseUtcTimestamp(value.values.finalizedAt) ||
       !isId(value.values.cycleId) ||
       !isId(value.values.rankInCycle) ||
       !isId(value.values.submissionId)

@@ -98,7 +98,7 @@ test("Live cursors bind the full keyset tuple to Cycle and reset context", () =>
     scope: pagination.PUBLIC_PAGINATION_SCOPES.feedLive,
     context: { feed: "live", cycleId: 72, resetCount: 4 },
     values: {
-      createdAt: "2026-08-12T10:15:30.000Z",
+      createdAt: "2026-08-12T10:15:30.000123+00:00",
       submissionId: 901,
     },
   };
@@ -156,7 +156,7 @@ test("each finalized Feed has its own scope, classification context, and full so
           feed.COMMUNITY_FEED_CLASSIFICATION_VERSION,
       },
       values: {
-        finalizedAt: "2026-08-11T20:00:00.000Z",
+        finalizedAt: "2026-08-11T20:00:00.730016+00:00",
         cycleId: 71,
         rankInCycle: 10,
         submissionId: 812,
@@ -245,6 +245,20 @@ test("tampered or structurally incomplete Feed cursors fail closed", () => {
     },
     {
       ...payload,
+      values: {
+        ...payload.values,
+        finalizedAt: "2026-08-11T20:00:00.1234567+00:00",
+      },
+    },
+    {
+      ...payload,
+      values: {
+        ...payload.values,
+        finalizedAt: "2026-08-11T20:00:00.123456+01:00",
+      },
+    },
+    {
+      ...payload,
       values: { ...payload.values, privateSignal: "leak" },
     },
   ];
@@ -290,6 +304,17 @@ test("pure keyset filters encode every deterministic ordering component", () => 
       submissionId: 901,
     }),
     "created_at.lt.2026-08-12T10:15:30.000Z,and(created_at.eq.2026-08-12T10:15:30.000Z,id.lt.901)",
+  );
+  assert.equal(
+    feed.preciseFeedCursorTimestamp(
+      "2026-08-11T20:00:00.730016+00:00",
+    ),
+    "2026-08-11T20:00:00.730016+00:00",
+  );
+  assert.throws(() =>
+    feed.preciseFeedCursorTimestamp(
+      "2026-08-11T20:00:00.730016+01:00",
+    ),
   );
   assert.equal(
     feed.getFinalizedFeedKeysetFilter({
