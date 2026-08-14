@@ -414,6 +414,7 @@ function SubmissionModal({
 
   return (
     <div
+      data-hides-global-account
       className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/90 p-6"
       onClick={onClose}
     >

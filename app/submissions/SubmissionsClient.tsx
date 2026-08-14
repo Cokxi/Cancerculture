@@ -507,6 +507,7 @@ export default function SubmissionsClient({
 
       {active && (
         <div
+          data-hides-global-account
           className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain p-6"
           onClick={() => setActive(null)}
         >

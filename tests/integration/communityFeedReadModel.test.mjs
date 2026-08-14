@@ -7,6 +7,7 @@ const state = {
   cycleSnapshots: null,
   submissions: [],
   results: [],
+  userLogs: [],
   decodedLive: null,
   liveCursorError: null,
   decodedFinalized: null,
@@ -46,7 +47,9 @@ function builder(table) {
           : state.cycles
         : table === "submissions"
           ? state.submissions
-          : state.results;
+          : table === "user_logs"
+            ? state.userLogs
+            : state.results;
     let rows = source.filter((row) =>
       filters.every((filter) => {
         if (filter.kind === "dq") {
@@ -241,6 +244,10 @@ const {
   resolveCommunityFeedAnchor,
   resolveCommunityFeedMediaSource,
 } = await import("../../lib/feed/communityFeedReadModel.server.ts");
+const {
+  getCommunityFeedDetail,
+  resolveCommunityFeedDetailMediaSource,
+} = await import("../../lib/feed/communityFeedDetail.server.ts");
 
 function currentCycle(overrides = {}) {
   return {
@@ -248,6 +255,8 @@ function currentCycle(overrides = {}) {
     public_number: 14,
     reset_count: 4,
     status: "voting_open",
+    starts_at: "2026-08-12T08:00:00.000Z",
+    ends_at: "2026-08-14T08:00:00.000Z",
     ...overrides,
   };
 }
@@ -293,6 +302,8 @@ function finalizedResult(index, overrides = {}) {
     id: cycleId,
     public_number: overrides.public_number ?? 13,
     status: "finished",
+    starts_at: "2026-08-09T08:00:00.000Z",
+    ends_at: "2026-08-11T20:00:00.000Z",
     private_sponsor_note: `private-sponsor-${cycleId}`,
   };
 
@@ -317,6 +328,7 @@ test.beforeEach(() => {
   state.cycleSnapshots = null;
   state.submissions = [];
   state.results = [];
+  state.userLogs = [];
   state.decodedLive = null;
   state.liveCursorError = null;
   state.decodedFinalized = null;
@@ -611,6 +623,127 @@ test("Feed media source rechecks visible, DQ, legal-review, classification, and 
     await resolveCommunityFeedMediaSource({ feed: "live", submissionId: live.id }),
     null,
   );
+});
+
+test("canonical detail returns the exact Live allowlist without final claims", async () => {
+  const live = liveSubmission(0);
+  state.submissions = [live];
+
+  const detail = await getCommunityFeedDetail(live.id);
+  const serialized = JSON.stringify(detail);
+
+  assert.deepEqual(detail, {
+    submissionId: live.id,
+    state: "live",
+    cycleNumber: 14,
+    author: null,
+    imageUrl: `/api/community-feed/detail/media/${live.id}`,
+    mediaWidth: 1200,
+    mediaHeight: 900,
+    createdAt: live.created_at,
+    cycleStartedAt: "2026-08-12T08:00:00.000Z",
+    cycleEndedAt: "2026-08-14T08:00:00.000Z",
+    finalizedAt: null,
+    finalVoteCount: null,
+    rankInCycle: null,
+  });
+  assert.doesNotMatch(serialized, /private-live|discord|moderation/iu);
+  assert.equal(state.calls.some((call) => call[0] === "user_logs"), false);
+});
+
+test("canonical detail shows finalized metadata for both All and Trash eligibility", async () => {
+  const all = finalizedResult(0, { submission_id: 6200 });
+  const trash = finalizedResult(1, {
+    submission_id: 6201,
+    feed_trash: true,
+  });
+  state.results = [all, trash];
+  state.userLogs = [all, trash].map((result, index) => ({
+    public_profile_id: `00000000-0000-4000-8000-00000000000${index}`,
+    discord_user_id: result.submissions.discord_user_id,
+    current_guild_nickname: index === 0 ? "Server Creator" : null,
+    current_display_name: "Global Creator",
+    current_discord_handle: "creator.handle",
+    current_discord_username: "LegacyCreator",
+    avatar_key: index === 0 ? `avatars/${index}.webp` : null,
+    avatar_updated_at: "2026-08-13T09:00:00.000Z",
+    discord_avatar: null,
+  }));
+
+  for (const result of [all, trash]) {
+    const detail = await getCommunityFeedDetail(result.submission_id);
+    assert.equal(detail.state, "finalized");
+    assert.equal(detail.submissionId, result.submission_id);
+    assert.equal(detail.cycleNumber, 13);
+    assert.equal(detail.finalVoteCount, result.final_vote_count);
+    assert.equal(detail.rankInCycle, result.rank_in_cycle);
+    const authorIndex = result === all ? 0 : 1;
+    assert.equal(
+      detail.author.publicProfileId,
+      state.userLogs[authorIndex].public_profile_id,
+    );
+    assert.equal(
+      detail.author.displayName,
+      result === all ? "Server Creator" : "Global Creator",
+    );
+    if (result === all) {
+      assert.match(
+        detail.author.avatarUrl,
+        new RegExp(
+          `^/profile/${state.userLogs[0].public_profile_id}/avatar\\?v=[a-f0-9]{16}$`,
+          "u",
+        ),
+      );
+    } else {
+      assert.equal(detail.author.avatarUrl, null);
+    }
+    assert.equal(detail.cycleStartedAt, "2026-08-09T08:00:00.000Z");
+    assert.equal(detail.cycleEndedAt, "2026-08-11T20:00:00.000Z");
+    assert.deepEqual(
+      await resolveCommunityFeedDetailMediaSource(result.submission_id),
+      { r2Key: result.submissions.r2_key },
+    );
+  }
+  assert.ok(state.calls.some((call) => call[0] === "user_logs"));
+});
+
+test("finalized detail tolerates a missing public author without exposing the internal id", async () => {
+  const result = finalizedResult(0, { submission_id: 6250 });
+  state.results = [result];
+
+  const detail = await getCommunityFeedDetail(result.submission_id);
+
+  assert.equal(detail.author, null);
+  assert.doesNotMatch(JSON.stringify(detail), /private-final|discord/iu);
+});
+
+test("canonical detail and media fail closed for removed, legal-review, DQ, and ineligible rows", async () => {
+  state.results = [
+    finalizedResult(0, {
+      submission_id: 6300,
+      submission: { public_visibility_status: "removed" },
+    }),
+    finalizedResult(1, {
+      submission_id: 6301,
+      submission: { public_visibility_status: "legal_review" },
+    }),
+    finalizedResult(2, {
+      submission_id: 6302,
+      submission: { is_disqualified: true },
+    }),
+    finalizedResult(3, {
+      submission_id: 6303,
+      feed_eligible: false,
+    }),
+  ];
+
+  for (const submissionId of [6300, 6301, 6302, 6303, 6399]) {
+    assert.equal(await getCommunityFeedDetail(submissionId), null);
+    assert.equal(
+      await resolveCommunityFeedDetailMediaSource(submissionId),
+      null,
+    );
+  }
 });
 
 test("submission_closed remains part of the one current Live Cycle", async () => {

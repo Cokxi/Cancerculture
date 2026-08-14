@@ -44,7 +44,7 @@ export function OverlayProvider({
 
       
       {overlay && (
-        <div className="fixed inset-0 z-[999]">
+        <div data-hides-global-account className="fixed inset-0 z-[999]">
           {overlay}
         </div>
       )}

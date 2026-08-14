@@ -17,6 +17,7 @@ import {
   type CommunityFeedKind,
   type CommunityFeedPage,
 } from "@/lib/feed/communityFeed";
+import { getCommunityFeedDetailHref } from "@/lib/feed/communityFeedDetail";
 import {
   COMMUNITY_FEED_DESCRIPTIONS,
   COMMUNITY_FEED_LABELS,
@@ -71,7 +72,6 @@ export function CommunityFeedCard({
   item: CommunityFeedItem;
   position: number;
 }) {
-  const titleId = `spread-submission-${item.submissionId}-title`;
   const hasDimensions = Boolean(item.mediaWidth && item.mediaHeight);
 
   return (
@@ -79,76 +79,48 @@ export function CommunityFeedCard({
       id={`submission-${item.submissionId}`}
       tabIndex={-1}
       role="article"
-      aria-labelledby={titleId}
+      aria-label={`Meme ${position}`}
       aria-posinset={position}
       data-feed-submission-id={item.submissionId}
       className="scroll-mt-52 overflow-hidden rounded-3xl border border-white/10 bg-black/55 shadow-xl shadow-black/30 outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)]"
     >
-      <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-        <h2 id={titleId} className="text-sm font-semibold text-white/90">
-          Cycle #{item.cycleNumber}
-        </h2>
-        <div className="flex flex-wrap justify-end gap-2 text-xs text-white/60">
-          {feed === "live" ? (
-            <span className="rounded-full bg-red-500/15 px-2.5 py-1 font-semibold text-red-200">
-              Live
-            </span>
+      <Link
+        href={getCommunityFeedDetailHref(item.submissionId)}
+        aria-label="Open meme details"
+        className="block min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--orange-main)]"
+      >
+        <div
+          className="relative w-full overflow-hidden bg-neutral-950"
+          style={mediaStyle(item)}
+        >
+          {item.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- Feed URLs are already canonical public media; intrinsic dimensions and a fixed aspect box prevent layout shifts.
+            <img
+              src={item.imageUrl}
+              alt="Community meme"
+              width={hasDimensions ? item.mediaWidth ?? undefined : undefined}
+              height={hasDimensions ? item.mediaHeight ?? undefined : undefined}
+              loading={position === 1 ? "eager" : "lazy"}
+              fetchPriority={position === 1 ? "high" : "auto"}
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-contain"
+            />
           ) : (
-            <>
-              {item.rankInCycle ? (
-                <span>Rank #{item.rankInCycle}</span>
-              ) : null}
-              {item.finalVoteCount ? (
-                <span>
-                  {item.finalVoteCount} vote
-                  {item.finalVoteCount === 1 ? "" : "s"}
-                </span>
-              ) : null}
-            </>
+            <div
+              role="img"
+              aria-label="Meme image unavailable"
+              className="absolute inset-0 grid place-items-center bg-gradient-to-br from-neutral-900 to-black px-6 text-center text-sm text-white/55"
+            >
+              This meme image is currently unavailable.
+            </div>
           )}
         </div>
-      </div>
-
-      <div
-        className="relative w-full overflow-hidden bg-neutral-950"
-        style={mediaStyle(item)}
-      >
-        {item.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- Feed URLs are already canonical public media; intrinsic dimensions and a fixed aspect box prevent layout shifts.
-          <img
-            src={item.imageUrl}
-            alt={`Community submission from Cycle #${item.cycleNumber}`}
-            width={hasDimensions ? item.mediaWidth ?? undefined : undefined}
-            height={hasDimensions ? item.mediaHeight ?? undefined : undefined}
-            loading={position === 1 ? "eager" : "lazy"}
-            fetchPriority={position === 1 ? "high" : "auto"}
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-contain"
-          />
-        ) : (
-          <div
-            role="img"
-            aria-label="Submission image unavailable"
-            className="absolute inset-0 grid place-items-center bg-gradient-to-br from-neutral-900 to-black px-6 text-center text-sm text-white/55"
-          >
-            This submission image is currently unavailable.
-          </div>
-        )}
-      </div>
+      </Link>
 
       <CommunityFeedSponsor
         feed={feed}
         submissionId={item.submissionId}
       />
-
-      <div className="px-4 py-3 text-xs text-white/50 sm:px-5">
-        <time dateTime={item.finalizedAt ?? item.createdAt}>
-          {new Date(item.finalizedAt ?? item.createdAt).toLocaleDateString(
-            "en-GB",
-            { day: "2-digit", month: "short", year: "numeric" }
-          )}
-        </time>
-      </div>
     </article>
   );
 }

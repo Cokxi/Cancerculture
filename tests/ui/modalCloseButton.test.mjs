@@ -45,3 +45,30 @@ test("every modal close control uses the shared container-relative button", asyn
     );
   }
 });
+
+test("submission details and overlays hide the global account control on mobile only", async () => {
+  const [globalAccount, globalStyles, detailPage, overlayProvider, ...modals] =
+    await Promise.all([
+      readRepoFile("app/components/auth/GlobalAccount.tsx"),
+      readRepoFile("app/globals.css"),
+      readRepoFile("app/spread/[submissionId]/page.tsx"),
+      readRepoFile("app/components/overlay/OverlayProvider.tsx"),
+      ...modalConsumers
+        .filter(
+          (path) => path !== "app/components/profile/VisitProfilePrompt.tsx"
+        )
+        .map(readRepoFile),
+    ]);
+
+  assert.match(globalAccount, /data-global-account/u);
+  assert.match(
+    globalStyles,
+    /@media \(max-width: 639px\)[\s\S]*body:has\(\[data-hides-global-account\]\) \[data-global-account\][\s\S]*display: none/u
+  );
+  assert.match(detailPage, /data-hides-global-account/u);
+  assert.match(overlayProvider, /data-hides-global-account/u);
+
+  for (const modal of modals) {
+    assert.match(modal, /data-hides-global-account/u);
+  }
+});

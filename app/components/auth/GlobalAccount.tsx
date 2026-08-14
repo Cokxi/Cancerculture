@@ -86,7 +86,10 @@ export default function GlobalAccount() {
     pathname === "/" ? "right-3 top-[74px] sm:right-5" : "right-4 top-4";
 
   return (
-    <div className={`fixed z-[70] ${positionClassName}`}>
+    <div
+      data-global-account
+      className={`fixed z-[70] ${positionClassName}`}
+    >
       {!account ? (
         <div
           className="h-11 w-11 animate-pulse rounded-full border border-orange-500/30 bg-black/80"

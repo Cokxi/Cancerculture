@@ -49,6 +49,7 @@ export default function BaseOverlay({
 
   return (
     <div
+      data-hides-global-account
       className="fixed inset-0 z-[999] overflow-x-hidden"
       onClick={blocking ? undefined : handleClose}
     >

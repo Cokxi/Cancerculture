@@ -487,3 +487,9 @@ html {
 html, body {
   overflow-x: hidden;
 }
+
+@media (max-width: 639px) {
+  body:has([data-hides-global-account]) [data-global-account] {
+    display: none;
+  }
+}

@@ -62,7 +62,7 @@ function item(overrides = {}) {
   };
 }
 
-test("Feed card renders stable intrinsic media and article semantics without a misleading pseudo-detail link", () => {
+test("Feed card is a compact, stable, keyboard-openable meme link", () => {
   const markup = renderToStaticMarkup(
     React.createElement(CommunityFeedCard, {
       feed: "all",
@@ -71,17 +71,17 @@ test("Feed card renders stable intrinsic media and article semantics without a m
     }),
   );
 
-  assert.match(markup, /<article[^>]*aria-labelledby=/u);
+  assert.match(markup, /<article[^>]*aria-label="Meme 1"/u);
   assert.match(markup, /data-feed-submission-id="17"/u);
+  assert.match(markup, /href="\/spread\/17"/u);
+  assert.match(markup, /aria-label="Open meme details"/u);
+  assert.match(markup, /min-h-11/u);
   assert.match(markup, /style="aspect-ratio:1200 \/ 900"/u);
   assert.match(markup, /width="1200"/u);
   assert.match(markup, /height="900"/u);
   assert.match(markup, /loading="eager"/u);
   assert.match(markup, /fetchPriority="high"/u);
-  assert.match(markup, /Rank #2/u);
-  assert.match(markup, /5 votes/u);
-  assert.doesNotMatch(markup, /Open link|Open submission|submission=17/u);
-  assert.match(markup, /<time/u);
+  assert.doesNotMatch(markup, /Cycle #8|Rank #2|5 votes|<time/u);
 });
 
 test("legacy or unavailable media keeps a stable placeholder without leaking hidden detail", () => {
@@ -100,7 +100,7 @@ test("legacy or unavailable media keeps a stable placeholder without leaking hid
 
   assert.match(markup, /style="aspect-ratio:4 \/ 3"/u);
   assert.match(markup, /role="img"/u);
-  assert.match(markup, /Submission image unavailable/u);
+  assert.match(markup, /Meme image unavailable/u);
   assert.doesNotMatch(
     markup,
     /discord|moderation|report|sponsor|observation|wallet|actor/iu,

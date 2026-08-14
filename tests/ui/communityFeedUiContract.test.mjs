@@ -3,13 +3,14 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
-const [page, client, route, surface, resume, navigation] = await Promise.all([
+const [page, client, route, surface, resume, navigation, detailPage] = await Promise.all([
   readFile(new URL("app/spread/page.tsx", root), "utf8"),
   readFile(new URL("app/spread/CommunityFeedClient.tsx", root), "utf8"),
   readFile(new URL("app/api/community-feed/route.ts", root), "utf8"),
   readFile(new URL("lib/feed/communityFeedSurface.server.ts", root), "utf8"),
   readFile(new URL("lib/feed/communityFeedResume.ts", root), "utf8"),
   readFile(new URL("lib/navigation/homeNavigation.ts", root), "utf8"),
+  readFile(new URL("app/spread/[submissionId]/page.tsx", root), "utf8"),
 ]);
 
 test("Desktop and Mobile UI expose all four read-only Feed choices accessibly", () => {
@@ -52,8 +53,14 @@ test("Resume is explicit, per Feed, semantic, dwell-based, and never a pixel pos
   assert.doesNotMatch(`${client}\n${resume}`, /scrollY|scrollTop|pixelOffset/iu);
 });
 
-test("Feed cards keep direct anchors internal until a real detail surface exists", () => {
-  assert.doesNotMatch(client, /Open link|Open submission/u);
+test("Feed cards open the canonical detail route without nested Sponsor interaction", () => {
+  assert.match(client, /getCommunityFeedDetailHref\(item\.submissionId\)/u);
+  assert.match(client, /aria-label="Open meme details"/u);
+  assert.ok(
+    client.indexOf("</Link>") < client.indexOf("<CommunityFeedSponsor"),
+  );
+  assert.doesNotMatch(client, /Cycle #\{item\.cycleNumber\}|Rank #|<time/u);
+  assert.match(detailPage, /getCommunityFeedDetail\(submissionId\)/u);
   assert.match(surface, /resolveCommunityFeedAnchor/u);
 });
 
@@ -87,7 +94,7 @@ test("media boxes are stable and placeholders prevent scroll jumps", () => {
   assert.match(client, /width=\{hasDimensions/u);
   assert.match(client, /height=\{hasDimensions/u);
   assert.match(client, /loading=\{position === 1 \? "eager" : "lazy"\}/u);
-  assert.match(client, /Submission image unavailable/u);
+  assert.match(client, /Meme image unavailable/u);
   assert.match(client, /object-contain/u);
 });
 
