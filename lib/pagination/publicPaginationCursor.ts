@@ -187,7 +187,7 @@ function validatePayload(
   if (value.scope === PUBLIC_PAGINATION_SCOPES.feedLive) {
     if (
       !hasExactKeys(value.context, [
-        "cycleId",
+        "cycleNumber",
         "feed",
         "resetCount",
       ]) ||
@@ -196,7 +196,7 @@ function validatePayload(
         "submissionId",
       ]) ||
       value.context.feed !== "live" ||
-      !isId(value.context.cycleId) ||
+      !isId(value.context.cycleNumber) ||
       !isNonNegativeInteger(value.context.resetCount) ||
       !isPreciseUtcTimestamp(value.values.createdAt) ||
       !isId(value.values.submissionId)
@@ -221,20 +221,35 @@ function validatePayload(
     if (
       !hasExactKeys(value.context, [
         "classificationVersion",
+        "cycleNumber",
         "feed",
       ]) ||
       !hasExactKeys(value.values, [
-        "cycleId",
+        "cycleNumber",
         "finalizedAt",
         "rankInCycle",
         "submissionId",
       ]) ||
       value.context.feed !== finalizedFeed ||
       !isId(value.context.classificationVersion) ||
+      !(value.context.cycleNumber === null || isId(value.context.cycleNumber)) ||
       !isPreciseUtcTimestamp(value.values.finalizedAt) ||
-      !isId(value.values.cycleId) ||
+      !isId(value.values.cycleNumber) ||
       !isId(value.values.rankInCycle) ||
       !isId(value.values.submissionId)
+    ) {
+      return fail();
+    }
+
+    return value as PublicPaginationCursorPayload;
+  }
+
+  if (value.scope === PUBLIC_PAGINATION_SCOPES.feedCycleCatalog) {
+    if (
+      !hasExactKeys(value.context, ["catalog"]) ||
+      !hasExactKeys(value.values, ["cycleNumber"]) ||
+      value.context.catalog !== "finalized-cycles" ||
+      !isId(value.values.cycleNumber)
     ) {
       return fail();
     }

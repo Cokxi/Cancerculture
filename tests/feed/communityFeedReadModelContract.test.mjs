@@ -75,6 +75,7 @@ test("Feed cursors extend the existing signed mechanism with exact scopes and co
     "feedTop10",
     "feedAll",
     "feedTrash",
+    "feedCycleCatalog",
   ]) {
     assert.match(pagination, new RegExp(`${scope}: "feed-`, "u"));
   }
@@ -82,8 +83,34 @@ test("Feed cursors extend the existing signed mechanism with exact scopes and co
   assert.match(cursor, /decodeServerPublicPaginationCursor/u);
   assert.match(cursor, /decodeServerPublicPaginationCursorForScope/u);
   assert.match(cursor, /classificationVersion/u);
-  assert.match(cursor, /cycleId, resetCount/u);
+  assert.match(cursor, /cycleNumber, resetCount/u);
+  assert.match(cursor, /catalog: "finalized-cycles"/u);
+  assert.doesNotMatch(cursor, /cycleId/u);
   assert.doesNotMatch(cursor, /createHmac|PUBLIC_PAGINATION_CURSOR_SECRET/u);
+});
+
+test("the finalized Cycle catalog is service-only, public-only, and bounded", () => {
+  const catalog = readModel.match(
+    /export async function getCommunityFeedCycleCatalogPage[\s\S]*?async function getLiveAnchorRow/u,
+  )?.[0] ?? "";
+  assert.match(catalog, /\.from\("voting_cycles"\)/u);
+  assert.match(catalog, /\.eq\("status", "finished"\)/u);
+  assert.match(catalog, /\.order\("public_number", \{ ascending: false \}\)/u);
+  assert.match(catalog, /COMMUNITY_FEED_CYCLE_CATALOG_PAGE_SIZE \+ 1/u);
+  assert.match(catalog, /cycleNumber:/u);
+  assert.match(catalog, /startsAt:/u);
+  assert.match(catalog, /endsAt:/u);
+  assert.doesNotMatch(catalog, /sponsor|discord|moderation|report|observation/iu);
+});
+
+test("the exact public Cycle filter resolves server-side before the bounded result query", () => {
+  assert.match(readModel, /getFinalizedCycleFilter/u);
+  assert.match(readModel, /\.eq\("public_number", requireCycleNumber\(cycleNumber\)\)/u);
+  assert.match(readModel, /query = query\.eq\("cycle_id", cycleId\)/u);
+  assert.ok(
+    readModel.indexOf('query = query.eq("cycle_id", cycleId)') <
+      readModel.indexOf("PUBLIC_SUBMISSION_PAGE_SIZE + 1"),
+  );
 });
 
 test("anchor and cursor validation use direct exact-ID lookups without sequential page search", () => {

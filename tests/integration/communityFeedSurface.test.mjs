@@ -47,7 +47,7 @@ function feedPage(overrides = {}) {
     nextCursor: "next.cursor",
     hasMore: true,
     feed: "all",
-    context: { kind: "finalized", classificationVersion: 1 },
+    context: { kind: "finalized", classificationVersion: 1, cycleNumber: null },
     cursorState: "continued",
     ...overrides,
   };
@@ -68,7 +68,7 @@ test("ordinary and multi-page cursor requests pass only through Phase 2", async 
 
   assert.equal(result.nextCursor, "next.cursor");
   assert.deepEqual(state.calls, [
-    ["page", { feed: "all", cursor: "page.two.cursor" }],
+    ["page", { feed: "all", cursor: "page.two.cursor", cycleNumber: null }],
   ]);
 });
 
@@ -77,7 +77,7 @@ test("a deep Resume anchor is resolved directly and prepended to its continued p
     feed: "all",
     submissionId: 1,
     status: "resolved",
-    context: { kind: "finalized", classificationVersion: 1 },
+    context: { kind: "finalized", classificationVersion: 1, cycleNumber: null },
     item: item(1),
     resumeCursor: "anchor.cursor",
   };
@@ -93,8 +93,8 @@ test("a deep Resume anchor is resolved directly and prepended to its continued p
     [1, 2, 3],
   );
   assert.deepEqual(state.calls, [
-    ["anchor", { feed: "all", submissionId: 1 }],
-    ["page", { feed: "all", cursor: "anchor.cursor" }],
+    ["anchor", { feed: "all", submissionId: 1, cycleNumber: null }],
+    ["page", { feed: "all", cursor: "anchor.cursor", cycleNumber: null }],
   ]);
   assert.equal(state.calls.filter(([kind]) => kind === "page").length, 1);
 });
@@ -104,7 +104,7 @@ test("removed or DQ anchors fall back to one bounded Feed-start read", async () 
     feed: "trash",
     submissionId: 44,
     status: "unavailable",
-    context: { kind: "finalized", classificationVersion: 1 },
+    context: { kind: "finalized", classificationVersion: 1, cycleNumber: null },
     item: null,
     resumeCursor: null,
   };
@@ -116,8 +116,8 @@ test("removed or DQ anchors fall back to one bounded Feed-start read", async () 
   });
   assert.equal(result.cursorState, "anchor_unavailable_reset");
   assert.deepEqual(state.calls, [
-    ["anchor", { feed: "trash", submissionId: 44 }],
-    ["page", { feed: "trash" }],
+    ["anchor", { feed: "trash", submissionId: 44, cycleNumber: null }],
+    ["page", { feed: "trash", cycleNumber: null }],
   ]);
 });
 
@@ -126,7 +126,7 @@ test("Cycle or reset changes never mix the stale resolved item into the new Live
     feed: "live",
     submissionId: 70,
     status: "resolved",
-    context: { kind: "live", cycleId: 5, cycleNumber: 4, resetCount: 1 },
+    context: { kind: "live", cycleNumber: 4, resetCount: 1 },
     item: { ...item(70), finalizedAt: null, finalVoteCount: null, rankInCycle: null },
     resumeCursor: "old.live.cursor",
   };
@@ -134,7 +134,7 @@ test("Cycle or reset changes never mix the stale resolved item into the new Live
     feedPage({
       feed: "live",
       items: [{ ...item(99), finalizedAt: null, finalVoteCount: null, rankInCycle: null }],
-      context: { kind: "live", cycleId: 5, cycleNumber: 4, resetCount: 2 },
+      context: { kind: "live", cycleNumber: 4, resetCount: 2 },
       cursorState: "context_unavailable_reset",
     }),
   );
@@ -145,6 +145,31 @@ test("Cycle or reset changes never mix the stale resolved item into the new Live
   });
   assert.deepEqual(result.items.map((entry) => entry.submissionId), [99]);
   assert.equal(result.cursorState, "context_unavailable_reset");
+});
+
+test("the selected Cycle is forwarded unchanged through direct anchor continuation", async () => {
+  state.resolution = {
+    feed: "all",
+    submissionId: 1,
+    status: "resolved",
+    context: { kind: "finalized", classificationVersion: 1, cycleNumber: 42 },
+    item: item(1),
+    resumeCursor: "cycle.anchor.cursor",
+  };
+  state.pages.push(
+    feedPage({
+      context: { kind: "finalized", classificationVersion: 1, cycleNumber: 42 },
+    }),
+  );
+  await getCommunityFeedSurfacePage({
+    feed: "all",
+    cycleNumber: 42,
+    anchorSubmissionId: 1,
+  });
+  assert.deepEqual(state.calls, [
+    ["anchor", { feed: "all", submissionId: 1, cycleNumber: 42 }],
+    ["page", { feed: "all", cursor: "cycle.anchor.cursor", cycleNumber: 42 }],
+  ]);
 });
 
 test("cursor and direct anchor cannot be combined", async () => {

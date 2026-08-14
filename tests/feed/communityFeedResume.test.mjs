@@ -12,25 +12,32 @@ import {
 
 const liveContext = {
   kind: "live",
-  cycleId: 41,
   cycleNumber: 17,
   resetCount: 3,
 };
 const finalizedContext = {
   kind: "finalized",
   classificationVersion: 1,
+  cycleNumber: null,
 };
 
-test("each Feed has a separate browser-local progress key", () => {
-  const keys = ["live", "top10", "all", "trash"].map(
-    getCommunityFeedResumeStorageKey,
-  );
-  assert.equal(new Set(keys).size, 4);
+test("All-Cycles and every selected Cycle have separate browser-local progress keys", () => {
+  const keys = [
+    getCommunityFeedResumeStorageKey("live"),
+    getCommunityFeedResumeStorageKey("top10"),
+    getCommunityFeedResumeStorageKey("all"),
+    getCommunityFeedResumeStorageKey("all", 12),
+    getCommunityFeedResumeStorageKey("all", 13),
+    getCommunityFeedResumeStorageKey("trash", 12),
+  ];
+  assert.equal(new Set(keys).size, keys.length);
   assert.deepEqual(keys, [
-    "cancerculture.community-feed.resume.v1.live",
-    "cancerculture.community-feed.resume.v1.top10",
-    "cancerculture.community-feed.resume.v1.all",
-    "cancerculture.community-feed.resume.v1.trash",
+    "cancerculture.community-feed.resume.v2.live",
+    "cancerculture.community-feed.resume.v2.top10.cycle-all",
+    "cancerculture.community-feed.resume.v2.all.cycle-all",
+    "cancerculture.community-feed.resume.v2.all.cycle-12",
+    "cancerculture.community-feed.resume.v2.all.cycle-13",
+    "cancerculture.community-feed.resume.v2.trash.cycle-12",
   ]);
 });
 
@@ -43,11 +50,11 @@ test("Live progress is semantic and binds Cycle plus reset context", () => {
   });
 
   assert.deepEqual(record, {
-    version: 1,
+    version: 2,
     feed: "live",
     submissionId: 912,
     viewedAt: "2026-08-13T09:10:11.000Z",
-    context: { kind: "live", cycleId: 41, resetCount: 3 },
+    context: { kind: "live", cycleNumber: 17, resetCount: 3 },
   });
   assert.equal(
     isCommunityFeedResumeCurrent(record, "live", liveContext),
@@ -56,7 +63,7 @@ test("Live progress is semantic and binds Cycle plus reset context", () => {
   assert.equal(
     isCommunityFeedResumeCurrent(record, "live", {
       ...liveContext,
-      cycleId: 42,
+      cycleNumber: 18,
     }),
     false,
   );
@@ -89,6 +96,7 @@ test("finalized Feed progress is separate by Feed and classification version", (
     isCommunityFeedResumeCurrent(record, "all", {
       kind: "finalized",
       classificationVersion: 2,
+      cycleNumber: null,
     }),
     false,
   );
@@ -101,6 +109,28 @@ test("finalized Feed progress is separate by Feed and classification version", (
       }),
     /COMMUNITY_FEED_RESUME_CONTEXT_INVALID/u,
   );
+});
+
+test("finalized Resume never crosses between All-Cycles and selected Cycles", () => {
+  const selected = { ...finalizedContext, cycleNumber: 12 };
+  const record = createCommunityFeedResumeRecord({
+    feed: "all",
+    submissionId: 700,
+    context: selected,
+  });
+  assert.equal(isCommunityFeedResumeCurrent(record, "all", selected), true);
+  assert.equal(
+    isCommunityFeedResumeCurrent(record, "all", finalizedContext),
+    false,
+  );
+  assert.equal(
+    isCommunityFeedResumeCurrent(record, "all", {
+      ...selected,
+      cycleNumber: 13,
+    }),
+    false,
+  );
+  assert.doesNotMatch(JSON.stringify(record), /cycleId|cycle_id/u);
 });
 
 test("stored progress parser rejects malformed, stale-shape, and privacy-expanded values", () => {

@@ -11,6 +11,7 @@ const state = {
   decodedLive: null,
   liveCursorError: null,
   decodedFinalized: null,
+  decodedCatalog: null,
   encoded: [],
 };
 
@@ -69,12 +70,13 @@ function builder(table) {
         }
         if (filter.kind === "finalized-keyset") {
           const tuple = state.decodedFinalized?.values;
+          const cycleId = filter.cycleId;
           return (
             tuple &&
             (row.finalized_at < tuple.finalizedAt ||
               (row.finalized_at === tuple.finalizedAt &&
-                (row.cycle_id < tuple.cycleId ||
-                  (row.cycle_id === tuple.cycleId &&
+                (row.cycle_id < cycleId ||
+                  (row.cycle_id === cycleId &&
                     (row.rank_in_cycle > tuple.rankInCycle ||
                       (row.rank_in_cycle === tuple.rankInCycle &&
                         row.submission_id > tuple.submissionId))))))
@@ -86,6 +88,7 @@ function builder(table) {
         if (filter.kind === "eq") return value === filter.value;
         if (filter.kind === "gt") return value > filter.value;
         if (filter.kind === "lte") return value <= filter.value;
+        if (filter.kind === "lt") return value < filter.value;
         if (filter.kind === "in") return filter.values.includes(value);
         if (filter.kind === "not-null") return value !== null && value !== undefined;
 
@@ -129,6 +132,11 @@ function builder(table) {
       filters.push({ kind: "lte", column, value });
       return chain;
     },
+    lt(column, value) {
+      state.calls.push([table, "lt", column, value]);
+      filters.push({ kind: "lt", column, value });
+      return chain;
+    },
     in(column, values) {
       state.calls.push([table, "in", column, values]);
       filters.push({ kind: "in", column, values });
@@ -151,7 +159,10 @@ function builder(table) {
       } else if (expression.startsWith("created_at")) {
         filters.push({ kind: "live-keyset" });
       } else if (expression.startsWith("finalized_at")) {
-        filters.push({ kind: "finalized-keyset" });
+        const cycleId = Number(
+          expression.match(/cycle_id\.lt\.(\d+)/u)?.[1],
+        );
+        filters.push({ kind: "finalized-keyset", cycleId });
       }
       return chain;
     },
@@ -217,11 +228,12 @@ mock.module(
         }
         return state.decodedLive;
       },
-      decodeFinalizedFeedCursor(_cursor, feed) {
+      decodeFinalizedFeedCursor(_cursor, feed, cycleNumber) {
         if (
           !state.decodedFinalized ||
           state.decodedFinalized.context.feed !== feed ||
-          state.decodedFinalized.context.classificationVersion !== 1
+          state.decodedFinalized.context.classificationVersion !== 1 ||
+          state.decodedFinalized.context.cycleNumber !== cycleNumber
         ) {
           throw invalidCursor();
         }
@@ -235,6 +247,14 @@ mock.module(
         state.encoded.push({ kind: "finalized", ...payload });
         return `${payload.feed}:${payload.tuple.submissionId}`;
       },
+      decodeCommunityFeedCycleCatalogCursor() {
+        if (!state.decodedCatalog) throw invalidCursor();
+        return state.decodedCatalog;
+      },
+      encodeCommunityFeedCycleCatalogCursor(cycleNumber) {
+        state.encoded.push({ kind: "catalog", cycleNumber });
+        return `catalog:${cycleNumber}`;
+      },
     },
   },
 );
@@ -243,6 +263,7 @@ const {
   getCommunityFeedPage,
   resolveCommunityFeedAnchor,
   resolveCommunityFeedMediaSource,
+  getCommunityFeedCycleCatalogPage,
 } = await import("../../lib/feed/communityFeedReadModel.server.ts");
 const {
   getCommunityFeedDetail,
@@ -257,6 +278,20 @@ function currentCycle(overrides = {}) {
     status: "voting_open",
     starts_at: "2026-08-12T08:00:00.000Z",
     ends_at: "2026-08-14T08:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function finalizedCycle(publicNumber, id = publicNumber + 100, overrides = {}) {
+  return {
+    id,
+    public_number: publicNumber,
+    reset_count: 0,
+    status: "finished",
+    starts_at: "2026-08-01T08:00:00.000Z",
+    ends_at: "2026-08-03T20:00:00.000Z",
+    finalized_at: "2026-08-03T20:01:00.000Z",
+    internal_note: `private-cycle-${id}`,
     ...overrides,
   };
 }
@@ -332,6 +367,7 @@ test.beforeEach(() => {
   state.decodedLive = null;
   state.liveCursorError = null;
   state.decodedFinalized = null;
+  state.decodedCatalog = null;
   state.encoded = [];
 });
 
@@ -364,13 +400,12 @@ test("Live pagination filters hidden intermediate rows before LIMIT across multi
   );
   assert.deepEqual(first.context, {
     kind: "live",
-    cycleId: 72,
     cycleNumber: 14,
     resetCount: 4,
   });
 
   state.decodedLive = {
-    context: { feed: "live", cycleId: 72, resetCount: 4 },
+    context: { feed: "live", cycleNumber: 14, resetCount: 4 },
     values: state.encoded.at(-1).tuple,
   };
   const second = await getCommunityFeedPage({
@@ -440,6 +475,143 @@ test("Top 10 keeps every Dense-Rank tie, All excludes Trash, and Trash uses only
   );
 });
 
+test("the finalized Cycle catalog is public-only, suitability-filtered, and bounded across pages", async () => {
+  state.cycles = [
+    ...Array.from({ length: 50 }, (_, index) =>
+      finalizedCycle(100 - index, 500 - index),
+    ),
+    finalizedCycle(49, 449, { status: "draft" }),
+    finalizedCycle(48, 448, { ends_at: null }),
+  ];
+
+  const first = await getCommunityFeedCycleCatalogPage();
+  assert.equal(first.items.length, 48);
+  assert.equal(first.hasMore, true);
+  assert.equal(first.nextCursor, "catalog:53");
+  assert.deepEqual(Object.keys(first.items[0]).sort(), [
+    "cycleNumber",
+    "endsAt",
+    "startsAt",
+  ]);
+  assert.doesNotMatch(JSON.stringify(first), /internal|cycleId|cycle_id/u);
+
+  state.decodedCatalog = { values: { cycleNumber: 53 } };
+  const second = await getCommunityFeedCycleCatalogPage({ cursor: first.nextCursor });
+  assert.deepEqual(
+    second.items.map((item) => item.cycleNumber),
+    [52, 51],
+  );
+  assert.equal(second.hasMore, false);
+  assert.equal(second.nextCursor, null);
+  assert.equal(
+    new Set([...first.items, ...second.items].map((item) => item.cycleNumber)).size,
+    50,
+  );
+});
+
+test("Top 10, All, and Trash apply one exact finalized Cycle before LIMIT", async () => {
+  state.cycles = [finalizedCycle(13, 70), finalizedCycle(12, 69)];
+  state.results = [
+    finalizedResult(0, { cycle_id: 70, public_number: 13, rank_in_cycle: 10 }),
+    finalizedResult(1, {
+      cycle_id: 70,
+      public_number: 13,
+      rank_in_cycle: 10,
+      submission_id: 2201,
+    }),
+    finalizedResult(2, {
+      cycle_id: 70,
+      public_number: 13,
+      rank_in_cycle: 11,
+      submission_id: 2202,
+      feed_trash: true,
+    }),
+    finalizedResult(3, {
+      cycle_id: 69,
+      public_number: 12,
+      rank_in_cycle: 1,
+      submission_id: 2203,
+    }),
+  ];
+
+  const [top10, all, trash] = await Promise.all([
+    getCommunityFeedPage({ feed: "top10", cycleNumber: 13 }),
+    getCommunityFeedPage({ feed: "all", cycleNumber: 13 }),
+    getCommunityFeedPage({ feed: "trash", cycleNumber: 13 }),
+  ]);
+  assert.deepEqual(top10.items.map((item) => item.submissionId), [2000, 2201]);
+  assert.deepEqual(all.items.map((item) => item.submissionId), [2000, 2201]);
+  assert.deepEqual(trash.items.map((item) => item.submissionId), [2202]);
+  for (const page of [top10, all, trash]) {
+    assert.deepEqual(page.context, {
+      kind: "finalized",
+      classificationVersion: 1,
+      cycleNumber: 13,
+    });
+    assert.equal(page.items.every((item) => item.cycleNumber === 13), true);
+  }
+  assert.ok(
+    state.calls.some(
+      (call) =>
+        call[0] === "cycle_results" &&
+        call[1] === "eq" &&
+        call[2] === "cycle_id" &&
+        call[3] === 70,
+    ),
+  );
+});
+
+test("unknown, non-finalized, and unsuitable public Cycle filters stay exact and neutral", async () => {
+  state.cycles = [
+    finalizedCycle(11, 68, { status: "voting_open" }),
+    finalizedCycle(12, 69, { finalized_at: null }),
+  ];
+  state.results = [finalizedResult(0, { cycle_id: 70, public_number: 13 })];
+
+  for (const cycleNumber of [11, 12, 999]) {
+    const page = await getCommunityFeedPage({ feed: "all", cycleNumber });
+    assert.deepEqual(page.items, []);
+    assert.equal(page.context.cycleNumber, cycleNumber);
+    assert.equal(page.cursorState, "start");
+  }
+});
+
+test("filtered anchors never resolve a Submission from another Cycle", async () => {
+  state.cycles = [finalizedCycle(13, 70), finalizedCycle(12, 69)];
+  state.results = [
+    finalizedResult(0, {
+      cycle_id: 69,
+      public_number: 12,
+      submission_id: 2300,
+    }),
+  ];
+  const resolution = await resolveCommunityFeedAnchor({
+    feed: "all",
+    cycleNumber: 13,
+    submissionId: 2300,
+  });
+  assert.equal(resolution.status, "unavailable");
+  assert.equal(resolution.item, null);
+  assert.equal(resolution.context.cycleNumber, 13);
+});
+
+test("a signed cursor from another selected Cycle fails closed", async () => {
+  state.cycles = [finalizedCycle(13, 70)];
+  state.decodedFinalized = {
+    context: { feed: "all", classificationVersion: 1, cycleNumber: 12 },
+    values: {
+      finalizedAt: "2026-08-11T20:00:00.000Z",
+      cycleNumber: 12,
+      rankInCycle: 1,
+      submissionId: 2400,
+    },
+  };
+  await assert.rejects(
+    getCommunityFeedPage({ feed: "all", cycleNumber: 13, cursor: "cycle-12" }),
+    { name: "PublicPaginationCursorError" },
+  );
+});
+
 test("finalized ordering and full-tuple cursors remain stable across pages", async () => {
   state.results = Array.from({ length: 50 }, (_, index) =>
     finalizedResult(index, {
@@ -455,7 +627,7 @@ test("finalized ordering and full-tuple cursors remain stable across pages", asy
   assert.equal(first.hasMore, true);
   const tuple = state.encoded.at(-1).tuple;
   assert.deepEqual(Object.keys(tuple).sort(), [
-    "cycleId",
+    "cycleNumber",
     "finalizedAt",
     "rankInCycle",
     "submissionId",
@@ -464,7 +636,7 @@ test("finalized ordering and full-tuple cursors remain stable across pages", asy
   assert.equal(first.items[0].finalizedAt, "2026-08-11T20:00:00.730Z");
 
   state.decodedFinalized = {
-    context: { feed: "all", classificationVersion: 1 },
+    context: { feed: "all", classificationVersion: 1, cycleNumber: null },
     values: tuple,
   };
   const second = await getCommunityFeedPage({
@@ -491,10 +663,10 @@ test("a removed cursor anchor resets safely and never leaks or projects that row
   const removed = state.results[1];
   removed.submissions.public_visibility_status = "removed";
   state.decodedFinalized = {
-    context: { feed: "all", classificationVersion: 1 },
+    context: { feed: "all", classificationVersion: 1, cycleNumber: null },
     values: {
       finalizedAt: removed.finalized_at,
-      cycleId: removed.cycle_id,
+      cycleNumber: removed.voting_cycles.public_number,
       rankInCycle: removed.rank_in_cycle,
       submissionId: removed.submission_id,
     },
@@ -622,6 +794,32 @@ test("Feed media source rechecks visible, DQ, legal-review, classification, and 
   assert.equal(
     await resolveCommunityFeedMediaSource({ feed: "live", submissionId: live.id }),
     null,
+  );
+});
+
+test("filtered Feed media never crosses the selected public Cycle", async () => {
+  state.cycles = [finalizedCycle(13, 70), finalizedCycle(12, 69)];
+  const result = finalizedResult(0, {
+    cycle_id: 69,
+    public_number: 12,
+    submission_id: 6150,
+  });
+  state.results = [result];
+  assert.equal(
+    await resolveCommunityFeedMediaSource({
+      feed: "all",
+      cycleNumber: 13,
+      submissionId: 6150,
+    }),
+    null,
+  );
+  assert.deepEqual(
+    await resolveCommunityFeedMediaSource({
+      feed: "all",
+      cycleNumber: 12,
+      submissionId: 6150,
+    }),
+    { r2Key: result.submissions.r2_key },
   );
 });
 
@@ -756,13 +954,13 @@ test("submission_closed remains part of the one current Live Cycle", async () =>
     page.items.map((item) => item.submissionId),
     [state.submissions[0].id],
   );
-  assert.equal(page.context.cycleId, 72);
+  assert.equal(page.context.cycleNumber, 14);
 });
 
 test("valid Live cursors reset clearly after a reset-count change", async () => {
   state.submissions = [liveSubmission(0)];
   state.decodedLive = {
-    context: { feed: "live", cycleId: 72, resetCount: 3 },
+    context: { feed: "live", cycleNumber: 14, resetCount: 3 },
     values: {
       createdAt: state.submissions[0].created_at,
       submissionId: state.submissions[0].id,
@@ -796,7 +994,7 @@ test("valid Live cursors reset clearly after the current Cycle changes", async (
   ];
   state.submissions = [liveSubmission(0, { cycle_id: 73 })];
   state.decodedLive = {
-    context: { feed: "live", cycleId: 72, resetCount: 4 },
+    context: { feed: "live", cycleNumber: 14, resetCount: 4 },
     values: {
       createdAt: "2026-08-12T12:00:00.000Z",
       submissionId: 1000,
@@ -809,7 +1007,7 @@ test("valid Live cursors reset clearly after the current Cycle changes", async (
   });
 
   assert.equal(page.cursorState, "context_unavailable_reset");
-  assert.equal(page.context.cycleId, 73);
+  assert.equal(page.context.cycleNumber, 15);
   assert.deepEqual(
     page.items.map((item) => item.submissionId),
     [1000],
@@ -882,7 +1080,7 @@ test("direct Live anchors retry once and sign only the verified reset context", 
 test("a valid stale Live cursor with no current Cycle returns an explicit safe reset", async () => {
   state.cycles = [];
   state.decodedLive = {
-    context: { feed: "live", cycleId: 72, resetCount: 4 },
+    context: { feed: "live", cycleNumber: 14, resetCount: 4 },
     values: {
       createdAt: "2026-08-12T12:00:00.000Z",
       submissionId: 1000,

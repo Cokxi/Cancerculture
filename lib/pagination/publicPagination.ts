@@ -11,6 +11,7 @@ export const PUBLIC_PAGINATION_SCOPES = {
   feedTop10: "feed-top-10",
   feedAll: "feed-all",
   feedTrash: "feed-trash",
+  feedCycleCatalog: "feed-cycle-catalog",
 } as const;
 
 export type PublicPaginationScope =
@@ -56,7 +57,7 @@ export type PublicPaginationCursorPayload =
       scope: typeof PUBLIC_PAGINATION_SCOPES.feedLive;
       context: {
         feed: "live";
-        cycleId: number;
+        cycleNumber: number;
         resetCount: number;
       };
       values: {
@@ -73,13 +74,20 @@ export type PublicPaginationCursorPayload =
       context: {
         feed: "top10" | "all" | "trash";
         classificationVersion: number;
+        cycleNumber: number | null;
       };
       values: {
         finalizedAt: string;
-        cycleId: number;
+        cycleNumber: number;
         rankInCycle: number;
         submissionId: number;
       };
+    }
+  | {
+      version: typeof PUBLIC_PAGINATION_CURSOR_VERSION;
+      scope: typeof PUBLIC_PAGINATION_SCOPES.feedCycleCatalog;
+      context: { catalog: "finalized-cycles" };
+      values: { cycleNumber: number };
     };
 
 export type PublicPaginationCursorPayloadForScope<

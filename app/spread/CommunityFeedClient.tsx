@@ -43,14 +43,18 @@ function initialFallbackNotice(page: CommunityFeedPage) {
     return "That submission is no longer available in this feed. We started from the beginning.";
   }
   if (page.cursorState === "context_unavailable_reset") {
-    return "That Live position expired after the Cycle changed or reset. We started from the beginning.";
+    return page.feed === "live"
+      ? "That Live position expired after the Cycle changed or reset. We started from the beginning."
+      : "That Cycle filter is no longer available. No other Cycle was substituted.";
   }
   return null;
 }
 
 function getFallbackNotice(page: CommunityFeedPage) {
   return page.cursorState === "context_unavailable_reset"
-    ? "Your saved Live position expired after the Cycle changed or reset. We started from the beginning."
+    ? page.feed === "live"
+      ? "Your saved Live position expired after the Cycle changed or reset. We started from the beginning."
+      : "Your saved Cycle filter is no longer available. No other Cycle was substituted."
     : "Your saved submission is no longer public in this feed. We started from the beginning.";
 }
 
@@ -125,10 +129,20 @@ export function CommunityFeedCard({
   );
 }
 
-async function readPageResponse(response: Response, feed: CommunityFeedKind) {
+async function readPageResponse(
+  response: Response,
+  feed: CommunityFeedKind,
+  cycleNumber: number | null
+) {
   if (!response.ok) throw new Error("COMMUNITY_FEED_REQUEST_FAILED");
   const value: unknown = await response.json();
-  if (!isCommunityFeedPage(value) || value.feed !== feed) {
+  if (
+    !isCommunityFeedPage(value) ||
+    value.feed !== feed ||
+    (feed !== "live" &&
+      (value.context?.kind !== "finalized" ||
+        value.context.cycleNumber !== cycleNumber))
+  ) {
     throw new Error("COMMUNITY_FEED_RESPONSE_INVALID");
   }
   return value;
@@ -136,11 +150,13 @@ async function readPageResponse(response: Response, feed: CommunityFeedKind) {
 
 export default function CommunityFeedClient({
   feed,
+  cycleNumber,
   feedLabel,
   initialAnchorRequested,
   initialPage,
 }: {
   feed: CommunityFeedKind;
+  cycleNumber: number | null;
   feedLabel: string;
   initialAnchorRequested: boolean;
   initialPage: CommunityFeedPage;
@@ -164,7 +180,7 @@ export default function CommunityFeedClient({
     promise: Promise<CommunityFeedPage | null>;
   } | null>(null);
 
-  const storageKey = getCommunityFeedResumeStorageKey(feed);
+  const storageKey = getCommunityFeedResumeStorageKey(feed, cycleNumber);
 
   const clearSavedProgress = useCallback(() => {
     try {
@@ -181,6 +197,9 @@ export default function CommunityFeedClient({
       anchorSubmissionId?: number;
     }) => {
       const params = new URLSearchParams({ feed });
+      if (feed !== "live" && cycleNumber !== null) {
+        params.set("cycle", String(cycleNumber));
+      }
       if (cursor) params.set("cursor", cursor);
       if (anchorSubmissionId) {
         params.set("anchor", String(anchorSubmissionId));
@@ -190,9 +209,9 @@ export default function CommunityFeedClient({
         cache: "no-store",
         headers: { Accept: "application/json" },
       });
-      return readPageResponse(response, feed);
+      return readPageResponse(response, feed, cycleNumber);
     },
-    [feed]
+    [cycleNumber, feed]
   );
 
   useEffect(() => {
@@ -355,7 +374,7 @@ export default function CommunityFeedClient({
       window.history.replaceState(
         window.history.state,
         "",
-        getCommunityFeedHref(feed)
+        getCommunityFeedHref(feed, undefined, cycleNumber)
       );
       window.scrollTo({ top: 0, behavior: "auto" });
       focusNotice();
@@ -454,7 +473,11 @@ export default function CommunityFeedClient({
               {FEED_ORDER.map((kind) => (
                 <li key={kind} className="min-w-fit flex-1">
                   <Link
-                    href={getCommunityFeedHref(kind)}
+                    href={getCommunityFeedHref(
+                      kind,
+                      undefined,
+                      kind === "live" ? null : cycleNumber
+                    )}
                     aria-current={kind === feed ? "page" : undefined}
                     className={`flex min-h-11 items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)] sm:text-sm ${
                       kind === feed

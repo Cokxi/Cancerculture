@@ -2,6 +2,7 @@ import {
   COMMUNITY_FEEDS,
   getCommunityFeedMediaPath,
   type CommunityFeedContext,
+  type CommunityFeedCycleCatalogPage,
   type CommunityFeedItem,
   type CommunityFeedKind,
   type CommunityFeedPage,
@@ -41,6 +42,8 @@ const ITEM_KEYS = [
   "rankInCycle",
   "submissionId",
 ] as const;
+const CYCLE_CATALOG_PAGE_KEYS = ["hasMore", "items", "nextCursor"] as const;
+const CYCLE_CATALOG_ITEM_KEYS = ["cycleNumber", "endsAt", "startsAt"] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -71,15 +74,6 @@ function isNullablePositiveInteger(value: unknown): value is number | null {
   return value === null || isPositiveInteger(value);
 }
 
-function isNullableFeedMediaPath(
-  value: unknown,
-  feed: CommunityFeedKind,
-  submissionId: number
-): value is string | null {
-  if (value === null) return true;
-  return value === getCommunityFeedMediaPath(feed, submissionId);
-}
-
 function isTimestamp(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const parsed = new Date(value);
@@ -92,14 +86,17 @@ function isNullableTimestamp(value: unknown): value is string | null {
 
 function isCommunityFeedItem(
   value: unknown,
-  feed: CommunityFeedKind
+  feed: CommunityFeedKind,
+  cycleNumber: number | null
 ): value is CommunityFeedItem {
   if (!isRecord(value) || !hasExactKeys(value, ITEM_KEYS)) return false;
 
   return (
     isPositiveInteger(value.submissionId) &&
     isPositiveInteger(value.cycleNumber) &&
-    isNullableFeedMediaPath(value.imageUrl, feed, value.submissionId) &&
+    (value.imageUrl === null ||
+      value.imageUrl ===
+        getCommunityFeedMediaPath(feed, value.submissionId, cycleNumber)) &&
     isNullablePositiveInteger(value.mediaWidth) &&
     isNullablePositiveInteger(value.mediaHeight) &&
     ((value.mediaWidth === null && value.mediaHeight === null) ||
@@ -121,12 +118,10 @@ function isCommunityFeedContext(
   if (value.kind === "live") {
     return (
       hasExactKeys(value, [
-        "cycleId",
         "cycleNumber",
         "kind",
         "resetCount",
       ]) &&
-      isPositiveInteger(value.cycleId) &&
       isPositiveInteger(value.cycleNumber) &&
       isNonNegativeInteger(value.resetCount)
     );
@@ -134,8 +129,9 @@ function isCommunityFeedContext(
 
   return (
     value.kind === "finalized" &&
-    hasExactKeys(value, ["classificationVersion", "kind"]) &&
-    isPositiveInteger(value.classificationVersion)
+    hasExactKeys(value, ["classificationVersion", "cycleNumber", "kind"]) &&
+    isPositiveInteger(value.classificationVersion) &&
+    (value.cycleNumber === null || isPositiveInteger(value.cycleNumber))
   );
 }
 
@@ -151,14 +147,18 @@ export function isCommunityFeedPage(
   if (!isRecord(value) || !hasExactKeys(value, PAGE_KEYS)) return false;
   if (!isCommunityFeedKind(value.feed)) return false;
   const feed = value.feed;
+  if (!isCommunityFeedContext(value.context)) return false;
+  const selectedCycleNumber =
+    value.context?.kind === "finalized" ? value.context.cycleNumber : null;
 
   const baseValid =
     Array.isArray(value.items) &&
-    value.items.every((item) => isCommunityFeedItem(item, feed)) &&
+    value.items.every((item) =>
+      isCommunityFeedItem(item, feed, selectedCycleNumber)
+    ) &&
     (value.nextCursor === null ||
       (typeof value.nextCursor === "string" && value.nextCursor.length > 0)) &&
     typeof value.hasMore === "boolean" &&
-    isCommunityFeedContext(value.context) &&
     (value.cursorState === "start" ||
       value.cursorState === "continued" ||
       value.cursorState === "anchor_unavailable_reset" ||
@@ -191,6 +191,37 @@ export function isCommunityFeedPage(
   );
 }
 
+export function isCommunityFeedCycleNumber(value: unknown): value is number {
+  return isPositiveInteger(value);
+}
+
+export function parseCommunityFeedCycleNumber(value: string) {
+  if (!/^[1-9]\d*$/u.test(value)) return null;
+  const cycleNumber = Number(value);
+  return isCommunityFeedCycleNumber(cycleNumber) ? cycleNumber : null;
+}
+
+export function isCommunityFeedCycleCatalogPage(
+  value: unknown
+): value is CommunityFeedCycleCatalogPage {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, CYCLE_CATALOG_PAGE_KEYS) &&
+    Array.isArray(value.items) &&
+    value.items.every(
+      (item) =>
+        isRecord(item) &&
+        hasExactKeys(item, CYCLE_CATALOG_ITEM_KEYS) &&
+        isPositiveInteger(item.cycleNumber) &&
+        isTimestamp(item.startsAt) &&
+        isTimestamp(item.endsAt)
+    ) &&
+    (value.nextCursor === null ||
+      (typeof value.nextCursor === "string" && value.nextCursor.length > 0)) &&
+    typeof value.hasMore === "boolean"
+  );
+}
+
 export function mergeCommunityFeedItems(
   current: CommunityFeedItem[],
   incoming: CommunityFeedItem[]
@@ -208,9 +239,16 @@ export function mergeCommunityFeedItems(
 
 export function getCommunityFeedHref(
   feed: CommunityFeedKind,
-  submissionId?: number
+  submissionId?: number,
+  cycleNumber: number | null = null
 ) {
   const params = new URLSearchParams({ feed });
+  if (feed !== "live" && cycleNumber !== null) {
+    if (!isCommunityFeedCycleNumber(cycleNumber)) {
+      throw new TypeError("Invalid community Feed Cycle number");
+    }
+    params.set("cycle", String(cycleNumber));
+  }
   if (submissionId && Number.isSafeInteger(submissionId)) {
     params.set("submission", String(submissionId));
   }

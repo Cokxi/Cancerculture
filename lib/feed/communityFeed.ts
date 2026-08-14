@@ -1,6 +1,7 @@
 import type { PublicPage } from "@/lib/pagination/publicPagination";
 
 export const COMMUNITY_FEED_CLASSIFICATION_VERSION = 1;
+export const COMMUNITY_FEED_CYCLE_CATALOG_PAGE_SIZE = 48;
 
 export const COMMUNITY_FEEDS = {
   live: "live",
@@ -32,14 +33,26 @@ export type CommunityFeedItem = {
 export type CommunityFeedContext =
   | {
       kind: "live";
-      cycleId: number;
       cycleNumber: number;
       resetCount: number;
     }
   | {
       kind: "finalized";
       classificationVersion: number;
+      cycleNumber: number | null;
     };
+
+export type CommunityFeedCycleCatalogItem = {
+  cycleNumber: number;
+  startsAt: string;
+  endsAt: string;
+};
+
+export type CommunityFeedCycleCatalogPage = {
+  items: CommunityFeedCycleCatalogItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
 
 export type CommunityFeedCursorState =
   | "start"
@@ -69,9 +82,16 @@ export type LiveFeedCursorTuple = {
 
 export type FinalizedFeedCursorTuple = {
   finalizedAt: string;
-  cycleId: number;
+  cycleNumber: number;
   rankInCycle: number;
   submissionId: number;
+};
+
+export type FinalizedFeedKeysetTuple = Omit<
+  FinalizedFeedCursorTuple,
+  "cycleNumber"
+> & {
+  cycleId: number;
 };
 
 const PRECISE_UTC_TIMESTAMP_PATTERN =
@@ -79,13 +99,18 @@ const PRECISE_UTC_TIMESTAMP_PATTERN =
 
 export function getCommunityFeedMediaPath(
   feed: CommunityFeedKind,
-  submissionId: number
+  submissionId: number,
+  cycleNumber: number | null = null
 ) {
   if (!Number.isSafeInteger(submissionId) || submissionId <= 0) {
     throw new TypeError("Invalid community Feed media submission id");
   }
 
-  return `/api/community-feed/media/${submissionId}?feed=${feed}`;
+  const params = new URLSearchParams({ feed });
+  if (feed !== "live" && cycleNumber !== null) {
+    params.set("cycle", String(cycleNumber));
+  }
+  return `/api/community-feed/media/${submissionId}?${params.toString()}`;
 }
 
 export function getLiveFeedKeysetFilter({
@@ -103,7 +128,7 @@ export function getFinalizedFeedKeysetFilter({
   cycleId,
   rankInCycle,
   submissionId,
-}: FinalizedFeedCursorTuple) {
+}: FinalizedFeedKeysetTuple) {
   return [
     `finalized_at.lt.${finalizedAt}`,
     `and(finalized_at.eq.${finalizedAt},cycle_id.lt.${cycleId})`,

@@ -4,12 +4,12 @@ import type {
 } from "@/lib/feed/communityFeed";
 import { isCommunityFeedKind } from "@/lib/feed/communityFeedSurface";
 
-export const COMMUNITY_FEED_RESUME_VERSION = 1;
+export const COMMUNITY_FEED_RESUME_VERSION = 2;
 export const COMMUNITY_FEED_VIEWPORT_THRESHOLD = 0.65;
 export const COMMUNITY_FEED_VIEWPORT_DWELL_MS = 750;
 export const COMMUNITY_FEED_PROGRESS_DEBOUNCE_MS = 500;
 
-const STORAGE_PREFIX = "cancerculture.community-feed.resume.v1";
+const STORAGE_PREFIX = "cancerculture.community-feed.resume.v2";
 
 export type CommunityFeedResumeRecord = {
   version: typeof COMMUNITY_FEED_RESUME_VERSION;
@@ -19,12 +19,13 @@ export type CommunityFeedResumeRecord = {
   context:
     | {
         kind: "live";
-        cycleId: number;
+        cycleNumber: number;
         resetCount: number;
       }
     | {
         kind: "finalized";
         classificationVersion: number;
+        cycleNumber: number | null;
       };
 };
 
@@ -58,8 +59,18 @@ function isCanonicalTimestamp(value: unknown): value is string {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
 }
 
-export function getCommunityFeedResumeStorageKey(feed: CommunityFeedKind) {
-  return `${STORAGE_PREFIX}.${feed}`;
+export function getCommunityFeedResumeStorageKey(
+  feed: CommunityFeedKind,
+  cycleNumber: number | null = null
+) {
+  if (feed === "live") {
+    if (cycleNumber !== null) throw new Error("COMMUNITY_FEED_RESUME_KEY_INVALID");
+    return `${STORAGE_PREFIX}.live`;
+  }
+  if (cycleNumber !== null && !isPositiveInteger(cycleNumber)) {
+    throw new Error("COMMUNITY_FEED_RESUME_KEY_INVALID");
+  }
+  return `${STORAGE_PREFIX}.${feed}.cycle-${cycleNumber ?? "all"}`;
 }
 
 export function createCommunityFeedResumeRecord({
@@ -85,7 +96,7 @@ export function createCommunityFeedResumeRecord({
       viewedAt,
       context: {
         kind: "live",
-        cycleId: context.cycleId,
+        cycleNumber: context.cycleNumber,
         resetCount: context.resetCount,
       },
     };
@@ -100,6 +111,7 @@ export function createCommunityFeedResumeRecord({
       context: {
         kind: "finalized",
         classificationVersion: context.classificationVersion,
+        cycleNumber: context.cycleNumber,
       },
     };
   }
@@ -140,8 +152,8 @@ export function parseCommunityFeedResumeRecord(
   if (
     value.feed === "live" &&
     value.context.kind === "live" &&
-    hasExactKeys(value.context, ["cycleId", "kind", "resetCount"]) &&
-    isPositiveInteger(value.context.cycleId) &&
+    hasExactKeys(value.context, ["cycleNumber", "kind", "resetCount"]) &&
+    isPositiveInteger(value.context.cycleNumber) &&
     isNonNegativeInteger(value.context.resetCount)
   ) {
     return {
@@ -151,7 +163,7 @@ export function parseCommunityFeedResumeRecord(
       viewedAt: value.viewedAt,
       context: {
         kind: "live",
-        cycleId: value.context.cycleId,
+        cycleNumber: value.context.cycleNumber,
         resetCount: value.context.resetCount,
       },
     };
@@ -160,8 +172,10 @@ export function parseCommunityFeedResumeRecord(
   if (
     value.feed !== "live" &&
     value.context.kind === "finalized" &&
-    hasExactKeys(value.context, ["classificationVersion", "kind"]) &&
-    isPositiveInteger(value.context.classificationVersion)
+    hasExactKeys(value.context, ["classificationVersion", "cycleNumber", "kind"]) &&
+    isPositiveInteger(value.context.classificationVersion) &&
+    (value.context.cycleNumber === null ||
+      isPositiveInteger(value.context.cycleNumber))
   ) {
     return {
       version: COMMUNITY_FEED_RESUME_VERSION,
@@ -171,6 +185,7 @@ export function parseCommunityFeedResumeRecord(
       context: {
         kind: "finalized",
         classificationVersion: value.context.classificationVersion,
+        cycleNumber: value.context.cycleNumber,
       },
     };
   }
@@ -189,7 +204,7 @@ export function isCommunityFeedResumeCurrent(
     return (
       record.context.kind === "live" &&
       context.kind === "live" &&
-      record.context.cycleId === context.cycleId &&
+      record.context.cycleNumber === context.cycleNumber &&
       record.context.resetCount === context.resetCount
     );
   }
@@ -197,6 +212,7 @@ export function isCommunityFeedResumeCurrent(
   return (
     record.context.kind === "finalized" &&
     context.kind === "finalized" &&
-    record.context.classificationVersion === context.classificationVersion
+    record.context.classificationVersion === context.classificationVersion &&
+    record.context.cycleNumber === context.cycleNumber
   );
 }

@@ -59,6 +59,7 @@ test("GET exposes bounded Feed cursor pages with no-store", async () => {
       feed: "top10",
       cursor: "signed.cursor",
       anchorSubmissionId: null,
+      cycleNumber: null,
     },
   ]);
   assert.equal((await response.json()).feed, "top10");
@@ -72,7 +73,18 @@ test("GET forwards one exact semantic anchor without page walking", async () => 
   );
   assert.equal(response.status, 200);
   assert.deepEqual(state.calls, [
-    { feed: "trash", cursor: null, anchorSubmissionId: 712 },
+    { feed: "trash", cursor: null, anchorSubmissionId: 712, cycleNumber: null },
+  ]);
+});
+
+test("GET forwards the exact selected public Cycle to pages and anchors", async () => {
+  await GET(
+    new Request(
+      "https://cancerculture.example/api/community-feed?feed=all&cycle=42&anchor=712",
+    ),
+  );
+  assert.deepEqual(state.calls, [
+    { feed: "all", cursor: null, anchorSubmissionId: 712, cycleNumber: 42 },
   ]);
 });
 
@@ -82,6 +94,11 @@ test("invalid Feed, anchor, and ambiguous positioning fail before the read model
     "feed=all&anchor=0",
     "feed=all&anchor=abc",
     "feed=all&anchor=2&cursor=signed.cursor",
+    "feed=all&cycle=0",
+    "feed=all&cycle=abc",
+    "feed=all&cycle=01",
+    "feed=all&cycle=1e2",
+    "feed=live&cycle=1",
   ]) {
     const response = await GET(
       new Request(

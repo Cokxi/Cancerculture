@@ -96,7 +96,7 @@ test("Live cursors bind the full keyset tuple to Cycle and reset context", () =>
   const payload = {
     version: pagination.PUBLIC_PAGINATION_CURSOR_VERSION,
     scope: pagination.PUBLIC_PAGINATION_SCOPES.feedLive,
-    context: { feed: "live", cycleId: 72, resetCount: 4 },
+    context: { feed: "live", cycleNumber: 14, resetCount: 4 },
     values: {
       createdAt: "2026-08-12T10:15:30.000123+00:00",
       submissionId: 901,
@@ -108,7 +108,7 @@ test("Live cursors bind the full keyset tuple to Cycle and reset context", () =>
     cursorCodec.decodePublicPaginationCursor(
       cursor,
       pagination.PUBLIC_PAGINATION_SCOPES.feedLive,
-      { feed: "live", cycleId: 72, resetCount: 4 },
+      { feed: "live", cycleNumber: 14, resetCount: 4 },
       secret,
     ),
     payload,
@@ -123,8 +123,8 @@ test("Live cursors bind the full keyset tuple to Cycle and reset context", () =>
   );
 
   for (const context of [
-    { feed: "live", cycleId: 73, resetCount: 4 },
-    { feed: "live", cycleId: 72, resetCount: 5 },
+    { feed: "live", cycleNumber: 15, resetCount: 4 },
+    { feed: "live", cycleNumber: 14, resetCount: 5 },
   ]) {
     assert.throws(
       () =>
@@ -154,10 +154,11 @@ test("each finalized Feed has its own scope, classification context, and full so
         feed: feedKind,
         classificationVersion:
           feed.COMMUNITY_FEED_CLASSIFICATION_VERSION,
+        cycleNumber: null,
       },
       values: {
         finalizedAt: "2026-08-11T20:00:00.730016+00:00",
-        cycleId: 71,
+        cycleNumber: 13,
         rankInCycle: 10,
         submissionId: 812,
       },
@@ -180,10 +181,10 @@ test("Feed scopes cannot be replayed across feeds or classification versions", (
   const payload = {
     version: 1,
     scope: pagination.PUBLIC_PAGINATION_SCOPES.feedAll,
-    context: { feed: "all", classificationVersion: 1 },
+    context: { feed: "all", classificationVersion: 1, cycleNumber: 13 },
     values: {
       finalizedAt: "2026-08-11T20:00:00.000Z",
-      cycleId: 71,
+      cycleNumber: 13,
       rankInCycle: 3,
       submissionId: 810,
     },
@@ -195,7 +196,7 @@ test("Feed scopes cannot be replayed across feeds or classification versions", (
       cursorCodec.decodePublicPaginationCursor(
         cursor,
         pagination.PUBLIC_PAGINATION_SCOPES.feedTrash,
-        { feed: "trash", classificationVersion: 1 },
+        { feed: "trash", classificationVersion: 1, cycleNumber: 13 },
         secret,
       ),
     { name: "PublicPaginationCursorError" },
@@ -214,7 +215,7 @@ test("Feed scopes cannot be replayed across feeds or classification versions", (
       cursorCodec.decodePublicPaginationCursor(
         cursor,
         pagination.PUBLIC_PAGINATION_SCOPES.feedAll,
-        { feed: "all", classificationVersion: 2 },
+        { feed: "all", classificationVersion: 2, cycleNumber: 13 },
         secret,
       ),
     { name: "PublicPaginationCursorError" },
@@ -225,10 +226,10 @@ test("tampered or structurally incomplete Feed cursors fail closed", () => {
   const payload = {
     version: 1,
     scope: pagination.PUBLIC_PAGINATION_SCOPES.feedTop10,
-    context: { feed: "top10", classificationVersion: 1 },
+    context: { feed: "top10", classificationVersion: 1, cycleNumber: null },
     values: {
       finalizedAt: "2026-08-11T20:00:00.000Z",
-      cycleId: 71,
+      cycleNumber: 13,
       rankInCycle: 10,
       submissionId: 812,
     },
@@ -238,7 +239,10 @@ test("tampered or structurally incomplete Feed cursors fail closed", () => {
   const tampered = `${body}.${signature.startsWith("A") ? "B" : "A"}${signature.slice(1)}`;
   const invalidPayloads = [
     { ...payload, values: { ...payload.values, rankInCycle: 0 } },
-    { ...payload, context: { feed: "top10", classificationVersion: 0 } },
+    {
+      ...payload,
+      context: { feed: "top10", classificationVersion: 0, cycleNumber: null },
+    },
     {
       ...payload,
       values: { ...payload.values, finalizedAt: "2026-08-11 20:00:00" },
@@ -295,6 +299,54 @@ test("tampered or structurally incomplete Feed cursors fail closed", () => {
       { name: "PublicPaginationCursorError" },
     );
   }
+});
+
+test("finalized Feed cursors bind the exact selected public Cycle without internal IDs", () => {
+  const payload = {
+    version: 1,
+    scope: pagination.PUBLIC_PAGINATION_SCOPES.feedAll,
+    context: { feed: "all", classificationVersion: 1, cycleNumber: 42 },
+    values: {
+      finalizedAt: "2026-08-11T20:00:00.730016+00:00",
+      cycleNumber: 42,
+      rankInCycle: 3,
+      submissionId: 810,
+    },
+  };
+  const cursor = cursorCodec.encodePublicPaginationCursor(payload, secret);
+  assert.doesNotMatch(
+    Buffer.from(cursor.split(".")[0], "base64url").toString("utf8"),
+    /cycleId|cycle_id/u,
+  );
+  assert.throws(
+    () =>
+      cursorCodec.decodePublicPaginationCursor(
+        cursor,
+        payload.scope,
+        { ...payload.context, cycleNumber: 43 },
+        secret,
+      ),
+    { name: "PublicPaginationCursorError" },
+  );
+});
+
+test("the finalized Cycle catalog cursor is bounded to public Cycle identity", () => {
+  const payload = {
+    version: 1,
+    scope: pagination.PUBLIC_PAGINATION_SCOPES.feedCycleCatalog,
+    context: { catalog: "finalized-cycles" },
+    values: { cycleNumber: 51 },
+  };
+  const cursor = cursorCodec.encodePublicPaginationCursor(payload, secret);
+  assert.deepEqual(
+    cursorCodec.decodePublicPaginationCursor(
+      cursor,
+      payload.scope,
+      payload.context,
+      secret,
+    ),
+    payload,
+  );
 });
 
 test("pure keyset filters encode every deterministic ordering component", () => {

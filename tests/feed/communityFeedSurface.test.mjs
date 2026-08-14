@@ -2,15 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getCommunityFeedHref,
+  isCommunityFeedCycleCatalogPage,
   isCommunityFeedPage,
   mergeCommunityFeedItems,
 } from "../../lib/feed/communityFeedSurface.ts";
 
-function item(id = 10, feed = "all") {
+function item(id = 10, feed = "all", cycleNumber = null) {
   return {
     submissionId: id,
     cycleNumber: 4,
-    imageUrl: `/api/community-feed/media/${id}?feed=${feed}`,
+    imageUrl: `/api/community-feed/media/${id}?feed=${feed}${cycleNumber ? `&cycle=${cycleNumber}` : ""}`,
     mediaWidth: 1200,
     mediaHeight: 900,
     createdAt: "2026-08-13T08:00:00.000Z",
@@ -26,7 +27,7 @@ function page(overrides = {}) {
     nextCursor: "signed.cursor",
     hasMore: true,
     feed: "all",
-    context: { kind: "finalized", classificationVersion: 1 },
+    context: { kind: "finalized", classificationVersion: 1, cycleNumber: null },
     cursorState: "continued",
     ...overrides,
   };
@@ -48,7 +49,6 @@ test("the browser accepts only the exact allowlisted Feed page and DTO", () => {
         ],
         context: {
           kind: "live",
-          cycleId: 9,
           cycleNumber: 8,
           resetCount: 2,
         },
@@ -67,10 +67,33 @@ test("the browser accepts only the exact allowlisted Feed page and DTO", () => {
     page({ items: [{ ...item(), mediaHeight: null }] }),
     page({ feed: "live" }),
     page({ items: [{ ...item(), finalizedAt: null }] }),
-    page({ context: { kind: "finalized", classificationVersion: 1, actor: 2 } }),
+    page({ context: { kind: "finalized", classificationVersion: 1, cycleNumber: null, actor: 2 } }),
     page({ cursorState: "unknown" }),
   ]) {
     assert.equal(isCommunityFeedPage(invalid), false);
+  }
+});
+
+test("the browser accepts only the exact public finalized Cycle catalog DTO", () => {
+  const page = {
+    items: [
+      {
+        cycleNumber: 42,
+        startsAt: "2026-08-01T08:00:00.000Z",
+        endsAt: "2026-08-03T20:00:00.000Z",
+      },
+    ],
+    nextCursor: "signed.catalog.cursor",
+    hasMore: true,
+  };
+  assert.equal(isCommunityFeedCycleCatalogPage(page), true);
+  for (const invalid of [
+    { ...page, items: [{ ...page.items[0], cycleId: 70 }] },
+    { ...page, items: [{ ...page.items[0], sponsorName: "private" }] },
+    { ...page, items: [{ ...page.items[0], cycleNumber: 0 }] },
+    { ...page, items: [{ ...page.items[0], startsAt: "yesterday" }] },
+  ]) {
+    assert.equal(isCommunityFeedCycleCatalogPage(invalid), false);
   }
 });
 
@@ -105,4 +128,24 @@ test("Feed deep links retain exact Feed scope and semantic Submission anchor", (
     getCommunityFeedHref("trash", 901),
     "/spread?feed=trash&submission=901",
   );
+  assert.equal(
+    getCommunityFeedHref("trash", 901, 42),
+    "/spread?feed=trash&cycle=42&submission=901",
+  );
+});
+
+test("filtered Feed DTO validation binds media and context to the exact public Cycle", () => {
+  const filtered = page({
+    items: [item(10, "all", 42)],
+    context: { kind: "finalized", classificationVersion: 1, cycleNumber: 42 },
+  });
+  assert.equal(isCommunityFeedPage(filtered), true);
+  assert.equal(
+    isCommunityFeedPage({
+      ...filtered,
+      items: [item(10, "all", 41)],
+    }),
+    false,
+  );
+  assert.doesNotMatch(JSON.stringify(filtered), /cycleId|cycle_id/u);
 });

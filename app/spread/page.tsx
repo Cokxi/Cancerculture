@@ -1,8 +1,11 @@
 import BackButton from "@/app/components/ui/BackButton";
+import { redirect } from "next/navigation";
 import type { CommunityFeedKind } from "@/lib/feed/communityFeed";
 import {
   COMMUNITY_FEED_LABELS,
+  getCommunityFeedHref,
   isCommunityFeedKind,
+  parseCommunityFeedCycleNumber,
 } from "@/lib/feed/communityFeedSurface";
 import { getCommunityFeedSurfacePage } from "@/lib/feed/communityFeedSurface.server";
 import CommunityFeedClient from "./CommunityFeedClient";
@@ -27,6 +30,7 @@ export default async function CommunityFeedPage({
   searchParams: Promise<{
     feed?: string | string[];
     submission?: string | string[];
+    cycle?: string | string[];
   }>;
 }) {
   const resolvedParams = await searchParams;
@@ -34,12 +38,23 @@ export default async function CommunityFeedPage({
   const feed: CommunityFeedKind = isCommunityFeedKind(requestedFeed)
     ? requestedFeed
     : "live";
+  const rawCycle = firstParam(resolvedParams.cycle);
+  const parsedCycle =
+    rawCycle === undefined ? null : parseCommunityFeedCycleNumber(rawCycle);
+  if (
+    rawCycle !== undefined &&
+    (feed === "live" || parsedCycle === null)
+  ) {
+    redirect(getCommunityFeedHref(feed));
+  }
+  const cycleNumber = parsedCycle;
   const anchorSubmissionId = parseSubmissionId(
     firstParam(resolvedParams.submission)
   );
   const initialPage = await getCommunityFeedSurfacePage({
     feed,
     anchorSubmissionId,
+    cycleNumber,
   });
 
   return (
@@ -48,8 +63,9 @@ export default async function CommunityFeedPage({
 
       <main className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-24 sm:px-6">
         <CommunityFeedClient
-          key={feed}
+          key={`${feed}:${cycleNumber ?? "all"}`}
           feed={feed}
+          cycleNumber={cycleNumber}
           feedLabel={COMMUNITY_FEED_LABELS[feed]}
           initialAnchorRequested={anchorSubmissionId !== null}
           initialPage={initialPage}

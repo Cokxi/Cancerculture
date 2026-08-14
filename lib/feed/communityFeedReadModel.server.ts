@@ -7,6 +7,7 @@ import {
 } from "@/lib/pagination/publicPagination";
 import {
   COMMUNITY_FEED_CLASSIFICATION_VERSION,
+  COMMUNITY_FEED_CYCLE_CATALOG_PAGE_SIZE,
   canonicalFeedTimestamp,
   getFinalizedFeedKeysetFilter,
   getCommunityFeedMediaPath,
@@ -14,16 +15,20 @@ import {
   preciseFeedCursorTimestamp,
   type CommunityFeedAnchorResolution,
   type CommunityFeedContext,
+  type CommunityFeedCycleCatalogPage,
   type CommunityFeedItem,
   type CommunityFeedKind,
   type CommunityFeedPage,
   type FinalizedCommunityFeedKind,
   type FinalizedFeedCursorTuple,
+  type FinalizedFeedKeysetTuple,
   type LiveFeedCursorTuple,
 } from "@/lib/feed/communityFeed";
 import {
   decodeFinalizedFeedCursor,
   decodeLiveFeedCursor,
+  decodeCommunityFeedCycleCatalogCursor,
+  encodeCommunityFeedCycleCatalogCursor,
   encodeFinalizedFeedCursor,
   encodeLiveFeedCursor,
 } from "@/lib/feed/communityFeedCursor.server";
@@ -89,6 +94,18 @@ type FinalizedCycleRow = {
   status: string;
 };
 
+type FinalizedCycleFilterRow = FinalizedCycleRow & {
+  starts_at: string | null;
+  ends_at: string | null;
+  finalized_at: string | null;
+};
+
+type FinalizedCycleCatalogRow = {
+  public_number: number | null;
+  starts_at: string | null;
+  ends_at: string | null;
+};
+
 type FinalizedFeedRow = {
   cycle_id: number;
   submission_id: number;
@@ -123,7 +140,6 @@ function liveContext(
 ): Extract<CommunityFeedContext, { kind: "live" }> {
   return {
     kind: "live",
-    cycleId: cycle.id,
     cycleNumber: requirePublicCycleNumber(cycle.public_number),
     resetCount: cycle.reset_count ?? 0,
   };
@@ -154,13 +170,14 @@ function emptyLiveFeedPage(
   };
 }
 
-function finalizedContext(): Extract<
+function finalizedContext(cycleNumber: number | null): Extract<
   CommunityFeedContext,
   { kind: "finalized" }
 > {
   return {
     kind: "finalized",
     classificationVersion: COMMUNITY_FEED_CLASSIFICATION_VERSION,
+    cycleNumber,
   };
 }
 
@@ -183,9 +200,23 @@ function finalizedTuple(
 
   return {
     finalizedAt: preciseFeedCursorTimestamp(row.finalized_at),
-    cycleId: row.cycle_id,
+    cycleNumber: requirePublicCycleNumber(
+      embeddedRow(row.voting_cycles).public_number
+    ),
     rankInCycle: row.rank_in_cycle,
     submissionId: row.submission_id,
+  };
+}
+
+function finalizedKeysetTuple(
+  row: FinalizedFeedRow
+): FinalizedFeedKeysetTuple {
+  const tuple = finalizedTuple(row);
+  return {
+    finalizedAt: tuple.finalizedAt,
+    cycleId: row.cycle_id,
+    rankInCycle: tuple.rankInCycle,
+    submissionId: tuple.submissionId,
   };
 }
 
@@ -214,7 +245,8 @@ function mapLiveItem(
 
 function mapFinalizedItem(
   row: FinalizedFeedRow,
-  feed: FinalizedCommunityFeedKind
+  feed: FinalizedCommunityFeedKind,
+  selectedCycleNumber: number | null
 ): CommunityFeedItem {
   const submission = embeddedRow(row.submissions);
   const cycle = embeddedRow(row.voting_cycles);
@@ -236,7 +268,11 @@ function mapFinalizedItem(
     submissionId: row.submission_id,
     cycleNumber: requirePublicCycleNumber(cycle.public_number),
     imageUrl: submission.r2_key
-      ? getCommunityFeedMediaPath(feed, row.submission_id)
+      ? getCommunityFeedMediaPath(
+          feed,
+          row.submission_id,
+          selectedCycleNumber
+        )
       : null,
     mediaWidth: submission.media_width,
     mediaHeight: submission.media_height,
@@ -269,7 +305,10 @@ async function getCurrentLiveFeedCycle() {
   return rows[0] ?? null;
 }
 
-function finalizedFeedQuery(feed: FinalizedCommunityFeedKind) {
+function finalizedFeedQuery(
+  feed: FinalizedCommunityFeedKind,
+  cycleId: number | null = null
+) {
   let query = supabaseAdmin
     .from("cycle_results")
     .select(FINALIZED_FEED_SELECT)
@@ -294,7 +333,96 @@ function finalizedFeedQuery(feed: FinalizedCommunityFeedKind) {
     query = query.eq("feed_trash", feed === "trash");
   }
 
+  if (cycleId !== null) {
+    query = query.eq("cycle_id", cycleId);
+  }
+
   return query;
+}
+
+function requireCycleNumber(cycleNumber: number) {
+  if (!Number.isSafeInteger(cycleNumber) || cycleNumber <= 0) {
+    throw new Error("COMMUNITY_FEED_CYCLE_NUMBER_INVALID");
+  }
+  return cycleNumber;
+}
+
+async function getFinalizedCycleFilter(cycleNumber: number) {
+  const { data, error } = await supabaseAdmin
+    .from("voting_cycles")
+    .select("id, public_number, status, starts_at, ends_at, finalized_at")
+    .eq("public_number", requireCycleNumber(cycleNumber))
+    .eq("status", "finished")
+    .not("starts_at", "is", null)
+    .not("ends_at", "is", null)
+    .not("finalized_at", "is", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `COMMUNITY_FEED_CYCLE_FILTER_QUERY_FAILED:${error.code}`
+    );
+  }
+
+  return (data as FinalizedCycleFilterRow | null) ?? null;
+}
+
+export async function getCommunityFeedCycleCatalogPage({
+  cursor,
+}: {
+  cursor?: string | null;
+} = {}): Promise<CommunityFeedCycleCatalogPage> {
+  const decoded = cursor
+    ? decodeCommunityFeedCycleCatalogCursor(cursor)
+    : null;
+  let query = supabaseAdmin
+    .from("voting_cycles")
+    .select("public_number, starts_at, ends_at")
+    .eq("status", "finished")
+    .not("public_number", "is", null)
+    .not("starts_at", "is", null)
+    .not("ends_at", "is", null)
+    .not("finalized_at", "is", null)
+    .order("public_number", { ascending: false });
+
+  if (decoded) {
+    query = query.lt("public_number", decoded.values.cycleNumber);
+  }
+
+  const { data, error } = await query.limit(
+    COMMUNITY_FEED_CYCLE_CATALOG_PAGE_SIZE + 1
+  );
+
+  if (error) {
+    throw new Error(
+      `COMMUNITY_FEED_CYCLE_CATALOG_QUERY_FAILED:${error.code}`
+    );
+  }
+
+  const rows = (data ?? []) as FinalizedCycleCatalogRow[];
+  const hasMore = rows.length > COMMUNITY_FEED_CYCLE_CATALOG_PAGE_SIZE;
+  const pageRows = rows.slice(0, COMMUNITY_FEED_CYCLE_CATALOG_PAGE_SIZE);
+  const items = pageRows.map((row) => {
+    if (!row.starts_at || !row.ends_at) {
+      throw new Error("COMMUNITY_FEED_CYCLE_CATALOG_ROW_INVALID");
+    }
+    return {
+      cycleNumber: requirePublicCycleNumber(row.public_number),
+      startsAt: canonicalFeedTimestamp(row.starts_at),
+      endsAt: canonicalFeedTimestamp(row.ends_at),
+    };
+  });
+  const lastItem = items.at(-1);
+
+  return {
+    items,
+    nextCursor:
+      hasMore && lastItem
+        ? encodeCommunityFeedCycleCatalogCursor(lastItem.cycleNumber)
+        : null,
+    hasMore,
+  };
 }
 
 async function getLiveAnchorRow(
@@ -324,9 +452,10 @@ async function getLiveAnchorRow(
 
 async function getFinalizedAnchorRow(
   feed: FinalizedCommunityFeedKind,
-  submissionId: number
+  submissionId: number,
+  cycleId: number | null
 ) {
-  const { data, error } = await finalizedFeedQuery(feed)
+  const { data, error } = await finalizedFeedQuery(feed, cycleId)
     .eq("submission_id", requireSubmissionId(submissionId))
     .limit(1)
     .maybeSingle();
@@ -367,7 +496,7 @@ async function getLiveFeedPage(
 
   if (decodedCursor) {
     if (
-      decodedCursor.context.cycleId !== cycle.id ||
+      decodedCursor.context.cycleNumber !== context.cycleNumber ||
       decodedCursor.context.resetCount !== (cycle.reset_count ?? 0)
     ) {
       cursorState = "context_unavailable_reset";
@@ -436,7 +565,7 @@ async function getLiveFeedPage(
     nextCursor:
       hasMore && lastRow
         ? encodeLiveFeedCursor({
-            cycleId: cycle.id,
+            cycleNumber: context.cycleNumber,
             resetCount: cycle.reset_count ?? 0,
             tuple: liveTuple(lastRow),
           })
@@ -497,7 +626,7 @@ async function resolveLiveFeedAnchor(
         context,
         item: mapLiveItem(anchor, context.cycleNumber),
         resumeCursor: encodeLiveFeedCursor({
-          cycleId: cycle.id,
+          cycleNumber: context.cycleNumber,
           resetCount: cycle.reset_count ?? 0,
           tuple: liveTuple(anchor),
         }),
@@ -514,31 +643,51 @@ async function resolveLiveFeedAnchor(
 
 async function getFinalizedFeedPage(
   feed: FinalizedCommunityFeedKind,
-  cursor?: string | null
+  cursor?: string | null,
+  selectedCycleNumber: number | null = null
 ) {
-  let cursorTuple: FinalizedFeedCursorTuple | null = null;
+  const decoded = cursor
+    ? decodeFinalizedFeedCursor(cursor, feed, selectedCycleNumber)
+    : null;
+  const cycleFilter =
+    selectedCycleNumber === null
+      ? null
+      : await getFinalizedCycleFilter(selectedCycleNumber);
+  const context = finalizedContext(selectedCycleNumber);
+  if (selectedCycleNumber !== null && !cycleFilter) {
+    return {
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      feed,
+      context,
+      cursorState: cursor ? "context_unavailable_reset" : "start",
+    } satisfies CommunityFeedPage;
+  }
+
+  let cursorTuple: FinalizedFeedKeysetTuple | null = null;
   let cursorState: CommunityFeedPage["cursorState"] = "start";
 
-  if (cursor) {
-    const decoded = decodeFinalizedFeedCursor(cursor, feed);
+  if (decoded) {
     const expectedTuple = decoded.values;
     const anchor = await getFinalizedAnchorRow(
       feed,
-      expectedTuple.submissionId
+      expectedTuple.submissionId,
+      cycleFilter?.id ?? null
     );
 
     if (
       anchor &&
       tuplesMatch(finalizedTuple(anchor), expectedTuple)
     ) {
-      cursorTuple = expectedTuple;
+      cursorTuple = finalizedKeysetTuple(anchor);
       cursorState = "continued";
     } else {
       cursorState = "anchor_unavailable_reset";
     }
   }
 
-  let query = finalizedFeedQuery(feed)
+  let query = finalizedFeedQuery(feed, cycleFilter?.id ?? null)
     .order("finalized_at", { ascending: false })
     .order("cycle_id", { ascending: false })
     .order("rank_in_cycle", { ascending: true })
@@ -566,17 +715,20 @@ async function getFinalizedFeedPage(
   const lastRow = pageRows.at(-1);
 
   return {
-    items: pageRows.map((row) => mapFinalizedItem(row, feed)),
+    items: pageRows.map((row) =>
+      mapFinalizedItem(row, feed, selectedCycleNumber)
+    ),
     nextCursor:
       hasMore && lastRow
         ? encodeFinalizedFeedCursor({
             feed,
+            cycleNumber: selectedCycleNumber,
             tuple: finalizedTuple(lastRow),
           })
         : null,
     hasMore,
     feed,
-    context: finalizedContext(),
+    context,
     cursorState,
   } satisfies CommunityFeedPage;
 }
@@ -584,30 +736,59 @@ async function getFinalizedFeedPage(
 export async function getCommunityFeedPage({
   feed,
   cursor,
+  cycleNumber = null,
 }: {
   feed: CommunityFeedKind;
   cursor?: string | null;
+  cycleNumber?: number | null;
 }): Promise<CommunityFeedPage> {
+  if (feed === "live" && cycleNumber !== null) {
+    throw new Error("COMMUNITY_FEED_CYCLE_FILTER_INVALID");
+  }
+  if (cycleNumber !== null) requireCycleNumber(cycleNumber);
   return feed === "live"
     ? getLiveFeedPage(cursor)
-    : getFinalizedFeedPage(feed, cursor);
+    : getFinalizedFeedPage(feed, cursor, cycleNumber);
 }
 
 export async function resolveCommunityFeedAnchor({
   feed,
   submissionId,
+  cycleNumber = null,
 }: {
   feed: CommunityFeedKind;
   submissionId: number;
+  cycleNumber?: number | null;
 }): Promise<CommunityFeedAnchorResolution> {
   requireSubmissionId(submissionId);
+
+  if (feed === "live" && cycleNumber !== null) {
+    throw new Error("COMMUNITY_FEED_CYCLE_FILTER_INVALID");
+  }
+  if (cycleNumber !== null) requireCycleNumber(cycleNumber);
 
   if (feed === "live") {
     return resolveLiveFeedAnchor(submissionId);
   }
 
-  const context = finalizedContext();
-  const anchor = await getFinalizedAnchorRow(feed, submissionId);
+  const context = finalizedContext(cycleNumber);
+  const cycleFilter =
+    cycleNumber === null ? null : await getFinalizedCycleFilter(cycleNumber);
+  if (cycleNumber !== null && !cycleFilter) {
+    return {
+      feed,
+      submissionId,
+      status: "context_unavailable",
+      context,
+      item: null,
+      resumeCursor: null,
+    };
+  }
+  const anchor = await getFinalizedAnchorRow(
+    feed,
+    submissionId,
+    cycleFilter?.id ?? null
+  );
 
   return anchor
     ? {
@@ -615,9 +796,10 @@ export async function resolveCommunityFeedAnchor({
         submissionId,
         status: "resolved",
         context,
-        item: mapFinalizedItem(anchor, feed),
+        item: mapFinalizedItem(anchor, feed, cycleNumber),
         resumeCursor: encodeFinalizedFeedCursor({
           feed,
+          cycleNumber,
           tuple: finalizedTuple(anchor),
         }),
       }
@@ -634,11 +816,16 @@ export async function resolveCommunityFeedAnchor({
 export async function resolveCommunityFeedMediaSource({
   feed,
   submissionId,
+  cycleNumber = null,
 }: {
   feed: CommunityFeedKind;
   submissionId: number;
+  cycleNumber?: number | null;
 }): Promise<{ r2Key: string } | null> {
   requireSubmissionId(submissionId);
+
+  if (feed === "live" && cycleNumber !== null) return null;
+  if (cycleNumber !== null) requireCycleNumber(cycleNumber);
 
   if (feed === "live") {
     const cycle = await getCurrentLiveFeedCycle();
@@ -657,7 +844,14 @@ export async function resolveCommunityFeedMediaSource({
     return { r2Key: submission.r2_key };
   }
 
-  const result = await getFinalizedAnchorRow(feed, submissionId);
+  const cycleFilter =
+    cycleNumber === null ? null : await getFinalizedCycleFilter(cycleNumber);
+  if (cycleNumber !== null && !cycleFilter) return null;
+  const result = await getFinalizedAnchorRow(
+    feed,
+    submissionId,
+    cycleFilter?.id ?? null
+  );
   if (!result) return null;
 
   const submission = embeddedRow(result.submissions);
@@ -684,6 +878,6 @@ export async function resolveCommunityFeedCycleSource({
       : null;
   }
 
-  const result = await getFinalizedAnchorRow(feed, submissionId);
+  const result = await getFinalizedAnchorRow(feed, submissionId, null);
   return result ? { cycleId: result.cycle_id } : null;
 }

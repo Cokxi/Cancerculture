@@ -42,14 +42,15 @@ test("Resume is explicit, per Feed, semantic, dwell-based, and never a pixel pos
   assert.match(client, /await fetchPage\(\{\}\)/u);
   assert.match(client, /window\.history\.replaceState/u);
   assert.match(client, /Showing the newest submissions/u);
-  assert.match(client, /getCommunityFeedResumeStorageKey\(feed\)/u);
+  assert.match(client, /getCommunityFeedResumeStorageKey\(feed, cycleNumber\)/u);
   assert.match(client, /data-feed-submission-id/u);
   assert.match(client, /IntersectionObserver/u);
   assert.match(client, /COMMUNITY_FEED_VIEWPORT_THRESHOLD/u);
   assert.match(client, /COMMUNITY_FEED_VIEWPORT_DWELL_MS/u);
   assert.match(client, /COMMUNITY_FEED_PROGRESS_DEBOUNCE_MS/u);
-  assert.match(resume, /cycleId: context\.cycleId/u);
+  assert.match(resume, /cycleNumber: context\.cycleNumber/u);
   assert.match(resume, /resetCount: context\.resetCount/u);
+  assert.match(resume, /cycle-\$\{cycleNumber \?\? "all"\}/u);
   assert.doesNotMatch(`${client}\n${resume}`, /scrollY|scrollTop|pixelOffset/iu);
 });
 
@@ -74,6 +75,16 @@ test("direct anchors, Reload fallback, and Cycle/reset expiry stay bounded", () 
   assert.match(client, /context_unavailable_reset/u);
   assert.match(client, /Cycle changed or reset/u);
   assert.match(client, /window\.localStorage\.removeItem/u);
+});
+
+test("finalized Cycle selection is canonical in URL, transport, anchors, and navigation", () => {
+  assert.match(page, /cycle\?: string \| string\[\]/u);
+  assert.match(page, /cycleNumber=\{cycleNumber\}/u);
+  assert.match(page, /getCommunityFeedSurfacePage\(\{[\s\S]*cycleNumber/u);
+  assert.match(client, /params\.set\("cycle", String\(cycleNumber\)\)/u);
+  assert.match(client, /getCommunityFeedHref\([\s\S]*cycleNumber/u);
+  assert.match(client, /readPageResponse\(response, feed, cycleNumber\)/u);
+  assert.doesNotMatch(`${page}\n${client}`, /cycleId|cycle_id/u);
 });
 
 test("cursor pagination and prefetching keep at most one nearby signed page", () => {

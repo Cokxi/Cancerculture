@@ -37,18 +37,18 @@ export function getCommunityFeedCursorScope(
 }
 
 export function encodeLiveFeedCursor({
-  cycleId,
+  cycleNumber,
   resetCount,
   tuple,
 }: {
-  cycleId: number;
+  cycleNumber: number;
   resetCount: number;
   tuple: LiveFeedCursorTuple;
 }) {
   return encodeServerPublicPaginationCursor({
     version: PUBLIC_PAGINATION_CURSOR_VERSION,
     scope: PUBLIC_PAGINATION_SCOPES.feedLive,
-    context: { feed: "live", cycleId, resetCount },
+    context: { feed: "live", cycleNumber, resetCount },
     values: tuple,
   });
 }
@@ -67,9 +67,11 @@ export function decodeLiveFeedCursor(
 
 export function encodeFinalizedFeedCursor({
   feed,
+  cycleNumber,
   tuple,
 }: {
   feed: FinalizedCommunityFeedKind;
+  cycleNumber: number | null;
   tuple: FinalizedFeedCursorTuple;
 }) {
   return encodeServerPublicPaginationCursor({
@@ -79,6 +81,7 @@ export function encodeFinalizedFeedCursor({
       feed,
       classificationVersion:
         COMMUNITY_FEED_CLASSIFICATION_VERSION,
+      cycleNumber,
     },
     values: tuple,
   } as PublicPaginationCursorPayload);
@@ -86,7 +89,8 @@ export function encodeFinalizedFeedCursor({
 
 export function decodeFinalizedFeedCursor(
   cursor: string,
-  feed: FinalizedCommunityFeedKind
+  feed: FinalizedCommunityFeedKind,
+  cycleNumber: number | null
 ) {
   return decodeServerPublicPaginationCursor(
     cursor,
@@ -95,6 +99,7 @@ export function decodeFinalizedFeedCursor(
       feed,
       classificationVersion:
         COMMUNITY_FEED_CLASSIFICATION_VERSION,
+      cycleNumber,
     }
   ) as Extract<
     PublicPaginationCursorPayload,
@@ -104,5 +109,25 @@ export function decodeFinalizedFeedCursor(
         | typeof PUBLIC_PAGINATION_SCOPES.feedAll
         | typeof PUBLIC_PAGINATION_SCOPES.feedTrash;
     }
+  >;
+}
+
+export function encodeCommunityFeedCycleCatalogCursor(cycleNumber: number) {
+  return encodeServerPublicPaginationCursor({
+    version: PUBLIC_PAGINATION_CURSOR_VERSION,
+    scope: PUBLIC_PAGINATION_SCOPES.feedCycleCatalog,
+    context: { catalog: "finalized-cycles" },
+    values: { cycleNumber },
+  });
+}
+
+export function decodeCommunityFeedCycleCatalogCursor(cursor: string) {
+  return decodeServerPublicPaginationCursor(
+    cursor,
+    PUBLIC_PAGINATION_SCOPES.feedCycleCatalog,
+    { catalog: "finalized-cycles" }
+  ) as Extract<
+    PublicPaginationCursorPayload,
+    { scope: typeof PUBLIC_PAGINATION_SCOPES.feedCycleCatalog }
   >;
 }

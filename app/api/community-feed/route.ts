@@ -4,7 +4,10 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { getPublicPaginationErrorResponse } from "@/lib/pagination/getPublicPaginationErrorResponse";
 import { getCommunityFeedSurfacePage } from "@/lib/feed/communityFeedSurface.server";
-import { isCommunityFeedKind } from "@/lib/feed/communityFeedSurface";
+import {
+  isCommunityFeedKind,
+  parseCommunityFeedCycleNumber,
+} from "@/lib/feed/communityFeedSurface";
 
 function invalidRequest(error: string) {
   return NextResponse.json(
@@ -22,6 +25,7 @@ export async function GET(request: Request) {
     const feed = params.get("feed");
     const cursor = params.get("cursor");
     const rawAnchor = params.get("anchor");
+    const rawCycle = params.get("cycle");
 
     if (!isCommunityFeedKind(feed)) {
       return invalidRequest("INVALID_FEED");
@@ -29,6 +33,17 @@ export async function GET(request: Request) {
 
     if (cursor && rawAnchor) {
       return invalidRequest("AMBIGUOUS_POSITION");
+    }
+
+    let cycleNumber: number | null = null;
+    if (rawCycle !== null) {
+      cycleNumber = parseCommunityFeedCycleNumber(rawCycle);
+      if (
+        feed === "live" ||
+        cycleNumber === null
+      ) {
+        return invalidRequest("INVALID_CYCLE_FILTER");
+      }
     }
 
     let anchorSubmissionId: number | null = null;
@@ -46,6 +61,7 @@ export async function GET(request: Request) {
       feed,
       cursor,
       anchorSubmissionId,
+      cycleNumber,
     });
 
     return NextResponse.json(page, {

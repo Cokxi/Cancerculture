@@ -1,7 +1,10 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { isCommunityFeedKind } from "@/lib/feed/communityFeedSurface";
+import {
+  isCommunityFeedKind,
+  parseCommunityFeedCycleNumber,
+} from "@/lib/feed/communityFeedSurface";
 import { resolveCommunityFeedMediaSource } from "@/lib/feed/communityFeedReadModel.server";
 import {
   createNeutralCommunityFeedMediaResponse,
@@ -14,6 +17,7 @@ export async function GET(
 ) {
   try {
     const feed = new URL(request.url).searchParams.get("feed");
+    const rawCycle = new URL(request.url).searchParams.get("cycle");
     const { submissionId: rawSubmissionId } = await params;
     const submissionId = Number(rawSubmissionId);
 
@@ -25,9 +29,19 @@ export async function GET(
       return createNeutralCommunityFeedMediaResponse();
     }
 
+    const cycleNumber =
+      rawCycle === null ? null : parseCommunityFeedCycleNumber(rawCycle);
+    if (
+      (feed === "live" && rawCycle !== null) ||
+      (rawCycle !== null && cycleNumber === null)
+    ) {
+      return createNeutralCommunityFeedMediaResponse();
+    }
+
     const source = await resolveCommunityFeedMediaSource({
       feed,
       submissionId,
+      cycleNumber,
     });
     if (!source) return createNeutralCommunityFeedMediaResponse();
 

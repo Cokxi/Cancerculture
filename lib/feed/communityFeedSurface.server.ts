@@ -21,26 +21,29 @@ export async function getCommunityFeedSurfacePage({
   feed,
   cursor,
   anchorSubmissionId,
+  cycleNumber = null,
 }: {
   feed: CommunityFeedKind;
   cursor?: string | null;
   anchorSubmissionId?: number | null;
+  cycleNumber?: number | null;
 }): Promise<CommunityFeedPage> {
   if (cursor && anchorSubmissionId) {
     throw new Error("COMMUNITY_FEED_SURFACE_INPUT_INVALID");
   }
 
   if (!anchorSubmissionId) {
-    return getCommunityFeedPage({ feed, cursor });
+    return getCommunityFeedPage({ feed, cursor, cycleNumber });
   }
 
   const resolution = await resolveCommunityFeedAnchor({
     feed,
     submissionId: anchorSubmissionId,
+    cycleNumber,
   });
 
   if (resolution.status !== "resolved") {
-    const startPage = await getCommunityFeedPage({ feed });
+    const startPage = await getCommunityFeedPage({ feed, cycleNumber });
     return {
       ...startPage,
       cursorState: resetStateForAnchorStatus(resolution.status),
@@ -54,6 +57,7 @@ export async function getCommunityFeedSurfacePage({
   const continuedPage = await getCommunityFeedPage({
     feed,
     cursor: resolution.resumeCursor,
+    cycleNumber,
   });
 
   if (continuedPage.cursorState !== "continued") {

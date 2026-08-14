@@ -106,7 +106,7 @@ test("managed start and reset return the public number while retaining internal 
   assert.match(resetServer, /cycleNumber: number;/u);
 });
 
-test("public DTOs display cycle numbers while deep links and cursors keep internal IDs", async () => {
+test("public DTOs display cycle numbers while only legacy non-Feed links and cursors keep internal IDs", async () => {
   const [
     historyTypes,
     historyQuery,
@@ -151,7 +151,11 @@ test("public DTOs display cycle numbers while deep links and cursors keep intern
     /\/cycle-history\?cycle=\$\{cycleId\}#submission-\$\{submissionId\}/u
   );
   assert.match(pagination, /context: \{ cycleId: number \}/u);
-  assert.doesNotMatch(pagination, /cycleNumber/u);
+  assert.match(
+    pagination,
+    /scope: typeof PUBLIC_PAGINATION_SCOPES\.feedLive;[\s\S]*cycleNumber: number;/u,
+  );
+  assert.match(pagination, /feedCycleCatalog: "feed-cycle-catalog"/u);
 });
 
 test("admin, audit, bot, and scheduler contracts remain internal-ID based", async () => {
