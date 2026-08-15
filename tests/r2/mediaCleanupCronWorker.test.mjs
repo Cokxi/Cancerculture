@@ -56,6 +56,7 @@ test("cron performs one secret-only POST and accepts the empty no-op", async () 
   assert.equal(result.fullyDrained, true);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.redirect, "manual");
   assert.equal(calls[0].init.headers.Authorization, `Bearer ${secret}`);
   assert.equal(
     calls[0].init.headers["x-cancerculture-media-cleanup-environment"],
@@ -103,6 +104,12 @@ test("cron fails closed for missing secrets and DEV/LIVE target mix-ups", async 
 });
 
 test("website errors, invalid environment replies, and terminal work are observable failures", async () => {
+  await assert.rejects(
+    runMediaCleanupCron(devEnv, {
+      fetchImpl: async () => response({}, { ok: false, status: 302 }),
+    }),
+    /MEDIA_CLEANUP_CRON_REDIRECT_REJECTED/u,
+  );
   await assert.rejects(
     runMediaCleanupCron(devEnv, {
       fetchImpl: async () => response({}, { ok: false, status: 503 }),

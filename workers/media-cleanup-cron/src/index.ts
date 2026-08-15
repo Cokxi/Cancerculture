@@ -149,11 +149,14 @@ export async function runMediaCleanupCron(
         Authorization: `Bearer ${configuration.secret}`,
         [MEDIA_CLEANUP_ENVIRONMENT_HEADER]: configuration.environment,
       },
-      redirect: "error",
+      redirect: "manual",
       signal: controller.signal,
     });
 
     if (!response.ok) {
+      if (response.status >= 300 && response.status < 400) {
+        throw new Error("MEDIA_CLEANUP_CRON_REDIRECT_REJECTED");
+      }
       if (response.status === 401) {
         throw new Error("MEDIA_CLEANUP_CRON_UNAUTHORIZED");
       }
