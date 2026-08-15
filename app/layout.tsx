@@ -31,6 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${bangers.variable} ${permanentMarker.variable}`}
     >
       <body className="antialiased bg-orange-background overflow-x-hidden">

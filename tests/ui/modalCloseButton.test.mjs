@@ -22,7 +22,7 @@ test("shared modal close button exposes the visual and interaction contract", as
   assert.match(closeButton, /aria-label="Close modal"/);
   assert.match(closeButton, />\s*×\s*</);
   assert.match(closeButton, /absolute right-2 top-2/);
-  assert.match(closeButton, /h-10 w-10/);
+  assert.match(closeButton, /h-11 w-11/);
   assert.match(closeButton, /cursor-pointer/);
   assert.match(closeButton, /hover:bg-black\/90/);
   assert.match(closeButton, /focus-visible:ring-2/);

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
-const [page, client, navigator, route, surface, resume, navigation, detailPage] = await Promise.all([
+const [page, client, navigator, route, surface, resume, navigation, detailPage, layout, globalStyles] = await Promise.all([
   readFile(new URL("app/spread/page.tsx", root), "utf8"),
   readFile(new URL("app/spread/CommunityFeedClient.tsx", root), "utf8"),
   readFile(new URL("app/spread/CommunityFeedCycleNavigator.tsx", root), "utf8"),
@@ -12,6 +12,8 @@ const [page, client, navigator, route, surface, resume, navigation, detailPage] 
   readFile(new URL("lib/feed/communityFeedResume.ts", root), "utf8"),
   readFile(new URL("lib/navigation/homeNavigation.ts", root), "utf8"),
   readFile(new URL("app/spread/[submissionId]/page.tsx", root), "utf8"),
+  readFile(new URL("app/layout.tsx", root), "utf8"),
+  readFile(new URL("app/globals.css", root), "utf8"),
 ]);
 
 test("Desktop and Mobile UI expose all four read-only Feed choices accessibly", () => {
@@ -78,6 +80,11 @@ test("direct anchors, Reload fallback, and Cycle/reset expiry stay bounded", () 
   assert.match(client, /context_unavailable_reset/u);
   assert.match(client, /Cycle changed or reset/u);
   assert.match(client, /window\.localStorage\.removeItem/u);
+});
+
+test("global smooth scrolling declares its route-transition contract", () => {
+  assert.match(globalStyles, /scroll-behavior:\s*smooth/u);
+  assert.match(layout, /data-scroll-behavior="smooth"/u);
 });
 
 test("finalized Cycle selection is canonical in URL, transport, anchors, and navigation", () => {
