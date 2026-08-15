@@ -12,12 +12,16 @@ import {
   processDueR2CleanupQueue,
 } from "@/lib/r2/processMediaCleanupQueue";
 import { pruneSponsorMeasurementRetention } from "@/lib/sponsors/retention.server";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
 };
 
 export async function POST(req: Request) {
+  const gateResponse = enforceRouteMutationGate({ allowDrain: true });
+  if (gateResponse) return gateResponse;
+
   const authorization = authorizeInternalTrigger({
     authorizationHeader: req.headers.get("authorization"),
     configuredSecret: process.env.MEDIA_CLEANUP_TRIGGER_SECRET,

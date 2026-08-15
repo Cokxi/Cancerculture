@@ -7,6 +7,7 @@ import {
   verifyDiscordMembershipSyncRequest,
 } from "@/lib/auth/discordMembershipSyncAuth";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
@@ -21,6 +22,9 @@ function errorResponse(error: string, status: number) {
 }
 
 export async function POST(req: Request) {
+  const gateResponse = enforceRouteMutationGate();
+  if (gateResponse) return gateResponse;
+
   try {
     verifyDiscordMembershipSyncRequest({
       method: req.method,

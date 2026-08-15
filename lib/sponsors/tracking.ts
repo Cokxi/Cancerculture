@@ -2,6 +2,7 @@ import "server-only";
 import { createHmac, randomUUID } from "crypto";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 
 export const SPONSOR_TRACKING_SURFACES = [
   "home_hud",
@@ -122,6 +123,8 @@ export async function recordSponsorEvent({
   surface: SponsorTrackingSurface;
   viewerHash: string;
 }) {
+  assertServerMutationAllowed();
+
   if (
     (surface === "spread" && !feedKind) ||
     (surface !== "spread" && feedKind !== null)

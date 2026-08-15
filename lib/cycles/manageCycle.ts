@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 
 export type CycleManagementOperation =
   | "end_submission_start_voting"
@@ -62,6 +63,7 @@ export async function manageCyclePhase(params: {
   reason?: string | null;
   idempotencyKey: string;
 }): Promise<CycleManagementResult> {
+  assertServerMutationAllowed();
   const { data, error } = await supabaseAdmin.rpc(
     "manage_cycle_phase",
     {

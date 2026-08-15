@@ -9,6 +9,7 @@ import {
 } from "@/lib/cycles/cycleSchedulerHealth";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { evaluateDiscordSyncHealth } from "@/lib/discord/discordSyncHealth";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
@@ -173,6 +174,9 @@ function isCycleSchedulerHealthRow(
 }
 
 export async function GET(req: Request) {
+  const gateResponse = enforceRouteMutationGate({ allowDrain: true });
+  if (gateResponse) return gateResponse;
+
   const authorization = authorizeInternalTrigger({
     authorizationHeader: req.headers.get("authorization"),
     configuredSecret: process.env.DISCORD_SYNC_HEALTH_SECRET,

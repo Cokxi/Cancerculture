@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 
 export type SponsorRetentionResult = {
   rawEventsDeleted: number;
@@ -12,6 +13,7 @@ function isNonNegativeInteger(value: unknown) {
 }
 
 export async function pruneSponsorMeasurementRetention(): Promise<SponsorRetentionResult> {
+  assertServerMutationAllowed({ allowDrain: true });
   const { data, error } = await supabaseAdmin.rpc(
     "prune_sponsor_measurement_retention"
   );

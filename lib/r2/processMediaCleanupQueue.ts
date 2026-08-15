@@ -22,6 +22,7 @@ import {
   type MediaCleanupQueuePostflightRow,
   type MediaDeleteOutcome,
 } from "@/lib/r2/mediaCleanupState";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 
 function isClaimedJob(value: unknown): value is ClaimedMediaCleanupJob {
   if (!value || typeof value !== "object") {
@@ -275,6 +276,7 @@ async function processClaimedJobs(jobs: ClaimedMediaCleanupJob[]) {
 export async function processR2CleanupQueue(
   options: { queueIds?: readonly number[] } = {}
 ): Promise<MediaCleanupBatchResult> {
+  assertServerMutationAllowed({ allowDrain: true });
   const queueIds = options.queueIds;
   let jobs: ClaimedMediaCleanupJob[];
 
@@ -295,6 +297,7 @@ export async function processR2CleanupQueue(
 }
 
 export async function processDueR2CleanupQueue() {
+  assertServerMutationAllowed({ allowDrain: true });
   const [recovery, sponsorRecovery] = await Promise.all([
     recoverStaleSubmissionUploads(),
     recoverStaleSponsorUploads(),
@@ -315,6 +318,7 @@ export async function processDueR2CleanupQueue() {
 export async function processTargetedR2CleanupQueue(
   queueIds: readonly number[]
 ) {
+  assertServerMutationAllowed({ allowDrain: true });
   const result = await processTargetedMediaCleanupBatches({
     queueIds,
     processBatch: async (batch) =>

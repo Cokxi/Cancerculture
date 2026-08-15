@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 import type {
   SubmissionModerationOperation,
   SubmissionModerationPhase,
@@ -146,6 +147,7 @@ export async function moderateSubmission(params: {
   reasonText: string | null;
   idempotencyKey: string;
 }): Promise<SubmissionModerationResult> {
+  assertServerMutationAllowed();
   const context: RpcFailureContext = {
     requestId: params.idempotencyKey,
     operation: params.operation,

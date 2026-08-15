@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { AuthError } from "@/lib/auth/AuthError";
 import { runAuthQueryWithTimeout } from "@/lib/auth/authQuery";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 
 type SessionAccessResult = {
   outcome?: unknown;
@@ -39,6 +40,11 @@ export async function requireSession() {
   if (!sessionId || !UUID_PATTERN.test(sessionId)) {
     throw new AuthError(401, "Not authenticated", "NOT_AUTHENTICATED");
   }
+
+  // A real session validation updates last_seen_at. Gate it after the local
+  // cookie check but before the first database RPC, so static rendering without
+  // a session stays side-effect-free and buildable.
+  assertServerMutationAllowed();
 
   const { data, error } = await runAuthQueryWithTimeout(
     "central session access",

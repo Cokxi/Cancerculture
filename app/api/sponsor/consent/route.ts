@@ -8,6 +8,7 @@ import {
   SPONSOR_TRACKING_COOKIE,
   SPONSOR_TRACKING_COOKIE_MAX_AGE_SECONDS,
 } from "@/lib/sponsors/tracking";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
@@ -19,6 +20,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const gateResponse = enforceRouteMutationGate();
+  if (gateResponse) return gateResponse;
+
   const body = await request.json().catch(() => null);
   const status = body?.status;
   if (status !== "granted" && status !== "denied") {

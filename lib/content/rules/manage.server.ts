@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 import type { RulesContentDocument } from "./types";
 
 export type RulesContentOperation = "save_draft" | "publish";
@@ -51,6 +52,7 @@ export async function manageRulesContent(params: {
   materialChange?: boolean | null;
   idempotencyKey: string;
 }): Promise<RulesContentMutationResult> {
+  assertServerMutationAllowed();
   const { data, error } = await supabaseAdmin.rpc(
     "manage_rules_content",
     {

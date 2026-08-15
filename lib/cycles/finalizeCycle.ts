@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 
 export type FinalizeCycleResult = {
   cycleId: number;
@@ -48,6 +49,7 @@ export async function finalizeCycleTransactional({
   actorDiscordUserId: string;
   cycleId: number;
 }): Promise<FinalizeCycleResult> {
+  assertServerMutationAllowed();
   const { data, error } = await supabaseAdmin.rpc(
     "finalize_cycle_managed",
     {

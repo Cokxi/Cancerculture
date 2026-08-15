@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 import type { FaqContentDocument } from "./types";
 
 export type FaqContentMutationResult = Readonly<{
@@ -38,6 +39,7 @@ export async function saveAndPublishFaqContent(params: {
   content: FaqContentDocument;
   idempotencyKey: string;
 }): Promise<FaqContentMutationResult> {
+  assertServerMutationAllowed();
   const { data, error } = await supabaseAdmin.rpc("manage_faq_content", {
     p_actor_discord_user_id: params.actorDiscordUserId,
     p_expected_state_version: params.expectedStateVersion,

@@ -7,6 +7,7 @@ import {
   finishCycleSchedulerRun,
 } from "@/lib/cycles/cycleSchedulerRunHealth";
 import { processDueCycleTransitions } from "@/lib/cycles/phaseAutomation";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",
@@ -17,6 +18,9 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(req: Request) {
+  const gateResponse = enforceRouteMutationGate();
+  if (gateResponse) return gateResponse;
+
   const authorization = authorizeCycleAutomationTrigger({
     authorizationHeader: req.headers.get("authorization"),
     configuredSecret: process.env.CYCLE_AUTOMATION_TRIGGER_SECRET,

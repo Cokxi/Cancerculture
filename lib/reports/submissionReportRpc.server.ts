@@ -2,6 +2,7 @@ import "server-only";
 
 import { AuthError } from "@/lib/auth/AuthError";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 import {
   getSubmissionReportReporterDedupeKey,
   SubmissionReportIdentityConfigurationError,
@@ -75,6 +76,7 @@ export async function getSubmissionReportEligibility({
   discordUserId: string;
   submissionId: number;
 }) {
+  assertServerMutationAllowed();
   const reporterIdentity = identity(discordUserId);
   const { data, error } = await supabaseAdmin.rpc(
     "get_submission_report_eligibility",

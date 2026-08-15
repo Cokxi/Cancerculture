@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/oauth/safeReturnPath";
 import { runAuthQueryWithTimeout } from "@/lib/auth/authQuery";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -24,6 +25,9 @@ function expireCookie(response: NextResponse, name: string) {
 }
 
 export async function POST(req: Request) {
+  const gateResponse = enforceRouteMutationGate();
+  if (gateResponse) return gateResponse;
+
   let applicationOrigin: URL;
 
   try {

@@ -2,6 +2,7 @@ import "server-only";
 
 import { AuthError } from "@/lib/auth/AuthError";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 import type { VoteRefundSelection } from "@/lib/voteRefund/request";
 
 export type VoteRefundSubmissionResult = Readonly<{
@@ -149,6 +150,7 @@ export async function refundDisqualifiedVotes(params: {
   reasonText: string | null;
   idempotencyKey: string;
 }): Promise<VoteRefundResult> {
+  assertServerMutationAllowed();
   let response;
 
   try {

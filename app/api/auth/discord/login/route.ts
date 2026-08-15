@@ -10,8 +10,12 @@ import {
   createOAuthState,
   OAUTH_STATE_MAX_AGE_SECONDS,
 } from "@/lib/auth/oauth/state";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 export async function GET(req: Request) {
+  const gateResponse = enforceRouteMutationGate();
+  if (gateResponse) return gateResponse;
+
   try {
     const clientId = process.env.DISCORD_CLIENT_ID?.trim();
     const redirectUri = process.env.DISCORD_REDIRECT_URI?.trim();

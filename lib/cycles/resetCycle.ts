@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 
 export type ResetCycleResult = {
   cycleId: number;
@@ -66,6 +67,7 @@ export async function resetCycleTransactional({
   cycleId: number;
   reason: string;
 }): Promise<ResetCycleResult> {
+  assertServerMutationAllowed();
   const { data, error } = await supabaseAdmin.rpc("reset_cycle_managed", {
     p_actor_discord_user_id: actorDiscordUserId,
     p_cycle_id: cycleId,

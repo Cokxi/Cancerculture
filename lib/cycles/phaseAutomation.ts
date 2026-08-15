@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 
 export type CycleAutomationOutcome =
   | "transitioned"
@@ -79,6 +80,7 @@ async function runPhaseCheck(): Promise<CycleAutomationResult> {
 }
 
 export async function processDueCycleTransitions() {
+  assertServerMutationAllowed();
   if (!inMemoryPhaseCheck) {
     inMemoryPhaseCheck = runPhaseCheck().finally(() => {
       inMemoryPhaseCheck = null;

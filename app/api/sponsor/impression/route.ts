@@ -11,8 +11,12 @@ import {
   SPONSOR_TRACKING_COOKIE,
   SPONSOR_TRACKING_COOKIE_MAX_AGE_SECONDS,
 } from "@/lib/sponsors/tracking";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 export async function POST(request: Request) {
+  const gateResponse = enforceRouteMutationGate();
+  if (gateResponse) return gateResponse;
+
   const url = new URL(request.url);
   const body = await request.json().catch(() => null);
   const token = typeof body?.token === "string" ? body.token : "";

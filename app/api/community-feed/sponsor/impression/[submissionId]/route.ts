@@ -12,11 +12,15 @@ import {
   SPONSOR_TRACKING_COOKIE_MAX_AGE_SECONDS,
 } from "@/lib/sponsors/tracking";
 import { verifySponsorMeasurementToken } from "@/lib/sponsors/measurementToken.server";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ submissionId: string }> }
 ) {
+  const gateResponse = enforceRouteMutationGate();
+  if (gateResponse) return gateResponse;
+
   const searchParams = new URL(request.url).searchParams;
   const feed = searchParams.get("feed");
   const cycleRaw = searchParams.get("cycle");

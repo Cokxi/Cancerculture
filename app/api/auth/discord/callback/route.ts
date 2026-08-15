@@ -10,6 +10,7 @@ import {
 import { validateOAuthState } from "@/lib/auth/oauth/state";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { touchUserLog } from "@/lib/logging/touchUserLog";
+import { enforceRouteMutationGate } from "@/lib/writeGate.server";
 
 type OAuthFailureStage =
   | "oauth_configuration"
@@ -169,6 +170,9 @@ async function deletePartialSession(sessionId: string) {
 }
 
 export async function GET(req: Request) {
+  const gateResponse = enforceRouteMutationGate();
+  if (gateResponse) return gateResponse;
+
   let sessionCleanupId: string | null = null;
   let applicationOrigin: URL | null = null;
 

@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/teamCapabilityRegistry";
 import type { TeamRoleMutationPayload } from "@/lib/auth/teamRoleMutationPayload";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { assertServerMutationAllowed } from "@/lib/writeGate.server";
 
 export class TeamRoleMutationError extends Error {
   readonly status: 400 | 403 | 404 | 409 | 503;
@@ -465,6 +466,7 @@ export async function executeTeamRoleMutation(
   actorDiscordUserId: string,
   payload: TeamRoleMutationPayload
 ) {
+  assertServerMutationAllowed();
   if (payload.operation === "create_role") {
     return callMutationRpc("create_team_role", {
       p_actor_discord_user_id: actorDiscordUserId,
