@@ -41,6 +41,7 @@ test("Sponsor Reports delegates receive aggregates and a redacted export", async
     /requireTeamCapabilityPage\(\s*"sponsorships\.reports\.view"/
   );
   assert.doesNotMatch(page, /banner_r2_key/);
+  assert.doesNotMatch(page, /sponsor_link/);
   assert.match(page, /getSponsorReportStats/);
   assert.match(page, /Unique Views/);
   assert.match(page, /Unique Clicks/);
@@ -50,13 +51,34 @@ test("Sponsor Reports delegates receive aggregates and a redacted export", async
     exportRoute,
     /requireDynamicTeamCapability\(\s*"sponsorships\.reports\.view"/
   );
-  assert.doesNotMatch(exportRoute, /banner_r2_key|feed_banner_r2_key/);
+  assert.ok(
+    exportRoute.indexOf(
+      'requireDynamicTeamCapability("sponsorships.reports.view")'
+    ) < exportRoute.indexOf('new URL(request.url)')
+  );
+  assert.ok(
+    exportRoute.indexOf('new URL(request.url)') <
+      exportRoute.indexOf('.from("voting_cycles")')
+  );
+  assert.doesNotMatch(
+    exportRoute,
+    /banner_r2_key|feed_banner_r2_key|sponsor_link/
+  );
   assert.doesNotMatch(
     exportRoute,
     /sponsorship:\s*\{[\s\S]*?\b(?:id|cycle_id):/u
   );
   assert.match(exportRoute, /cycle_number: cycleNumber/u);
-  assert.match(exportRoute, /Raw viewer hashes are intentionally not included/);
-  assert.doesNotMatch(exportRoute, /exportPayload[\s\S]*events:/);
+  assert.match(exportRoute, /buildSponsorReportPayload/u);
+  assert.match(exportRoute, /\.gte\("created_at", rollingUniqueWindowStart\)/u);
+  assert.match(
+    exportRoute,
+    /event_day, event_type, surface, feed_kind, event_count/u
+  );
+  assert.match(exportRoute, /format === "pdf"/u);
+  assert.match(exportRoute, /createSponsorReportPdf\(exportPayload\)/u);
+  assert.match(exportRoute, /"Content-Type": "application\/pdf"/u);
+  assert.doesNotMatch(exportRoute, /exportPayload[\s\S]*events:/u);
   assert.match(exportRoute, /"Cache-Control": "no-store"/);
+  assert.match(exportRoute, /"X-Content-Type-Options": "nosniff"/);
 });

@@ -6,11 +6,12 @@ import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getRouteErrorResponse } from "@/lib/http/getRouteErrorResponse";
 import {
+  buildSponsorReportPayload,
   getSponsorReportStats,
-  serializeSponsorSurfaceStats,
   type SponsorTrackingAggregateForReport,
   type SponsorTrackingEventForReport,
 } from "@/lib/sponsors/report";
+import { createSponsorReportPdf } from "@/lib/sponsors/reportPdf";
 
 function getSafeFilenamePart(value: string) {
   return value
@@ -21,11 +22,19 @@ function getSafeFilenamePart(value: string) {
 }
 
 export async function GET(
-  _req: Request,
+  request: Request,
   context: { params: Promise<{ cycleNumber: string }> }
 ) {
   try {
     await requireDynamicTeamCapability("sponsorships.reports.view");
+
+    const format = new URL(request.url).searchParams.get("format") ?? "json";
+    if (format !== "json" && format !== "pdf") {
+      return NextResponse.json(
+        { error: "Unsupported Sponsor report format" },
+        { status: 400 }
+      );
+    }
 
     const cycleNumber = Number((await context.params).cycleNumber);
     if (!Number.isSafeInteger(cycleNumber) || cycleNumber <= 0) {
@@ -51,7 +60,7 @@ export async function GET(
     const { data: sponsorship, error: sponsorshipError } = await supabaseAdmin
       .from("cycle_sponsorships")
       .select(
-        "id, sponsor_name, sponsor_link, is_active, starts_at, ends_at, created_at, updated_at"
+        "id, sponsor_name, is_active, starts_at, ends_at, created_at, updated_at"
       )
       .eq("cycle_id", cycle.id)
       .limit(1)
@@ -72,18 +81,22 @@ export async function GET(
       );
     }
 
+    const exportedAt = new Date().toISOString();
+    const rollingUniqueWindowStart = new Date(
+      Date.parse(exportedAt) - 30 * 24 * 60 * 60 * 1000
+    ).toISOString();
     const [eventsResult, aggregatesResult] = await Promise.all([
       supabaseAdmin
         .from("sponsor_tracking_events")
-        .select(
-          "event_type, surface, feed_kind, viewer_hash, measurement_window_start, created_at"
-        )
+        .select("event_type, surface, feed_kind, viewer_hash, created_at")
         .eq("sponsorship_id", sponsorshipId)
+        .gte("created_at", rollingUniqueWindowStart)
         .order("created_at", { ascending: true }),
       supabaseAdmin
         .from("sponsor_tracking_aggregates")
-        .select("event_type, surface, feed_kind, event_count")
-        .eq("sponsorship_id", sponsorshipId),
+        .select("event_day, event_type, surface, feed_kind, event_count")
+        .eq("sponsorship_id", sponsorshipId)
+        .order("event_day", { ascending: true }),
     ]);
 
     if (eventsResult.error || aggregatesResult.error) {
@@ -97,46 +110,44 @@ export async function GET(
       (eventsResult.data ?? []) as SponsorTrackingEventForReport[],
       (aggregatesResult.data ?? []) as SponsorTrackingAggregateForReport[]
     );
-    const exportPayload = {
-      exported_at: new Date().toISOString(),
-      note:
-        "Totals use retained daily aggregates. Unique views and clicks cover the rolling 30-day pseudonymous raw-data window. Raw viewer hashes are intentionally not included in this export.",
+    const exportPayload = buildSponsorReportPayload({
+      exportedAt,
       sponsorship: {
         cycle_number: cycleNumber,
         sponsor_name: sponsorship.sponsor_name,
-        sponsor_link: sponsorship.sponsor_link,
         is_active: sponsorship.is_active,
         starts_at: sponsorship.starts_at,
         ends_at: sponsorship.ends_at,
         created_at: sponsorship.created_at,
         updated_at: sponsorship.updated_at,
       },
-      totals: {
-        impressions: stats.impressions,
-        unique_views: stats.uniqueViews,
-        clicks: stats.clicks,
-        unique_clicks: stats.uniqueClicks,
-        ctr_percent: Number(stats.ctr.toFixed(2)),
-      },
-      surfaces: serializeSponsorSurfaceStats(stats).map((surfaceStats) => ({
-        surface: surfaceStats.surface,
-        impressions: surfaceStats.impressions,
-        unique_views: surfaceStats.uniqueViews,
-        clicks: surfaceStats.clicks,
-        unique_clicks: surfaceStats.uniqueClicks,
-      })),
-    };
+      stats,
+    });
 
     const sponsorPart =
       getSafeFilenamePart(sponsorship.sponsor_name) || "sponsor";
-    const filename = `sponsor-report-cycle-${cycleNumber}-${sponsorPart}.json`;
+    const filenameBase = `sponsor-report-cycle-${cycleNumber}-${sponsorPart}`;
+
+    if (format === "pdf") {
+      const pdf = await createSponsorReportPdf(exportPayload);
+      return new NextResponse(Buffer.from(pdf), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filenameBase}.pdf"`,
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    }
 
     return new NextResponse(JSON.stringify(exportPayload, null, 2), {
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${filenameBase}.json"`,
         "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error) {

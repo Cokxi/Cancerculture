@@ -2,7 +2,11 @@ import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
 import { getPublicCycleNumberMap } from "@/lib/cycles/publicCycleNumber";
 import { supabaseAdmin } from "@/lib/db/admin";
 import {
+  getSponsorRollingUniqueWindowStart,
+  getSponsorSurfaceLabel,
   getSponsorReportStats,
+  SPONSOR_REPORT_METHODOLOGY,
+  SPONSOR_REPORT_STATUS,
   type SponsorTrackingAggregateForReport,
   type SponsorTrackingEventForReport,
 } from "@/lib/sponsors/report";
@@ -15,7 +19,6 @@ type SponsorshipRow = {
   id: number;
   cycle_id: number;
   sponsor_name: string;
-  sponsor_link: string;
   starts_at: string | null;
   ends_at: string | null;
   created_at: string;
@@ -27,7 +30,6 @@ type TrackingEventRow = {
   surface: SponsorTrackingSurface;
   viewer_hash: string;
   feed_kind: "live" | "top10" | "all" | "trash" | null;
-  measurement_window_start: string | null;
   created_at: string;
 };
 
@@ -52,7 +54,7 @@ export default async function SponsorLogsPage() {
   const sponsorshipsResult = await supabaseAdmin
     .from("cycle_sponsorships")
     .select(
-      "id, cycle_id, sponsor_name, sponsor_link, starts_at, ends_at, created_at"
+      "id, cycle_id, sponsor_name, starts_at, ends_at, created_at"
     )
     .order("created_at", { ascending: false });
 
@@ -81,18 +83,18 @@ export default async function SponsorLogsPage() {
   const publicCycleNumberById = await getPublicCycleNumberMap(
     sponsorships.map((sponsorship) => sponsorship.cycle_id)
   );
+  const rollingUniqueWindowStart = getSponsorRollingUniqueWindowStart();
   const [eventsResult, aggregatesResult] =
     sponsorshipIds.length > 0
       ? await Promise.all([
           supabaseAdmin
           .from("sponsor_tracking_events")
-          .select(
-            "sponsorship_id, event_type, surface, feed_kind, viewer_hash, measurement_window_start, created_at"
-          )
-          .in("sponsorship_id", sponsorshipIds),
+          .select("sponsorship_id, event_type, surface, feed_kind, viewer_hash, created_at")
+          .in("sponsorship_id", sponsorshipIds)
+          .gte("created_at", rollingUniqueWindowStart),
           supabaseAdmin
             .from("sponsor_tracking_aggregates")
-            .select("sponsorship_id, event_type, surface, feed_kind, event_count")
+            .select("sponsorship_id, event_day, event_type, surface, feed_kind, event_count")
             .in("sponsorship_id", sponsorshipIds),
         ])
       : [
@@ -135,6 +137,12 @@ export default async function SponsorLogsPage() {
       <h1 className="text-3xl font-[Permanent_Marker] text-[var(--orange-dark)]">
         Sponsor Reports
       </h1>
+      <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-100">
+        <div className="font-semibold">{SPONSOR_REPORT_STATUS.label}</div>
+        <p className="mt-1 text-red-100/80">
+          {SPONSOR_REPORT_STATUS.notice}
+        </p>
+      </div>
 
       {sponsorships.length === 0 ? (
         <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-6 text-white/70">
@@ -165,23 +173,23 @@ export default async function SponsorLogsPage() {
                     <div className="mt-1 text-sm text-white/60">
                       Cycle #{cycleNumber}
                     </div>
-                    <a
-                      href={sponsorship.sponsor_link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 block break-all text-sm text-orange-300 underline underline-offset-4"
-                    >
-                      {sponsorship.sponsor_link}
-                    </a>
                   </div>
 
                   <div className="flex flex-col items-start gap-3 text-sm text-white/60 sm:items-end">
-                    <a
-                      href={`/api/admin/sponsors/cycle/${cycleNumber}/export`}
-                      className="rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs text-white transition hover:border-[var(--orange-dark)]/50 hover:bg-white/10"
-                    >
-                      Export JSON
-                    </a>
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <a
+                        href={`/api/admin/sponsors/cycle/${cycleNumber}/export`}
+                        className="rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs text-white transition hover:border-[var(--orange-dark)]/50 hover:bg-white/10"
+                      >
+                        Export aggregate JSON
+                      </a>
+                      <a
+                        href={`/api/admin/sponsors/cycle/${cycleNumber}/export?format=pdf`}
+                        className="rounded-full border border-[var(--orange-dark)]/50 bg-[var(--orange-dark)]/10 px-3 py-2 text-xs text-orange-100 transition hover:bg-[var(--orange-dark)]/20"
+                      >
+                        Export presentation PDF
+                      </a>
+                    </div>
                     <div>
                       <div>
                         Started:{" "}
@@ -264,7 +272,9 @@ export default async function SponsorLogsPage() {
                             key={surface}
                             className="border-t border-white/10"
                           >
-                            <td className="py-2">{surface}</td>
+                            <td className="py-2">
+                              {getSponsorSurfaceLabel(surface)}
+                            </td>
                             <td className="py-2">
                               {surfaceStats.impressions}
                             </td>
@@ -282,6 +292,19 @@ export default async function SponsorLogsPage() {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.03] p-4 text-xs leading-5 text-white/60">
+                  <div className="font-semibold text-white/80">
+                    Aggregate measurement methodology
+                  </div>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    <li>{SPONSOR_REPORT_METHODOLOGY.analytics_consent}</li>
+                    <li>{SPONSOR_REPORT_METHODOLOGY.qualified_impression}</li>
+                    <li>{SPONSOR_REPORT_METHODOLOGY.deduplication}</li>
+                    <li>{SPONSOR_REPORT_METHODOLOGY.rolling_uniques}</li>
+                    <li>{SPONSOR_REPORT_METHODOLOGY.aggregate_retention}</li>
+                  </ul>
                 </div>
               </section>
             );
