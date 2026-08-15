@@ -40,9 +40,10 @@ test("legacy Sponsor presentation grants bind opaque tokens to one surface", () 
     }),
     null
   );
-  const tampered = `${grant.token.slice(0, -1)}${
-    grant.token.endsWith("A") ? "B" : "A"
-  }`;
+  const tokenParts = grant.token.split(".");
+  const tag = tokenParts.at(-1) ?? "";
+  tokenParts[tokenParts.length - 1] = `${tag.startsWith("A") ? "B" : "A"}${tag.slice(1)}`;
+  const tampered = tokenParts.join(".");
   assert.equal(
     verifySponsorPresentationGrant({
       token: tampered,

@@ -492,4 +492,20 @@ html, body {
   body:has([data-hides-global-account]) [data-global-account] {
     display: none;
   }
+
+  body:has([data-hides-global-account]) [data-pwa-install] {
+    display: none;
+  }
+}
+
+@media (display-mode: standalone) {
+  html {
+    min-height: 100%;
+    background: #0b0b0b;
+  }
+
+  body {
+    min-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+  }
 }
