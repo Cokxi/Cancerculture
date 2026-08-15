@@ -101,6 +101,14 @@ test("catalog preflight is exact for 78 tables, five views and 20 sequences", ()
     assert.match(migration, new RegExp(`'${view}'`, "u"));
   }
   assert.match(migration, /pg_sequences where schemaname = 'public'\) <> 20/u);
+  assert.match(
+    migration,
+    /to_regprocedure\('public[.]record_sponsor_event_v2\(bigint,text,text,text,text\)'\) is null/u
+  );
+  assert.doesNotMatch(
+    migration,
+    /record_sponsor_event_v2\(text,bigint,text,text,text\)/u
+  );
   assert.match(migration, /FINAL_FACTORY_RESET_CURRENT_SCHEMA_CONTRACT_MISSING/u);
 });
 

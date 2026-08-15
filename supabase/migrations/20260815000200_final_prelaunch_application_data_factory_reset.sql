@@ -202,7 +202,7 @@ begin
     )
     or to_regclass('public.sponsor_tracking_aggregates') is null
     or to_regclass('public.sponsor_media_upload_operations') is null
-    or to_regprocedure('public.record_sponsor_event_v2(text,bigint,text,text,text)') is null then
+    or to_regprocedure('public.record_sponsor_event_v2(bigint,text,text,text,text)') is null then
     raise exception using errcode = '55000',
       message = 'FINAL_FACTORY_RESET_CURRENT_SCHEMA_CONTRACT_MISSING';
   end if;
