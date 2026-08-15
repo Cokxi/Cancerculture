@@ -41,7 +41,7 @@ const EXPECTED_MIGRATIONS = Object.freeze([
   },
   {
     file: "20260815000200_final_prelaunch_application_data_factory_reset.sql",
-    sha256: "4e6bd05f16850479eb70597bf1e2b90cbb57b2596a447270839f8568298626d1",
+    sha256: "02aa909c0cf36e0f0cb791ca2dd2fda74b0956686ea217867bd36d50cec6acf3",
   },
 ]);
 

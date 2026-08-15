@@ -117,7 +117,9 @@ test("LIVE and rollback-only DEV targets are distinct and fail closed", () => {
   assert.match(migration, /gceljiuydyiwkomymuqh/u);
   assert.match(migration, /FINAL_PRELAUNCH_LIVE_RESET_20260815_A1/u);
   assert.match(migration, /FINAL_PRELAUNCH_DEV_ROLLBACK_ONLY_20260815/u);
-  assert.match(migration, /7f3f31d172f4d928ef01de221b7d6a1/u);
+  assert.match(migration, /set local timezone = 'UTC'/u);
+  assert.match(migration, /d1bf674e3693cd8eeb2112283ed2feee/u);
+  assert.doesNotMatch(migration, /7f3f31d172f4d928ef01de221b7d6a1/u);
   for (const binding of [
     "backup_sha256",
     "backup_record_sha256",

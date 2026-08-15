@@ -2,6 +2,7 @@ begin;
 
 set local lock_timeout = '10s';
 set local statement_timeout = '180s';
+set local timezone = 'UTC';
 
 create temporary table factory_reset_disposition (
   table_name text primary key,
@@ -145,7 +146,7 @@ begin
   if (not v_rollback_only and (
       v_target is distinct from 'nrxfuvsfezfqcwfmpxxl'
       or v_confirmation is distinct from 'FINAL_PRELAUNCH_LIVE_RESET_20260815_A1'
-      or v_owner_fingerprint is distinct from '7f3f31d172f4d928ef01de221b7d6a1'
+      or v_owner_fingerprint is distinct from 'd1bf674e3693cd8eeb2112283ed2feee'
     ))
     or (v_rollback_only and (
       v_target is distinct from 'gceljiuydyiwkomymuqh'
