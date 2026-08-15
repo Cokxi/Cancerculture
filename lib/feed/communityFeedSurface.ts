@@ -2,6 +2,7 @@ import {
   COMMUNITY_FEEDS,
   getCommunityFeedMediaPath,
   type CommunityFeedContext,
+  type CommunityFeedCycleCatalogItem,
   type CommunityFeedCycleCatalogPage,
   type CommunityFeedItem,
   type CommunityFeedKind,
@@ -42,8 +43,27 @@ const ITEM_KEYS = [
   "rankInCycle",
   "submissionId",
 ] as const;
-const CYCLE_CATALOG_PAGE_KEYS = ["hasMore", "items", "nextCursor"] as const;
+const CYCLE_CATALOG_PAGE_KEYS = [
+  "hasMore",
+  "items",
+  "nextCursor",
+  "totalCount",
+] as const;
 const CYCLE_CATALOG_ITEM_KEYS = ["cycleNumber", "endsAt", "startsAt"] as const;
+const UTC_MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -218,7 +238,10 @@ export function isCommunityFeedCycleCatalogPage(
     ) &&
     (value.nextCursor === null ||
       (typeof value.nextCursor === "string" && value.nextCursor.length > 0)) &&
-    typeof value.hasMore === "boolean"
+    typeof value.hasMore === "boolean" &&
+    (value.totalCount === null ||
+      (isNonNegativeInteger(value.totalCount) &&
+        value.totalCount >= value.items.length))
   );
 }
 
@@ -235,6 +258,80 @@ export function mergeCommunityFeedItems(
       return true;
     }),
   ];
+}
+
+export function mergeCommunityFeedCycleCatalogItems(
+  current: CommunityFeedCycleCatalogItem[],
+  incoming: CommunityFeedCycleCatalogItem[]
+) {
+  const seen = new Set(current.map((item) => item.cycleNumber));
+  return [
+    ...current,
+    ...incoming.filter((item) => {
+      if (seen.has(item.cycleNumber)) return false;
+      seen.add(item.cycleNumber);
+      return true;
+    }),
+  ];
+}
+
+function utcDateParts(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new TypeError("Invalid community Feed Cycle date");
+  }
+  return {
+    day: String(date.getUTCDate()).padStart(2, "0"),
+    month: UTC_MONTH_LABELS[date.getUTCMonth()],
+    year: date.getUTCFullYear(),
+  };
+}
+
+export function formatCommunityFeedCycleDateRange(
+  item: CommunityFeedCycleCatalogItem
+) {
+  const start = utcDateParts(item.startsAt);
+  const end = utcDateParts(item.endsAt);
+
+  if (start.year === end.year && start.month === end.month) {
+    return `${start.day}\u2013${end.day} ${start.month} ${start.year}`;
+  }
+  if (start.year === end.year) {
+    return `${start.day} ${start.month}\u2013${end.day} ${end.month} ${start.year}`;
+  }
+  return `${start.day} ${start.month} ${start.year}\u2013${end.day} ${end.month} ${end.year}`;
+}
+
+export function groupCommunityFeedCyclesByNumberRange(
+  items: CommunityFeedCycleCatalogItem[],
+  rangeSize = 10
+) {
+  if (!Number.isSafeInteger(rangeSize) || rangeSize <= 0) {
+    throw new TypeError("Invalid community Feed Cycle range size");
+  }
+
+  const groups = new Map<
+    number,
+    {
+      rangeStart: number;
+      rangeEnd: number;
+      cycles: CommunityFeedCycleCatalogItem[];
+    }
+  >();
+  for (const item of items) {
+    const rangeStart =
+      Math.floor((item.cycleNumber - 1) / rangeSize) * rangeSize + 1;
+    const group = groups.get(rangeStart);
+    if (group) group.cycles.push(item);
+    else {
+      groups.set(rangeStart, {
+        rangeStart,
+        rangeEnd: rangeStart + rangeSize - 1,
+        cycles: [item],
+      });
+    }
+  }
+  return Array.from(groups.values());
 }
 
 export function getCommunityFeedHref(

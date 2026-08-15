@@ -42,6 +42,12 @@ const transpiled = ts.transpileModule(componentSource, {
   .replace(
     'import CommunityFeedSponsor from "@/app/spread/CommunityFeedSponsor";',
     "const CommunityFeedSponsor = () => null;",
+  )
+  .replace(
+    `import { CommunityFeedCycleNavigatorButton, CommunityFeedCycleNavigatorDrawer, CommunityFeedCycleNavigatorPanel, } from "@/app/spread/CommunityFeedCycleNavigator";`,
+    `const CommunityFeedCycleNavigatorButton = () => null;
+const CommunityFeedCycleNavigatorDrawer = () => null;
+const CommunityFeedCycleNavigatorPanel = () => null;`,
   );
 const componentPath = path.join(tempDirectory, "CommunityFeedClient.mjs");
 await writeFile(componentPath, transpiled, "utf8");

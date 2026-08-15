@@ -59,9 +59,9 @@ export default async function CommunityFeedPage({
 
   return (
     <div className="relative min-h-screen bg-orange-background text-white">
-      <BackButton href="/" label="Home" />
+      <BackButton href="/" label="Home" nativeNavigation />
 
-      <main className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-24 sm:px-6">
+      <main className="relative z-10 w-full px-4 pb-24 sm:px-6">
         <CommunityFeedClient
           key={`${feed}:${cycleNumber ?? "all"}`}
           feed={feed}

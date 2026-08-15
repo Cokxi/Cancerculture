@@ -6,16 +6,28 @@ import { navigationTextTriggerClassName } from "@/app/components/navigation/navi
 type BackButtonProps = {
   href?: string;
   label?: string;
+  nativeNavigation?: boolean;
 };
 
 export default function BackButton({
   href = "/",
   label = "Home",
+  nativeNavigation = false,
 }: BackButtonProps) {
+  const className = `fixed left-4 top-4 z-[70] font-[var(--font-marker)] ${navigationTextTriggerClassName}`;
+
+  if (nativeNavigation) {
+    return (
+      <a href={href} className={className}>
+        {label}
+      </a>
+    );
+  }
+
   return (
     <Link
       href={href}
-      className={`fixed left-4 top-4 z-[70] font-[var(--font-marker)] ${navigationTextTriggerClassName}`}
+      className={className}
     >
       {label}
     </Link>

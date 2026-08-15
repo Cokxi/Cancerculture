@@ -10,7 +10,7 @@ mock.module(
       async getCommunityFeedCycleCatalogPage(input) {
         calls.push(input);
         if (input.cursor === "invalid") throw new Error("INVALID_CURSOR");
-        return { items: [], nextCursor: null, hasMore: false };
+        return { items: [], nextCursor: null, hasMore: false, totalCount: 0 };
       },
     },
   },
@@ -54,6 +54,7 @@ test("the Cycle catalog route forwards one signed cursor and is always no-store"
     items: [],
     nextCursor: null,
     hasMore: false,
+    totalCount: 0,
   });
 });
 

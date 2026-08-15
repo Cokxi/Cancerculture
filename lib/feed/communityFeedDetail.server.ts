@@ -47,7 +47,7 @@ const FINALIZED_DETAIL_SELECT = `
     public_number,
     status,
     starts_at,
-    ends_at
+    ended_at
   )
 `;
 
@@ -56,7 +56,8 @@ type DetailCycleRow = {
   public_number: number | null;
   status: string;
   starts_at: string | null;
-  ends_at: string | null;
+  ends_at?: string | null;
+  ended_at?: string | null;
   reset_count?: number | null;
 };
 
@@ -219,7 +220,7 @@ async function getLiveDetailSource(submissionId: number) {
       mediaHeight: submission.media_height,
       createdAt: canonicalFeedTimestamp(submission.created_at),
       cycleStartedAt: canonicalNullableTimestamp(cycle.starts_at),
-      cycleEndedAt: canonicalNullableTimestamp(cycle.ends_at),
+      cycleEndedAt: canonicalNullableTimestamp(cycle.ends_at ?? null),
       finalizedAt: null,
       finalVoteCount: null,
       rankInCycle: null,
@@ -290,7 +291,7 @@ async function getFinalizedDetailSource(submissionId: number) {
       mediaHeight: submission.media_height,
       createdAt: canonicalFeedTimestamp(submission.created_at),
       cycleStartedAt: canonicalNullableTimestamp(cycle.starts_at),
-      cycleEndedAt: canonicalNullableTimestamp(cycle.ends_at),
+      cycleEndedAt: canonicalNullableTimestamp(cycle.ended_at ?? null),
       finalizedAt: canonicalFeedTimestamp(row.finalized_at),
       finalVoteCount: row.final_vote_count,
       rankInCycle: row.rank_in_cycle,

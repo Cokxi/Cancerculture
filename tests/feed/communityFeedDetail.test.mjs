@@ -95,6 +95,12 @@ test("public detail DTO is exact and Live cannot claim final results", () => {
 });
 
 test("detail delivery is service-only, fail-closed, and no-store", () => {
+  const finalizedSelect = readModel.match(
+    /const FINALIZED_DETAIL_SELECT = `[\s\S]*?`;/u,
+  )?.[0] ?? "";
+  const liveCycleQuery = readModel.match(
+    /async function getCurrentLiveCycle[\s\S]*?return rows\[0\] \?\? null;/u,
+  )?.[0] ?? "";
   assert.match(readModel, /^import "server-only";/u);
   assert.match(readModel, /supabaseAdmin/u);
   assert.match(readModel, /public_visibility_status", "visible"/u);
@@ -102,6 +108,9 @@ test("detail delivery is service-only, fail-closed, and no-store", () => {
   assert.match(readModel, /feed_eligible", true/u);
   assert.match(readModel, /COMMUNITY_FEED_CLASSIFICATION_VERSION/u);
   assert.match(readModel, /voting_cycles\.status", "finished"/u);
+  assert.match(finalizedSelect, /\n    ended_at\n/u);
+  assert.doesNotMatch(finalizedSelect, /\n    ends_at\n/u);
+  assert.match(liveCycleQuery, /starts_at, ends_at, reset_count/u);
   assert.doesNotMatch(page, /discord(?:_user)?_?id|moderationReason|reportReason/iu);
   assert.doesNotMatch(
     readModel,

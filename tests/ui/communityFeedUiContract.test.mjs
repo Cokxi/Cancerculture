@@ -3,9 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
-const [page, client, route, surface, resume, navigation, detailPage] = await Promise.all([
+const [page, client, navigator, route, surface, resume, navigation, detailPage] = await Promise.all([
   readFile(new URL("app/spread/page.tsx", root), "utf8"),
   readFile(new URL("app/spread/CommunityFeedClient.tsx", root), "utf8"),
+  readFile(new URL("app/spread/CommunityFeedCycleNavigator.tsx", root), "utf8"),
   readFile(new URL("app/api/community-feed/route.ts", root), "utf8"),
   readFile(new URL("lib/feed/communityFeedSurface.server.ts", root), "utf8"),
   readFile(new URL("lib/feed/communityFeedResume.ts", root), "utf8"),
@@ -22,22 +23,23 @@ test("Desktop and Mobile UI expose all four read-only Feed choices accessibly", 
   assert.match(client, /role="article"/u);
   assert.match(client, /aria-busy=\{isLoading\}/u);
   assert.match(client, /role="status"/u);
-  assert.match(client, /role="alert"/u);
+  assert.match(`${client}\n${navigator}`, /role="alert"/u);
   assert.match(client, /min-h-11/u);
-  assert.match(client, /pointer-events-none fixed inset-x-0 top-0 z-40 h-44/u);
+  assert.match(client, /pointer-events-none fixed inset-x-0 top-0 z-40 h-56 lg:h-40/u);
   assert.match(client, /linear-gradient\(to_bottom,#0b0b0b_0%,#0b0b0b_86%,transparent_100%\)/u);
   assert.match(client, /rounded-\[2rem\] border-2 border-orange-500\/70 bg-black\/95/u);
-  assert.match(client, /aria-hidden="true" className="h-44"/u);
+  assert.match(client, /aria-hidden="true" className="h-56 lg:h-40"/u);
   assert.match(client, /sm:px-6|sm:text/u);
   for (const feed of ["live", "top10", "all", "trash"]) {
     assert.match(client, new RegExp(`COMMUNITY_FEED_LABELS\\[kind\\]|${feed}`, "u"));
   }
 });
 
-test("Resume is explicit, per Feed, semantic, dwell-based, and never a pixel position", () => {
-  assert.match(client, /Continue where you left off/u);
-  assert.match(client, /Start from the beginning/u);
-  assert.match(client, /aria-label="Dismiss saved place"/u);
+test("finalized Resume is explicit, semantic, dwell-based, and never a pixel position", () => {
+  assert.match(navigator, /Continue where you left off/u);
+  assert.match(navigator, /Start from the beginning/u);
+  assert.match(navigator, /aria-label="Dismiss saved place"/u);
+  assert.match(client, /if \(feed === "live" \|\| initialAnchorRequested\) return;/u);
   assert.match(client, /resumedFromSavedPlace/u);
   assert.match(client, /await fetchPage\(\{\}\)/u);
   assert.match(client, /window\.history\.replaceState/u);
@@ -51,7 +53,7 @@ test("Resume is explicit, per Feed, semantic, dwell-based, and never a pixel pos
   assert.match(resume, /cycleNumber: context\.cycleNumber/u);
   assert.match(resume, /resetCount: context\.resetCount/u);
   assert.match(resume, /cycle-\$\{cycleNumber \?\? "all"\}/u);
-  assert.doesNotMatch(`${client}\n${resume}`, /scrollY|scrollTop|pixelOffset/iu);
+  assert.doesNotMatch(`${client}\n${navigator}\n${resume}`, /scrollY|scrollTop|pixelOffset/iu);
 });
 
 test("Feed cards open the canonical detail route without nested Sponsor interaction", () => {

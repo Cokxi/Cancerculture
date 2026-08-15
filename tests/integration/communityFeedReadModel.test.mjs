@@ -37,6 +37,8 @@ function builder(table) {
   const filters = [];
   const orders = [];
   let rowLimit = null;
+  let countRequested = false;
+  let headOnly = false;
 
   function execute() {
     const source =
@@ -96,6 +98,7 @@ function builder(table) {
       }),
     );
 
+    const count = rows.length;
     rows = [...rows].sort((left, right) => {
       for (const order of orders) {
         const comparison = compareValues(
@@ -109,12 +112,18 @@ function builder(table) {
     });
 
     if (rowLimit !== null) rows = rows.slice(0, rowLimit);
-    return { data: rows, error: null };
+    return {
+      data: headOnly ? null : rows,
+      error: null,
+      count: countRequested ? count : null,
+    };
   }
 
   const chain = {
-    select(columns) {
-      state.calls.push([table, "select", columns]);
+    select(columns, options = {}) {
+      state.calls.push([table, "select", columns, options]);
+      countRequested = options.count === "exact";
+      headOnly = options.head === true;
       return chain;
     },
     eq(column, value) {
@@ -179,7 +188,7 @@ function builder(table) {
     maybeSingle() {
       const result = execute();
       return Promise.resolve({
-        data: result.data[0] ?? null,
+        data: result.data?.[0] ?? null,
         error: result.error,
       });
     },
@@ -289,7 +298,8 @@ function finalizedCycle(publicNumber, id = publicNumber + 100, overrides = {}) {
     reset_count: 0,
     status: "finished",
     starts_at: "2026-08-01T08:00:00.000Z",
-    ends_at: "2026-08-03T20:00:00.000Z",
+    ends_at: null,
+    ended_at: "2026-08-03T20:00:00.000Z",
     finalized_at: "2026-08-03T20:01:00.000Z",
     internal_note: `private-cycle-${id}`,
     ...overrides,
@@ -338,7 +348,8 @@ function finalizedResult(index, overrides = {}) {
     public_number: overrides.public_number ?? 13,
     status: "finished",
     starts_at: "2026-08-09T08:00:00.000Z",
-    ends_at: "2026-08-11T20:00:00.000Z",
+    ends_at: null,
+    ended_at: "2026-08-11T20:00:00.000Z",
     private_sponsor_note: `private-sponsor-${cycleId}`,
   };
 
@@ -478,15 +489,16 @@ test("Top 10 keeps every Dense-Rank tie, All excludes Trash, and Trash uses only
 test("the finalized Cycle catalog is public-only, suitability-filtered, and bounded across pages", async () => {
   state.cycles = [
     ...Array.from({ length: 50 }, (_, index) =>
-      finalizedCycle(100 - index, 500 - index),
+      finalizedCycle(100 - index, 500 - index, index === 0 ? { finalized_at: null } : {}),
     ),
     finalizedCycle(49, 449, { status: "draft" }),
-    finalizedCycle(48, 448, { ends_at: null }),
+    finalizedCycle(48, 448, { ended_at: null }),
   ];
 
   const first = await getCommunityFeedCycleCatalogPage();
   assert.equal(first.items.length, 48);
   assert.equal(first.hasMore, true);
+  assert.equal(first.totalCount, 50);
   assert.equal(first.nextCursor, "catalog:53");
   assert.deepEqual(Object.keys(first.items[0]).sort(), [
     "cycleNumber",
@@ -503,6 +515,7 @@ test("the finalized Cycle catalog is public-only, suitability-filtered, and boun
   );
   assert.equal(second.hasMore, false);
   assert.equal(second.nextCursor, null);
+  assert.equal(second.totalCount, null);
   assert.equal(
     new Set([...first.items, ...second.items].map((item) => item.cycleNumber)).size,
     50,
@@ -561,10 +574,10 @@ test("Top 10, All, and Trash apply one exact finalized Cycle before LIMIT", asyn
   );
 });
 
-test("unknown, non-finalized, and unsuitable public Cycle filters stay exact and neutral", async () => {
+test("unknown, non-finalized, and date-incomplete public Cycle filters stay exact and neutral", async () => {
   state.cycles = [
     finalizedCycle(11, 68, { status: "voting_open" }),
-    finalizedCycle(12, 69, { finalized_at: null }),
+    finalizedCycle(12, 69, { ended_at: null }),
   ];
   state.results = [finalizedResult(0, { cycle_id: 70, public_number: 13 })];
 
@@ -574,6 +587,16 @@ test("unknown, non-finalized, and unsuitable public Cycle filters stay exact and
     assert.equal(page.context.cycleNumber, cycleNumber);
     assert.equal(page.cursorState, "start");
   }
+});
+
+test("legacy finished Cycles do not require the redundant Cycle finalized timestamp", async () => {
+  state.cycles = [finalizedCycle(13, 70, { finalized_at: null })];
+  state.results = [finalizedResult(0, { cycle_id: 70, public_number: 13 })];
+
+  const page = await getCommunityFeedPage({ feed: "all", cycleNumber: 13 });
+
+  assert.deepEqual(page.items.map((item) => item.submissionId), [2000]);
+  assert.equal(page.context.cycleNumber, 13);
 });
 
 test("filtered anchors never resolve a Submission from another Cycle", async () => {

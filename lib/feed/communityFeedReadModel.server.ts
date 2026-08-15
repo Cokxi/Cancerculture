@@ -96,14 +96,13 @@ type FinalizedCycleRow = {
 
 type FinalizedCycleFilterRow = FinalizedCycleRow & {
   starts_at: string | null;
-  ends_at: string | null;
-  finalized_at: string | null;
+  ended_at: string | null;
 };
 
 type FinalizedCycleCatalogRow = {
   public_number: number | null;
   starts_at: string | null;
-  ends_at: string | null;
+  ended_at: string | null;
 };
 
 type FinalizedFeedRow = {
@@ -350,12 +349,11 @@ function requireCycleNumber(cycleNumber: number) {
 async function getFinalizedCycleFilter(cycleNumber: number) {
   const { data, error } = await supabaseAdmin
     .from("voting_cycles")
-    .select("id, public_number, status, starts_at, ends_at, finalized_at")
+    .select("id, public_number, status, starts_at, ended_at")
     .eq("public_number", requireCycleNumber(cycleNumber))
     .eq("status", "finished")
     .not("starts_at", "is", null)
-    .not("ends_at", "is", null)
-    .not("finalized_at", "is", null)
+    .not("ended_at", "is", null)
     .limit(1)
     .maybeSingle();
 
@@ -376,14 +374,32 @@ export async function getCommunityFeedCycleCatalogPage({
   const decoded = cursor
     ? decodeCommunityFeedCycleCatalogCursor(cursor)
     : null;
+  let totalCount: number | null = null;
+
+  if (!decoded) {
+    const { count, error: countError } = await supabaseAdmin
+      .from("voting_cycles")
+      .select("public_number", { count: "exact", head: true })
+      .eq("status", "finished")
+      .not("public_number", "is", null)
+      .not("starts_at", "is", null)
+      .not("ended_at", "is", null);
+
+    if (countError || count === null) {
+      throw new Error(
+        `COMMUNITY_FEED_CYCLE_CATALOG_COUNT_FAILED:${countError?.code ?? "COUNT_UNAVAILABLE"}`
+      );
+    }
+    totalCount = count;
+  }
+
   let query = supabaseAdmin
     .from("voting_cycles")
-    .select("public_number, starts_at, ends_at")
+    .select("public_number, starts_at, ended_at")
     .eq("status", "finished")
     .not("public_number", "is", null)
     .not("starts_at", "is", null)
-    .not("ends_at", "is", null)
-    .not("finalized_at", "is", null)
+    .not("ended_at", "is", null)
     .order("public_number", { ascending: false });
 
   if (decoded) {
@@ -404,13 +420,13 @@ export async function getCommunityFeedCycleCatalogPage({
   const hasMore = rows.length > COMMUNITY_FEED_CYCLE_CATALOG_PAGE_SIZE;
   const pageRows = rows.slice(0, COMMUNITY_FEED_CYCLE_CATALOG_PAGE_SIZE);
   const items = pageRows.map((row) => {
-    if (!row.starts_at || !row.ends_at) {
+    if (!row.starts_at || !row.ended_at) {
       throw new Error("COMMUNITY_FEED_CYCLE_CATALOG_ROW_INVALID");
     }
     return {
       cycleNumber: requirePublicCycleNumber(row.public_number),
       startsAt: canonicalFeedTimestamp(row.starts_at),
-      endsAt: canonicalFeedTimestamp(row.ends_at),
+      endsAt: canonicalFeedTimestamp(row.ended_at),
     };
   });
   const lastItem = items.at(-1);
@@ -422,6 +438,7 @@ export async function getCommunityFeedCycleCatalogPage({
         ? encodeCommunityFeedCycleCatalogCursor(lastItem.cycleNumber)
         : null,
     hasMore,
+    totalCount,
   };
 }
 

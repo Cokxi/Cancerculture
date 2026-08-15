@@ -97,10 +97,15 @@ test("the finalized Cycle catalog is service-only, public-only, and bounded", ()
   assert.match(catalog, /\.eq\("status", "finished"\)/u);
   assert.match(catalog, /\.order\("public_number", \{ ascending: false \}\)/u);
   assert.match(catalog, /COMMUNITY_FEED_CYCLE_CATALOG_PAGE_SIZE \+ 1/u);
+  assert.match(catalog, /count: "exact", head: true/u);
+  assert.match(catalog, /\.not\("ended_at", "is", null\)/u);
+  assert.doesNotMatch(catalog, /\.not\("ends_at", "is", null\)/u);
+  assert.match(catalog, /totalCount/u);
   assert.match(catalog, /cycleNumber:/u);
   assert.match(catalog, /startsAt:/u);
   assert.match(catalog, /endsAt:/u);
   assert.doesNotMatch(catalog, /sponsor|discord|moderation|report|observation/iu);
+  assert.doesNotMatch(catalog, /\.not\("finalized_at", "is", null\)/u);
 });
 
 test("the exact public Cycle filter resolves server-side before the bounded result query", () => {

@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  formatCommunityFeedCycleDateRange,
   getCommunityFeedHref,
+  groupCommunityFeedCyclesByNumberRange,
   isCommunityFeedCycleCatalogPage,
   isCommunityFeedPage,
+  mergeCommunityFeedCycleCatalogItems,
   mergeCommunityFeedItems,
 } from "../../lib/feed/communityFeedSurface.ts";
 
@@ -85,6 +88,7 @@ test("the browser accepts only the exact public finalized Cycle catalog DTO", ()
     ],
     nextCursor: "signed.catalog.cursor",
     hasMore: true,
+    totalCount: 100,
   };
   assert.equal(isCommunityFeedCycleCatalogPage(page), true);
   for (const invalid of [
@@ -92,6 +96,9 @@ test("the browser accepts only the exact public finalized Cycle catalog DTO", ()
     { ...page, items: [{ ...page.items[0], sponsorName: "private" }] },
     { ...page, items: [{ ...page.items[0], cycleNumber: 0 }] },
     { ...page, items: [{ ...page.items[0], startsAt: "yesterday" }] },
+    { ...page, totalCount: -1 },
+    { ...page, totalCount: 100.5 },
+    { ...page, totalCount: 0 },
   ]) {
     assert.equal(isCommunityFeedCycleCatalogPage(invalid), false);
   }
@@ -103,6 +110,53 @@ test("multi-page merge preserves deterministic order and removes overlap", () =>
       (entry) => entry.submissionId,
     ),
     [1, 2, 3],
+  );
+});
+
+test("Cycle catalog pages deduplicate deterministically and group into ten-Cycle ranges", () => {
+  const first = [
+    {
+      cycleNumber: 102,
+      startsAt: "2026-12-28T08:00:00.000Z",
+      endsAt: "2027-01-03T20:00:00.000Z",
+    },
+    {
+      cycleNumber: 101,
+      startsAt: "2026-08-08T08:00:00.000Z",
+      endsAt: "2026-08-14T20:00:00.000Z",
+    },
+  ];
+  const merged = mergeCommunityFeedCycleCatalogItems(first, [
+    first[1],
+    {
+      cycleNumber: 100,
+      startsAt: "2025-12-20T08:00:00.000Z",
+      endsAt: "2025-12-27T20:00:00.000Z",
+    },
+  ]);
+
+  assert.deepEqual(
+    merged.map((item) => item.cycleNumber),
+    [102, 101, 100],
+  );
+  assert.deepEqual(
+    groupCommunityFeedCyclesByNumberRange(merged).map((group) => ({
+      rangeStart: group.rangeStart,
+      rangeEnd: group.rangeEnd,
+      cycles: group.cycles.map((item) => item.cycleNumber),
+    })),
+    [
+      { rangeStart: 101, rangeEnd: 110, cycles: [102, 101] },
+      { rangeStart: 91, rangeEnd: 100, cycles: [100] },
+    ],
+  );
+  assert.equal(
+    formatCommunityFeedCycleDateRange(first[1]),
+    "08–14 Aug 2026",
+  );
+  assert.equal(
+    formatCommunityFeedCycleDateRange(first[0]),
+    "28 Dec 2026–03 Jan 2027",
   );
 });
 

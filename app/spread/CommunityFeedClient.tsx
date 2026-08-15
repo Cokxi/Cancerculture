@@ -4,15 +4,22 @@ import Link from "next/link";
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type CSSProperties,
 } from "react";
 import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
+import {
+  CommunityFeedCycleNavigatorButton,
+  CommunityFeedCycleNavigatorDrawer,
+  CommunityFeedCycleNavigatorPanel,
+} from "@/app/spread/CommunityFeedCycleNavigator";
 import CommunityFeedSponsor from "@/app/spread/CommunityFeedSponsor";
 import {
   COMMUNITY_FEEDS,
   type CommunityFeedContext,
+  type CommunityFeedCycleCatalogItem,
   type CommunityFeedItem,
   type CommunityFeedKind,
   type CommunityFeedPage,
@@ -22,7 +29,9 @@ import {
   COMMUNITY_FEED_DESCRIPTIONS,
   COMMUNITY_FEED_LABELS,
   getCommunityFeedHref,
+  isCommunityFeedCycleCatalogPage,
   isCommunityFeedPage,
+  mergeCommunityFeedCycleCatalogItems,
   mergeCommunityFeedItems,
 } from "@/lib/feed/communityFeedSurface";
 import {
@@ -86,7 +95,7 @@ export function CommunityFeedCard({
       aria-label={`Meme ${position}`}
       aria-posinset={position}
       data-feed-submission-id={item.submissionId}
-      className="scroll-mt-52 overflow-hidden rounded-3xl border border-white/10 bg-black/55 shadow-xl shadow-black/30 outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)]"
+      className="scroll-mt-56 overflow-hidden rounded-3xl border border-white/10 bg-black/55 shadow-xl shadow-black/30 outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)] lg:scroll-mt-40"
     >
       <Link
         href={getCommunityFeedDetailHref(item.submissionId)}
@@ -148,6 +157,15 @@ async function readPageResponse(
   return value;
 }
 
+async function readCycleCatalogResponse(response: Response) {
+  if (!response.ok) throw new Error("COMMUNITY_FEED_CYCLE_CATALOG_FAILED");
+  const value: unknown = await response.json();
+  if (!isCommunityFeedCycleCatalogPage(value)) {
+    throw new Error("COMMUNITY_FEED_CYCLE_CATALOG_INVALID");
+  }
+  return value;
+}
+
 export default function CommunityFeedClient({
   feed,
   cycleNumber,
@@ -169,8 +187,26 @@ export default function CommunityFeedClient({
     initialFallbackNotice(initialPage)
   );
   const [error, setError] = useState<string | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
   const [restartError, setRestartError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [cycleCatalogItems, setCycleCatalogItems] = useState<
+    CommunityFeedCycleCatalogItem[]
+  >([]);
+  const [cycleCatalogCursor, setCycleCatalogCursor] = useState<string | null>(
+    null
+  );
+  const [cycleCatalogHasMore, setCycleCatalogHasMore] = useState(false);
+  const [cycleCatalogTotalCount, setCycleCatalogTotalCount] = useState<
+    number | null
+  >(null);
+  const [cycleCatalogLoading, setCycleCatalogLoading] = useState(false);
+  const [cycleCatalogError, setCycleCatalogError] = useState<string | null>(
+    null
+  );
+  const [cycleNavigatorOpen, setCycleNavigatorOpen] = useState(false);
+  const cycleNavigatorId = useId();
+  const cycleNavigatorTriggerRef = useRef<HTMLButtonElement>(null);
   const feedListRef = useRef<HTMLDivElement>(null);
   const prefetchMarkerRef = useRef<HTMLDivElement>(null);
   const noticeRef = useRef<HTMLParagraphElement>(null);
@@ -181,6 +217,54 @@ export default function CommunityFeedClient({
   } | null>(null);
 
   const storageKey = getCommunityFeedResumeStorageKey(feed, cycleNumber);
+  const finalizedFeed = feed === "live" ? null : feed;
+
+  const closeCycleNavigator = useCallback(() => {
+    setCycleNavigatorOpen(false);
+  }, []);
+
+  const loadCycleCatalog = useCallback(
+    async (cursor: string | null, signal?: AbortSignal) => {
+      setCycleCatalogLoading(true);
+      setCycleCatalogError(null);
+      try {
+        const params = new URLSearchParams();
+        if (cursor) params.set("cursor", cursor);
+        const query = params.size > 0 ? `?${params.toString()}` : "";
+        const response = await fetch(`/api/community-feed/cycles${query}`, {
+          method: "GET",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+          signal,
+        });
+        const catalogPage = await readCycleCatalogResponse(response);
+        if (signal?.aborted) return;
+        setCycleCatalogItems((current) =>
+          mergeCommunityFeedCycleCatalogItems(current, catalogPage.items)
+        );
+        setCycleCatalogCursor(catalogPage.nextCursor);
+        setCycleCatalogHasMore(catalogPage.hasMore);
+        setCycleCatalogTotalCount((current) =>
+          catalogPage.totalCount ?? current
+        );
+      } catch {
+        if (signal?.aborted) return;
+        setCycleCatalogError(
+          "The finalized Cycle catalog is temporarily unavailable. Please try again."
+        );
+      } finally {
+        if (!signal?.aborted) setCycleCatalogLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (feed === "live") return;
+    const controller = new AbortController();
+    void loadCycleCatalog(null, controller.signal);
+    return () => controller.abort();
+  }, [feed, loadCycleCatalog]);
 
   const clearSavedProgress = useCallback(() => {
     try {
@@ -215,7 +299,7 @@ export default function CommunityFeedClient({
   );
 
   useEffect(() => {
-    if (initialAnchorRequested) return;
+    if (feed === "live" || initialAnchorRequested) return;
 
     let serialized: string | null = null;
     try {
@@ -241,6 +325,7 @@ export default function CommunityFeedClient({
 
   const scheduleProgressWrite = useCallback(
     (submissionId: number) => {
+      if (feed === "live") return;
       const context: CommunityFeedContext | null = page.context;
       if (!context) return;
 
@@ -272,7 +357,12 @@ export default function CommunityFeedClient({
   }, []);
 
   useEffect(() => {
-    if (resumeRecord || !page.context || typeof IntersectionObserver === "undefined") {
+    if (
+      feed === "live" ||
+      resumeRecord ||
+      !page.context ||
+      typeof IntersectionObserver === "undefined"
+    ) {
       return;
     }
 
@@ -314,7 +404,7 @@ export default function CommunityFeedClient({
       observer.disconnect();
       dwellTimers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [page.context, page.items, resumeRecord, scheduleProgressWrite]);
+  }, [feed, page.context, page.items, resumeRecord, scheduleProgressWrite]);
 
   useEffect(() => {
     const marker = prefetchMarkerRef.current;
@@ -353,7 +443,7 @@ export default function CommunityFeedClient({
   const handleDismissResume = () => {
     clearSavedProgress();
     setResumeRecord(null);
-    setError(null);
+    setResumeError(null);
     setRestartError(null);
     setNotice(null);
   };
@@ -390,7 +480,7 @@ export default function CommunityFeedClient({
   const handleContinue = async () => {
     if (!resumeRecord || isLoading) return;
     setIsLoading(true);
-    setError(null);
+    setResumeError(null);
 
     try {
       const resumedPage = await fetchPage({
@@ -415,7 +505,7 @@ export default function CommunityFeedClient({
         focusNotice();
       }
     } catch {
-      setError("Could not restore your saved place. Please try again.");
+      setResumeError("Could not restore your saved place. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -459,13 +549,13 @@ export default function CommunityFeedClient({
 
   return (
     <>
-      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 h-44">
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 h-56 lg:h-40">
         <div
           aria-hidden="true"
           className="absolute inset-0 bg-[linear-gradient(to_bottom,#0b0b0b_0%,#0b0b0b_86%,transparent_100%)]"
         />
-        <div className="pointer-events-auto relative mx-auto mt-16 w-[calc(100%-2rem)] max-w-3xl rounded-[2rem] border-2 border-orange-500/70 bg-black/95 p-2 shadow-lg shadow-black/50 backdrop-blur sm:flex sm:items-center sm:gap-3 sm:px-3">
-          <h1 className="shrink-0 px-3 pb-1 text-center font-['Permanent_Marker'] text-xl leading-none text-[var(--orange-main)] sm:pb-0 sm:text-2xl">
+        <div className="pointer-events-auto relative mx-auto mt-16 w-[calc(100%-2rem)] max-w-5xl rounded-[2rem] border-2 border-orange-500/70 bg-black/95 p-2 shadow-lg shadow-black/50 backdrop-blur lg:flex lg:items-center lg:gap-3 lg:px-3">
+          <h1 className="shrink-0 px-3 pb-1 text-center font-['Permanent_Marker'] text-xl leading-none text-[var(--orange-main)] lg:pb-0 lg:text-2xl">
             The Spread
           </h1>
           <nav className="min-w-0 flex-1" aria-label="Community feeds">
@@ -491,121 +581,147 @@ export default function CommunityFeedClient({
               ))}
             </ul>
           </nav>
+          {finalizedFeed ? (
+            <div className="mt-2 flex min-w-0 items-center justify-center px-1 lg:mt-0 lg:px-0">
+              <CommunityFeedCycleNavigatorButton
+                selectedCycleNumber={cycleNumber}
+                controlsId={cycleNavigatorId}
+                open={cycleNavigatorOpen}
+                triggerRef={cycleNavigatorTriggerRef}
+                hasSavedPlace={resumeRecord !== null}
+                onOpen={() => setCycleNavigatorOpen(true)}
+              />
+            </div>
+          ) : null}
         </div>
       </header>
-      <div aria-hidden="true" className="h-44" />
+      <div aria-hidden="true" className="h-56 lg:h-40" />
 
-      <p className="mx-auto mb-6 max-w-xl text-center text-sm leading-6 text-white/65 sm:text-base">
-        {COMMUNITY_FEED_DESCRIPTIONS[feed]}
-      </p>
-
-      {resumeRecord ? (
-        <section
-          aria-labelledby="spread-resume-title"
-          className="relative mb-6 rounded-2xl border border-[var(--orange-main)]/35 bg-[var(--orange-dark)]/10 p-5 pr-14"
+      {finalizedFeed ? (
+        <CommunityFeedCycleNavigatorDrawer
+          id={cycleNavigatorId}
+          open={cycleNavigatorOpen}
+          triggerRef={cycleNavigatorTriggerRef}
+          onClose={closeCycleNavigator}
         >
-          <button
-            type="button"
-            disabled={isLoading}
-            onClick={handleDismissResume}
-            aria-label="Dismiss saved place"
-            className="absolute right-3 top-3 grid min-h-11 min-w-11 place-items-center rounded-full text-xl text-white/65 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)] disabled:opacity-50"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-          <h2 id="spread-resume-title" className="text-lg font-semibold">
-            Resume {feedLabel}?
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-white/65">
-            A saved place is available on this browser.
-          </p>
-          <div className="mt-4">
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={() => void handleContinue()}
-              className="min-h-11 w-full rounded-xl bg-[var(--orange-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--orange-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50 sm:w-auto"
-            >
-              {isLoading ? "Restoring..." : "Continue where you left off"}
-            </button>
-          </div>
-          {error ? (
-            <p role="alert" className="mt-3 text-sm text-red-300">
-              {error}
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-
-      {resumedFromSavedPlace ? (
-        <section
-          aria-label="Saved place controls"
-          className="mb-6 flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/45 p-4 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <p className="text-sm text-white/70">
-            Continued from your saved place.
-          </p>
-          <button
-            type="button"
-            disabled={isLoading}
-            onClick={() => void handleStartFromBeginning()}
-            className="min-h-11 rounded-xl border border-white/20 bg-black/40 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)] disabled:opacity-50"
-          >
-            {isLoading ? "Loading newest..." : "Start from the beginning"}
-          </button>
-          {restartError ? (
-            <p role="alert" className="text-sm text-red-300 sm:basis-full">
-              {restartError}
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-
-      {notice ? (
-        <p
-          ref={noticeRef}
-          role="status"
-          tabIndex={-1}
-          className="mb-6 rounded-xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white/70 outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)]"
-        >
-          {notice}
-        </p>
+          <CommunityFeedCycleNavigatorPanel
+            instanceId="mobile"
+            feed={finalizedFeed}
+            selectedCycleNumber={cycleNumber}
+            items={cycleCatalogItems}
+            totalCount={cycleCatalogTotalCount}
+            hasMore={cycleCatalogHasMore}
+            isLoading={cycleCatalogLoading}
+            error={cycleCatalogError}
+            resumeAvailable={resumeRecord !== null}
+            resumedFromSavedPlace={resumedFromSavedPlace}
+            resumeLoading={isLoading}
+            resumeError={resumeError}
+            restartError={restartError}
+            onContinue={() => void handleContinue()}
+            onDismiss={handleDismissResume}
+            onStartFromBeginning={() => void handleStartFromBeginning()}
+            onLoadMore={() =>
+              void loadCycleCatalog(cycleCatalogCursor)
+            }
+            onNavigate={closeCycleNavigator}
+          />
+        </CommunityFeedCycleNavigatorDrawer>
       ) : null}
 
       <div
-        ref={feedListRef}
-        role="feed"
-        aria-label={`${feedLabel} submissions`}
-        aria-busy={isLoading}
-        className="space-y-6"
+        className={`mx-auto w-full ${
+          finalizedFeed
+            ? "max-w-6xl lg:grid lg:grid-cols-[15rem_minmax(0,48rem)] lg:justify-center lg:gap-8"
+            : "max-w-3xl"
+        }`}
       >
-        {page.items.map((item, index) => (
-          <CommunityFeedCard
-            key={item.submissionId}
-            feed={feed}
-            item={item}
-            position={index + 1}
+        {finalizedFeed ? (
+          <aside
+            aria-label="Finalized Cycle navigator"
+            className="hidden lg:block lg:self-stretch"
+          >
+            <div
+              className="fixed top-40 w-60 max-h-[calc(100dvh-11rem)] overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
+              style={{ left: "max(1.5rem, calc(50% - 32.5rem))" }}
+            >
+              <CommunityFeedCycleNavigatorPanel
+                instanceId="desktop"
+                feed={finalizedFeed}
+                selectedCycleNumber={cycleNumber}
+                items={cycleCatalogItems}
+                totalCount={cycleCatalogTotalCount}
+                hasMore={cycleCatalogHasMore}
+                isLoading={cycleCatalogLoading}
+                error={cycleCatalogError}
+                resumeAvailable={resumeRecord !== null}
+                resumedFromSavedPlace={resumedFromSavedPlace}
+                resumeLoading={isLoading}
+                resumeError={resumeError}
+                restartError={restartError}
+                onContinue={() => void handleContinue()}
+                onDismiss={handleDismissResume}
+                onStartFromBeginning={() => void handleStartFromBeginning()}
+                onLoadMore={() =>
+                  void loadCycleCatalog(cycleCatalogCursor)
+                }
+              />
+            </div>
+          </aside>
+        ) : null}
+
+        <div className="min-w-0">
+          <p className="mx-auto mb-6 max-w-xl text-center text-sm leading-6 text-white/65 sm:text-base">
+            {COMMUNITY_FEED_DESCRIPTIONS[feed]}
+          </p>
+
+          {notice ? (
+            <p
+              ref={noticeRef}
+              role="status"
+              tabIndex={-1}
+              className="mb-6 rounded-xl border border-white/10 bg-black/45 px-4 py-3 text-sm text-white/70 outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)]"
+            >
+              {notice}
+            </p>
+          ) : null}
+
+          <div
+            ref={feedListRef}
+            role="feed"
+            aria-label={`${feedLabel} submissions`}
+            aria-busy={isLoading}
+            className="space-y-6"
+          >
+            {page.items.map((item, index) => (
+              <CommunityFeedCard
+                key={item.submissionId}
+                feed={feed}
+                item={item}
+                position={index + 1}
+              />
+            ))}
+          </div>
+
+          {page.items.length === 0 && !page.hasMore ? (
+            <div className="rounded-2xl border border-white/10 bg-black/45 px-6 py-10 text-center text-white/60">
+              {feed === "live"
+                ? "No live submissions right now."
+                : feed === "trash"
+                  ? "Trash is empty for now."
+                  : "Nothing has reached this feed yet."}
+            </div>
+          ) : null}
+
+          <div ref={prefetchMarkerRef} aria-hidden="true" className="h-px" />
+          <LoadMoreButton
+            error={error}
+            hasMore={page.hasMore}
+            isLoading={isLoading}
+            onLoadMore={() => void handleLoadMore()}
           />
-        ))}
-      </div>
-
-      {page.items.length === 0 && !page.hasMore ? (
-        <div className="rounded-2xl border border-white/10 bg-black/45 px-6 py-10 text-center text-white/60">
-          {feed === "live"
-            ? "No live submissions right now."
-            : feed === "trash"
-              ? "Trash is empty for now."
-              : "Nothing has reached this feed yet."}
         </div>
-      ) : null}
-
-      <div ref={prefetchMarkerRef} aria-hidden="true" className="h-px" />
-      <LoadMoreButton
-        error={resumeRecord ? null : error}
-        hasMore={page.hasMore}
-        isLoading={isLoading}
-        onLoadMore={() => void handleLoadMore()}
-      />
+      </div>
     </>
   );
 }

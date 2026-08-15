@@ -52,6 +52,7 @@ export type CommunityFeedCycleCatalogPage = {
   items: CommunityFeedCycleCatalogItem[];
   nextCursor: string | null;
   hasMore: boolean;
+  totalCount: number | null;
 };
 
 export type CommunityFeedCursorState =
