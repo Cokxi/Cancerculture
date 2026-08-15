@@ -1,31 +1,29 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { SponsorTrackingSurface } from "@/lib/sponsors/tracking";
 import {
   SPONSOR_VIEWPORT_DWELL_MS,
   SPONSOR_VIEWPORT_THRESHOLD,
 } from "@/lib/sponsors/viewability";
 
 export default function SponsorImpressionTracker({
-  sponsorshipId,
-  surface,
-  feedKind,
+  enabled,
+  impressionUrl,
+  measurementToken,
 }: {
-  sponsorshipId: number | null | undefined;
-  surface: SponsorTrackingSurface;
-  feedKind?: "live" | "top10" | "all" | "trash";
+  enabled: boolean;
+  impressionUrl: string;
+  measurementToken: string;
 }) {
   const markerRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const marker = markerRef.current;
-    if (!sponsorshipId || !marker) return;
+    if (!enabled || !marker || !measurementToken) return;
 
     let dwellTimer: number | null = null;
     let qualified = false;
     let intersecting = false;
-
     const clearDwell = () => {
       if (dwellTimer !== null) window.clearTimeout(dwellTimer);
       dwellTimer = null;
@@ -36,32 +34,17 @@ export default function SponsorImpressionTracker({
     };
     const evaluate = () => {
       clearDwell();
-      if (
-        qualified ||
-        !intersecting ||
-        document.visibilityState !== "visible"
-      ) {
+      if (qualified || !intersecting || document.visibilityState !== "visible") {
         return;
       }
-
       dwellTimer = window.setTimeout(() => {
         dwellTimer = null;
-        if (
-          !intersecting ||
-          document.visibilityState !== "visible"
-        ) {
-          return;
-        }
+        if (!intersecting || document.visibilityState !== "visible") return;
         qualified = true;
-        void fetch("/api/sponsor/track", {
+        void fetch(impressionUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "impression",
-            feedKind,
-            sponsorshipId,
-            surface,
-          }),
+          body: JSON.stringify({ token: measurementToken }),
           keepalive: true,
         }).catch(() => undefined);
       }, SPONSOR_VIEWPORT_DWELL_MS);
@@ -71,24 +54,29 @@ export default function SponsorImpressionTracker({
         intersecting =
           Boolean(entry) &&
           entry.intersectionRatio >= SPONSOR_VIEWPORT_THRESHOLD;
-        if (!intersecting) reset();
-        else evaluate();
+        if (intersecting) evaluate();
+        else reset();
       },
       { threshold: [SPONSOR_VIEWPORT_THRESHOLD] }
     );
-    const onVisibilityChange = () => {
-      if (document.visibilityState !== "visible") reset();
-      else evaluate();
+    const visibility = () => {
+      if (document.visibilityState === "visible") evaluate();
+      else reset();
     };
-
     observer.observe(marker);
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener("visibilitychange", visibility);
     return () => {
       clearDwell();
       observer.disconnect();
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener("visibilitychange", visibility);
     };
-  }, [feedKind, sponsorshipId, surface]);
+  }, [enabled, impressionUrl, measurementToken]);
 
-  return <span ref={markerRef} aria-hidden="true" className="absolute inset-0 pointer-events-none" />;
+  return (
+    <span
+      ref={markerRef}
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0"
+    />
+  );
 }

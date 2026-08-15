@@ -168,7 +168,9 @@ test("reset cleanup and sponsored draft inputs stay narrowly server-controlled",
   assert.doesNotMatch(sponsorRoute, /body\?\.currentBannerR2Key/u);
   assert.match(
     sponsorRoute,
-    /parsedSponsorLink\.protocol !== "https:"/u
+    /url\.protocol === "https:" && !url\.username && !url\.password/u
   );
-  assert.match(sponsorRoute, /crypto\.randomUUID\(\)/u);
+  assert.match(sponsorRoute, /validIdempotencyKey\(idempotencyKey\)/u);
+  assert.match(sponsorRoute, /reserve_sponsor_media_upload/u);
+  assert.match(sponsorRoute, /commit_sponsor_media_upload/u);
 });

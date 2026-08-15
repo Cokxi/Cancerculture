@@ -17,7 +17,10 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ submissionId: string }> }
 ) {
-  const feed = new URL(request.url).searchParams.get("feed");
+  const searchParams = new URL(request.url).searchParams;
+  const feed = searchParams.get("feed");
+  const cycleRaw = searchParams.get("cycle");
+  const cycleNumber = cycleRaw === null ? null : Number(cycleRaw);
   const submissionId = Number((await params).submissionId);
   const body = await request.json().catch(() => null);
   const token = typeof body?.token === "string" ? body.token : "";
@@ -26,7 +29,15 @@ export async function POST(
     !isCommunityFeedKind(feed) ||
     !Number.isSafeInteger(submissionId) ||
     submissionId <= 0 ||
-    !verifySponsorMeasurementToken({ token, feed, submissionId }) ||
+    (cycleNumber !== null &&
+      (!Number.isSafeInteger(cycleNumber) || cycleNumber <= 0)) ||
+    (feed === "live" && cycleNumber !== null) ||
+    !verifySponsorMeasurementToken({
+      token,
+      feed,
+      submissionId,
+      cycleNumber,
+    }) ||
     !(await hasSponsorMeasurementConsent())
   ) {
     return new NextResponse(null, {
@@ -35,7 +46,11 @@ export async function POST(
     });
   }
 
-  const sponsor = await resolveCommunityFeedSponsorSource({ feed, submissionId });
+  const sponsor = await resolveCommunityFeedSponsorSource({
+    feed,
+    submissionId,
+    cycleNumber,
+  });
   if (!sponsor) {
     return new NextResponse(null, {
       status: 204,

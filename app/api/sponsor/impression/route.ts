@@ -12,34 +12,42 @@ import {
   SPONSOR_TRACKING_COOKIE_MAX_AGE_SECONDS,
 } from "@/lib/sponsors/tracking";
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   const url = new URL(request.url);
+  const body = await request.json().catch(() => null);
+  const token = typeof body?.token === "string" ? body.token : "";
   const grant = verifySponsorPresentationGrant({
-    token: url.searchParams.get("token") ?? "",
+    token,
     surface: url.searchParams.get("surface"),
   });
-  if (!grant) return NextResponse.redirect(new URL("/", request.url));
-
-  const source = await getCycleSponsorshipSourceById(grant.sponsorshipId);
-  if (!source) return NextResponse.redirect(new URL("/", request.url));
-
-  let anonymousViewerId: string | null = null;
-  if (await hasSponsorMeasurementConsent()) {
-    const viewer = await getSponsorViewerHash();
-    anonymousViewerId = viewer.anonymousViewerId;
-    if (viewer.viewerHash) {
-      await recordSponsorEvent({
-        eventType: "click",
-        sponsorshipId: source.sponsorshipId,
-        surface: grant.surface,
-        viewerHash: viewer.viewerHash,
-      });
-    }
+  if (!grant || url.searchParams.get("token") !== token) {
+    return new NextResponse(null, {
+      status: 204,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 
-  const response = NextResponse.redirect(source.sponsorLink);
-  response.headers.set("Cache-Control", "no-store");
-  response.headers.set("Referrer-Policy", "no-referrer");
+  const source = await getCycleSponsorshipSourceById(grant.sponsorshipId);
+  if (!source || !(await hasSponsorMeasurementConsent())) {
+    return new NextResponse(null, {
+      status: 204,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
+  const { anonymousViewerId, viewerHash } = await getSponsorViewerHash();
+  if (viewerHash) {
+    await recordSponsorEvent({
+      eventType: "impression",
+      sponsorshipId: source.sponsorshipId,
+      surface: grant.surface,
+      viewerHash,
+    });
+  }
+  const response = new NextResponse(null, {
+    status: 204,
+    headers: { "Cache-Control": "no-store" },
+  });
   if (anonymousViewerId) {
     response.cookies.set(SPONSOR_TRACKING_COOKIE, anonymousViewerId, {
       httpOnly: true,

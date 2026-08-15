@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { getAdminApiErrorResponse } from "@/lib/auth/adminApiErrorResponse";
 import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import { startCycleTransactional } from "@/lib/cycles/startCycle";
-import { getSponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
+import { getSponsoredCycleDraftInternal } from "@/lib/cycles/sponsoredCycle";
 import { supabaseAdmin } from "@/lib/db/admin";
 import {
   DEFAULT_SUBMISSIONS_PER_USER,
@@ -96,19 +96,20 @@ export async function POST(req: Request) {
         0
         ? nextCycleConfigByKey.next_cycle_reward_description.trim()
         : null;
-    const sponsoredDraft = await getSponsoredCycleDraft();
+    const sponsoredDraft = await getSponsoredCycleDraftInternal();
     const resolvedTheme = manualTheme ?? storedNextTheme;
 
     if (
       sponsoredDraft.enabled &&
       (sponsoredDraft.companyName.length === 0 ||
         sponsoredDraft.sponsorLink.length === 0 ||
-        sponsoredDraft.bannerR2Key.length === 0)
+        sponsoredDraft.detailBannerR2Key.length === 0 ||
+        sponsoredDraft.feedBannerR2Key.length === 0)
     ) {
       return NextResponse.json(
         {
           error:
-            "Sponsored cycle needs company name, sponsor link, and banner before start",
+            "Sponsored cycle needs company name, sponsor link, a 2:1 detail banner, and a 6:1 Feed banner before start",
         },
         { status: 400 }
       );
@@ -131,8 +132,9 @@ export async function POST(req: Request) {
           enabled: sponsoredDraft.enabled,
           companyName: sponsoredDraft.companyName,
           sponsorLink: sponsoredDraft.sponsorLink,
-          bannerR2Key: sponsoredDraft.bannerR2Key,
-          bannerUrl: sponsoredDraft.bannerUrl,
+          bannerR2Key: sponsoredDraft.detailBannerR2Key,
+          feedBannerR2Key: sponsoredDraft.feedBannerR2Key,
+          bannerUrl: null,
         },
       },
     });

@@ -18,6 +18,8 @@ type MediaCleanupResponse = {
   completed: number;
   recoveredUploads: number;
   queuedFromRecovery: number;
+  recoveredSponsorUploads: number;
+  queuedFromSponsorRecovery: number;
   retryScheduled: number;
   terminalFailures: number;
   staleResults: number;
@@ -61,6 +63,8 @@ function isValidResponse(
     "completed",
     "recoveredUploads",
     "queuedFromRecovery",
+    "recoveredSponsorUploads",
+    "queuedFromSponsorRecovery",
     "retryScheduled",
     "terminalFailures",
     "staleResults",

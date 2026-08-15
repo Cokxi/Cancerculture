@@ -15,10 +15,14 @@ export type CommunityFeedSponsorPresentation =
 export function getCommunityFeedSponsorPaths(
   feed: CommunityFeedKind,
   submissionId: number,
-  measurementToken: string | null
+  measurementToken: string | null,
+  cycleNumber: number | null = null
 ) {
-  const suffix = `${submissionId}?feed=${feed}`;
+  const mediaParams = new URLSearchParams({ feed });
+  if (cycleNumber !== null) mediaParams.set("cycle", String(cycleNumber));
+  const suffix = `${submissionId}?${mediaParams.toString()}`;
   const clickParams = new URLSearchParams({ feed });
+  if (cycleNumber !== null) clickParams.set("cycle", String(cycleNumber));
   if (measurementToken) clickParams.set("token", measurementToken);
 
   return {
@@ -43,7 +47,8 @@ function isExactRecord(
 export function isCommunityFeedSponsorPresentation(
   value: unknown,
   feed: CommunityFeedKind,
-  submissionId: number
+  submissionId: number,
+  cycleNumber: number | null = null
 ): value is CommunityFeedSponsorPresentation {
   if (!isExactRecord(value, ["sponsored"])) {
     if (
@@ -80,7 +85,8 @@ export function isCommunityFeedSponsorPresentation(
     const paths = getCommunityFeedSponsorPaths(
       feed,
       submissionId,
-      typeof token === "string" ? token : null
+      typeof token === "string" ? token : null,
+      cycleNumber
     );
     return (
       value.bannerUrl === paths.bannerUrl &&

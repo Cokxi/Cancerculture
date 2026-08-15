@@ -95,6 +95,7 @@ type FinalizedDetailRow = {
 };
 
 type CommunityFeedDetailSource = {
+  cycleId: number;
   detail: CommunityFeedDetail;
   r2Key: string | null;
   authorDiscordUserId: string | null;
@@ -208,6 +209,7 @@ async function getLiveDetailSource(submissionId: number) {
   if (!submission || !liveCyclesMatch(cycle, verifiedCycle)) return null;
 
   return {
+    cycleId: cycle.id,
     detail: {
       submissionId: submission.id,
       state: "live",
@@ -279,6 +281,7 @@ async function getFinalizedDetailSource(submissionId: number) {
   }
 
   return {
+    cycleId: row.cycle_id,
     detail: {
       submissionId: row.submission_id,
       state: "finalized",
@@ -309,10 +312,7 @@ async function resolveCommunityFeedDetailSource(submissionId: number) {
   );
 }
 
-export async function getCommunityFeedDetail(submissionId: number) {
-  const source = await resolveCommunityFeedDetailSource(submissionId);
-  if (!source) return null;
-
+async function hydrateCommunityFeedDetail(source: CommunityFeedDetailSource) {
   if (source.detail.state === "live" || !source.authorDiscordUserId) {
     return source.detail;
   }
@@ -321,6 +321,20 @@ export async function getCommunityFeedDetail(submissionId: number) {
     ...source.detail,
     author: await getFinalizedAuthor(source.authorDiscordUserId),
   } satisfies CommunityFeedDetail;
+}
+
+export async function getCommunityFeedDetail(submissionId: number) {
+  const source = await resolveCommunityFeedDetailSource(submissionId);
+  return source ? hydrateCommunityFeedDetail(source) : null;
+}
+
+export async function getCommunityFeedDetailPageData(submissionId: number) {
+  const source = await resolveCommunityFeedDetailSource(submissionId);
+  if (!source) return null;
+  return {
+    cycleId: source.cycleId,
+    detail: await hydrateCommunityFeedDetail(source),
+  };
 }
 
 export async function resolveCommunityFeedDetailMediaSource(

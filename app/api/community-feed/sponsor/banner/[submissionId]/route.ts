@@ -13,19 +13,32 @@ export async function GET(
   { params }: { params: Promise<{ submissionId: string }> }
 ) {
   try {
-    const feed = new URL(request.url).searchParams.get("feed");
+    const searchParams = new URL(request.url).searchParams;
+    const feed = searchParams.get("feed");
+    const cycleRaw = searchParams.get("cycle");
+    const cycleNumber = cycleRaw === null ? null : Number(cycleRaw);
     const submissionId = Number((await params).submissionId);
     if (
       !isCommunityFeedKind(feed) ||
       !Number.isSafeInteger(submissionId) ||
-      submissionId <= 0
+      submissionId <= 0 ||
+      (cycleNumber !== null &&
+        (!Number.isSafeInteger(cycleNumber) || cycleNumber <= 0)) ||
+      (feed === "live" && cycleNumber !== null)
     ) {
       return createNeutralCommunityFeedMediaResponse();
     }
 
-    const sponsor = await resolveCommunityFeedSponsorSource({ feed, submissionId });
+    const sponsor = await resolveCommunityFeedSponsorSource({
+      feed,
+      submissionId,
+      cycleNumber,
+    });
     return sponsor
-      ? proxyCommunityFeedMedia({ storageKey: sponsor.bannerR2Key })
+      ? proxyCommunityFeedMedia({
+          storageKey: sponsor.feedBannerR2Key,
+          expectedDimensions: { width: 1800, height: 300 },
+        })
       : createNeutralCommunityFeedMediaResponse();
   } catch {
     return createNeutralCommunityFeedMediaResponse();

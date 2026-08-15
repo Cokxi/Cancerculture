@@ -33,7 +33,7 @@ test("Winner Payouts exposes the exact finalized payout projection", async () =>
 test("Sponsor Reports delegates receive aggregates and a redacted export", async () => {
   const [page, exportRoute] = await Promise.all([
     source("app/admin/logs/sponsors/page.tsx"),
-    source("app/api/admin/sponsors/[sponsorshipId]/export/route.ts"),
+    source("app/api/admin/sponsors/cycle/[cycleNumber]/export/route.ts"),
   ]);
 
   assert.match(
@@ -50,10 +50,12 @@ test("Sponsor Reports delegates receive aggregates and a redacted export", async
     exportRoute,
     /requireDynamicTeamCapability\(\s*"sponsorships\.reports\.view"/
   );
-  assert.match(
+  assert.doesNotMatch(exportRoute, /banner_r2_key|feed_banner_r2_key/);
+  assert.doesNotMatch(
     exportRoute,
-    /authorization\.isAdmin[\s\S]*banner_r2_key/
+    /sponsorship:\s*\{[\s\S]*?\b(?:id|cycle_id):/u
   );
+  assert.match(exportRoute, /cycle_number: cycleNumber/u);
   assert.match(exportRoute, /Raw viewer hashes are intentionally not included/);
   assert.doesNotMatch(exportRoute, /exportPayload[\s\S]*events:/);
   assert.match(exportRoute, /"Cache-Control": "no-store"/);

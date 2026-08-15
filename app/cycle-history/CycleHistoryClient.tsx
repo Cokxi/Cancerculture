@@ -551,9 +551,9 @@ function SubmissionModal({
                 <SponsoredBanner
                   bannerUrl={sponsoredMeta.bannerUrl}
                   companyName={sponsoredMeta.companyName}
-                  sponsorLink={sponsoredMeta.sponsorLink}
-                  sponsorshipId={sponsoredMeta.sponsorshipId}
-                  surface="history_modal"
+                  clickUrl={sponsoredMeta.clickUrl}
+                  impressionUrl={sponsoredMeta.impressionUrl}
+                  measurementToken={sponsoredMeta.measurementToken}
                   label="Sponsored by:"
                 />
               </div>

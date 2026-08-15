@@ -73,7 +73,7 @@ test("winner payouts and sponsor reports use distinct exact read capabilities", 
   const [winnerPage, sponsorPage, sponsorExport] = await Promise.all([
     source("app/admin/logs/winners/page.tsx"),
     source("app/admin/logs/sponsors/page.tsx"),
-    source("app/api/admin/sponsors/[sponsorshipId]/export/route.ts"),
+    source("app/api/admin/sponsors/cycle/[cycleNumber]/export/route.ts"),
   ]);
 
   assert.match(
@@ -93,10 +93,7 @@ test("winner payouts and sponsor reports use distinct exact read capabilities", 
     /requireAdmin(?:Page)?\(/
   );
   assert.doesNotMatch(sponsorPage, /banner_r2_key/);
-  assert.match(
-    sponsorExport,
-    /authorization\.isAdmin[\s\S]*banner_r2_key/
-  );
+  assert.doesNotMatch(sponsorExport, /banner_r2_key|feed_banner_r2_key/);
 });
 
 test("submission upload logs use their exact read capability and redact delegated reasons", async () => {

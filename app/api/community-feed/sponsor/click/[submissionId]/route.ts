@@ -19,22 +19,36 @@ export async function GET(
 ) {
   const url = new URL(request.url);
   const feed = url.searchParams.get("feed");
+  const cycleRaw = url.searchParams.get("cycle");
+  const cycleNumber = cycleRaw === null ? null : Number(cycleRaw);
   const token = url.searchParams.get("token") ?? "";
   const submissionId = Number((await params).submissionId);
   if (
     !isCommunityFeedKind(feed) ||
     !Number.isSafeInteger(submissionId) ||
-    submissionId <= 0
+    submissionId <= 0 ||
+    (cycleNumber !== null &&
+      (!Number.isSafeInteger(cycleNumber) || cycleNumber <= 0)) ||
+    (feed === "live" && cycleNumber !== null)
   ) {
     return NextResponse.redirect(new URL("/spread", request.url));
   }
 
-  const sponsor = await resolveCommunityFeedSponsorSource({ feed, submissionId });
+  const sponsor = await resolveCommunityFeedSponsorSource({
+    feed,
+    submissionId,
+    cycleNumber,
+  });
   if (!sponsor) return NextResponse.redirect(new URL("/spread", request.url));
 
   let anonymousViewerId: string | null = null;
   if (
-    verifySponsorMeasurementToken({ token, feed, submissionId }) &&
+    verifySponsorMeasurementToken({
+      token,
+      feed,
+      submissionId,
+      cycleNumber,
+    }) &&
     (await hasSponsorMeasurementConsent())
   ) {
     const viewer = await getSponsorViewerHash();

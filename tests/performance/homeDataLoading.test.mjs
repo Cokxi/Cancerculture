@@ -117,16 +117,24 @@ test("CycleHud overlaps independent reads and preserves dependent sponsor loadin
   assert.ok(cycleAwait > configStart);
   assert.match(
     cycleHud,
-    /const fallbackSponsorMetaPromise =\s*cycle && shouldUseSponsorFallback\s*\? getCycleSponsoredMeta\(cycle\.id\)/
+    /const sponsorMetaPromise =\s*cycle\?\.is_sponsored === true\s*\? getCycleSponsoredMeta\(cycle\.id, "home_hud"\)/
   );
   assert.match(
     cycleHud,
-    /await Promise\.all\(\[\s*fallbackSponsorMetaPromise,\s*nextCycleThemePromise/
+    /await Promise\.all\(\[\s*sponsorMetaPromise,\s*nextCycleThemePromise/
   );
   assert.doesNotMatch(cycleHud, /HOME_PERF|performance\.now/);
   assert.doesNotMatch(
     cycleHud,
     /results_published_at|archived_at|paused_from_status|phase_pause_reason/
+  );
+  assert.match(
+    cycleHud,
+    /font-\['Permanent_Marker'\] text-lg leading-tight[\s\S]*Presented by:/u
+  );
+  assert.match(
+    cycleHud,
+    /font-\['Permanent_Marker'\] text-sm leading-tight[\s\S]*Status:/u
   );
 });
 

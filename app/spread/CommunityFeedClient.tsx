@@ -80,10 +80,12 @@ export function CommunityFeedCard({
   feed,
   item,
   position,
+  selectedCycleNumber,
 }: {
   feed: CommunityFeedKind;
   item: CommunityFeedItem;
   position: number;
+  selectedCycleNumber: number | null;
 }) {
   const hasDimensions = Boolean(item.mediaWidth && item.mediaHeight);
 
@@ -95,7 +97,7 @@ export function CommunityFeedCard({
       aria-label={`Meme ${position}`}
       aria-posinset={position}
       data-feed-submission-id={item.submissionId}
-      className="scroll-mt-56 overflow-hidden rounded-3xl border border-white/10 bg-black/55 shadow-xl shadow-black/30 outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)] lg:scroll-mt-40"
+      className="relative scroll-mt-56 overflow-hidden rounded-3xl border border-white/10 bg-black/55 shadow-xl shadow-black/30 outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)] lg:scroll-mt-40"
     >
       <Link
         href={getCommunityFeedDetailHref(item.submissionId)}
@@ -133,6 +135,7 @@ export function CommunityFeedCard({
       <CommunityFeedSponsor
         feed={feed}
         submissionId={item.submissionId}
+        cycleNumber={selectedCycleNumber}
       />
     </article>
   );
@@ -699,6 +702,7 @@ export default function CommunityFeedClient({
                 feed={feed}
                 item={item}
                 position={index + 1}
+                selectedCycleNumber={cycleNumber}
               />
             ))}
           </div>

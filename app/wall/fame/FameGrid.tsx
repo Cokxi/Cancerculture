@@ -336,13 +336,13 @@ export default function FameGrid({
                       companyName={
                         active.sponsored_meta.companyName
                       }
-                      sponsorLink={
-                        active.sponsored_meta.sponsorLink
+                      clickUrl={active.sponsored_meta.clickUrl}
+                      impressionUrl={
+                        active.sponsored_meta.impressionUrl
                       }
-                      sponsorshipId={
-                        active.sponsored_meta.sponsorshipId
+                      measurementToken={
+                        active.sponsored_meta.measurementToken
                       }
-                      surface="fame_modal"
                       label="Sponsored by:"
                     />
                   </div>

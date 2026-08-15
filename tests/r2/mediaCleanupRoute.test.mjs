@@ -30,6 +30,8 @@ mock.module(
           drainComplete: true,
           recoveredUploads: 0,
           queuedFromRecovery: 0,
+          recoveredSponsorUploads: 0,
+          queuedFromSponsorRecovery: 0,
         };
       },
       async getMediaCleanupQueueHealth() {

@@ -10,6 +10,7 @@ test("Sponsor measurement tokens bind Feed kind, Submission, signature, and expi
   const grant = createSponsorMeasurementGrant({
     feed: "all",
     submissionId: 42,
+    cycleNumber: 7,
     nowMs,
   });
   assert.equal(typeof grant.token, "string");
@@ -20,6 +21,7 @@ test("Sponsor measurement tokens bind Feed kind, Submission, signature, and expi
       token,
       feed: "all",
       submissionId: 42,
+      cycleNumber: 7,
       nowMs,
     }),
     true,
@@ -29,6 +31,7 @@ test("Sponsor measurement tokens bind Feed kind, Submission, signature, and expi
       token,
       feed: "trash",
       submissionId: 42,
+      cycleNumber: 7,
       nowMs,
     }),
     false,
@@ -38,6 +41,7 @@ test("Sponsor measurement tokens bind Feed kind, Submission, signature, and expi
       token,
       feed: "all",
       submissionId: 43,
+      cycleNumber: 7,
       nowMs,
     }),
     false,
@@ -47,6 +51,7 @@ test("Sponsor measurement tokens bind Feed kind, Submission, signature, and expi
       token: `${token}x`,
       feed: "all",
       submissionId: 42,
+      cycleNumber: 7,
       nowMs,
     }),
     false,
@@ -56,7 +61,18 @@ test("Sponsor measurement tokens bind Feed kind, Submission, signature, and expi
       token,
       feed: "all",
       submissionId: 42,
+      cycleNumber: 7,
       nowMs: nowMs + 30 * 60 * 1000 + 1,
+    }),
+    false,
+  );
+  assert.equal(
+    verifySponsorMeasurementToken({
+      token,
+      feed: "all",
+      submissionId: 42,
+      cycleNumber: 8,
+      nowMs,
     }),
     false,
   );

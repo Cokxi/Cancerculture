@@ -1,4 +1,5 @@
 import { requireTeamCapabilityPage } from "@/lib/auth/pageAccess";
+import { getPublicCycleNumberMap } from "@/lib/cycles/publicCycleNumber";
 import { supabaseAdmin } from "@/lib/db/admin";
 import {
   getSponsorReportStats,
@@ -77,6 +78,9 @@ export default async function SponsorLogsPage() {
   const sponsorshipIds = sponsorships.map(
     (sponsorship) => sponsorship.id
   );
+  const publicCycleNumberById = await getPublicCycleNumberMap(
+    sponsorships.map((sponsorship) => sponsorship.cycle_id)
+  );
   const [eventsResult, aggregatesResult] =
     sponsorshipIds.length > 0
       ? await Promise.all([
@@ -139,6 +143,9 @@ export default async function SponsorLogsPage() {
       ) : (
         <div className="mt-6 space-y-5">
           {sponsorships.map((sponsorship) => {
+            const cycleNumber = publicCycleNumberById.get(
+              sponsorship.cycle_id
+            );
             const stats = getSponsorReportStats(
               (eventsBySponsorshipId.get(sponsorship.id) ??
                 []) as SponsorTrackingEventForReport[],
@@ -156,7 +163,7 @@ export default async function SponsorLogsPage() {
                       {sponsorship.sponsor_name}
                     </h2>
                     <div className="mt-1 text-sm text-white/60">
-                      Cycle internal ID #{sponsorship.cycle_id}
+                      Cycle #{cycleNumber}
                     </div>
                     <a
                       href={sponsorship.sponsor_link}
@@ -170,7 +177,7 @@ export default async function SponsorLogsPage() {
 
                   <div className="flex flex-col items-start gap-3 text-sm text-white/60 sm:items-end">
                     <a
-                      href={`/api/admin/sponsors/${sponsorship.id}/export`}
+                      href={`/api/admin/sponsors/cycle/${cycleNumber}/export`}
                       className="rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs text-white transition hover:border-[var(--orange-dark)]/50 hover:bg-white/10"
                     >
                       Export JSON

@@ -181,7 +181,10 @@ export async function getPublicWallPage({
       Promise.all(
         cycleIds.map(async (cycleId) => [
           cycleId,
-          await getCycleSponsoredMeta(cycleId),
+          await getCycleSponsoredMeta(
+            cycleId,
+            wall === "fame" ? "fame_modal" : "shame_modal"
+          ),
         ] as const)
       ),
       getPublicCycleNumberMap(cycleIds),

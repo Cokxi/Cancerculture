@@ -123,10 +123,16 @@ test("detail delivery is service-only, fail-closed, and no-store", () => {
   assert.match(mediaRoute, /resolveCommunityFeedDetailMediaSource/u);
 });
 
-test("detail UI is modal-like, collapsible, and reserves comments below the metadata", () => {
+test("detail UI is modal-like, initially collapsed, and reserves comments below the metadata", () => {
   assert.match(page, /data-spread-detail-sponsor-slot/u);
+  assert.match(page, /getCycleSponsoredMeta/u);
+  assert.match(page, /"spread_detail"/u);
+  assert.match(page, /<SponsoredBanner/u);
+  assert.match(page, /format="feed"/u);
+  assert.match(page, /label="Sponsored by"/u);
   assert.match(page, /data-spread-detail-community-slot/u);
-  assert.match(page, /<details[\s\S]*open/u);
+  assert.match(page, /<details className=/u);
+  assert.doesNotMatch(page, /<details\s+open/u);
   assert.match(page, /detail\.state === "finalized"/u);
   assert.match(page, /detail\.author/u);
   assert.match(page, /Submitted by/u);

@@ -121,7 +121,7 @@ export default async function SubmissionsPage({
       cycleId: currentCycle.id,
       viewerDiscordUserId: discordUserId,
     }),
-    getCycleSponsoredMeta(currentCycle.id),
+    getCycleSponsoredMeta(currentCycle.id, "vote_modal"),
     viewerVoteStatePromise,
   ]);
   const initialActiveSubmission =

@@ -18,6 +18,8 @@ function body(overrides = {}) {
     completed: 0,
     recoveredUploads: 0,
     queuedFromRecovery: 0,
+    recoveredSponsorUploads: 0,
+    queuedFromSponsorRecovery: 0,
     retryScheduled: 0,
     terminalFailures: 0,
     staleResults: 0,

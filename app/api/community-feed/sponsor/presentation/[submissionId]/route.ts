@@ -13,23 +13,37 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ submissionId: string }> }
 ) {
-  const feed = new URL(request.url).searchParams.get("feed");
+  const searchParams = new URL(request.url).searchParams;
+  const feed = searchParams.get("feed");
+  const cycleRaw = searchParams.get("cycle");
+  const cycleNumber = cycleRaw === null ? null : Number(cycleRaw);
   const submissionId = Number((await params).submissionId);
   if (
     !isCommunityFeedKind(feed) ||
     !Number.isSafeInteger(submissionId) ||
-    submissionId <= 0
+    submissionId <= 0 ||
+    (cycleNumber !== null &&
+      (!Number.isSafeInteger(cycleNumber) || cycleNumber <= 0)) ||
+    (feed === "live" && cycleNumber !== null)
   ) {
     return NextResponse.json({ sponsored: false }, { headers: NO_STORE_HEADERS });
   }
 
   try {
-    const sponsor = await resolveCommunityFeedSponsorSource({ feed, submissionId });
+    const sponsor = await resolveCommunityFeedSponsorSource({
+      feed,
+      submissionId,
+      cycleNumber,
+    });
     if (!sponsor) {
       return NextResponse.json({ sponsored: false }, { headers: NO_STORE_HEADERS });
     }
 
-    const measurementGrant = createSponsorMeasurementGrant({ feed, submissionId });
+    const measurementGrant = createSponsorMeasurementGrant({
+      feed,
+      submissionId,
+      cycleNumber,
+    });
     const measurementToken = measurementGrant?.token ?? null;
     return NextResponse.json(
       {
@@ -37,7 +51,12 @@ export async function GET(
         companyName: sponsor.companyName,
         measurementToken,
         measurementTokenExpiresAt: measurementGrant?.expiresAt ?? null,
-        ...getCommunityFeedSponsorPaths(feed, submissionId, measurementToken),
+        ...getCommunityFeedSponsorPaths(
+          feed,
+          submissionId,
+          measurementToken,
+          cycleNumber
+        ),
       },
       { headers: NO_STORE_HEADERS }
     );

@@ -731,9 +731,9 @@ export default function SubmissionsClient({
                   <SponsoredBanner
                     bannerUrl={sponsoredMeta.bannerUrl}
                     companyName={sponsoredMeta.companyName}
-                    sponsorLink={sponsoredMeta.sponsorLink}
-                    sponsorshipId={sponsoredMeta.sponsorshipId}
-                    surface="vote_modal"
+                    clickUrl={sponsoredMeta.clickUrl}
+                    impressionUrl={sponsoredMeta.impressionUrl}
+                    measurementToken={sponsoredMeta.measurementToken}
                     label="This cycle is sponsored by:"
                   />
                 </div>

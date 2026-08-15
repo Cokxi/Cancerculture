@@ -63,7 +63,8 @@ test("Feed cards open the canonical detail route without nested Sponsor interact
     client.indexOf("</Link>") < client.indexOf("<CommunityFeedSponsor"),
   );
   assert.doesNotMatch(client, /Cycle #\{item\.cycleNumber\}|Rank #|<time/u);
-  assert.match(detailPage, /getCommunityFeedDetail\(submissionId\)/u);
+  assert.match(detailPage, /getCommunityFeedDetailPageData\(submissionId\)/u);
+  assert.match(detailPage, /<SponsoredBanner/u);
   assert.match(surface, /resolveCommunityFeedAnchor/u);
 });
 

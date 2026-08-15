@@ -181,7 +181,10 @@ export async function getCycleHistorySummariesPage({
           cycle.id,
           isAdminView
         ),
-        sponsoredMeta: await getCycleSponsoredMeta(cycle.id),
+        sponsoredMeta: await getCycleSponsoredMeta(
+          cycle.id,
+          "history_modal"
+        ),
       })
     )
   );

@@ -44,10 +44,33 @@ test("factory reset media inventory recognizes every owned prefix and blocks unk
     "sponsor_draft"
   );
   assert.equal(
+    classifyStorageKey(
+      "sponsored-cycles/drafts/detail/00000000-0000-4000-8000-000000000018.webp"
+    ),
+    "sponsor_draft"
+  );
+  assert.equal(
+    classifyStorageKey(
+      "sponsored-cycles/drafts/feed/00000000-0000-4000-8000-000000000018.webp"
+    ),
+    "sponsor_draft"
+  );
+  assert.equal(
     classifyStorageKey("tests/media-cleanup-smoke/run/object.webp"),
     "media_cleanup_test"
   );
   assert.equal(classifyStorageKey("unowned/object.webp"), "unknown");
+});
+
+test("future factory reset contract includes Sponsor upload and measurement state", async () => {
+  const script = await readFile(
+    new URL("../../scripts/prelaunchFactoryResetMedia.mjs", import.meta.url),
+    "utf8"
+  );
+  assert.match(script, /sponsor_media_upload_operations/u);
+  assert.match(script, /sponsor_tracking_aggregates/u);
+  assert.match(script, /next_cycle_sponsor_feed_banner_r2_key/u);
+  assert.match(script, /next_cycle_sponsor_draft_revision/u);
 });
 
 test("factory reset media references are found recursively in rows, JSON and URLs", () => {
@@ -61,6 +84,10 @@ test("factory reset media references are found recursively in rows, JSON and URL
           sponsor:
             "sponsored-cycles/drafts/00000000-0000-4000-8000-000000000019.webp",
         },
+        {
+          feedSponsor:
+            "https://media.example/sponsored-cycles/drafts/feed/00000000-0000-4000-8000-000000000020.webp",
+        },
       ],
     },
     keys
@@ -69,6 +96,7 @@ test("factory reset media references are found recursively in rows, JSON and URL
     "18/00000000-0000-4000-8000-000000000018.webp",
     "avatars/123456789.png",
     "sponsored-cycles/drafts/00000000-0000-4000-8000-000000000019.webp",
+    "sponsored-cycles/drafts/feed/00000000-0000-4000-8000-000000000020.webp",
   ]);
 });
 

@@ -13,6 +13,7 @@ export type StartCycleSettings = {
     companyName: string;
     sponsorLink: string;
     bannerR2Key: string;
+    feedBannerR2Key: string;
     bannerUrl: string | null;
   };
 };
@@ -40,6 +41,7 @@ const BAD_REQUEST_MESSAGES = new Set([
   "INVALID_START_ACTOR",
   "INVALID_START_SETTINGS",
   "INVALID_THEME_SOURCE",
+  "SPONSOR_DRAFT_UPLOAD_IN_PROGRESS",
 ]);
 
 function isStartCycleResult(value: unknown): value is StartCycleResult {

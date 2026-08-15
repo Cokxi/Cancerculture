@@ -25,7 +25,11 @@ const MEDIA_SOURCES = [
   ["submissions", "r2_key"],
   ["submission_upload_operations", "storage_key"],
   ["media_cleanup_queue", "storage_key"],
-  ["cycle_sponsorships", "banner_r2_key"],
+  ["cycle_sponsorships", "banner_r2_key,feed_banner_r2_key"],
+  [
+    "sponsor_media_upload_operations",
+    "detail_candidate_r2_key,feed_candidate_r2_key",
+  ],
   ["voting_cycles", "sponsor_banner_key,sponsor_banner_url_snapshot"],
   ["winner_public_profiles", "r2_key,image_url"],
   ["user_logs", "avatar_key"],
@@ -58,6 +62,8 @@ const SPONSOR_APP_CONFIG_KEYS = new Set([
   "next_cycle_reward_description",
   "next_cycle_sponsor_banner_r2_key",
   "next_cycle_sponsor_banner_key",
+  "next_cycle_sponsor_feed_banner_r2_key",
+  "next_cycle_sponsor_draft_revision",
   "next_cycle_sponsor_link",
   "next_cycle_sponsor_name",
   "next_cycle_sponsored_enabled",
@@ -90,6 +96,8 @@ const RESET_ZERO_TABLES = [
   "moderation_action_logs",
   "sessions",
   "social_verification_logs",
+  "sponsor_media_upload_operations",
+  "sponsor_tracking_aggregates",
   "sponsor_tracking_events",
   "submission_disqualification_events",
   "submission_moderation_requests",
@@ -212,7 +220,7 @@ function classifyStorageKey(storageKey) {
     return "avatar";
   }
   if (
-    /^sponsored-cycles\/drafts\/[0-9A-Fa-f-]{36}\.webp$/u.test(
+    /^sponsored-cycles\/drafts\/(?:detail\/|feed\/)?[0-9A-Fa-f-]{36}\.webp$/u.test(
       storageKey
     )
   ) {
@@ -240,7 +248,7 @@ function collectStorageKeys(value, target) {
   if (typeof value !== "string") return;
 
   for (const match of value.matchAll(
-    /(?:^|\/)(?:\d+\/[0-9A-Fa-f-]{36}\.webp|avatars\/[^/?#\s]+\.(?:webp|png|jpe?g)|sponsored-cycles\/drafts\/[0-9A-Fa-f-]{36}\.webp|tests\/media-cleanup-smoke\/[^?#\s]+|codex-tests\/media-cleanup\/[^?#\s]+)/giu
+    /(?:^|\/)(?:\d+\/[0-9A-Fa-f-]{36}\.webp|avatars\/[^/?#\s]+\.(?:webp|png|jpe?g)|sponsored-cycles\/drafts\/(?:detail\/|feed\/)?[0-9A-Fa-f-]{36}\.webp|tests\/media-cleanup-smoke\/[^?#\s]+|codex-tests\/media-cleanup\/[^?#\s]+)/giu
   )) {
     target.add(match[0].replace(/^\//u, ""));
   }

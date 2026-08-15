@@ -12,7 +12,6 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import { requirePublicCycleNumber } from "@/lib/cycles/publicCycleNumber";
 import { POST_VOTING_WRAPPING_UP_TEXT } from "@/lib/cycles/postVoting";
 import CycleCountdown from "./CycleCountdown";
-import SponsorImpressionTracker from "./SponsorImpressionTracker";
 
 const RELEVANT_CYCLE_STATUSES = [
   "submission_open",
@@ -36,11 +35,7 @@ const CYCLE_HUD_SELECT = `
   votes_per_user,
   submissions_per_user,
   ends_at,
-  is_sponsored,
-  sponsorship_id,
-  sponsor_name_snapshot,
-  sponsor_link_snapshot,
-  sponsor_banner_url_snapshot
+  is_sponsored
 `;
 
 type CycleHudStatus = (typeof RELEVANT_CYCLE_STATUSES)[number] | string;
@@ -56,10 +51,6 @@ type CycleHudRow = {
   submissions_per_user: number | null;
   ends_at: string | null;
   is_sponsored: boolean | null;
-  sponsorship_id: number | null;
-  sponsor_name_snapshot: string | null;
-  sponsor_link_snapshot: string | null;
-  sponsor_banner_url_snapshot: string | null;
 };
 
 function normalizeString(value: unknown) {
@@ -97,33 +88,6 @@ function choosePreferredCycle(cycles: CycleHudRow[]) {
 
     return b.id - a.id;
   })[0] ?? null;
-}
-
-function sponsorMetaFromSnapshot(
-  cycle: CycleHudRow
-): SponsoredCycleMeta | null {
-  if (cycle.is_sponsored !== true) {
-    return null;
-  }
-
-  const companyName = normalizeString(cycle.sponsor_name_snapshot);
-  const sponsorLink = normalizeString(cycle.sponsor_link_snapshot);
-  const bannerUrl = normalizeString(
-    cycle.sponsor_banner_url_snapshot
-  );
-
-  if (!companyName && !sponsorLink && !bannerUrl) {
-    return null;
-  }
-
-  return {
-    sponsorshipId: cycle.sponsorship_id,
-    enabled: true,
-    companyName,
-    sponsorLink,
-    bannerR2Key: "",
-    bannerUrl: bannerUrl || null,
-  };
 }
 
 async function getPreferredCycle() {
@@ -327,24 +291,15 @@ export default async function CycleHud() {
     .select("value")
     .eq("key", "next_cycle_theme");
   const cycle = await cyclePromise;
-  const snapshotSponsorMeta = cycle
-    ? sponsorMetaFromSnapshot(cycle)
-    : null;
-  const shouldUseSponsorFallback =
-    cycle?.is_sponsored === true &&
-    (!snapshotSponsorMeta ||
-      snapshotSponsorMeta.companyName.length === 0 ||
-      snapshotSponsorMeta.sponsorLink.length === 0);
-  const fallbackSponsorMetaPromise =
-    cycle && shouldUseSponsorFallback
-      ? getCycleSponsoredMeta(cycle.id)
+  const sponsorMetaPromise =
+    cycle?.is_sponsored === true
+      ? getCycleSponsoredMeta(cycle.id, "home_hud")
       : Promise.resolve(null);
-  const [fallbackSponsorMeta, { data: configRows }] =
+  const [sponsoredMeta, { data: configRows }] =
     await Promise.all([
-      fallbackSponsorMetaPromise,
+      sponsorMetaPromise,
       nextCycleThemePromise,
     ]);
-  const sponsoredMeta = snapshotSponsorMeta ?? fallbackSponsorMeta;
   const nextCycleTheme = normalizeString(
     configRows?.[0]?.value
   );
@@ -386,38 +341,22 @@ export default async function CycleHud() {
 
         {sponsoredMeta?.enabled &&
           sponsoredMeta.companyName.length > 0 && (
-            <div className="font-['Permanent_Marker'] text-[1.02rem] leading-tight">
-              {sponsoredMeta.sponsorshipId ? (
-                <SponsorImpressionTracker
-                  sponsorshipId={sponsoredMeta.sponsorshipId}
-                  surface="home_hud"
-                />
-              ) : null}
+            <div className="font-['Permanent_Marker'] text-lg leading-tight">
               <span className="text-[var(--orange-main)]">
                 Presented by:{" "}
               </span>
-              {sponsoredMeta.sponsorLink.length > 0 ? (
-                <a
-                  href={
-                    sponsoredMeta.sponsorshipId
-                      ? `/api/sponsor/click?sponsorshipId=${sponsoredMeta.sponsorshipId}&surface=home_hud`
-                      : sponsoredMeta.sponsorLink
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                  className="pointer-events-auto text-green-400 underline underline-offset-4 transition hover:text-green-300"
-                >
-                  {sponsoredMeta.companyName}
-                </a>
-              ) : (
-                <span className="text-green-400">
-                  {sponsoredMeta.companyName}
-                </span>
-              )}
+              <a
+                href={sponsoredMeta.clickUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="pointer-events-auto text-green-400 underline underline-offset-4 transition hover:text-green-300"
+              >
+                {sponsoredMeta.companyName}
+              </a>
             </div>
           )}
 
-        <div className="font-['Permanent_Marker']">
+        <div className="font-['Permanent_Marker'] text-sm leading-tight">
           <span className="text-[var(--orange-main)]">Status: </span>
           <span className={displayState.statusClassName}>
             {displayState.displayStatus}

@@ -7,6 +7,7 @@ const TOKEN_VERSION = 1;
 const MEASUREMENT_WINDOW_SECONDS = 30 * 60;
 
 type TokenPayload = {
+  cycleNumber: number | null;
   exp: number;
   feed: CommunityFeedKind;
   submissionId: number;
@@ -25,14 +26,23 @@ function sign(encodedPayload: string, secret: string) {
 export function createSponsorMeasurementGrant({
   feed,
   submissionId,
+  cycleNumber = null,
   nowMs = Date.now(),
 }: {
   feed: CommunityFeedKind;
   submissionId: number;
+  cycleNumber?: number | null;
   nowMs?: number;
 }) {
   const secret = getSecret();
-  if (!secret || !Number.isSafeInteger(submissionId) || submissionId <= 0) {
+  if (
+    !secret ||
+    !Number.isSafeInteger(submissionId) ||
+    submissionId <= 0 ||
+    (cycleNumber !== null &&
+      (!Number.isSafeInteger(cycleNumber) || cycleNumber <= 0)) ||
+    (feed === "live" && cycleNumber !== null)
+  ) {
     return null;
   }
 
@@ -41,6 +51,7 @@ export function createSponsorMeasurementGrant({
     (Math.floor(nowSeconds / MEASUREMENT_WINDOW_SECONDS) + 1) *
     MEASUREMENT_WINDOW_SECONDS;
   const payload: TokenPayload = {
+    cycleNumber,
     exp: expiresAtSeconds,
     feed,
     submissionId,
@@ -57,14 +68,17 @@ export function verifySponsorMeasurementToken({
   token,
   feed,
   submissionId,
+  cycleNumber = null,
   nowMs = Date.now(),
 }: {
   token: string;
   feed: CommunityFeedKind;
   submissionId: number;
+  cycleNumber?: number | null;
   nowMs?: number;
 }) {
   const secret = getSecret();
+  if (token.length === 0 || token.length > 2048) return false;
   const [encodedPayload, signature, extra] = token.split(".");
   if (!secret || !encodedPayload || !signature || extra) return false;
 
@@ -82,6 +96,7 @@ export function verifySponsorMeasurementToken({
       payload.v === TOKEN_VERSION &&
       payload.feed === feed &&
       payload.submissionId === submissionId &&
+      payload.cycleNumber === cycleNumber &&
       Number.isSafeInteger(payload.exp) &&
       Number(payload.exp) > Math.floor(nowMs / 1000)
     );

@@ -10,74 +10,59 @@ import {
   SPONSOR_VIEWPORT_DWELL_MS,
   SPONSOR_VIEWPORT_THRESHOLD,
 } from "@/lib/sponsors/viewability";
-
-type ConsentStatus = "unknown" | "granted" | "denied";
-
-let sharedConsentRequest: Promise<ConsentStatus> | null = null;
-const SPONSOR_CONSENT_CHANGED_EVENT = "sponsor-analytics-consent-changed";
-
-function loadConsentStatus(signal: AbortSignal) {
-  sharedConsentRequest ??= fetch("/api/sponsor/consent", {
-    cache: "no-store",
-    signal,
-  })
-    .then((response) => response.json())
-    .then((value) =>
-      value?.status === "granted" || value?.status === "denied"
-        ? value.status
-        : "unknown"
-    )
-    .catch(() => {
-      sharedConsentRequest = null;
-      return "unknown" as const;
-    });
-  return sharedConsentRequest;
-}
+import { useSponsorAnalytics } from "@/app/components/sponsors/SponsorAnalyticsProvider";
 
 export default function CommunityFeedSponsor({
   feed,
   submissionId,
+  cycleNumber,
 }: {
   feed: CommunityFeedKind;
   submissionId: number;
+  cycleNumber: number | null;
 }) {
   const [presentation, setPresentation] =
     useState<CommunityFeedSponsorPresentation | null>(null);
-  const [consent, setConsent] = useState<ConsentStatus>("unknown");
-  const loadRef = useRef<HTMLDivElement>(null);
+  const [bannerReady, setBannerReady] = useState(false);
+  const { consent, registerValidSponsorPresentation } = useSponsorAnalytics();
+  const presentationRef =
+    useRef<CommunityFeedSponsorPresentation | null>(null);
+  const loadRef = useRef<HTMLSpanElement>(null);
   const viewRef = useRef<HTMLDivElement>(null);
 
   const refreshPresentation = useCallback(async (signal?: AbortSignal) => {
     const sponsorValue: unknown = await fetch(
-      `/api/community-feed/sponsor/presentation/${submissionId}?feed=${feed}`,
+      `/api/community-feed/sponsor/presentation/${submissionId}?${new URLSearchParams({
+        feed,
+        ...(cycleNumber === null ? {} : { cycle: String(cycleNumber) }),
+      }).toString()}`,
       { cache: "no-store", signal }
     ).then((response) => response.json());
-    if (isCommunityFeedSponsorPresentation(sponsorValue, feed, submissionId)) {
+    if (
+      isCommunityFeedSponsorPresentation(
+        sponsorValue,
+        feed,
+        submissionId,
+        cycleNumber
+      )
+    ) {
+      const previous = presentationRef.current;
+      if (
+        !previous?.sponsored ||
+        !sponsorValue.sponsored ||
+        previous.bannerUrl !== sponsorValue.bannerUrl
+      ) {
+        setBannerReady(false);
+      }
+      presentationRef.current = sponsorValue;
       setPresentation(sponsorValue);
       return sponsorValue;
     }
+    setBannerReady(false);
+    presentationRef.current = null;
+    setPresentation(null);
     return null;
-  }, [feed, submissionId]);
-
-  useEffect(() => {
-    const onConsentChanged = (event: Event) => {
-      const status = (event as CustomEvent<ConsentStatus>).detail;
-      if (status === "granted" || status === "denied") {
-        setConsent(status);
-      }
-    };
-
-    window.addEventListener(
-      SPONSOR_CONSENT_CHANGED_EVENT,
-      onConsentChanged
-    );
-    return () => {
-      window.removeEventListener(
-        SPONSOR_CONSENT_CHANGED_EVENT,
-        onConsentChanged
-      );
-    };
-  }, []);
+  }, [cycleNumber, feed, submissionId]);
 
   useEffect(() => {
     const loadElement = loadRef.current;
@@ -89,12 +74,7 @@ export default function CommunityFeedSponsor({
         if (!entry?.isIntersecting || loaded) return;
         loaded = true;
         observer.disconnect();
-        void Promise.all([
-          refreshPresentation(controller.signal),
-          loadConsentStatus(controller.signal),
-        ]).then(([, consentValue]) => {
-          setConsent(consentValue);
-        }).catch(() => undefined);
+        void refreshPresentation(controller.signal).catch(() => undefined);
       },
       { rootMargin: "800px 0px" }
     );
@@ -109,7 +89,32 @@ export default function CommunityFeedSponsor({
     const element = viewRef.current;
     if (
       !element ||
+      !bannerReady ||
       !presentation?.sponsored ||
+      !presentation.measurementToken
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      registerValidSponsorPresentation();
+      observer.disconnect();
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [
+    bannerReady,
+    presentation,
+    registerValidSponsorPresentation,
+  ]);
+
+  useEffect(() => {
+    const element = viewRef.current;
+    if (
+      !element ||
+      !presentation?.sponsored ||
+      !bannerReady ||
       !presentation.measurementToken ||
       consent !== "granted"
     ) {
@@ -173,41 +178,31 @@ export default function CommunityFeedSponsor({
       observer.disconnect();
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [consent, presentation, refreshPresentation]);
+  }, [bannerReady, consent, presentation, refreshPresentation]);
 
   if (!presentation) {
-    return <div ref={loadRef} aria-hidden="true" className="h-px" />;
+    return (
+      <span
+        ref={loadRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
+      />
+    );
   }
   if (!presentation.sponsored) return null;
-
-  const saveConsent = async (status: "granted" | "denied") => {
-    try {
-      const response = await fetch("/api/sponsor/consent", {
-        method: "POST",
-        cache: "no-store",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (response.ok) {
-        sharedConsentRequest = Promise.resolve(status);
-        setConsent(status);
-        window.dispatchEvent(
-          new CustomEvent<ConsentStatus>(SPONSOR_CONSENT_CHANGED_EVENT, {
-            detail: status,
-          })
-        );
-      }
-    } catch {}
-  };
 
   return (
     <aside
       ref={viewRef}
       aria-label={`Sponsored by ${presentation.companyName}`}
-      className="border-t border-white/10 bg-orange-950/20 px-4 py-4 sm:px-5"
+      className={
+        bannerReady
+          ? "border-t border-white/10 bg-orange-950/20 px-4 py-4 sm:px-5"
+          : "hidden"
+      }
     >
       <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-orange-200/80">
-        Sponsored Cycle · {presentation.companyName}
+        Sponsored Cycle by · {presentation.companyName}
       </div>
       <a
         href={presentation.clickUrl}
@@ -219,61 +214,19 @@ export default function CommunityFeedSponsor({
         <img
           src={presentation.bannerUrl}
           alt={`${presentation.companyName} sponsor banner`}
-          loading="lazy"
           decoding="async"
-          className="aspect-[2/1] w-full object-cover"
+          onLoad={(event) => {
+            const image = event.currentTarget;
+            setBannerReady(
+              image.naturalWidth > 0 &&
+                image.naturalHeight > 0 &&
+                image.naturalWidth === image.naturalHeight * 6
+            );
+          }}
+          onError={() => setBannerReady(false)}
+          className="aspect-[6/1] w-full object-contain"
         />
       </a>
-      {presentation.measurementToken && consent === "unknown" ? (
-        <div className="mt-3 rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-white/70">
-          <p className="font-semibold text-white/90">
-            Optional sponsor analytics
-          </p>
-          <p className="mt-2 leading-relaxed">
-            If you allow it, CancerCulture counts a view only after this sponsor
-            placement is at least 50% visible for one second in an active tab,
-            and counts real sponsor-link clicks. Measurement uses a pseudonymous
-            identifier. Raw measurement data is kept for up to 30 days; daily
-            aggregate counts for up to 25 months. Sponsors receive aggregate
-            reports only. Sponsor links work without analytics. You can change
-            your choice here at any time.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void saveConsent("granted")}
-              className="min-h-11 rounded-lg border border-white/25 px-4 font-semibold text-white transition hover:border-orange-300/70 hover:bg-white/5"
-            >
-              Allow analytics
-            </button>
-            <button
-              type="button"
-              onClick={() => void saveConsent("denied")}
-              className="min-h-11 rounded-lg border border-white/25 px-4 font-semibold text-white transition hover:border-orange-300/70 hover:bg-white/5"
-            >
-              Continue without analytics
-            </button>
-          </div>
-        </div>
-      ) : presentation.measurementToken && consent !== "unknown" ? (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/30 p-3 text-xs text-white/70">
-          <p>
-            Sponsor analytics: {consent === "granted" ? "On" : "Off"}.
-            Sponsor links work either way.
-          </p>
-          <button
-            type="button"
-            onClick={() =>
-              void saveConsent(
-                consent === "granted" ? "denied" : "granted"
-              )
-            }
-            className="min-h-11 rounded-lg border border-white/25 px-4 font-semibold text-white transition hover:border-orange-300/70 hover:bg-white/5"
-          >
-            {consent === "granted" ? "Turn off analytics" : "Allow analytics"}
-          </button>
-        </div>
-      ) : null}
     </aside>
   );
 }

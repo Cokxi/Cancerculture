@@ -9,6 +9,7 @@ export const SPONSOR_TRACKING_SURFACES = [
   "history_modal",
   "fame_modal",
   "shame_modal",
+  "spread_detail",
   "spread",
 ] as const;
 

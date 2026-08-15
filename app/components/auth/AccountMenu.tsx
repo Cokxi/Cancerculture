@@ -24,6 +24,10 @@ type AccountMenuProps = {
     label: "Hide" | "Show always";
     onSelect: () => void;
   };
+  settingsAction: {
+    label: "Settings";
+    onSelect: () => void;
+  };
 };
 
 function supportsHoverInteraction() {
@@ -34,6 +38,7 @@ export default function AccountMenu({
   avatarUrl,
   displayName,
   navigation,
+  settingsAction,
   visibilityAction,
 }: AccountMenuProps) {
   const [open, setOpen] = useState(false);
@@ -197,6 +202,17 @@ export default function AccountMenu({
                 Team access temporarily unavailable
               </p>
             ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              className={navigationMenuItemClassName}
+              onClick={() => {
+                settingsAction.onSelect();
+                closeMenu();
+              }}
+            >
+              {settingsAction.label}
+            </button>
             <button
               type="button"
               role="menuitem"

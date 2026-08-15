@@ -119,6 +119,25 @@ async function claimDueJobs() {
   return data;
 }
 
+async function recoverStaleSponsorUploads() {
+  const { data, error } = await supabaseAdmin.rpc(
+    "recover_stale_sponsor_media_uploads",
+    { p_limit: 100 }
+  );
+  if (error) {
+    console.error("[media cleanup][sponsor upload recovery]", {
+      code: error.code,
+    });
+    throw new Error("Stale Sponsor uploads could not be recovered");
+  }
+  if (!isUploadRecoveryResult(data)) {
+    throw new Error(
+      "Stale Sponsor upload recovery returned an invalid response"
+    );
+  }
+  return data;
+}
+
 async function claimDueJobsByIds(queueIds: readonly number[]) {
   const { data, error } = await supabaseAdmin.rpc(
     "claim_media_cleanup_jobs_by_ids",
@@ -265,7 +284,10 @@ export async function processR2CleanupQueue(
     }
     jobs = await claimDueJobsByIds(queueIds);
   } else {
-    await recoverStaleSubmissionUploads();
+    await Promise.all([
+      recoverStaleSubmissionUploads(),
+      recoverStaleSponsorUploads(),
+    ]);
     jobs = await claimDueJobs();
   }
 
@@ -273,7 +295,10 @@ export async function processR2CleanupQueue(
 }
 
 export async function processDueR2CleanupQueue() {
-  const recovery = await recoverStaleSubmissionUploads();
+  const [recovery, sponsorRecovery] = await Promise.all([
+    recoverStaleSubmissionUploads(),
+    recoverStaleSponsorUploads(),
+  ]);
   const result = await drainDueMediaCleanupBatches({
     processBatch: async () => processClaimedJobs(await claimDueJobs()),
   });
@@ -282,6 +307,8 @@ export async function processDueR2CleanupQueue() {
     ...result,
     recoveredUploads: recovery.recovered,
     queuedFromRecovery: recovery.queued,
+    recoveredSponsorUploads: sponsorRecovery.recovered,
+    queuedFromSponsorRecovery: sponsorRecovery.queued,
   };
 }
 

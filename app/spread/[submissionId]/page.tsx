@@ -2,8 +2,10 @@ import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import SponsoredBanner from "@/app/components/SponsoredBanner";
 import CommunityFeedDetailCloseButton from "@/app/spread/[submissionId]/CommunityFeedDetailCloseButton";
-import { getCommunityFeedDetail } from "@/lib/feed/communityFeedDetail.server";
+import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
+import { getCommunityFeedDetailPageData } from "@/lib/feed/communityFeedDetail.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -46,8 +48,13 @@ export default async function CommunityFeedDetailPage({
   const submissionId = parseSubmissionId((await params).submissionId);
   if (!submissionId) notFound();
 
-  const detail = await getCommunityFeedDetail(submissionId);
-  if (!detail) notFound();
+  const pageData = await getCommunityFeedDetailPageData(submissionId);
+  if (!pageData) notFound();
+  const { detail } = pageData;
+  const sponsor = await getCycleSponsoredMeta(
+    pageData.cycleId,
+    "spread_detail"
+  );
 
   const hasDimensions = Boolean(detail.mediaWidth && detail.mediaHeight);
 
@@ -94,13 +101,21 @@ export default async function CommunityFeedDetailPage({
           </div>
 
           <div data-spread-detail-lower-content className="space-y-5 p-4 sm:p-6">
-            {/* Follow-up D mounts the full 2:1 Sponsor presentation here. */}
-            <div data-spread-detail-sponsor-slot aria-hidden="true" />
+            <div data-spread-detail-sponsor-slot>
+              {sponsor ? (
+                <SponsoredBanner
+                  bannerUrl={sponsor.bannerUrl}
+                  companyName={sponsor.companyName}
+                  clickUrl={sponsor.clickUrl}
+                  impressionUrl={sponsor.impressionUrl}
+                  measurementToken={sponsor.measurementToken}
+                  format="feed"
+                  label="Sponsored by"
+                />
+              ) : null}
+            </div>
 
-            <details
-              open
-              className="group rounded-2xl border border-white/10 bg-black/45"
-            >
+            <details className="group rounded-2xl border border-white/10 bg-black/45">
               <summary
                 id="spread-detail-metadata-title"
                 className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-xl font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--orange-main)] sm:px-6"

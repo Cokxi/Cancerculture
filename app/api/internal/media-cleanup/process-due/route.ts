@@ -66,6 +66,8 @@ export async function POST(req: Request) {
         completed: result.completed,
         recoveredUploads: result.recoveredUploads,
         queuedFromRecovery: result.queuedFromRecovery,
+        recoveredSponsorUploads: result.recoveredSponsorUploads,
+        queuedFromSponsorRecovery: result.queuedFromSponsorRecovery,
         retryScheduled: result.retryScheduled,
         terminalFailures: result.terminalFailures,
         staleResults: result.staleResults,

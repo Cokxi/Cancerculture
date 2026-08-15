@@ -1,3 +1,5 @@
+import sharp from "sharp";
+
 const COMMUNITY_FEED_MEDIA_TIMEOUT_MS = 4_000;
 const COMMUNITY_FEED_MEDIA_MAX_BYTES = 4_000_000;
 const COMMUNITY_FEED_MEDIA_CONTENT_TYPE = "image/webp";
@@ -127,11 +129,13 @@ export async function proxyCommunityFeedMedia({
   fetchImpl = fetch,
   timeoutMs = COMMUNITY_FEED_MEDIA_TIMEOUT_MS,
   configuredBase,
+  expectedDimensions,
 }: {
   storageKey: string;
   fetchImpl?: FetchLike;
   timeoutMs?: number;
   configuredBase?: string;
+  expectedDimensions?: { width: number; height: number };
 }) {
   const upstreamUrl = getExactR2MediaUrl(storageKey, configuredBase);
   if (!upstreamUrl) return createNeutralCommunityFeedMediaResponse();
@@ -169,6 +173,23 @@ export async function proxyCommunityFeedMedia({
 
     const bytes = await readBoundedBody(upstream);
     if (!bytes) return createNeutralCommunityFeedMediaResponse();
+    if (expectedDimensions) {
+      try {
+        const metadata = await sharp(bytes, {
+          failOn: "error",
+          limitInputPixels: 40_000_000,
+        }).metadata();
+        if (
+          metadata.format !== "webp" ||
+          metadata.width !== expectedDimensions.width ||
+          metadata.height !== expectedDimensions.height
+        ) {
+          return createNeutralCommunityFeedMediaResponse();
+        }
+      } catch {
+        return createNeutralCommunityFeedMediaResponse();
+      }
+    }
 
     return new Response(bytes.buffer as ArrayBuffer, {
       status: 200,

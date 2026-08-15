@@ -22,39 +22,50 @@ function getSafeFilenamePart(value: string) {
 
 export async function GET(
   _req: Request,
-  context: {
-    params: Promise<{ sponsorshipId: string }>;
-  }
+  context: { params: Promise<{ cycleNumber: string }> }
 ) {
   try {
-    const authorization = await requireDynamicTeamCapability(
-      "sponsorships.reports.view"
-    );
+    await requireDynamicTeamCapability("sponsorships.reports.view");
 
-    const { sponsorshipId: sponsorshipIdRaw } =
-      await context.params;
-    const sponsorshipId = Number(sponsorshipIdRaw);
-
-    if (
-      !Number.isInteger(sponsorshipId) ||
-      sponsorshipId <= 0
-    ) {
+    const cycleNumber = Number((await context.params).cycleNumber);
+    if (!Number.isSafeInteger(cycleNumber) || cycleNumber <= 0) {
       return NextResponse.json(
-        { error: "Invalid sponsorship id" },
+        { error: "Invalid public Cycle number" },
         { status: 400 }
       );
     }
 
-    const { data: sponsorship, error: sponsorshipError } =
-      await supabaseAdmin
-        .from("cycle_sponsorships")
-        .select(
-          "id, cycle_id, sponsor_name, sponsor_link, banner_r2_key, is_active, starts_at, ends_at, created_at, updated_at"
-        )
-        .eq("id", sponsorshipId)
-        .maybeSingle();
+    const { data: cycle, error: cycleError } = await supabaseAdmin
+      .from("voting_cycles")
+      .select("id")
+      .eq("public_number", cycleNumber)
+      .limit(1)
+      .maybeSingle();
+    if (cycleError || !cycle) {
+      return NextResponse.json(
+        { error: "Sponsored Cycle not found" },
+        { status: 404 }
+      );
+    }
+
+    const { data: sponsorship, error: sponsorshipError } = await supabaseAdmin
+      .from("cycle_sponsorships")
+      .select(
+        "id, sponsor_name, sponsor_link, is_active, starts_at, ends_at, created_at, updated_at"
+      )
+      .eq("cycle_id", cycle.id)
+      .limit(1)
+      .maybeSingle();
 
     if (sponsorshipError || !sponsorship) {
+      return NextResponse.json(
+        { error: "Sponsorship not found" },
+        { status: 404 }
+      );
+    }
+
+    const sponsorshipId = Number(sponsorship.id);
+    if (!Number.isSafeInteger(sponsorshipId) || sponsorshipId <= 0) {
       return NextResponse.json(
         { error: "Sponsorship not found" },
         { status: 404 }
@@ -91,13 +102,9 @@ export async function GET(
       note:
         "Totals use retained daily aggregates. Unique views and clicks cover the rolling 30-day pseudonymous raw-data window. Raw viewer hashes are intentionally not included in this export.",
       sponsorship: {
-        id: sponsorship.id,
-        cycle_id: sponsorship.cycle_id,
+        cycle_number: cycleNumber,
         sponsor_name: sponsorship.sponsor_name,
         sponsor_link: sponsorship.sponsor_link,
-        ...(authorization.isAdmin
-          ? { banner_r2_key: sponsorship.banner_r2_key }
-          : {}),
         is_active: sponsorship.is_active,
         starts_at: sponsorship.starts_at,
         ends_at: sponsorship.ends_at,
@@ -111,34 +118,27 @@ export async function GET(
         unique_clicks: stats.uniqueClicks,
         ctr_percent: Number(stats.ctr.toFixed(2)),
       },
-      surfaces: serializeSponsorSurfaceStats(stats).map(
-        (surfaceStats) => ({
-          surface: surfaceStats.surface,
-          impressions: surfaceStats.impressions,
-          unique_views: surfaceStats.uniqueViews,
-          clicks: surfaceStats.clicks,
-          unique_clicks: surfaceStats.uniqueClicks,
-        })
-      ),
+      surfaces: serializeSponsorSurfaceStats(stats).map((surfaceStats) => ({
+        surface: surfaceStats.surface,
+        impressions: surfaceStats.impressions,
+        unique_views: surfaceStats.uniqueViews,
+        clicks: surfaceStats.clicks,
+        unique_clicks: surfaceStats.uniqueClicks,
+      })),
     };
 
     const sponsorPart =
-      getSafeFilenamePart(sponsorship.sponsor_name) ||
-      "sponsor";
-    const filename = `sponsor-report-cycle-${sponsorship.cycle_id}-${sponsorPart}.json`;
+      getSafeFilenamePart(sponsorship.sponsor_name) || "sponsor";
+    const filename = `sponsor-report-cycle-${cycleNumber}-${sponsorPart}.json`;
 
-    return new NextResponse(
-      JSON.stringify(exportPayload, null, 2),
-      {
-        status: 200,
-        headers: {
-          "Content-Type":
-            "application/json; charset=utf-8",
-          "Content-Disposition": `attachment; filename="${filename}"`,
-          "Cache-Control": "no-store",
-        },
-      }
-    );
+    return new NextResponse(JSON.stringify(exportPayload, null, 2), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (error) {
     return getRouteErrorResponse(error);
   }
