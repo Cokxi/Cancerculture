@@ -19,6 +19,9 @@ const [
   globalAccount,
   accountMenu,
   anonymousAccountMenu,
+  settingsPage,
+  sponsorSettingsPage,
+  sponsorSettings,
 ] =
   await Promise.all([
     source("app/spread/CommunityFeedSponsor.tsx"),
@@ -37,6 +40,9 @@ const [
     source("app/components/auth/GlobalAccount.tsx"),
     source("app/components/auth/AccountMenu.tsx"),
     source("app/components/auth/AnonymousAccountMenu.tsx"),
+    source("app/settings/page.tsx"),
+    source("app/settings/sponsor-analytics/page.tsx"),
+    source("app/components/sponsors/SponsorAnalyticsSettings.tsx"),
   ]);
 
 test("Feed Sponsor presentation is tied to a real visible Feed Submission and never mounted as a general ad", () => {
@@ -108,36 +114,32 @@ test("one global non-blocking consent bar is triggered only by an encountered va
   assert.match(`${component}\n${fullBanner}`, /IntersectionObserver/u);
 });
 
-test("global Settings lives inside the account menus and opens an extensible category overview", () => {
+test("global Settings uses direct routes and keeps anonymous Sponsor consent available", () => {
   assert.doesNotMatch(globalAccount, /const settingsButton/u);
   assert.match(globalAccount, /if \(!hydrated \|\| !visible\) return null/u);
   assert.match(globalAccount, /account\.kind === "anonymous"/u);
   assert.match(globalAccount, /<AnonymousAccountMenu/u);
-  assert.match(accountMenu, /settingsAction\.onSelect\(\)/u);
-  assert.match(anonymousAccountMenu, /settingsAction\.onSelect\(\)/u);
+  assert.match(accountMenu, /href="\/settings"/u);
+  assert.match(anonymousAccountMenu, /href="\/settings"/u);
   assert.match(anonymousAccountMenu, /Login with Discord/u);
   assert.match(
     anonymousAccountMenu,
     /<a\s+[\s\S]*href="\/api\/auth\/discord\/login\?state=\/"/u
   );
-  assert.doesNotMatch(anonymousAccountMenu, /from "next\/link"/u);
   assert.match(anonymousAccountMenu, /role="menu"/u);
   assert.match(accountMenu, /supportsHoverInteraction\(\)[\s\S]*setOpen\(true\)/u);
   assert.match(
     anonymousAccountMenu,
     /supportsHoverInteraction\(\)[\s\S]*setOpen\(true\)/u
   );
-  assert.match(provider, /Global preferences/u);
-  assert.match(provider, /settingsView === "overview"/u);
-  assert.match(provider, /setSettingsView\("sponsor_analytics"\)/u);
-  assert.match(provider, /Back to settings/u);
-  assert.match(provider, /parentElement\?\.scrollTo\(\{ top: 0 \}\)/u);
-  assert.match(provider, /settingsBackButtonRef\.current\?\.focus\(\)/u);
-  assert.match(provider, /Sponsor analytics/u);
-  assert.match(provider, /Current choice/u);
-  assert.match(provider, /role="dialog"/u);
-  assert.match(provider, /aria-modal="true"/u);
-  assert.doesNotMatch(provider, /Appearance|Background|Theme preference/u);
+  assert.match(settingsPage, /href="\/settings\/sponsor-analytics"/u);
+  assert.match(sponsorSettingsPage, /available to anonymous and signed-in/u);
+  assert.match(sponsorSettings, /void loadConsent\(\)/u);
+  assert.match(sponsorSettings, /Current choice/u);
+  assert.match(sponsorSettings, /Allow analytics/u);
+  assert.match(sponsorSettings, /Continue without analytics/u);
+  assert.doesNotMatch(provider, /BaseOverlay|role="dialog"|aria-modal="true"/u);
+  assert.doesNotMatch(settingsPage, /Appearance|Background|Theme preference/u);
 });
 
 test("clicks remain functional without measurement while targets and reporting stay server-side", () => {

@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [service, statusRoute, http, mail, ui, settings, recoveryRoute] = await Promise.all([
+const [service, statusRoute, http, mail, ui, securityPage, recoveryRoute] = await Promise.all([
   readFile(new URL("../../lib/twoFactor/service.server.ts", import.meta.url), "utf8"),
   readFile(new URL("../../app/api/account/two-factor/route.ts", import.meta.url), "utf8"),
   readFile(new URL("../../lib/twoFactor/http.server.ts", import.meta.url), "utf8"),
   readFile(new URL("../../lib/twoFactor/mail.server.ts", import.meta.url), "utf8"),
   readFile(new URL("../../app/components/auth/TwoFactorSettings.tsx", import.meta.url), "utf8"),
-  readFile(new URL("../../app/components/sponsors/SponsorAnalyticsProvider.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../../app/settings/security/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../../app/api/account/two-factor/email-recovery/route.ts", import.meta.url), "utf8"),
 ]);
 
@@ -45,13 +45,13 @@ test("sensitive mutations require same-origin JSON and never log request bodies"
 });
 
 test("Settings Hub exposes an extensible own-account two-factor category with explicit warnings", () => {
-  assert.match(settings, /Two-factor authentication/u);
-  assert.match(settings, /setSettingsView\("two_factor"\)/u);
-  assert.match(settings, /<TwoFactorSettings/u);
+  assert.match(securityPage, /Security &amp; two-factor authentication/u);
+  assert.match(securityPage, /<TwoFactorSettings/u);
   assert.match(ui, /support and administrators cannot restore or bypass this factor/u);
   assert.match(ui, /invalidates every older code immediately/u);
-  assert.match(ui, /no support or administrator bypass/u);
-  assert.match(ui, /A recovery code is not accepted for changing the backup email/u);
+  assert.match(ui, /Recovery codes are entered directly on this CancerCulture page/u);
+  assert.match(ui, /not accepted in the Team Area verification field/u);
+  assert.match(ui, /recovery codes are not accepted/u);
 });
 
 test("email recovery is Turnstile-gated and never emails a QR code", () => {

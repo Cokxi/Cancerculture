@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import AccountMenu from "@/app/components/auth/AccountMenu";
 import AnonymousAccountMenu from "@/app/components/auth/AnonymousAccountMenu";
-import { useSponsorAnalytics } from "@/app/components/sponsors/SponsorAnalyticsProvider";
 import {
   GLOBAL_ACCOUNT_HIDDEN_STORAGE_KEY,
   getGlobalAccountVisibilityAction,
@@ -36,7 +35,6 @@ function getVisibilityPreferenceSnapshot() {
 export default function GlobalAccount() {
   const pathname = usePathname();
   const [account, setAccount] = useState<GlobalAccountViewState | null>(null);
-  const { openSettings } = useSponsorAnalytics();
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
     () => true,
@@ -97,9 +95,7 @@ export default function GlobalAccount() {
           aria-label="Account loading"
         />
       ) : account.kind === "anonymous" ? (
-        <AnonymousAccountMenu
-          settingsAction={{ label: "Settings", onSelect: openSettings }}
-        />
+        <AnonymousAccountMenu />
       ) : account.kind === "dependency_unavailable" ? (
         <div
           className="rounded-full border border-white/10 bg-black/80 px-3 py-2 text-xs text-white/70"
@@ -124,10 +120,6 @@ export default function GlobalAccount() {
           avatarUrl={account.avatarUrl}
           displayName={account.displayName}
           navigation={account.navigation}
-          settingsAction={{
-            label: "Settings",
-            onSelect: openSettings,
-          }}
           visibilityAction={{
             label: getGlobalAccountVisibilityAction(hiddenOnSubpages),
             onSelect: setVisibilityPreference,

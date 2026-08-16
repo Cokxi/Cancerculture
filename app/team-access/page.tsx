@@ -40,14 +40,24 @@ export default async function TeamAccessPage() {
             A relevant change to the coarse browser or network security context requires verification again. CancerCulture does not store raw device, browser, or network information.
           </p>
           {status.active ? (
-            <TeamAccessForm />
+            <>
+              <TeamAccessForm />
+              <p className="mt-5 text-sm leading-relaxed text-white/60">
+                Lost your authenticator? Recovery codes are not accepted at this
+                Team Area gate. Use the separate {" "}
+                <Link href="/settings/security" className="font-semibold text-orange-200 underline underline-offset-2">
+                  Security &amp; 2FA recovery options
+                </Link>
+                {" "}to replace the factor first.
+              </p>
+            </>
           ) : (
             <div className="mt-6 rounded-xl border border-red-300/25 bg-red-950/20 p-4">
               <p className="text-sm leading-relaxed text-red-100">
                 Active two-factor authentication is mandatory for every Team Area member.
               </p>
-              <Link href="/account" className="mt-3 inline-block font-semibold text-orange-200 underline">
-                Open 2FA settings
+              <Link href="/settings/security" className="mt-3 inline-block font-semibold text-orange-200 underline underline-offset-2">
+                Open Security &amp; 2FA settings
               </Link>
             </div>
           )}

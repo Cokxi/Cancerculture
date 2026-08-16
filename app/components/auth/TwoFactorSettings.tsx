@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import TurnstileWidget from "@/app/components/TurnstileWidget";
 import {
@@ -35,6 +35,8 @@ type Action =
   | "remove_backup_email"
   | "deactivate"
   | null;
+
+type RecoveryMethod = "recovery_code" | "backup_email" | null;
 
 const buttonClass =
   "min-h-11 cursor-pointer rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white outline-none transition hover:border-orange-300/70 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50";
@@ -87,6 +89,7 @@ export default function TwoFactorSettings() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadErrorCode, setLoadErrorCode] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
@@ -94,21 +97,28 @@ export default function TwoFactorSettings() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const [codesSaved, setCodesSaved] = useState(false);
   const [action, setAction] = useState<Action>(null);
+  const [recoveryMethod, setRecoveryMethod] = useState<RecoveryMethod>(null);
   const [stepUpCode, setStepUpCode] = useState("");
   const [backupEmail, setBackupEmail] = useState("");
   const [emailToken, setEmailToken] = useState("");
+  const [awaitingBackupEmailVerification, setAwaitingBackupEmailVerification] = useState(false);
   const [recoveryToken, setRecoveryToken] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const actionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const emailRecoveryHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       setStatus((await requestJson("/api/account/two-factor")) as TwoFactorStatus);
+      setLoadErrorCode(null);
     } catch (requestError) {
+      const code = (requestError as Error & { code?: string }).code;
       setStatus(null);
-      setError(messageFor((requestError as Error & { code?: string }).code));
+      setLoadErrorCode(code ?? "TWO_FACTOR_UNAVAILABLE");
+      setError(messageFor(code));
     } finally {
       setLoading(false);
     }
@@ -117,6 +127,16 @@ export default function TwoFactorSettings() {
   useEffect(() => {
     void loadStatus();
   }, [loadStatus]);
+
+  useEffect(() => {
+    if (action) actionHeadingRef.current?.focus();
+  }, [action]);
+
+  useEffect(() => {
+    if (recoveryMethod === "backup_email") {
+      emailRecoveryHeadingRef.current?.focus();
+    }
+  }, [recoveryMethod]);
 
   const run = async (operation: () => Promise<void>) => {
     if (busy) return;
@@ -147,6 +167,7 @@ export default function TwoFactorSettings() {
     setActivationCode("");
     setRecoveryToken("");
     setAction(null);
+    setRecoveryMethod(null);
     setNotice("Scan the new QR code, then enter a current authenticator code to activate it.");
   };
 
@@ -205,6 +226,7 @@ export default function TwoFactorSettings() {
           method: "POST",
           body: JSON.stringify({ email: backupEmail }),
         });
+        setAwaitingBackupEmailVerification(true);
         setNotice(`A one-time verification code was sent to ${result.masked}.`);
         return;
       }
@@ -222,6 +244,7 @@ export default function TwoFactorSettings() {
         body: JSON.stringify({ confirmation: "DISABLE TWO-FACTOR AUTHENTICATION" }),
       });
       setAction(null);
+      setRecoveryMethod(null);
       setAcknowledged(false);
       await loadStatus();
     });
@@ -233,6 +256,7 @@ export default function TwoFactorSettings() {
         body: JSON.stringify({ token: emailToken }),
       });
       setEmailToken("");
+      setAwaitingBackupEmailVerification(false);
       setBackupEmail("");
       setAction(null);
       setNotice("Backup email verified.");
@@ -253,11 +277,39 @@ export default function TwoFactorSettings() {
       setNotice("If the verified backup address is available, a one-time recovery code was sent.");
     });
 
-  if (loading) return <p className="text-sm text-white/65">Loading two-factor settings…</p>;
-  if (!status) return <p className="text-sm text-red-200" role="alert">{error}</p>;
+  if (loading) {
+    return (
+      <div aria-busy="true" className="rounded-xl border border-white/10 bg-black/30 p-5">
+        <p className="text-sm text-white/65" role="status">Loading two-factor settings…</p>
+      </div>
+    );
+  }
+  if (!status && loadErrorCode === "NOT_AUTHENTICATED") {
+    return (
+      <section className="rounded-2xl border border-orange-300/25 bg-orange-950/15 p-5 sm:p-6" aria-labelledby="security-sign-in-title">
+        <h3 id="security-sign-in-title" className="text-lg font-semibold text-orange-100">
+          Sign in to manage account security
+        </h3>
+        <p className="mt-3 text-sm leading-relaxed text-white/70">
+          Sponsor analytics remains available without an account. Authenticator,
+          recovery-code, and backup-email settings require your existing Discord
+          login and an active CancerCulture website session.
+        </p>
+        <a
+          href="/api/auth/discord/login?state=/settings/security"
+          className={`${buttonClass} mt-5 inline-flex items-center`}
+        >
+          Login with Discord
+        </a>
+      </section>
+    );
+  }
+  if (!status) {
+    return <p className="rounded-lg border border-red-300/25 bg-red-950/30 p-4 text-sm text-red-200" role="alert">{error}</p>;
+  }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6" aria-busy={busy}>
       {error ? <p className="rounded-lg border border-red-300/25 bg-red-950/30 p-3 text-sm text-red-200" role="alert">{error}</p> : null}
       {notice ? <p className="rounded-lg border border-orange-300/25 bg-orange-950/20 p-3 text-sm text-orange-100" role="status">{notice}</p> : null}
 
@@ -317,60 +369,156 @@ export default function TwoFactorSettings() {
             <p className="mt-1 text-sm text-white/70">Backup email: {status.recoveryEmail?.masked ?? "Not configured"}</p>
           </section>
 
-          <section className="grid gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => setAction("replace_factor")} className={buttonClass}>Change authenticator</button>
-            <button type="button" onClick={() => setAction("replace_codes")} className={buttonClass}>Replace recovery codes</button>
-            <button type="button" onClick={() => setAction("backup_email")} className={buttonClass}>{status.recoveryEmail ? "Change backup email" : "Add backup email"}</button>
-            {status.recoveryEmail ? <button type="button" onClick={() => setAction("remove_backup_email")} className={buttonClass}>Remove backup email</button> : null}
-            <button type="button" onClick={() => setAction("deactivate")} className={`${buttonClass} border-red-300/30 text-red-100`}>Disable two-factor authentication</button>
+          <section className="rounded-2xl border border-orange-300/35 bg-orange-950/20 p-5 sm:p-6" aria-labelledby="lost-authenticator-title">
+            <h3 id="lost-authenticator-title" className="text-xl font-semibold text-orange-100">
+              Lost your authenticator?
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-white/75">
+              Stay signed in with Discord and choose one of the recovery paths
+              below. Both paths finish by setting up a new authenticator.
+            </p>
+            <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-4 text-sm leading-relaxed text-white/70">
+              Recovery codes are entered directly on this CancerCulture page,
+              never in Google Authenticator. Each code works only once. A code
+              does not replace Discord login or your website session, and it is
+              not accepted in the Team Area verification field.
+            </div>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                <h4 className="font-semibold text-white">Use a recovery code</h4>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">
+                  Enter one unused code here to authorize factor replacement,
+                  then scan the new QR code and activate the new authenticator.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecoveryMethod("recovery_code");
+                    setAction("replace_factor");
+                  }}
+                  className={`${buttonClass} mt-4 w-full`}
+                >
+                  Use a recovery code
+                </button>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                <h4 className="font-semibold text-white">Use verified backup email</h4>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">
+                  {status.recoveryEmail
+                    ? `Request a one-time recovery email at ${status.recoveryEmail.masked}. No QR code or recovery-code set is sent by email.`
+                    : "No verified backup email is configured. This path cannot be used."}
+                </p>
+                <button
+                  type="button"
+                  disabled={!status.recoveryEmail}
+                  onClick={() => {
+                    setAction(null);
+                    setRecoveryMethod("backup_email");
+                    setAcknowledged(false);
+                  }}
+                  className={`${buttonClass} mt-4 w-full`}
+                >
+                  Use backup email
+                </button>
+              </div>
+            </div>
+
+            {recoveryMethod === "backup_email" && status.recoveryEmail ? (
+              <div className="mt-5 rounded-xl border border-orange-300/25 bg-black/35 p-4 sm:p-5">
+                <h4 ref={emailRecoveryHeadingRef} tabIndex={-1} className="font-semibold outline-none">
+                  Recover with your verified backup email
+                </h4>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">
+                  The one-time email code works only in this signed-in
+                  CancerCulture account. Redeeming it starts a pending replacement;
+                  you must still activate the new factor with a real TOTP code.
+                </p>
+                {status.recoveryTurnstileSiteKey ? (
+                  <div className="mt-4">
+                    <TurnstileWidget action={TURNSTILE_ACTIONS.twoFactorRecovery} siteKey={status.recoveryTurnstileSiteKey} resetKey={turnstileResetKey} onTokenChange={setTurnstileToken} />
+                  </div>
+                ) : <p className="mt-3 text-sm text-red-200" role="alert">Email recovery is unavailable until Turnstile is configured.</p>}
+                <button type="button" disabled={busy || !turnstileToken} onClick={requestEmailRecovery} className={`${buttonClass} mt-4`}>
+                  {busy ? "Working…" : "Send one-time recovery email"}
+                </button>
+                <label htmlFor="email-recovery-code" className="mt-5 block text-sm font-semibold text-white/85">
+                  One-time email recovery code
+                </label>
+                <input id="email-recovery-code" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={recoveryToken} onChange={(event) => setRecoveryToken(event.target.value)} className={`${inputClass} mt-2 font-mono`} />
+                <label className="mt-4 flex gap-3 text-sm text-white/80">
+                  <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} />
+                  I understand that activating the replacement invalidates the old factor and recovery codes.
+                </label>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <button type="button" disabled={busy || !acknowledged || recoveryToken.trim().length < 20} onClick={() => void beginEnrollment("email_recovery")} className={buttonClass}>Start new authenticator setup</button>
+                  <button type="button" disabled={busy} onClick={() => { setRecoveryMethod(null); setRecoveryToken(""); setTurnstileToken(null); setAcknowledged(false); }} className={buttonClass}>Cancel email recovery</button>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section aria-labelledby="manage-two-factor-title">
+            <h3 id="manage-two-factor-title" className="text-xl font-semibold text-white">
+              Manage two-factor authentication
+            </h3>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                <h4 className="font-semibold">Authenticator</h4>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">Move 2FA to a new authenticator while you still have a current authenticator or recovery code.</p>
+                <button type="button" onClick={() => { setRecoveryMethod(null); setAction("replace_factor"); }} className={`${buttonClass} mt-4 w-full`}>Change authenticator</button>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+                <h4 className="font-semibold">Recovery codes</h4>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">Create a fresh set of ten one-time codes. Every code from the previous set becomes invalid immediately.</p>
+                <button type="button" onClick={() => { setRecoveryMethod(null); setAction("replace_codes"); }} className={`${buttonClass} mt-4 w-full`}>Replace recovery codes</button>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/30 p-4 md:col-span-2">
+                <h4 className="font-semibold">Verified backup email</h4>
+                <p className="mt-2 text-sm leading-relaxed text-white/65">Add or change the optional automated recovery path. Backup-email changes require a current authenticator code; recovery codes are not accepted.</p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <button type="button" onClick={() => { setRecoveryMethod(null); setAwaitingBackupEmailVerification(false); setAction("backup_email"); }} className={buttonClass}>{status.recoveryEmail ? "Change backup email" : "Add backup email"}</button>
+                  {status.recoveryEmail ? <button type="button" onClick={() => { setRecoveryMethod(null); setAction("remove_backup_email"); }} className={buttonClass}>Remove backup email</button> : null}
+                </div>
+              </div>
+            </div>
           </section>
 
           {action ? (
-            <section className="rounded-xl border border-orange-300/25 bg-black/35 p-4">
-              <h3 className="font-semibold">
-                {action === "replace_factor" ? "Change authenticator" : action === "replace_codes" ? "Replace all recovery codes" : action === "backup_email" ? "Verify a backup email" : action === "remove_backup_email" ? "Remove backup email" : "Disable two-factor authentication"}
+            <section className="rounded-xl border border-orange-300/25 bg-black/35 p-4 sm:p-5">
+              <h3 ref={actionHeadingRef} tabIndex={-1} className="font-semibold outline-none">
+                {action === "replace_factor" ? recoveryMethod === "recovery_code" ? "Use a recovery code to replace your authenticator" : "Change authenticator" : action === "replace_codes" ? "Replace all recovery codes" : action === "backup_email" ? "Verify a backup email" : action === "remove_backup_email" ? "Remove backup email" : "Disable two-factor authentication"}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-white/65">
-                {action === "replace_codes" ? "All existing recovery codes become invalid immediately after this action." : action === "deactivate" ? "This removes the authenticator, recovery codes, backup email, and other active step-up grants. Other website sessions are revoked." : action === "remove_backup_email" ? "This permanently removes the automatic email recovery path. A current authenticator code is required; a recovery code is not accepted." : action === "replace_factor" ? "Activating the new authenticator invalidates the current factor and every current recovery code." : "Enter a current authenticator code. A recovery code is not accepted for changing the backup email."}
+                {action === "replace_codes" ? "All existing recovery codes become invalid immediately after this action." : action === "deactivate" ? "This removes the authenticator, recovery codes, backup email, and other active step-up grants. Other website sessions are revoked." : action === "remove_backup_email" ? "This permanently removes the automatic email recovery path. A current authenticator code is required; a recovery code is not accepted." : action === "replace_factor" ? recoveryMethod === "recovery_code" ? "Enter one unused recovery code directly below. It works once, does not replace Discord login, and only authorizes the next step: activating a new authenticator." : "Activating the new authenticator invalidates the current factor and every current recovery code." : "Enter a current authenticator code. A recovery code is not accepted for changing the backup email."}
               </p>
               {action === "backup_email" ? (
-                <input type="email" autoComplete="email" placeholder="Backup email address" value={backupEmail} onChange={(event) => setBackupEmail(event.target.value)} className={`${inputClass} mt-3`} />
+                <>
+                  <label htmlFor="backup-email-address" className="mt-4 block text-sm font-semibold text-white/85">Backup email address</label>
+                  <input id="backup-email-address" type="email" autoComplete="email" value={backupEmail} onChange={(event) => setBackupEmail(event.target.value)} className={`${inputClass} mt-2`} />
+                </>
               ) : null}
-              <input inputMode={action === "backup_email" || action === "remove_backup_email" ? "numeric" : "text"} autoCapitalize="characters" autoComplete="one-time-code" placeholder={action === "backup_email" || action === "remove_backup_email" ? "Current authenticator code" : "Authenticator or recovery code"} value={stepUpCode} onChange={(event) => setStepUpCode(event.target.value)} className={`${inputClass} mt-3`} />
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" disabled={busy || stepUpCode.trim().length < 6 || (action === "backup_email" && !backupEmail.trim())} onClick={verifyForAction} className={buttonClass}>Verify and continue</button>
-                <button type="button" disabled={busy} onClick={() => setAction(null)} className={buttonClass}>Cancel</button>
+              <label htmlFor="two-factor-step-up-code" className="mt-4 block text-sm font-semibold text-white/85">
+                {action === "backup_email" || action === "remove_backup_email" ? "Current authenticator code" : recoveryMethod === "recovery_code" ? "Unused CancerCulture recovery code" : "Authenticator or recovery code"}
+              </label>
+              <input id="two-factor-step-up-code" inputMode={action === "backup_email" || action === "remove_backup_email" ? "numeric" : "text"} autoCapitalize="characters" autoComplete="one-time-code" value={stepUpCode} onChange={(event) => setStepUpCode(event.target.value)} className={`${inputClass} mt-2`} />
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <button type="button" disabled={busy || stepUpCode.trim().length < 6 || (action === "backup_email" && !backupEmail.trim())} onClick={verifyForAction} className={buttonClass}>{busy ? "Working…" : "Verify and continue"}</button>
+                <button type="button" disabled={busy} onClick={() => { setAction(null); setRecoveryMethod(null); setAwaitingBackupEmailVerification(false); }} className={buttonClass}>Cancel</button>
               </div>
-              {action === "backup_email" && notice ? (
+              {action === "backup_email" && awaitingBackupEmailVerification ? (
                 <div className="mt-4">
-                  <input inputMode="numeric" autoComplete="one-time-code" maxLength={12} placeholder="8-digit email verification code" value={emailToken} onChange={(event) => setEmailToken(event.target.value)} className={inputClass} />
+                  <label htmlFor="backup-email-verification-code" className="block text-sm font-semibold text-white/85">8-digit email verification code</label>
+                  <input id="backup-email-verification-code" inputMode="numeric" autoComplete="one-time-code" maxLength={12} value={emailToken} onChange={(event) => setEmailToken(event.target.value)} className={`${inputClass} mt-2`} />
                   <button type="button" disabled={busy || emailToken.replace(/[\s-]/gu, "").length !== 8} onClick={confirmEmail} className={`${buttonClass} mt-2`}>Verify backup email</button>
                 </div>
               ) : null}
             </section>
           ) : null}
 
-          <section className="rounded-xl border border-white/10 bg-black/30 p-4">
-            <h3 className="font-semibold">Lost authenticator and recovery codes?</h3>
-            {status.recoveryEmail ? (
-              <>
-                <p className="mt-2 text-sm leading-relaxed text-white/65">Request a one-time code at {status.recoveryEmail.masked}. It only works in this signed-in CancerCulture account and creates a pending replacement factor; no QR code is sent by email.</p>
-                {status.recoveryTurnstileSiteKey ? (
-                  <div className="mt-3">
-                    <TurnstileWidget action={TURNSTILE_ACTIONS.twoFactorRecovery} siteKey={status.recoveryTurnstileSiteKey} resetKey={turnstileResetKey} onTokenChange={setTurnstileToken} />
-                  </div>
-                ) : <p className="mt-3 text-sm text-red-200">Email recovery is unavailable until Turnstile is configured.</p>}
-                <button type="button" disabled={busy || !turnstileToken} onClick={requestEmailRecovery} className={`${buttonClass} mt-3`}>Send one-time recovery email</button>
-                <input autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="One-time email recovery code" value={recoveryToken} onChange={(event) => setRecoveryToken(event.target.value)} className={`${inputClass} mt-4 font-mono`} />
-                <label className="mt-3 flex gap-3 text-sm text-white/80">
-                  <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} />
-                  I understand that activating the replacement invalidates the old factor and recovery codes.
-                </label>
-                <button type="button" disabled={busy || !acknowledged || recoveryToken.trim().length < 20} onClick={() => void beginEnrollment("email_recovery")} className={`${buttonClass} mt-3`}>Start recovered authenticator setup</button>
-              </>
-            ) : (
-              <p className="mt-2 text-sm leading-relaxed text-red-100">No backup email is configured. If the authenticator and every recovery code are lost, there is no support or administrator bypass.</p>
-            )}
+          <section className="rounded-xl border border-red-300/20 bg-red-950/15 p-4 sm:p-5" aria-labelledby="disable-two-factor-title">
+            <h3 id="disable-two-factor-title" className="font-semibold text-red-100">Turn off two-factor authentication</h3>
+            <p className="mt-2 text-sm leading-relaxed text-white/65">Disabling 2FA removes the authenticator, recovery codes, backup email, and active step-up access. Team Area access remains unavailable until 2FA is active again.</p>
+            <button type="button" onClick={() => { setRecoveryMethod(null); setAction("deactivate"); }} className={`${buttonClass} mt-4 border-red-300/30 text-red-100`}>Disable two-factor authentication</button>
           </section>
         </>
       )}

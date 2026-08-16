@@ -1,25 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   navigationMenuItemClassName,
   navigationTextTriggerClassName,
 } from "@/app/components/navigation/navigationButtonStyles";
 
-type AnonymousAccountMenuProps = {
-  settingsAction: {
-    label: "Settings";
-    onSelect: () => void;
-  };
-};
-
 function supportsHoverInteraction() {
   return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
-export default function AnonymousAccountMenu({
-  settingsAction,
-}: AnonymousAccountMenuProps) {
+export default function AnonymousAccountMenu() {
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -134,17 +126,14 @@ export default function AnonymousAccountMenu({
             >
               Login with Discord
             </a>
-            <button
-              type="button"
+            <Link
+              href="/settings"
               role="menuitem"
               className={navigationMenuItemClassName}
-              onClick={() => {
-                settingsAction.onSelect();
-                closeMenu();
-              }}
+              onClick={() => closeMenu()}
             >
-              {settingsAction.label}
-            </button>
+              Settings
+            </Link>
           </div>
         </div>
       ) : null}
