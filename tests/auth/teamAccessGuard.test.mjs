@@ -13,11 +13,21 @@ const state = {
     session_id: "00000000-0000-4000-8000-000000000001",
   },
   sessionError: null,
+  teamAccessCalls: 0,
   teamResult: {
     data: { discord_user_id: "team-user-1", role: "admin" },
     error: null,
   },
 };
+
+mock.module(new URL("../../lib/auth/teamAccess.server.ts", import.meta.url), {
+  namedExports: {
+    requireTeamAreaAccess: async (session) => {
+      assert.equal(session, state.session);
+      state.teamAccessCalls += 1;
+    },
+  },
+});
 
 mock.module(new URL("../../lib/auth/requireSession.ts", import.meta.url), {
   namedExports: {
@@ -75,6 +85,7 @@ function resetState() {
   state.participationError = null;
   state.queriedDiscordUserId = null;
   state.sessionError = null;
+  state.teamAccessCalls = 0;
   state.teamResult = {
     data: { discord_user_id: "team-user-1", role: "admin" },
     error: null,
@@ -88,6 +99,7 @@ test("Admin with a valid session and fresh membership receives access", async ()
 
   assert.equal(member.role, "admin");
   assert.equal(state.queriedDiscordUserId, state.session.discord_user_id);
+  assert.equal(state.teamAccessCalls, 1);
 });
 
 test("Admin with stale membership (membership_pending) receives access", async () => {
@@ -201,6 +213,7 @@ test("Normal user with fresh membership receives no team access", async () => {
     requireTeamCapability("canViewBasicUserDirectory"),
     { status: 403 }
   );
+  assert.equal(state.teamAccessCalls, 0);
 });
 
 test("Website ban blocks before the team-role lookup", async () => {

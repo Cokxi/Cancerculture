@@ -1014,7 +1014,7 @@ if (!file) {
         ) : uploadDone ? (
           <div
             className="mx-auto cursor-pointer"
-            onClick={() => (location.href = "/")}
+            onClick={() => router.push("/")}
           >
             <HomeBlinkCell mode={successMode} />
 

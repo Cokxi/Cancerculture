@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import { requireSession } from "@/lib/auth/requireSession";
 import { AuthError } from "@/lib/auth/AuthError";
 import { runAuthQueryWithTimeout } from "@/lib/auth/authQuery";
+import { requireTeamAreaAccess } from "@/lib/auth/teamAccess.server";
 import {
   hasTeamCapability,
   isAdminTeamRole,
@@ -62,7 +63,9 @@ export async function getTeamMemberForDiscordUserId(
 
 export async function getTeamMember(): Promise<TeamMember> {
   const session = await requireSession();
-  return getTeamMemberForDiscordUserId(session.discord_user_id);
+  const member = await getTeamMemberForDiscordUserId(session.discord_user_id);
+  await requireTeamAreaAccess(session);
+  return member;
 }
 
 

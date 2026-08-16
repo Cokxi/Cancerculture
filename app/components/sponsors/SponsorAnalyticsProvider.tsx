@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import BaseOverlay from "@/app/components/overlay/BaseOverlay";
+import TwoFactorSettings from "@/app/components/auth/TwoFactorSettings";
 
 export type SponsorAnalyticsConsentStatus =
   | "unknown"
@@ -24,7 +25,7 @@ type SponsorAnalyticsContextValue = {
 };
 
 type ConsentLoadState = "idle" | "loading" | "ready" | "unavailable";
-type SettingsView = "overview" | "sponsor_analytics";
+type SettingsView = "overview" | "sponsor_analytics" | "two_factor";
 
 const SponsorAnalyticsContext =
   createContext<SponsorAnalyticsContextValue | null>(null);
@@ -275,7 +276,7 @@ export function SponsorAnalyticsProvider({
                   Choose a settings category. New preferences can be added here
                   without changing the global account menu.
                 </p>
-                <div className="mt-6">
+                <div className="mt-6 space-y-3">
                   <button
                     ref={settingsCategoryButtonRef}
                     type="button"
@@ -291,6 +292,24 @@ export function SponsorAnalyticsProvider({
                       </span>
                       <span className="mt-2 block text-sm text-white/80">
                         Current choice: {consentChoiceLabel}
+                      </span>
+                    </span>
+                    <span aria-hidden className="text-xl text-orange-300">
+                      ›
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsView("two_factor")}
+                    className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/30 p-4 text-left outline-none transition hover:border-orange-300/50 hover:bg-orange-500/5 focus-visible:ring-2 focus-visible:ring-orange-300"
+                  >
+                    <span>
+                      <span className="block font-semibold text-white">
+                        Two-factor authentication
+                      </span>
+                      <span className="mt-1 block text-sm leading-relaxed text-white/65">
+                        Authenticator, one-time recovery codes, and optional
+                        verified backup email for your account.
                       </span>
                     </span>
                     <span aria-hidden className="text-xl text-orange-300">
@@ -316,8 +335,11 @@ export function SponsorAnalyticsProvider({
                   id="global-settings-title"
                   className="mt-2 font-[var(--font-marker)] text-3xl text-orange-400"
                 >
-                  Sponsor analytics
+                  {settingsView === "sponsor_analytics"
+                    ? "Sponsor analytics"
+                    : "Two-factor authentication"}
                 </h2>
+                {settingsView === "sponsor_analytics" ? (
                 <div className="mt-6 rounded-xl border border-white/10 bg-black/30 p-4">
                   <p className="text-sm leading-relaxed text-white/65">
                     Optional consent-based counts for qualified sponsor-banner
@@ -369,6 +391,11 @@ export function SponsorAnalyticsProvider({
                     ) : null}
                   </div>
                 </div>
+                ) : (
+                  <div className="mt-6">
+                    <TwoFactorSettings />
+                  </div>
+                )}
               </>
             )}
           </section>

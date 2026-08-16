@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getResolvedTeamAreaNavigation } from "@/lib/admin/teamAreaNavigation.server";
 import { createAccountNavigationState } from "@/lib/auth/accountNavigation";
-import { getAuthErrorStatus } from "@/lib/auth/AuthError";
+import { getAuthErrorCode, getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { runAuthQueryWithTimeout } from "@/lib/auth/authQuery";
 import type { GlobalAccountViewState } from "@/lib/auth/globalAccount";
 import { getSessionState } from "@/lib/auth/sessionState";
@@ -48,6 +48,16 @@ export async function GET() {
         }))
         .catch((error) => {
           const status = getAuthErrorStatus(error);
+          const code = getAuthErrorCode(error);
+          if (
+            code === "TEAM_TOTP_REQUIRED" ||
+            code === "TEAM_SECURITY_CONTEXT_CHANGED"
+          ) {
+            return {
+              hasVisibleTeamAreaItems: true,
+              unavailable: false,
+            };
+          }
           if (status === 403) {
             return {
               hasVisibleTeamAreaItems: false,

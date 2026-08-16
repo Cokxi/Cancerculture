@@ -86,6 +86,7 @@ function createFailureResponse(
   response.headers.set("Cache-Control", "no-store");
   clearOAuthCookies(response);
   expireCookie(response, "session_id");
+  expireCookie(response, "team_access");
   expireCookie(response, "discord_user_id");
 
   return response;
@@ -412,6 +413,7 @@ export async function GET(req: Request) {
       maxAge: SESSION_MAX_AGE_SECONDS,
     });
     expireCookie(successResponse, "discord_user_id");
+    expireCookie(successResponse, "team_access");
     clearOAuthCookies(successResponse);
     sessionCleanupId = null;
 

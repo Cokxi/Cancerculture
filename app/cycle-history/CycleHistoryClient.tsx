@@ -657,15 +657,12 @@ function SubmissionModal({
 
                 <div className="flex flex-wrap gap-2">
                   {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.location.href = `/api/admin/submissions/${submission.id}/export`;
-                      }}
+                    <a
+                      href={`/api/admin/submissions/${submission.id}/export`}
                       className="rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs text-white disabled:opacity-50"
                     >
                       Export Audit JSON
-                    </button>
+                    </a>
                   )}
 
                   <button

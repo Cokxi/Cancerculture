@@ -81,6 +81,7 @@ export async function POST(req: Request) {
   );
   response.headers.set("Cache-Control", "no-store");
   expireCookie(response, "session_id");
+  expireCookie(response, "team_access");
   expireCookie(response, "discord_user_id");
   expireCookie(response, "oauth_state");
   expireCookie(response, "oauth_redirect_path");

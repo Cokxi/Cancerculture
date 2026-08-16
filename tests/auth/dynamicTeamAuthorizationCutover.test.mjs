@@ -6,8 +6,18 @@ const state = {
   readCalls: 0,
   sessionCalls: 0,
   sessionError: null,
+  teamAccessCalls: 0,
   result: null,
 };
+
+mock.module(new URL("../../lib/auth/teamAccess.server.ts", import.meta.url), {
+  namedExports: {
+    requireTeamAreaAccess: async (session) => {
+      assert.equal(session.discord_user_id, "team-user-1");
+      state.teamAccessCalls += 1;
+    },
+  },
+});
 
 function resolved(roleKey, resolvedCapabilities = []) {
   return {
@@ -60,6 +70,7 @@ test.beforeEach(() => {
   state.readCalls = 0;
   state.sessionCalls = 0;
   state.sessionError = null;
+  state.teamAccessCalls = 0;
   state.result = resolved("trial_moderator", [
     "submissions.submission_phase.moderate",
     "users.flag.create",

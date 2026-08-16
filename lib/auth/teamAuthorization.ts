@@ -4,6 +4,7 @@ import { AuthError } from "@/lib/auth/AuthError";
 import type { DynamicTeamAuthorizationResult } from "@/lib/auth/dynamicTeamAuthorization";
 import { readDynamicTeamAuthorizationForDiscordUserId } from "@/lib/auth/readDynamicTeamAuthorization";
 import { requireSession } from "@/lib/auth/requireSession";
+import { requireTeamAreaAccess } from "@/lib/auth/teamAccess.server";
 import type { RegisteredTeamCapabilityKey } from "@/lib/auth/teamCapabilityRegistry";
 
 export type TeamAuthorizationContext = Readonly<{
@@ -82,9 +83,11 @@ export async function readTeamAuthorizationContextForDiscordUserId(
 
 export async function getTeamAuthorizationContext(): Promise<TeamAuthorizationContext> {
   const session = await requireSession();
-  return readTeamAuthorizationContextForDiscordUserId(
+  const context = await readTeamAuthorizationContextForDiscordUserId(
     session.discord_user_id
   );
+  await requireTeamAreaAccess(session);
+  return context;
 }
 
 export async function requireDynamicTeamCapability(

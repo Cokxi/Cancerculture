@@ -35,6 +35,10 @@ export async function resolve(specifier, context, nextResolve) {
     return nextResolve("next/server.js", context);
   }
 
+  if (specifier === "next/headers") {
+    return nextResolve("next/headers.js", context);
+  }
+
   if (specifier === "next/navigation") {
     return nextResolve("next/navigation.js", context);
   }
