@@ -116,6 +116,11 @@ test("global Settings lives inside the account menus and opens an extensible cat
   assert.match(accountMenu, /settingsAction\.onSelect\(\)/u);
   assert.match(anonymousAccountMenu, /settingsAction\.onSelect\(\)/u);
   assert.match(anonymousAccountMenu, /Login with Discord/u);
+  assert.match(
+    anonymousAccountMenu,
+    /<a\s+[\s\S]*href="\/api\/auth\/discord\/login\?state=\/"/u
+  );
+  assert.doesNotMatch(anonymousAccountMenu, /from "next\/link"/u);
   assert.match(anonymousAccountMenu, /role="menu"/u);
   assert.match(accountMenu, /supportsHoverInteraction\(\)[\s\S]*setOpen\(true\)/u);
   assert.match(

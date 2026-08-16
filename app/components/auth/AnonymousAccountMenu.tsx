@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   navigationMenuItemClassName,
@@ -127,14 +126,14 @@ export default function AnonymousAccountMenu({
             onKeyDown={handleMenuKeyDown}
             className="flex min-w-[180px] flex-col rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl shadow-black/60 backdrop-blur"
           >
-            <Link
+            <a
               href="/api/auth/discord/login?state=/"
               role="menuitem"
               className={navigationMenuItemClassName}
               onClick={() => closeMenu()}
             >
               Login with Discord
-            </Link>
+            </a>
             <button
               type="button"
               role="menuitem"
