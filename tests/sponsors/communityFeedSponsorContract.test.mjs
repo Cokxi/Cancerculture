@@ -18,6 +18,7 @@ const [
   layout,
   globalAccount,
   accountMenu,
+  anonymousAccountMenu,
 ] =
   await Promise.all([
     source("app/spread/CommunityFeedSponsor.tsx"),
@@ -35,6 +36,7 @@ const [
     source("app/layout.tsx"),
     source("app/components/auth/GlobalAccount.tsx"),
     source("app/components/auth/AccountMenu.tsx"),
+    source("app/components/auth/AnonymousAccountMenu.tsx"),
   ]);
 
 test("Feed Sponsor presentation is tied to a real visible Feed Submission and never mounted as a general ad", () => {
@@ -106,12 +108,26 @@ test("one global non-blocking consent bar is triggered only by an encountered va
   assert.match(`${component}\n${fullBanner}`, /IntersectionObserver/u);
 });
 
-test("global Settings is anonymous-accessible and initially contains only Sponsor analytics", () => {
-  assert.match(globalAccount, />\s*Settings\s*</u);
+test("global Settings lives inside the account menus and opens an extensible category overview", () => {
+  assert.doesNotMatch(globalAccount, /const settingsButton/u);
+  assert.match(globalAccount, /if \(!hydrated \|\| !visible\) return null/u);
   assert.match(globalAccount, /account\.kind === "anonymous"/u);
-  assert.match(globalAccount, /\{settingsButton\}[\s\S]*Login with Discord/u);
+  assert.match(globalAccount, /<AnonymousAccountMenu/u);
   assert.match(accountMenu, /settingsAction\.onSelect\(\)/u);
+  assert.match(anonymousAccountMenu, /settingsAction\.onSelect\(\)/u);
+  assert.match(anonymousAccountMenu, /Login with Discord/u);
+  assert.match(anonymousAccountMenu, /role="menu"/u);
+  assert.match(accountMenu, /supportsHoverInteraction\(\)[\s\S]*setOpen\(true\)/u);
+  assert.match(
+    anonymousAccountMenu,
+    /supportsHoverInteraction\(\)[\s\S]*setOpen\(true\)/u
+  );
   assert.match(provider, /Global preferences/u);
+  assert.match(provider, /settingsView === "overview"/u);
+  assert.match(provider, /setSettingsView\("sponsor_analytics"\)/u);
+  assert.match(provider, /Back to settings/u);
+  assert.match(provider, /parentElement\?\.scrollTo\(\{ top: 0 \}\)/u);
+  assert.match(provider, /settingsBackButtonRef\.current\?\.focus\(\)/u);
   assert.match(provider, /Sponsor analytics/u);
   assert.match(provider, /Current choice/u);
   assert.match(provider, /role="dialog"/u);

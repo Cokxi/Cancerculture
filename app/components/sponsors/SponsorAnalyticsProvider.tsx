@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -23,6 +24,7 @@ type SponsorAnalyticsContextValue = {
 };
 
 type ConsentLoadState = "idle" | "loading" | "ready" | "unavailable";
+type SettingsView = "overview" | "sponsor_analytics";
 
 const SponsorAnalyticsContext =
   createContext<SponsorAnalyticsContextValue | null>(null);
@@ -52,11 +54,15 @@ export function SponsorAnalyticsProvider({
   const [loadState, setLoadState] = useState<ConsentLoadState>("idle");
   const [hasEncounteredSponsor, setHasEncounteredSponsor] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsView, setSettingsView] = useState<SettingsView>("overview");
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const consentRequestRef = useRef<Promise<SponsorAnalyticsConsentStatus> | null>(
     null
   );
+  const settingsSectionRef = useRef<HTMLElement>(null);
+  const settingsCategoryButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsBackButtonRef = useRef<HTMLButtonElement>(null);
   const consentStatusRef = useRef<SponsorAnalyticsConsentStatus>("unknown");
   const consentLoadedRef = useRef(false);
 
@@ -104,9 +110,30 @@ export function SponsorAnalyticsProvider({
   }, [loadConsent]);
 
   const openSettings = useCallback(() => {
+    setSettingsView("overview");
     setSettingsOpen(true);
     void loadConsent();
   }, [loadConsent]);
+
+  const closeSettings = () => {
+    setSettingsOpen(false);
+    setSettingsView("overview");
+  };
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+
+    const frame = requestAnimationFrame(() => {
+      settingsSectionRef.current?.parentElement?.scrollTo({ top: 0 });
+      if (settingsView === "overview") {
+        settingsCategoryButtonRef.current?.focus();
+      } else {
+        settingsBackButtonRef.current?.focus();
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [settingsOpen, settingsView]);
 
   const saveConsent = async (status: "granted" | "denied") => {
     if (saving) return;
@@ -145,6 +172,15 @@ export function SponsorAnalyticsProvider({
     hasEncounteredSponsor &&
     consent === "unknown" &&
     (loadState === "ready" || loadState === "unavailable");
+
+  const consentChoiceLabel =
+    loadState === "loading"
+      ? "Loading..."
+      : consent === "granted"
+        ? "On"
+        : consent === "denied"
+          ? "Off"
+          : "Not chosen";
 
   return (
     <SponsorAnalyticsContext.Provider value={contextValue}>
@@ -216,77 +252,125 @@ export function SponsorAnalyticsProvider({
       ) : null}
 
       {settingsOpen ? (
-        <BaseOverlay size="compact" onClose={() => setSettingsOpen(false)}>
+        <BaseOverlay size="compact" onClose={closeSettings}>
           <section
+            ref={settingsSectionRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="global-settings-title"
             className="px-5 pb-7 pt-2 text-white sm:px-7"
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-300/75">
-              Global preferences
-            </p>
-            <h2
-              id="global-settings-title"
-              className="mt-2 font-[var(--font-marker)] text-3xl text-orange-400"
-            >
-              Settings
-            </h2>
-            <div className="mt-6 rounded-xl border border-white/10 bg-black/30 p-4">
-              <h3 className="font-semibold">Sponsor analytics</h3>
-              <p className="mt-2 text-sm leading-relaxed text-white/65">
-                Optional consent-based counts for qualified sponsor-banner views
-                and sponsor-link clicks. Sponsor links work either way.
-              </p>
-              <p className="mt-3 text-sm text-white/80" role="status">
-                Current choice:{" "}
-                {loadState === "loading"
-                  ? "Loading..."
-                  : consent === "granted"
-                    ? "On"
-                    : consent === "denied"
-                      ? "Off"
-                      : "Not chosen"}
-              </p>
-              {errorMessage ? (
-                <p className="mt-2 text-sm text-red-200" role="alert">
-                  {errorMessage}
+            {settingsView === "overview" ? (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-300/75">
+                  Global preferences
                 </p>
-              ) : null}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  aria-pressed={consent === "granted"}
-                  disabled={saving || loadState === "loading"}
-                  onClick={() => void saveConsent("granted")}
-                  className={`${preferenceButtonClassName} ${
-                    consent === "granted" ? "border-orange-300 bg-orange-500/15" : ""
-                  }`}
+                <h2
+                  id="global-settings-title"
+                  className="mt-2 font-[var(--font-marker)] text-3xl text-orange-400"
                 >
-                  Allow analytics
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={consent === "denied"}
-                  disabled={saving || loadState === "loading"}
-                  onClick={() => void saveConsent("denied")}
-                  className={`${preferenceButtonClassName} ${
-                    consent === "denied" ? "border-orange-300 bg-orange-500/15" : ""
-                  }`}
-                >
-                  Continue without analytics
-                </button>
-                {loadState === "unavailable" ? (
+                  Settings
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-white/65">
+                  Choose a settings category. New preferences can be added here
+                  without changing the global account menu.
+                </p>
+                <div className="mt-6">
                   <button
+                    ref={settingsCategoryButtonRef}
                     type="button"
-                    onClick={() => void loadConsent()}
-                    className={preferenceButtonClassName}
+                    onClick={() => setSettingsView("sponsor_analytics")}
+                    className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/30 p-4 text-left outline-none transition hover:border-orange-300/50 hover:bg-orange-500/5 focus-visible:ring-2 focus-visible:ring-orange-300"
                   >
-                    Retry preference
+                    <span>
+                      <span className="block font-semibold text-white">
+                        Sponsor analytics
+                      </span>
+                      <span className="mt-1 block text-sm leading-relaxed text-white/65">
+                        Optional sponsor-banner view and link-click measurement.
+                      </span>
+                      <span className="mt-2 block text-sm text-white/80">
+                        Current choice: {consentChoiceLabel}
+                      </span>
+                    </span>
+                    <span aria-hidden className="text-xl text-orange-300">
+                      ›
+                    </span>
                   </button>
-                ) : null}
-              </div>
-            </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <button
+                  ref={settingsBackButtonRef}
+                  type="button"
+                  onClick={() => setSettingsView("overview")}
+                  className="min-h-11 cursor-pointer rounded-lg px-1 py-2 text-sm font-semibold text-orange-300 outline-none hover:text-orange-200 focus-visible:ring-2 focus-visible:ring-orange-300"
+                >
+                  ← Back to settings
+                </button>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-orange-300/75">
+                  Global preferences
+                </p>
+                <h2
+                  id="global-settings-title"
+                  className="mt-2 font-[var(--font-marker)] text-3xl text-orange-400"
+                >
+                  Sponsor analytics
+                </h2>
+                <div className="mt-6 rounded-xl border border-white/10 bg-black/30 p-4">
+                  <p className="text-sm leading-relaxed text-white/65">
+                    Optional consent-based counts for qualified sponsor-banner
+                    views and sponsor-link clicks. Sponsor links work either way.
+                  </p>
+                  <p className="mt-3 text-sm text-white/80" role="status">
+                    Current choice: {consentChoiceLabel}
+                  </p>
+                  {errorMessage ? (
+                    <p className="mt-2 text-sm text-red-200" role="alert">
+                      {errorMessage}
+                    </p>
+                  ) : null}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      aria-pressed={consent === "granted"}
+                      disabled={saving || loadState === "loading"}
+                      onClick={() => void saveConsent("granted")}
+                      className={`${preferenceButtonClassName} ${
+                        consent === "granted"
+                          ? "border-orange-300 bg-orange-500/15"
+                          : ""
+                      }`}
+                    >
+                      Allow analytics
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={consent === "denied"}
+                      disabled={saving || loadState === "loading"}
+                      onClick={() => void saveConsent("denied")}
+                      className={`${preferenceButtonClassName} ${
+                        consent === "denied"
+                          ? "border-orange-300 bg-orange-500/15"
+                          : ""
+                      }`}
+                    >
+                      Continue without analytics
+                    </button>
+                    {loadState === "unavailable" ? (
+                      <button
+                        type="button"
+                        onClick={() => void loadConsent()}
+                        className={preferenceButtonClassName}
+                      >
+                        Retry preference
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </>
+            )}
           </section>
         </BaseOverlay>
       ) : null}

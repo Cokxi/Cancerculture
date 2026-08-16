@@ -4,26 +4,10 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   navigationMenuItemClassName,
-  navigationTriggerBaseClassName,
+  navigationTextTriggerClassName,
 } from "@/app/components/navigation/navigationButtonStyles";
-import type {
-  AccountNavigationItem,
-  AccountNavigationState,
-} from "@/lib/auth/accountNavigation";
 
-type AuthenticatedNavigation = Extract<
-  AccountNavigationState,
-  { kind: "authenticated" }
->;
-
-type AccountMenuProps = {
-  avatarUrl: string | null;
-  displayName: string;
-  navigation: AuthenticatedNavigation;
-  visibilityAction: {
-    label: "Hide" | "Show always";
-    onSelect: () => void;
-  };
+type AnonymousAccountMenuProps = {
   settingsAction: {
     label: "Settings";
     onSelect: () => void;
@@ -34,13 +18,9 @@ function supportsHoverInteraction() {
   return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
-export default function AccountMenu({
-  avatarUrl,
-  displayName,
-  navigation,
+export default function AnonymousAccountMenu({
   settingsAction,
-  visibilityAction,
-}: AccountMenuProps) {
+}: AnonymousAccountMenuProps) {
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -102,39 +82,6 @@ export default function AccountMenu({
     items[nextIndex]?.focus();
   };
 
-  const renderItem = (item: AccountNavigationItem) => {
-    if (item.kind === "logout") {
-      return (
-        <form
-          key={item.id}
-          action="/api/auth/logout?returnTo=/"
-          method="post"
-          className="w-full"
-        >
-          <button
-            type="submit"
-            role="menuitem"
-            className={navigationMenuItemClassName}
-          >
-            {item.label}
-          </button>
-        </form>
-      );
-    }
-
-    return (
-      <Link
-        key={item.id}
-        href={item.href}
-        role="menuitem"
-        className={navigationMenuItemClassName}
-        onClick={() => closeMenu()}
-      >
-        {item.label}
-      </Link>
-    );
-  };
-
   return (
     <div
       ref={containerRef}
@@ -159,27 +106,9 @@ export default function AccountMenu({
           }
           setOpen((current) => !current);
         }}
-        className={`${navigationTriggerBaseClassName} max-w-[calc(100vw-1.5rem)] p-1.5 pr-3 sm:max-w-[13rem]`}
+        className={navigationTextTriggerClassName}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-500/20">
-          {avatarUrl ? (
-            <span
-              role="img"
-              aria-label="Account avatar"
-              className="h-full w-full bg-cover bg-center"
-              style={{ backgroundImage: `url("${avatarUrl}")` }}
-            />
-          ) : (
-            <span aria-hidden>?</span>
-          )}
-        </span>
-        <span className="text-sm sm:hidden">Profile</span>
-        <span
-          className="hidden min-w-0 max-w-[8rem] truncate text-sm sm:inline"
-          title={displayName}
-        >
-          {displayName}
-        </span>
+        Login
         <span
           aria-hidden
           className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}
@@ -190,9 +119,7 @@ export default function AccountMenu({
       </button>
 
       {open ? (
-        <div
-          className="absolute right-0 top-full z-[80] w-56 max-w-[calc(100vw-1.5rem)] pt-2"
-        >
+        <div className="absolute right-0 top-full z-[80] w-56 max-w-[calc(100vw-1.5rem)] pt-2">
           <div
             id={menuId}
             role="menu"
@@ -200,14 +127,14 @@ export default function AccountMenu({
             onKeyDown={handleMenuKeyDown}
             className="flex min-w-[180px] flex-col rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl shadow-black/60 backdrop-blur"
           >
-            <p className="break-words px-3 pb-2 pt-1 text-xs text-white/55">
-              {displayName}
-            </p>
-            {navigation.teamAccessUnavailable ? (
-              <p className="px-3 pb-2 text-xs text-amber-300/80" role="status">
-                Team access temporarily unavailable
-              </p>
-            ) : null}
+            <Link
+              href="/api/auth/discord/login?state=/"
+              role="menuitem"
+              className={navigationMenuItemClassName}
+              onClick={() => closeMenu()}
+            >
+              Login with Discord
+            </Link>
             <button
               type="button"
               role="menuitem"
@@ -219,18 +146,6 @@ export default function AccountMenu({
             >
               {settingsAction.label}
             </button>
-            <button
-              type="button"
-              role="menuitem"
-              className={navigationMenuItemClassName}
-              onClick={() => {
-                visibilityAction.onSelect();
-                closeMenu();
-              }}
-            >
-              {visibilityAction.label}
-            </button>
-            {navigation.items.map(renderItem)}
           </div>
         </div>
       ) : null}

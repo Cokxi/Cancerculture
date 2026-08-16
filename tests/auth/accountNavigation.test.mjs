@@ -274,12 +274,12 @@ test("account menu exposes keyboard, focus, and dismissal contracts", async () =
 });
 
 test("global navigation triggers share stable pill interaction styles", async () => {
-  const [homeMenu, accountMenu, backButton, globalAccount, styles] =
+  const [homeMenu, accountMenu, anonymousAccountMenu, backButton, styles] =
     await Promise.all([
       readRepoFile("app/components/navigation/HomeMenu.tsx"),
       readRepoFile("app/components/auth/AccountMenu.tsx"),
+      readRepoFile("app/components/auth/AnonymousAccountMenu.tsx"),
       readRepoFile("app/components/ui/BackButton.tsx"),
-      readRepoFile("app/components/auth/GlobalAccount.tsx"),
       readRepoFile(
         "app/components/navigation/navigationButtonStyles.ts"
       ),
@@ -292,7 +292,7 @@ test("global navigation triggers share stable pill interaction styles", async ()
   assert.match(homeMenu, /document\.addEventListener\("pointerdown"/);
   assert.match(homeMenu, /navigationTextTriggerClassName/);
   assert.match(accountMenu, /navigationTriggerBaseClassName/);
-  assert.match(globalAccount, /navigationTextTriggerClassName/);
+  assert.match(anonymousAccountMenu, /navigationTextTriggerClassName/);
   assert.match(backButton, /navigationTextTriggerClassName/);
   assert.match(styles, /rounded-full/);
   assert.match(styles, /border-2 border-orange-500\/70/);

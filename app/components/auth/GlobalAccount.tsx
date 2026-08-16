@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import AccountMenu from "@/app/components/auth/AccountMenu";
-import { navigationTextTriggerClassName } from "@/app/components/navigation/navigationButtonStyles";
+import AnonymousAccountMenu from "@/app/components/auth/AnonymousAccountMenu";
 import { useSponsorAnalytics } from "@/app/components/sponsors/SponsorAnalyticsProvider";
 import {
   GLOBAL_ACCOUNT_HIDDEN_STORAGE_KEY,
@@ -72,7 +71,7 @@ export default function GlobalAccount() {
     return () => controller.abort();
   }, [account, hydrated, visible]);
 
-  if (!hydrated) return null;
+  if (!hydrated || !visible) return null;
 
   const setVisibilityPreference = () => {
     if (hiddenOnSubpages) {
@@ -87,65 +86,38 @@ export default function GlobalAccount() {
   const positionClassName =
     pathname === "/" ? "right-3 top-[74px] sm:right-5" : "right-4 top-4";
 
-  const settingsButton = (
-    <button
-      type="button"
-      onClick={openSettings}
-      className={navigationTextTriggerClassName}
-    >
-      Settings
-    </button>
-  );
-
   return (
     <div
       data-global-account
       className={`fixed z-[70] ${positionClassName}`}
     >
-      {!visible ? (
-        settingsButton
-      ) : !account ? (
-        <div className="flex items-center justify-end gap-2">
-          {settingsButton}
-          <div
-            className="h-11 w-11 animate-pulse rounded-full border border-orange-500/30 bg-black/80"
-            aria-label="Account loading"
-          />
-        </div>
+      {!account ? (
+        <div
+          className="h-11 w-11 animate-pulse rounded-full border border-orange-500/30 bg-black/80"
+          aria-label="Account loading"
+        />
       ) : account.kind === "anonymous" ? (
-        <div className="flex flex-wrap justify-end gap-2">
-          {settingsButton}
-          <Link
-            href="/api/auth/discord/login?state=/"
-            className={navigationTextTriggerClassName}
-          >
-            Login with Discord
-          </Link>
-        </div>
+        <AnonymousAccountMenu
+          settingsAction={{ label: "Settings", onSelect: openSettings }}
+        />
       ) : account.kind === "dependency_unavailable" ? (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {settingsButton}
-          <div
-            className="rounded-full border border-white/10 bg-black/80 px-3 py-2 text-xs text-white/70"
-            role="status"
-          >
-            Account temporarily unavailable
-          </div>
+        <div
+          className="rounded-full border border-white/10 bg-black/80 px-3 py-2 text-xs text-white/70"
+          role="status"
+        >
+          Account temporarily unavailable
         </div>
       ) : account.kind === "restricted" ? (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {settingsButton}
-          <div className="flex items-center gap-3 rounded-full border border-red-400/30 bg-black/85 px-3 py-2 text-xs text-red-300">
-            <span>Account restricted</span>
-            <form action="/api/auth/logout?returnTo=/" method="post">
-              <button
-                type="submit"
-                className="cursor-pointer underline underline-offset-2"
-              >
-                Logout
-              </button>
-            </form>
-          </div>
+        <div className="flex items-center gap-3 rounded-full border border-red-400/30 bg-black/85 px-3 py-2 text-xs text-red-300">
+          <span>Account restricted</span>
+          <form action="/api/auth/logout?returnTo=/" method="post">
+            <button
+              type="submit"
+              className="cursor-pointer underline underline-offset-2"
+            >
+              Logout
+            </button>
+          </form>
         </div>
       ) : (
         <AccountMenu
