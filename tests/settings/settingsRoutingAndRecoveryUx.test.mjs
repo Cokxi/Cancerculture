@@ -46,6 +46,20 @@ test("Settings and Security are real direct-link routes with normal page scrolli
   assert.doesNotMatch(provider, /settingsOpen|settingsView|BaseOverlay|TwoFactorSettings/u);
 });
 
+test("Settings reuses the site Home control and established heading style", () => {
+  assert.match(settingsLayout, /import BackButton from "@\/app\/components\/ui\/BackButton"/u);
+  assert.match(settingsLayout, /<BackButton href="\/" label="Home" \/>/u);
+  assert.doesNotMatch(settingsLayout, /← Home|import Link from "next\/link"/u);
+
+  for (const page of [settingsLayout, settingsNavigation, settingsPage, securityPage, sponsorPage, sponsorSettings]) {
+    assert.match(page, /font-\['Permanent_Marker'\]/u);
+    assert.match(page, /text-\[var\(--orange-main\)\]/u);
+  }
+
+  assert.match(twoFactor, /id="manage-two-factor-title"[^>]+font-\['Permanent_Marker'\][^>]+text-\[var\(--orange-main\)\]/u);
+  assert.match(twoFactor, /id="disable-two-factor-title"[^>]+font-\['Permanent_Marker'\][^>]+text-red-100/u);
+});
+
 test("anonymous Settings keeps privacy controls public while Security asks for Discord login", () => {
   assert.doesNotMatch(`${settingsPage}\n${sponsorPage}`, /requireSession|redirect\("\/403"\)/u);
   assert.match(sponsorPage, /available to anonymous and signed-in/u);

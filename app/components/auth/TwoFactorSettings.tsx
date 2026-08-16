@@ -287,7 +287,7 @@ export default function TwoFactorSettings() {
   if (!status && loadErrorCode === "NOT_AUTHENTICATED") {
     return (
       <section className="rounded-2xl border border-orange-300/25 bg-orange-950/15 p-5 sm:p-6" aria-labelledby="security-sign-in-title">
-        <h3 id="security-sign-in-title" className="text-lg font-semibold text-orange-100">
+        <h3 id="security-sign-in-title" className="font-['Permanent_Marker'] text-lg tracking-wide text-[var(--orange-main)]">
           Sign in to manage account security
         </h3>
         <p className="mt-3 text-sm leading-relaxed text-white/70">
@@ -315,7 +315,7 @@ export default function TwoFactorSettings() {
 
       {recoveryCodes ? (
         <section className="rounded-xl border border-orange-300/40 bg-orange-950/20 p-4" aria-labelledby="recovery-codes-title">
-          <h3 id="recovery-codes-title" className="font-semibold text-orange-200">Save these recovery codes now</h3>
+          <h3 id="recovery-codes-title" className="font-['Permanent_Marker'] tracking-wide text-[var(--orange-main)]">Save these recovery codes now</h3>
           <p className="mt-2 text-sm leading-relaxed text-white/70">This is the only time these codes are shown. Each code works once. Replacing them invalidates every older code immediately.</p>
           <ul className="mt-4 grid gap-2 font-mono text-sm sm:grid-cols-2">
             {recoveryCodes.map((code) => <li key={code} className="rounded bg-black/50 px-3 py-2">{code}</li>)}
@@ -330,7 +330,7 @@ export default function TwoFactorSettings() {
 
       {enrollment ? (
         <section className="rounded-xl border border-white/10 bg-black/30 p-4">
-          <h3 className="font-semibold">Activate the new authenticator</h3>
+          <h3 className="font-['Permanent_Marker'] tracking-wide text-[var(--orange-main)]">Activate the new authenticator</h3>
           <p className="mt-2 text-sm text-white/65">Scan this QR code with Google Authenticator or another standard TOTP app. It is shown only for this pending enrollment.</p>
           {/* This data URL is generated locally from the one-time otpauth contract. */}
           <Image
@@ -370,7 +370,7 @@ export default function TwoFactorSettings() {
           </section>
 
           <section className="rounded-2xl border border-orange-300/35 bg-orange-950/20 p-5 sm:p-6" aria-labelledby="lost-authenticator-title">
-            <h3 id="lost-authenticator-title" className="text-xl font-semibold text-orange-100">
+            <h3 id="lost-authenticator-title" className="font-['Permanent_Marker'] text-xl tracking-wide text-[var(--orange-main)]">
               Lost your authenticator?
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-white/75">
@@ -379,7 +379,7 @@ export default function TwoFactorSettings() {
             </p>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-                <h4 className="font-semibold text-white">Use a recovery code</h4>
+                <h4 className="font-['Permanent_Marker'] tracking-wide text-[var(--orange-main)]">Use a recovery code</h4>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
                   Enter one unused code here to authorize factor replacement,
                   then scan the new QR code and activate the new authenticator.
@@ -396,7 +396,7 @@ export default function TwoFactorSettings() {
                 </button>
               </div>
               <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-                <h4 className="font-semibold text-white">Use verified backup email</h4>
+                <h4 className="font-['Permanent_Marker'] tracking-wide text-[var(--orange-main)]">Use verified backup email</h4>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
                   {status.recoveryEmail
                     ? `Request a one-time recovery email at ${status.recoveryEmail.masked}. No QR code or recovery-code set is sent by email.`
@@ -419,7 +419,7 @@ export default function TwoFactorSettings() {
 
             {recoveryMethod === "backup_email" && status.recoveryEmail ? (
               <div className="mt-5 rounded-xl border border-orange-300/25 bg-black/35 p-4 sm:p-5">
-                <h4 ref={emailRecoveryHeadingRef} tabIndex={-1} className="font-semibold outline-none">
+                <h4 ref={emailRecoveryHeadingRef} tabIndex={-1} className="font-['Permanent_Marker'] tracking-wide text-[var(--orange-main)] outline-none">
                   Recover with your verified backup email
                 </h4>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">
@@ -452,22 +452,22 @@ export default function TwoFactorSettings() {
           </section>
 
           <section aria-labelledby="manage-two-factor-title">
-            <h3 id="manage-two-factor-title" className="text-xl font-semibold text-white">
+            <h3 id="manage-two-factor-title" className="font-['Permanent_Marker'] text-xl tracking-wide text-[var(--orange-main)]">
               Manage two-factor authentication
             </h3>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-                <h4 className="font-semibold">Authenticator</h4>
+                <h4 className="font-['Permanent_Marker'] tracking-wide text-[var(--orange-main)]">Authenticator</h4>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">Move 2FA to a new authenticator while you still have a current authenticator or recovery code.</p>
                 <button type="button" onClick={() => { setRecoveryMethod(null); setAction("replace_factor"); }} className={`${buttonClass} mt-4 w-full`}>Change authenticator</button>
               </div>
               <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-                <h4 className="font-semibold">Recovery codes</h4>
+                <h4 className="font-['Permanent_Marker'] tracking-wide text-[var(--orange-main)]">Recovery codes</h4>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">Create a fresh set of ten one-time codes. Every code from the previous set becomes invalid immediately.</p>
                 <button type="button" onClick={() => { setRecoveryMethod(null); setAction("replace_codes"); }} className={`${buttonClass} mt-4 w-full`}>Replace recovery codes</button>
               </div>
               <div className="rounded-xl border border-white/10 bg-black/30 p-4 md:col-span-2">
-                <h4 className="font-semibold">Verified backup email</h4>
+                <h4 className="font-['Permanent_Marker'] tracking-wide text-[var(--orange-main)]">Verified backup email</h4>
                 <p className="mt-2 text-sm leading-relaxed text-white/65">Add or change the optional automated recovery path. Backup-email changes require a current authenticator code; recovery codes are not accepted.</p>
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <button type="button" onClick={() => { setRecoveryMethod(null); setAwaitingBackupEmailVerification(false); setAction("backup_email"); }} className={buttonClass}>{status.recoveryEmail ? "Change backup email" : "Add backup email"}</button>
@@ -479,7 +479,7 @@ export default function TwoFactorSettings() {
 
           {action ? (
             <section className="rounded-xl border border-orange-300/25 bg-black/35 p-4 sm:p-5">
-              <h3 ref={actionHeadingRef} tabIndex={-1} className="font-semibold outline-none">
+              <h3 ref={actionHeadingRef} tabIndex={-1} className="font-['Permanent_Marker'] tracking-wide text-[var(--orange-main)] outline-none">
                 {action === "replace_factor" ? recoveryMethod === "recovery_code" ? "Use a recovery code to replace your authenticator" : "Change authenticator" : action === "replace_codes" ? "Replace all recovery codes" : action === "backup_email" ? "Verify a backup email" : action === "remove_backup_email" ? "Remove backup email" : "Disable two-factor authentication"}
               </h3>
               <p className="mt-2 text-sm leading-relaxed text-white/65">
@@ -510,7 +510,7 @@ export default function TwoFactorSettings() {
           ) : null}
 
           <section className="rounded-xl border border-red-300/20 bg-red-950/15 p-4 sm:p-5" aria-labelledby="disable-two-factor-title">
-            <h3 id="disable-two-factor-title" className="font-semibold text-red-100">Turn off two-factor authentication</h3>
+            <h3 id="disable-two-factor-title" className="font-['Permanent_Marker'] tracking-wide text-red-100">Turn off two-factor authentication</h3>
             <p className="mt-2 text-sm leading-relaxed text-white/65">Disabling 2FA removes the authenticator, recovery codes, backup email, and active step-up access.</p>
             <button type="button" onClick={() => { setRecoveryMethod(null); setAction("deactivate"); }} className={`${buttonClass} mt-4 border-red-300/30 text-red-100`}>Disable two-factor authentication</button>
           </section>

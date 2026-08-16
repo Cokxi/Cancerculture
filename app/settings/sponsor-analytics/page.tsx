@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 export default function SponsorAnalyticsSettingsPage() {
   return (
     <section aria-labelledby="sponsor-settings-page-title" className="max-w-3xl">
-      <h2 id="sponsor-settings-page-title" className="text-2xl font-semibold text-white sm:text-3xl">
+      <h2 id="sponsor-settings-page-title" className="font-['Permanent_Marker'] text-2xl tracking-wide text-[var(--orange-main)] sm:text-3xl">
         Sponsor analytics
       </h2>
       <p className="mt-3 text-sm leading-relaxed text-white/70 sm:text-base">

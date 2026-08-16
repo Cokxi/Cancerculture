@@ -14,7 +14,7 @@ export default function BackButton({
   label = "Home",
   nativeNavigation = false,
 }: BackButtonProps) {
-  const className = `fixed left-4 top-4 z-[70] font-[var(--font-marker)] ${navigationTextTriggerClassName}`;
+  const className = `fixed left-4 top-4 z-[70] font-['Permanent_Marker'] ${navigationTextTriggerClassName}`;
 
   if (nativeNavigation) {
     return (

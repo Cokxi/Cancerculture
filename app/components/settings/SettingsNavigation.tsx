@@ -10,7 +10,7 @@ const navigationItems = [
 ] as const;
 
 const navigationClassName =
-  "min-h-11 rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white outline-none transition hover:border-orange-300/60 hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-orange-300 aria-[current=page]:border-orange-300 aria-[current=page]:bg-orange-500/15";
+  "min-h-11 rounded-lg border border-white/15 px-4 py-2 font-['Permanent_Marker'] text-sm tracking-wide text-[var(--orange-main)] outline-none transition hover:border-[var(--orange-main)]/60 hover:bg-[var(--orange-main)]/5 focus-visible:ring-2 focus-visible:ring-[var(--orange-main)] aria-[current=page]:border-[var(--orange-main)] aria-[current=page]:bg-[var(--orange-main)]/15";
 
 export default function SettingsNavigation() {
   const pathname = usePathname();

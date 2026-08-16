@@ -35,7 +35,7 @@ export default function SponsorAnalyticsSettings() {
       aria-busy={loadState === "loading" || saving}
       className="rounded-2xl border border-white/10 bg-black/35 p-5 sm:p-6"
     >
-      <h2 id="sponsor-analytics-settings-title" className="text-xl font-semibold text-white">
+      <h2 id="sponsor-analytics-settings-title" className="font-['Permanent_Marker'] text-xl tracking-wide text-[var(--orange-main)]">
         Sponsor analytics preference
       </h2>
       <p className="mt-3 text-sm leading-relaxed text-white/70">
