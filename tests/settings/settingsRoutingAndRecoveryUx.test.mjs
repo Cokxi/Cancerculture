@@ -60,11 +60,6 @@ test("lost-authenticator choices distinguish recovery code and verified backup e
   assert.match(twoFactor, /Lost your authenticator\?/u);
   assert.match(twoFactor, /Use a recovery code/u);
   assert.match(twoFactor, /Use verified backup email/u);
-  assert.match(twoFactor, /entered directly on this CancerCulture page/u);
-  assert.match(twoFactor, /never in Google Authenticator/u);
-  assert.match(twoFactor, /Each code works only once/u);
-  assert.match(twoFactor, /does not replace Discord login or your website session/u);
-  assert.match(twoFactor, /not accepted in the Team Area verification field/u);
   assert.match(twoFactor, /beginEnrollment\("email_recovery"\)/u);
   assert.match(twoFactor, /Start new authenticator setup/u);
 });

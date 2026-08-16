@@ -377,12 +377,6 @@ export default function TwoFactorSettings() {
               Stay signed in with Discord and choose one of the recovery paths
               below. Both paths finish by setting up a new authenticator.
             </p>
-            <div className="mt-4 rounded-lg border border-white/10 bg-black/30 p-4 text-sm leading-relaxed text-white/70">
-              Recovery codes are entered directly on this CancerCulture page,
-              never in Google Authenticator. Each code works only once. A code
-              does not replace Discord login or your website session, and it is
-              not accepted in the Team Area verification field.
-            </div>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <div className="rounded-xl border border-white/10 bg-black/30 p-4">
                 <h4 className="font-semibold text-white">Use a recovery code</h4>
@@ -517,7 +511,7 @@ export default function TwoFactorSettings() {
 
           <section className="rounded-xl border border-red-300/20 bg-red-950/15 p-4 sm:p-5" aria-labelledby="disable-two-factor-title">
             <h3 id="disable-two-factor-title" className="font-semibold text-red-100">Turn off two-factor authentication</h3>
-            <p className="mt-2 text-sm leading-relaxed text-white/65">Disabling 2FA removes the authenticator, recovery codes, backup email, and active step-up access. Team Area access remains unavailable until 2FA is active again.</p>
+            <p className="mt-2 text-sm leading-relaxed text-white/65">Disabling 2FA removes the authenticator, recovery codes, backup email, and active step-up access.</p>
             <button type="button" onClick={() => { setRecoveryMethod(null); setAction("deactivate"); }} className={`${buttonClass} mt-4 border-red-300/30 text-red-100`}>Disable two-factor authentication</button>
           </section>
         </>

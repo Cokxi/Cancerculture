@@ -1,5 +1,6 @@
 import BackButton from "@/app/components/ui/BackButton";
 import AvatarUpload from "@/app/components/ui/AvatarUpload";
+import SolProfileWalletSettings from "@/app/components/auth/SolProfileWalletSettings";
 import Image from "next/image";
 import { getSessionState } from "@/lib/auth/sessionState";
 import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
@@ -263,6 +264,8 @@ export default async function MyProfilePage() {
             </div>
           </div>
         </div>
+
+        <SolProfileWalletSettings />
 
         <div className="space-y-4">
           <ProfileSocialsSection

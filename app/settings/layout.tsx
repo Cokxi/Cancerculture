@@ -24,11 +24,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           <h1 className="mt-2 font-[var(--font-marker)] text-4xl text-orange-400 sm:text-5xl">
             Settings
           </h1>
-          <p className="mt-4 leading-relaxed text-white/70">
-            Manage privacy preferences and, when signed in, the security of your
-            CancerCulture account. These are normal pages, so direct links and
-            browser back and forward navigation work as expected.
-          </p>
         </header>
         <SettingsNavigation />
         <div className="mt-8">{children}</div>

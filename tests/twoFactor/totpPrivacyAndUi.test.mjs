@@ -49,8 +49,6 @@ test("Settings Hub exposes an extensible own-account two-factor category with ex
   assert.match(securityPage, /<TwoFactorSettings/u);
   assert.match(ui, /support and administrators cannot restore or bypass this factor/u);
   assert.match(ui, /invalidates every older code immediately/u);
-  assert.match(ui, /Recovery codes are entered directly on this CancerCulture page/u);
-  assert.match(ui, /not accepted in the Team Area verification field/u);
   assert.match(ui, /recovery codes are not accepted/u);
 });
 
