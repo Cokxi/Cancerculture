@@ -44,6 +44,7 @@ const expectedActionKeys = [
   "rules.manage",
   "faq.manage",
   "homepage_content.manage",
+  "winners.recipient_corrections.manage",
 ];
 
 test("the permission presentation exposes exactly View and Actions tabs", () => {
@@ -64,7 +65,7 @@ test("every active capability is assigned once to its semantic tab", () => {
   assert.deepEqual(viewKeys, expectedViewKeys);
   assert.deepEqual(actionKeys, expectedActionKeys);
   assert.equal(viewKeys.length, 20);
-  assert.equal(actionKeys.length, 14);
+  assert.equal(actionKeys.length, 15);
   assert.equal(viewKeys.length + actionKeys.length, ACTIVE_TEAM_CAPABILITY_KEYS.length);
   assert.equal(new Set([...viewKeys, ...actionKeys]).size, ACTIVE_TEAM_CAPABILITY_KEYS.length);
   assert.equal(

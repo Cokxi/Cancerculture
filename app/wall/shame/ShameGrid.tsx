@@ -186,6 +186,12 @@ export default function ShameGrid({
                 />
               )}
 
+              {winner.claim_expired ? (
+                <div className="absolute left-2 top-2 rounded-full border border-yellow-200/30 bg-black/80 px-2 py-1 text-[10px] font-semibold text-yellow-100">
+                  Not claimed in time
+                </div>
+              ) : null}
+
               <div
                 className="
                   absolute
@@ -327,6 +333,19 @@ export default function ShameGrid({
                           </span>
                         )}
                     </div>
+                    {active.wallet_address ? (
+                      <div>
+                        <strong>Confirmed winner recipient:</strong>
+                        <code className="mt-1 block max-w-full select-all break-all rounded bg-black/30 px-2 py-1 font-mono text-xs">
+                          {active.wallet_address}
+                        </code>
+                      </div>
+                    ) : null}
+                    {active.claim_expired ? (
+                      <p className="rounded-md border border-yellow-300/25 bg-yellow-950/20 px-3 py-2 text-sm text-yellow-100">
+                        Prize was not claimed within the 24-hour window.
+                      </p>
+                    ) : null}
                   </div>
 
                 </div>

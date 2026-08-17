@@ -231,7 +231,7 @@ export default function SolProfileWalletSettings() {
   }
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-black/30 p-5 sm:p-6" aria-labelledby="sol-wallet-title" aria-busy={busy}>
+    <section id="sol-wallet" className="scroll-mt-6 rounded-2xl border border-white/10 bg-black/30 p-5 sm:p-6" aria-labelledby="sol-wallet-title" aria-busy={busy}>
       <h3 id="sol-wallet-title" className="text-xl font-semibold text-white">
         My Solana Wallet
       </h3>

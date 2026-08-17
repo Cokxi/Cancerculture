@@ -5,9 +5,11 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
-test("Winner Payouts exposes the exact finalized payout projection", async () => {
-  const [page, copyButton] = await Promise.all([
+test("Winner Payouts exposes only the hardened Claim projection", async () => {
+  const [page, service, correctionRoute, copyButton] = await Promise.all([
     source("app/admin/logs/winners/page.tsx"),
+    source("lib/winnerClaims/service.server.ts"),
+    source("app/api/admin/winner-recipient-corrections/route.ts"),
     source("app/admin/logs/winners/CopyWalletButton.tsx"),
   ]);
 
@@ -15,16 +17,15 @@ test("Winner Payouts exposes the exact finalized payout projection", async () =>
     page,
     /requireTeamCapabilityPage\(\s*"winners\.payouts\.view"/
   );
-  assert.match(page, /\.from\("winner_public_profiles"\)/);
-  assert.match(
-    page,
-    /cycle_id, submission_id, vote_count, win_share, wallet_address, payout_choice, split_percent, charity/
-  );
-  assert.doesNotMatch(page, /private_data|submission_private|seed_phrase|secret/iu);
-  assert.match(
-    page,
-    /winner\.wallet_address \? \([\s\S]*CopyWalletButton[\s\S]*walletAddress=\{winner\.wallet_address\}/
-  );
+  assert.match(page, /getTeamWinnerClaims/);
+  assert.doesNotMatch(page, /\.from\("winner_public_profiles"\)/);
+  assert.match(service, /rpc\("get_team_winner_claims"/);
+  assert.match(page, /winner\.status === "confirmed"[\s\S]*winner\.walletAddress/);
+  assert.match(page, /Wallet pending winner confirmation/);
+  assert.match(page, /Donation — no claim required/);
+  assert.match(correctionRoute, /requireDynamicTeamCapability\("winners\.payouts\.view"\)/);
+  assert.match(correctionRoute, /"winners\.recipient_corrections\.manage"/);
+  assert.ok(correctionRoute.indexOf('"winners.payouts.view"') < correctionRoute.indexOf('"winners.recipient_corrections.manage"'));
   assert.match(copyButton, /navigator\.clipboard\.writeText\(walletAddress\)/);
   assert.match(copyButton, /aria-label="Copy payout wallet address"/);
   assert.match(copyButton, /Copied/);

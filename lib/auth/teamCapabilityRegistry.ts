@@ -39,6 +39,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "homepage_content.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
+  "winners.recipient_corrections.manage",
 ] as const);
 
 export type RegisteredTeamCapabilityKey =
@@ -947,25 +948,50 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     key: "winners.payouts.view",
     displayName: "View Winner Payouts",
     description:
-      "Review finalized winner identities, prize shares, payout choices, charities, and required payout wallet addresses without changing payouts.",
+      "Review finalized winner identities, prize shares, payout choices, charities, Claim status, and confirmed locked recipient addresses without changing Claims or payouts.",
     category: "Winner & Payouts",
     includedActions: [
       "View finalized winners grouped by cycle with theme, submission, identity, votes, and prize share.",
-      "View payout choice, charity or split details, and wallet addresses only where a winner keeps part of the prize.",
-      "Copy an existing payout wallet address exactly through the protected view.",
+      "View payout choice, charity or split details for every finalized winner.",
+      "View all six canonical Claim states, deadlines, and terminal timestamps.",
+      "View and copy an exact recipient only after a confirmed keep or split Claim.",
     ],
     excludedActions: [
-      "Initiating, confirming, marking, changing, retrying, or otherwise managing payouts.",
+      "Viewing mutable Profile Wallets, Upload snapshots, correction drafts, or unconfirmed, declined, expired, or donation recipients.",
+      "Initiating, confirming, declining, reopening, or otherwise changing Claims, recipient corrections, or payouts.",
       "Editing winners, rankings, votes, refunds, disqualifications, or finalized cycle history.",
-      "Viewing non-winner private submission data, unrelated wallets, secrets, or infrastructure details.",
-      "Viewing sponsor reports, unrelated logs, or managing team roles and permissions.",
+      "Viewing non-winner private submission data, unrelated wallets, secrets, sponsor reports, unrelated logs, or infrastructure details.",
     ],
     riskLevel: "high",
     lifecycle: "active",
     assignableToNonAdmin: true,
-    implementationVersion: 1,
+    implementationVersion: 2,
     definitionHash:
-      "d482f10a0e15ea2f166f633e7cf8a27760987ea748fddc4b5c34aa6abde978e9",
+      "9de22d0055e9c8b6b8cb701e4f6f554aa4c241ab0cbfb0a4709ecc9841702a54",
+  }),
+  "winners.recipient_corrections.manage": defineCapability({
+    key: "winners.recipient_corrections.manage",
+    displayName: "Manage Winner Recipient Corrections",
+    description:
+      "Propose versioned SOL recipient corrections for eligible manual-wallet winners while preserving winner-only final confirmation.",
+    category: "Winner & Payouts",
+    includedActions: [
+      "Propose a canonically valid replacement recipient for an eligible unconfirmed manual-wallet Claim.",
+      "Replace an earlier proposal as a new version and start a fresh 24-hour winner review window.",
+      "Review the correction version and exact private proposal needed for this correction work.",
+    ],
+    excludedActions: [
+      "Confirming, declining, reopening, or otherwise acting on behalf of a winner.",
+      "Changing Profile Wallets, Submission history, payout choices, split percentages, charities, ranks, votes, or finalized results.",
+      "Managing actual payouts, amounts, transactions, Treasury keys, publication, or redistribution.",
+      "Opening or authenticating Wallet Issue reports, viewing mutable Profile Wallets, or viewing unrelated wallets, secrets, logs, or infrastructure details.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 2,
+    definitionHash:
+      "e569fa66e8f9c2794fe030c4e034ebf8a7e458c6ddccf2a868d2cac1fd5ea2bd",
   }),
 });
 

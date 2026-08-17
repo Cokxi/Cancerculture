@@ -11,9 +11,14 @@ import type {
   ProfileSubmission,
 } from "@/lib/profile/getUserProfileData";
 import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
+import { getSolProfileWallet } from "@/lib/solana/profileWallet.server";
 import ProfileSocialsSection from "@/app/components/profile/ProfileSocialsSection";
 import { redirect } from "next/navigation";
 import ProfileSections from "./ProfileSections";
+import {
+  getOwnWinnerClaims,
+} from "@/lib/winnerClaims/service.server";
+import PendingWinnerClaims from "./PendingWinnerClaims";
 
 const MY_PROFILE_PATH = "/my-profile";
 const MY_PROFILE_LOGIN_PATH =
@@ -57,8 +62,10 @@ function renderPublicVisibilityStatus(
 
 function CurrentSubmissionCard({
   submission,
+  showWalletAddress,
 }: {
   submission: CurrentProfileSubmission;
+  showWalletAddress: boolean;
 }) {
   const privateData = submission.privateData;
 
@@ -128,25 +135,27 @@ function CurrentSubmissionCard({
           <div className="font-semibold text-[var(--orange-dark)]">
             Your saved submission details
           </div>
-          <div className="mt-2 min-w-0">
-            <strong>Wallet:</strong>
-            {privateData.wallet_address ? (
-              <code
-                className="mt-1 block max-w-full overflow-x-auto whitespace-nowrap rounded-md bg-black/30 px-2 py-1 font-mono text-sm text-gray-100 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                title={privateData.wallet_address}
-                tabIndex={0}
-              >
-                {privateData.wallet_address}
-              </code>
-            ) : (
-              <span>
-                {" "}
-                {privateData.payout_choice === "donate"
-                  ? "No wallet required for full donation"
-                  : "Not provided"}
-              </span>
-            )}
-          </div>
+          {showWalletAddress && (
+            <div className="mt-2 min-w-0">
+              <strong>Wallet:</strong>
+              {privateData.wallet_address ? (
+                <code
+                  className="mt-1 block max-w-full overflow-x-auto whitespace-nowrap rounded-md bg-black/30 px-2 py-1 font-mono text-sm text-gray-100 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  title={privateData.wallet_address}
+                  tabIndex={0}
+                >
+                  {privateData.wallet_address}
+                </code>
+              ) : (
+                <span>
+                  {" "}
+                  {privateData.payout_choice === "donate"
+                    ? "No wallet required for full donation"
+                    : "Not provided"}
+                </span>
+              )}
+            </div>
+          )}
           <div className="mt-1">
             <strong>Payout:</strong> {privateData.payout_choice}
           </div>
@@ -213,6 +222,11 @@ export default async function MyProfilePage() {
   }
 
   const session = sessionState.session;
+  const [profileData, profileWallet, winnings] = await Promise.all([
+    getUserProfileData(session.discord_user_id),
+    getSolProfileWallet(session).catch(() => null),
+    getOwnWinnerClaims(session).catch(() => null),
+  ]);
   const {
     activeCycleId,
     activeCycleNumber,
@@ -227,7 +241,10 @@ export default async function MyProfilePage() {
     submissions,
     uploadQuota,
     votes,
-  } = await getUserProfileData(session.discord_user_id);
+  } = profileData;
+  const hasSavedProfileWallet =
+    profileWallet?.factorActive === true &&
+    profileWallet.walletAddress !== null;
 
   return (
     <>
@@ -278,6 +295,8 @@ export default async function MyProfilePage() {
 
         <SolProfileWalletSettings />
 
+        <PendingWinnerClaims items={winnings?.items ?? null} databaseTime={winnings?.databaseTime ?? null} />
+
         <div className="space-y-4">
           <ProfileSocialsSection
             initialSocialLinks={socialLinks}
@@ -311,6 +330,7 @@ export default async function MyProfilePage() {
                 <CurrentSubmissionCard
                   key={submission.id}
                   submission={submission}
+                  showWalletAddress={!hasSavedProfileWallet}
                 />
               ))}
             </div>
@@ -333,7 +353,11 @@ export default async function MyProfilePage() {
           )}
         </div>
 
-        <ProfileSections submissions={submissions} votes={votes} />
+        <ProfileSections
+          submissions={submissions}
+          votes={votes}
+          winnings={winnings?.items ?? null}
+        />
       </div>
     </>
   );

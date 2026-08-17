@@ -97,7 +97,7 @@ test("private batch input is bounded to the contractual maximum 20", async () =>
   assert.equal(state.inCalls[0][1].length, 20);
 });
 
-test("Current Cycle cards wrap responsively without stretching or leaking wallets", () => {
+test("Current Cycle cards wrap responsively and hide stale Submission wallets when a Profile Wallet is saved", () => {
   assert.match(
     myProfilePage,
     /<div className="relative left-1\/2 w-\[calc\(100vw-2rem\)\] max-w-\[120rem\][^"]*">[\s\S]*?<h2[\s\S]*?Current Cycle/u
@@ -121,7 +121,16 @@ test("Current Cycle cards wrap responsively without stretching or leaking wallet
   );
   assert.match(
     myProfilePage,
-    /overflow-x-auto whitespace-nowrap[\s\S]*\[scrollbar-width:none\][\s\S]*title=\{privateData\.wallet_address\}[\s\S]*tabIndex=\{0\}/u
+    /\{showWalletAddress && \([\s\S]*overflow-x-auto whitespace-nowrap[\s\S]*\[scrollbar-width:none\][\s\S]*title=\{privateData\.wallet_address\}[\s\S]*tabIndex=\{0\}/u
+  );
+  assert.match(myProfilePage, /getSolProfileWallet\(session\)\.catch\(\(\) => null\)/u);
+  assert.match(
+    myProfilePage,
+    /profileWallet\?\.factorActive === true &&[\s\S]*profileWallet\.walletAddress !== null/u
+  );
+  assert.match(
+    myProfilePage,
+    /showWalletAddress=\{!hasSavedProfileWallet\}/u
   );
   assert.doesNotMatch(myProfilePage, /gap-4 sm:grid-cols-2/u);
 });

@@ -57,12 +57,16 @@ test("profile data loads only after an authenticated session", async () => {
     "const session = sessionState.session"
   );
   const profileLookup = page.indexOf(
-    "await getUserProfileData(session.discord_user_id)"
+    "getUserProfileData(session.discord_user_id)"
+  );
+  const walletLookup = page.indexOf(
+    "getSolProfileWallet(session)"
   );
 
   assert.ok(sessionState > -1);
   assert.ok(authenticatedSession > sessionState);
   assert.ok(profileLookup > authenticatedSession);
+  assert.ok(walletLookup > authenticatedSession);
   assert.doesNotMatch(
     page,
     /team_members|teamRole|teamRoles|requireAdmin|requireModOrAdmin/

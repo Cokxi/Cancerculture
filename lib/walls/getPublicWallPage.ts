@@ -24,6 +24,7 @@ import {
   getPublicCycleNumberMap,
   requirePublicCycleNumber,
 } from "@/lib/cycles/publicCycleNumber";
+import { getServerWriteGateMode } from "@/lib/writeGate.server";
 
 export type PublicWall = "fame" | "shame";
 
@@ -35,6 +36,8 @@ type WinnerRow = {
   payout_choice: string;
   split_percent: number | null;
   charity: string | null;
+  wallet_address: string | null;
+  claim_expired: boolean;
   vote_count: number | null;
   created_at: string | null;
 };
@@ -60,6 +63,18 @@ export async function getPublicWallPage({
   cursor?: string | null;
   wall: PublicWall;
 }): Promise<PublicPage<PublicWallItem>> {
+  if (getServerWriteGateMode() === "open") {
+    const transitionResult = await supabaseServer.rpc(
+      "process_due_winner_claim_transitions",
+      { p_claim_id: null }
+    );
+    if (transitionResult.error) {
+      throw new Error(
+        `WALL_CLAIM_TRANSITION_FAILED:${transitionResult.error.code}`
+      );
+    }
+  }
+
   const scope =
     wall === "fame"
       ? PUBLIC_PAGINATION_SCOPES.fame
@@ -76,7 +91,7 @@ export async function getPublicWallPage({
   let query = supabaseServer
     .from("winner_public_profiles")
     .select(
-      "id, submission_id, r2_key, cycle_id, payout_choice, split_percent, charity, vote_count, created_at"
+      "id, submission_id, r2_key, cycle_id, payout_choice, split_percent, charity, wallet_address, claim_expired, vote_count, created_at"
     )
     .eq("wall", wall)
     .order("created_at", { ascending: false })
@@ -227,6 +242,11 @@ export async function getPublicWallPage({
       payout_choice: winner.payout_choice,
       split_percent: winner.split_percent,
       charity: winner.charity,
+      wallet_address:
+        winner.payout_choice === "keep" || winner.payout_choice === "split"
+          ? winner.wallet_address
+          : null,
+      claim_expired: winner.claim_expired === true,
       vote_count: winner.vote_count,
       public_visibility_status:
         normalizeSubmissionPublicVisibilityStatus(

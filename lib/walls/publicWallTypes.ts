@@ -14,6 +14,8 @@ export type PublicWallItem = {
   payout_choice: string;
   split_percent: number | null;
   charity: string | null;
+  wallet_address: string | null;
+  claim_expired: boolean;
   vote_count: number | null;
   public_visibility_status: SubmissionPublicVisibilityStatus;
   public_visibility_reason_code: string | null;

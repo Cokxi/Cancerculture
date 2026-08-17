@@ -10,6 +10,16 @@ import type {
   ProfileSubmission,
   ProfileVote,
 } from "@/lib/profile/getUserProfileData";
+import type { OwnWinnerClaimSummary } from "@/lib/winnerClaims/service.server";
+
+function winnerStatusLabel(status: OwnWinnerClaimSummary["status"]) {
+  if (status === "not_required") return "Donation — no claim required";
+  if (status === "correction_pending") return "Wallet correction pending";
+  if (status === "confirmed") return "Claimed";
+  if (status === "declined") return "Declined";
+  if (status === "expired") return "Not claimed within 24 hours";
+  return "Unclaimed";
+}
 
 function Section({
   title,
@@ -23,6 +33,7 @@ function Section({
   return (
     <div className="rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/30">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left font-[var(--font-marker)] tracking-wide text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
       >
@@ -70,9 +81,11 @@ function renderPublicVisibilityStatus(
 export default function ProfileSections({
   submissions,
   votes,
+  winnings,
 }: {
   submissions: ProfileSubmission[];
   votes: ProfileVote[];
+  winnings: OwnWinnerClaimSummary[] | null;
 }) {
   const [hidingSubmissionId, setHidingSubmissionId] =
     useState<number | null>(null);
@@ -261,6 +274,35 @@ export default function ProfileSections({
         ) : (
           <div className="text-sm text-gray-400">
             No submissions yet.
+          </div>
+        )}
+      </Section>
+
+      <Section title="My Wins">
+        {winnings === null ? (
+          <p className="text-sm text-gray-400">Winner Claims are temporarily unavailable.</p>
+        ) : winnings.filter((claim) => claim.status !== "unclaimed").length === 0 ? (
+          <p className="text-sm text-gray-400">No completed or pending-correction wins yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {winnings.filter((claim) => claim.status !== "unclaimed").map((claim) => (
+              <article key={claim.claimId} className="rounded-lg border border-[var(--orange-dark)]/40 bg-black/40 p-4 text-white">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">Cycle #{claim.cycleNumber ?? claim.cycleId} · Submission #{claim.submissionId}</p>
+                    <p className="mt-1 text-sm text-gray-300">
+                      {claim.payoutChoice === "keep" ? "Keep 100%" : claim.payoutChoice === "donate" ? `Donate 100%${claim.charity ? ` to ${claim.charity}` : ""}` : `Keep ${claim.splitPercent}% / donate ${100 - (claim.splitPercent ?? 0)}%${claim.charity ? ` to ${claim.charity}` : ""}`}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/75">{winnerStatusLabel(claim.status)}</span>
+                </div>
+                {claim.status !== "not_required" ? (
+                  <Link href={`/my-profile/winnings/${claim.claimId}`} className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-[var(--orange-dark)]/40 px-4 py-2 text-sm text-[var(--orange-dark)] outline-none transition hover:bg-[var(--orange-dark)]/10 focus-visible:ring-2 focus-visible:ring-[var(--orange-dark)]">
+                    View Claim
+                  </Link>
+                ) : null}
+              </article>
+            ))}
           </div>
         )}
       </Section>

@@ -51,6 +51,7 @@ const expectedKeys = [
   "homepage_content.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
+  "winners.recipient_corrections.manage",
 ];
 
 function canonicalDefinition(definition) {
@@ -69,7 +70,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains thirty-eight known, thirty-four active, and no staged capability keys", () => {
+test("the server registry contains thirty-nine known, thirty-five active, and no staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -183,7 +184,9 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "sponsorships.reports.view":
       "421c31be87cac7864a7fb6fad229e614befed4d38374f0fc05e285ffaa24d655",
     "winners.payouts.view":
-      "d482f10a0e15ea2f166f633e7cf8a27760987ea748fddc4b5c34aa6abde978e9",
+      "9de22d0055e9c8b6b8cb701e4f6f554aa4c241ab0cbfb0a4709ecc9841702a54",
+    "winners.recipient_corrections.manage":
+      "e569fa66e8f9c2794fe030c4e034ebf8a7e458c6ddccf2a868d2cac1fd5ea2bd",
   };
 
   for (const key of expectedKeys) {
@@ -212,7 +215,9 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       activatedKeys.includes(key) ||
       key.startsWith("users.flag.") ||
       key === "users.directory.full.view" ||
-      key === "logs.vote_refunds.view";
+      key === "logs.vote_refunds.view" ||
+      key === "winners.payouts.view" ||
+      key === "winners.recipient_corrections.manage";
     const versionFour = key === "submissions.reports.review";
     assert.equal(definition.assignableToNonAdmin, !deprecated);
     assert.equal(

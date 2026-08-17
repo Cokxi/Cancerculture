@@ -44,8 +44,17 @@ test("the migration adds exactly two high-risk read capabilities with zero grant
       .update(JSON.stringify(canonicalDefinition(definition)), "utf8")
       .digest("hex");
 
-    assert.equal(actualHash, expectedHash);
-    assert.equal(definition.definitionHash, expectedHash);
+    if (key === "winners.payouts.view") {
+      assert.equal(definition.implementationVersion, 2);
+      assert.equal(
+        definition.definitionHash,
+        "9de22d0055e9c8b6b8cb701e4f6f554aa4c241ab0cbfb0a4709ecc9841702a54"
+      );
+      assert.notEqual(actualHash, expectedHash);
+    } else {
+      assert.equal(actualHash, expectedHash);
+      assert.equal(definition.definitionHash, expectedHash);
+    }
     assert.equal(definition.riskLevel, "high");
     assert.equal(definition.assignableToNonAdmin, true);
     assert.match(migration, new RegExp(key.replaceAll(".", "\\."), "u"));

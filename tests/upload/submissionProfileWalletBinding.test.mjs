@@ -103,8 +103,11 @@ test("private ledgers are accessed only through hardened service RPCs", () => {
   assert.doesNotMatch(saga, /\.from\("submission_upload_operations"\)/u);
 });
 
-test("public wall and Cycle History projections never select or return recipient addresses", () => {
-  for (const projection of [publicWall, wallTypes, cycleHistory, cycleTypes]) {
+test("Cycle History remains recipient-free while Wall allows only the Claim-confirmed winner projection", () => {
+  for (const projection of [cycleHistory, cycleTypes]) {
     assert.doesNotMatch(projection, /wallet_address/u);
   }
+  assert.match(publicWall, /winner\.payout_choice === "keep" \|\| winner\.payout_choice === "split"/u);
+  assert.match(publicWall, /wallet_address:\s*[\s\S]*winner\.wallet_address/u);
+  assert.match(wallTypes, /wallet_address: string \| null/u);
 });
