@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { mock, test } from "node:test";
+
+const myProfilePage = await readFile(
+  new URL("../../app/my-profile/page.tsx", import.meta.url),
+  "utf8"
+);
 
 const state = {
   inCalls: [],
@@ -89,4 +95,33 @@ test("private batch input is bounded to the contractual maximum 20", async () =>
 
   assert.equal(state.inCalls.length, 1);
   assert.equal(state.inCalls[0][1].length, 20);
+});
+
+test("Current Cycle cards wrap responsively without stretching or leaking wallets", () => {
+  assert.match(
+    myProfilePage,
+    /<div className="relative left-1\/2 w-\[calc\(100vw-2rem\)\] max-w-\[120rem\][^"]*">[\s\S]*?<h2[\s\S]*?Current Cycle/u
+  );
+  assert.match(
+    myProfilePage,
+    /<div className="space-y-4">\s*<ProfileSocialsSection/u
+  );
+  assert.match(
+    myProfilePage,
+    /flex flex-wrap justify-center gap-4/u
+  );
+  assert.match(
+    myProfilePage,
+    /flex w-full min-w-0 max-w-lg basis-\[28rem\] grow flex-col/u
+  );
+  assert.match(myProfilePage, /mx-auto w-full max-w-5xl rounded-lg/u);
+  assert.doesNotMatch(
+    myProfilePage,
+    /grid-cols-\[repeat\(auto-fit|minmax\(min\(100%,28rem\),1fr\)/u
+  );
+  assert.match(
+    myProfilePage,
+    /overflow-x-auto whitespace-nowrap[\s\S]*\[scrollbar-width:none\][\s\S]*title=\{privateData\.wallet_address\}[\s\S]*tabIndex=\{0\}/u
+  );
+  assert.doesNotMatch(myProfilePage, /gap-4 sm:grid-cols-2/u);
 });

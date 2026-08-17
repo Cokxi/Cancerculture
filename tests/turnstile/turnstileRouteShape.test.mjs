@@ -44,7 +44,8 @@ test("Turnstile rejection bypasses persistent vote and upload abuse logs", () =>
   assert.ok(firstVoteLog > voteVerification);
   assert.ok(nextUploadLog === -1 || nextUploadLog > uploadVerification);
   assert.match(voteRoute, /turnstileResult\.status === "rejected"[\s\S]*?NextResponse\.json/);
-  assert.match(uploadRoute, /turnstileResult\.status === "rejected"[\s\S]*?NextResponse\.json/);
+  assert.match(uploadRoute, /turnstileResult\.status === "rejected"[\s\S]*?uploadJson/);
+  assert.match(uploadRoute, /PRIVATE_UPLOAD_CACHE_CONTROL = "no-store, max-age=0"/);
 });
 
 test("Siteverify payload deliberately omits remote IP", () => {

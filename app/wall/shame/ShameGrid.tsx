@@ -311,15 +311,6 @@ export default function ShameGrid({
                       />
                     </div>
 
-                    <div className="break-all text-xs opacity-70">
-                      <strong>Wallet:</strong>{" "}
-                      {active.wallet_address
-                        ? active.wallet_address
-                        : active.payout_choice === "donate"
-                        ? "No wallet required for full donation"
-                        : "Not provided"}
-                    </div>
-
                     <div>
                       {active.payout_choice === "keep" && (
                         <span>{active.discord_username} chose to keep the prize</span>

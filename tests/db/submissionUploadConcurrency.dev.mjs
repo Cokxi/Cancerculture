@@ -10,6 +10,7 @@ const repoRoot = path.resolve(
   ".."
 );
 const runId = randomUUID();
+const manualWallet = "So11111111111111111111111111111111111111112";
 const runSeed = BigInt(`0x${runId.replaceAll("-", "").slice(0, 12)}`);
 const cycleId = Number(8_000_000_000n + (runSeed % 500_000_000n));
 const userPrefix = `codex-upload-concurrency-${runId}-`;
@@ -120,11 +121,14 @@ function runSql(databaseUrl, sql) {
       { cwd: repoRoot, windowsHide: true }
     );
     let stdout = "";
+    let stderr = "";
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk;
     });
-    child.stderr.on("data", () => {});
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
     child.on("error", () => {
       reject(new Error("The DEV database command could not start."));
     });
@@ -134,7 +138,16 @@ function runSql(databaseUrl, sql) {
         return;
       }
 
-      reject(new Error("A sanitized DEV database command failed."));
+      const detail = stderr
+        .replaceAll(databaseUrl, "[DEV_DATABASE_URL]")
+        .replace(/\s+/gu, " ")
+        .trim()
+        .slice(0, 500);
+      reject(
+        new Error(
+          `A sanitized DEV database command failed${detail ? `: ${detail}` : "."}`
+        )
+      );
     });
   });
 }
@@ -155,6 +168,12 @@ function reservationArgs({ session, key, fingerprint, content }) {
     sqlText(content),
     sqlText("image/webp"),
     "100",
+    sqlText("manual"),
+    "null",
+    sqlText(manualWallet),
+    sqlText("keep"),
+    "null",
+    "null",
   ].join(", ");
 }
 
@@ -173,7 +192,7 @@ async function commitKeep(databaseUrl, operationId, sessionId) {
   return rpc(
     databaseUrl,
     "commit_submission_upload",
-    `${sqlText(operationId)}::uuid, ${sqlText(sessionId)}::uuid, 'wallet', 'keep', null, null, 1200, 800`
+    `${sqlText(operationId)}::uuid, ${sqlText(sessionId)}::uuid, 1200, 800`
   );
 }
 

@@ -11,7 +11,6 @@ export type PublicWallItem = {
   created_at: string | null;
   discord_username: string;
   public_profile_id: string | null;
-  wallet_address: string;
   payout_choice: string;
   split_percent: number | null;
   charity: string | null;

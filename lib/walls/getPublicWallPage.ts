@@ -32,7 +32,6 @@ type WinnerRow = {
   submission_id: number;
   r2_key: string | null;
   cycle_id: number;
-  wallet_address: string;
   payout_choice: string;
   split_percent: number | null;
   charity: string | null;
@@ -77,7 +76,7 @@ export async function getPublicWallPage({
   let query = supabaseServer
     .from("winner_public_profiles")
     .select(
-      "id, submission_id, r2_key, cycle_id, wallet_address, payout_choice, split_percent, charity, vote_count, created_at"
+      "id, submission_id, r2_key, cycle_id, payout_choice, split_percent, charity, vote_count, created_at"
     )
     .eq("wall", wall)
     .order("created_at", { ascending: false })
@@ -225,7 +224,6 @@ export async function getPublicWallPage({
         profileIdByDiscordUserId.get(
           submission.discord_user_id
         ) ?? null,
-      wallet_address: winner.wallet_address,
       payout_choice: winner.payout_choice,
       split_percent: winner.split_percent,
       charity: winner.charity,

@@ -44,6 +44,15 @@ import {
 import { TURNSTILE_ACTIONS } from "@/lib/turnstile/shared";
 import { verifyTurnstileRequest } from "@/lib/turnstile/verify.server";
 
+const PRIVATE_UPLOAD_CACHE_CONTROL = "no-store, max-age=0";
+
+function uploadJson(body: unknown, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("Cache-Control", PRIVATE_UPLOAD_CACHE_CONTROL);
+  headers.set("Pragma", "no-cache");
+  return NextResponse.json(body, { ...init, headers });
+}
+
 async function failUpload({
   discordUserId,
   cycleId = null,
@@ -68,7 +77,7 @@ async function failUpload({
     }),
   ]);
 
-  return NextResponse.json(
+  return uploadJson(
     joinedAt ? { error, joinedAt } : { error },
     { status }
   );
@@ -100,7 +109,7 @@ function cooldownResponse({
     Math.ceil(cooldownRemainingSeconds ?? 1)
   );
 
-  return NextResponse.json(
+  return uploadJson(
     {
       error: "UPLOAD_COOLDOWN_ACTIVE",
       retryAfterSeconds,
@@ -198,7 +207,7 @@ export async function POST(req: Request) {
     );
     const completedReplay =
       await getCompletedSubmissionUploadOperation({
-        discordUserId: authenticatedDiscordUserId,
+        sessionId,
         idempotencyKey,
       });
 
@@ -228,14 +237,14 @@ export async function POST(req: Request) {
     );
 
     if (turnstileResult.status === "rejected") {
-      return NextResponse.json(
+      return uploadJson(
         { error: turnstileResult.code },
         { status: 400 }
       );
     }
 
     if (turnstileResult.status === "configuration_error") {
-      return NextResponse.json(
+      return uploadJson(
         { error: turnstileResult.code },
         { status: 503 }
       );
@@ -279,10 +288,11 @@ export async function POST(req: Request) {
       requestFingerprint,
       contentSha256,
       mediaBytes: webpBuffer.byteLength,
+      privateData,
     });
 
     if (reservation.outcome === "already_completed") {
-      return NextResponse.json({
+      return uploadJson({
         success: true,
         alreadyCompleted: true,
         submissionId: reservation.submissionId,
@@ -314,46 +324,47 @@ export async function POST(req: Request) {
       throw new SubmissionUploadSagaError("R2_NOT_CONFIGURED", 503);
     }
 
-    r2WriteAttempted = true;
-    let putResult;
+    if (!reservation.r2Uploaded) {
+      r2WriteAttempted = true;
+      let putResult;
 
-    try {
-      putResult = await r2.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: reservation.storageKey,
-          Body: webpBuffer,
-          ContentType: "image/webp",
-          CacheControl: "public, max-age=31536000, immutable",
-          Metadata: {
-            "content-sha256": contentSha256,
-          },
-        })
-      );
-    } catch (error) {
-      const errorCode = providerErrorCode(error);
-      console.error("[submission upload][r2 put]", {
-        errorCode,
+      try {
+        putResult = await r2.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: reservation.storageKey,
+            Body: webpBuffer,
+            ContentType: "image/webp",
+            CacheControl: "public, max-age=31536000, immutable",
+            Metadata: {
+              "content-sha256": contentSha256,
+            },
+          })
+        );
+      } catch (error) {
+        const errorCode = providerErrorCode(error);
+        console.error("[submission upload][r2 put]", {
+          errorCode,
+        });
+        await compensateOnce(errorCode);
+        throw new SubmissionUploadSagaError("R2_PROVIDER_ERROR", 503);
+      }
+
+      await markSubmissionUploadR2Uploaded({
+        operationId,
+        sessionId,
+        etag: putResult.ETag ?? null,
       });
-      await compensateOnce(errorCode);
-      throw new SubmissionUploadSagaError("R2_PROVIDER_ERROR", 503);
     }
-
-    await markSubmissionUploadR2Uploaded({
-      operationId,
-      sessionId,
-      etag: putResult.ETag ?? null,
-    });
 
     const completed = await commitSubmissionUpload({
       operationId,
       sessionId,
-      privateData,
       mediaWidth: processedImage.width,
       mediaHeight: processedImage.height,
     });
 
-    return NextResponse.json({
+    return uploadJson({
       success: true,
       alreadyCompleted: completed.outcome === "already_completed",
       submissionId: completed.submissionId,
@@ -378,7 +389,7 @@ export async function POST(req: Request) {
         authCode === "JOINED_TOO_RECENTLY" && authCodeDetails.length > 0
           ? authCodeDetails.join(":")
           : null;
-      return NextResponse.json(
+      return uploadJson(
         joinedAt
           ? { error: authCode, joinedAt }
           : { error: authCode || "AUTHENTICATION_UNAVAILABLE" },

@@ -93,9 +93,10 @@ test("completed replay bypasses early quota and cooldown while retaining the sam
   assert.match(routeSource, /getCompletedSubmissionUploadOperation/);
   assert.match(routeSource, /!isCompletedReplay && uploadEligibility\.quota\?\.remaining === 0/);
   assert.match(routeSource, /!isCompletedReplay &&[\s\S]*?cooldownRemainingSeconds/);
-  assert.match(sagaSource, /\.eq\("discord_user_id", discordUserId\)/);
-  assert.match(sagaSource, /\.eq\("idempotency_key", idempotencyKey\)/);
-  assert.match(sagaSource, /\.eq\("status", "completed"\)/);
+  assert.match(sagaSource, /get_completed_submission_upload_operation/);
+  assert.match(sagaSource, /p_session_id: sessionId/);
+  assert.match(sagaSource, /p_idempotency_key: idempotencyKey/);
+  assert.doesNotMatch(sagaSource, /\.from\("submission_upload_operations"\)/);
   assert.ok(routeSource.indexOf("req.formData()") < routeSource.indexOf("reserveSubmissionUpload({"));
 });
 

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { SUBMISSION_MEDIA_PROFILE } from "@/lib/media/profiles";
+import { validateSolRecipientAddress } from "@/lib/solana/address";
 
 export const SUBMISSION_UPLOAD_IDEMPOTENCY_HEADER = "idempotency-key";
 export const MAX_SUBMISSION_UPLOAD_SIZE =
@@ -8,9 +9,12 @@ export const ALLOWED_SUBMISSION_UPLOAD_TYPES =
   SUBMISSION_MEDIA_PROFILE.allowedBrowserMimeTypes;
 
 export type SubmissionPayoutChoice = "keep" | "donate" | "split";
+export type SubmissionWalletSource = "manual" | "profile" | "none";
 
 export type NormalizedSubmissionPrivateData = {
-  walletAddress: string;
+  walletSource: SubmissionWalletSource;
+  manualWalletAddress: string | null;
+  profileWalletVersion: number | null;
   payoutChoice: SubmissionPayoutChoice;
   splitPercent: number | null;
   charity: string | null;
@@ -42,8 +46,12 @@ export function parseSubmissionUploadIdempotencyKey(value: string | null) {
 }
 
 export function normalizeSubmissionPrivateData(formData: FormData) {
-  const walletAddress =
+  const rawWalletAddress =
     formData.get("walletAddress")?.toString().trim() ?? "";
+  const walletSourceValue =
+    formData.get("walletSource")?.toString().trim() ?? "";
+  const profileWalletVersionValue =
+    formData.get("profileWalletVersion")?.toString().trim() ?? "";
   const payoutChoiceValue =
     formData.get("payoutChoice")?.toString() ?? "";
   const splitPercentValue = formData.get("splitPercent")?.toString();
@@ -55,27 +63,32 @@ export function normalizeSubmissionPrivateData(formData: FormData) {
   }
 
   const payoutChoice = payoutChoiceValue as SubmissionPayoutChoice;
+  const walletSource = walletSourceValue as SubmissionWalletSource;
   const splitPercent = splitPercentValue
     ? Number.parseInt(splitPercentValue, 10)
     : null;
+  const profileWalletVersion = profileWalletVersionValue
+    ? Number.parseInt(profileWalletVersionValue, 10)
+    : null;
   const charity = charityValue || null;
 
-  if (walletAddress.length > 512 || (charity?.length ?? 0) > 256) {
+  if (rawWalletAddress.length > 512 || (charity?.length ?? 0) > 256) {
     throw new SubmissionUploadRequestError("INVALID_PRIVATE_DATA", 422);
   }
 
-  if (payoutChoice === "keep" && !walletAddress) {
-    throw new SubmissionUploadRequestError("WALLET_ADDRESS_REQUIRED", 422);
-  }
-
-  if (payoutChoice === "donate" && !charity) {
+  if (
+    payoutChoice === "donate" &&
+    (walletSource !== "none" ||
+      rawWalletAddress !== "" ||
+      profileWalletVersion !== null ||
+      !charity)
+  ) {
     throw new SubmissionUploadRequestError("CHARITY_REQUIRED", 422);
   }
 
   if (
     payoutChoice === "split" &&
-    (!walletAddress ||
-      !charity ||
+    (!charity ||
       splitPercent === null ||
       splitPercent <= 0 ||
       splitPercent >= 100)
@@ -83,8 +96,42 @@ export function normalizeSubmissionPrivateData(formData: FormData) {
     throw new SubmissionUploadRequestError("INVALID_SPLIT", 422);
   }
 
+  if (payoutChoice === "keep" && charity !== null) {
+    throw new SubmissionUploadRequestError("INVALID_PRIVATE_DATA", 422);
+  }
+
+  let manualWalletAddress: string | null = null;
+  if (payoutChoice !== "donate") {
+    if (walletSource === "manual") {
+      if (profileWalletVersion !== null) {
+        throw new SubmissionUploadRequestError("INVALID_PRIVATE_DATA", 422);
+      }
+      const validation = validateSolRecipientAddress(rawWalletAddress);
+      if (!validation.ok) {
+        throw new SubmissionUploadRequestError("WALLET_ADDRESS_INVALID", 422);
+      }
+      manualWalletAddress = validation.address;
+    } else if (walletSource === "profile") {
+      if (
+        rawWalletAddress !== "" ||
+        profileWalletVersion === null ||
+        !Number.isSafeInteger(profileWalletVersion) ||
+        profileWalletVersion <= 0
+      ) {
+        throw new SubmissionUploadRequestError("INVALID_PRIVATE_DATA", 422);
+      }
+    } else {
+      throw new SubmissionUploadRequestError("WALLET_ADDRESS_REQUIRED", 422);
+    }
+  }
+
   return {
-    walletAddress: payoutChoice === "donate" ? "" : walletAddress,
+    walletSource: payoutChoice === "donate" ? "none" : walletSource,
+    manualWalletAddress,
+    profileWalletVersion:
+      payoutChoice !== "donate" && walletSource === "profile"
+        ? profileWalletVersion
+        : null,
     payoutChoice,
     splitPercent: payoutChoice === "split" ? splitPercent : null,
     charity:
@@ -104,9 +151,11 @@ export function createSubmissionUploadFingerprint({
   const canonicalPayload = JSON.stringify({
     charity: privateData.charity,
     contentSha256,
+    manualWalletAddress: privateData.manualWalletAddress,
     payoutChoice: privateData.payoutChoice,
+    profileWalletVersion: privateData.profileWalletVersion,
     splitPercent: privateData.splitPercent,
-    walletAddress: privateData.walletAddress,
+    walletSource: privateData.walletSource,
   });
 
   return createHash("sha256").update(canonicalPayload).digest("hex");

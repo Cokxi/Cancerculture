@@ -19,6 +19,7 @@ export type ReservedSubmissionUpload = {
   operationId: string;
   cycleId: number;
   storageKey: string;
+  r2Uploaded: boolean;
 };
 
 export type CompletedSubmissionUpload = {
@@ -78,6 +79,7 @@ const OUTCOME_HTTP_ERRORS: Record<
     code: "IDEMPOTENCY_CYCLE_CONFLICT",
     status: 409,
   },
+  profile_wallet_stale: { code: "PROFILE_WALLET_STALE", status: 409 },
   invalid_private_data: { code: "INVALID_PRIVATE_DATA", status: 422 },
   invalid_media_metadata: { code: "INVALID_MEDIA_METADATA", status: 422 },
   invalid_request: { code: "INVALID_UPLOAD_REQUEST", status: 400 },
@@ -196,27 +198,36 @@ export async function getSubmissionUploadAbuseStatus({
 }
 
 export async function getCompletedSubmissionUploadOperation({
-  discordUserId,
+  sessionId,
   idempotencyKey,
 }: {
-  discordUserId: string;
+  sessionId: string;
   idempotencyKey: string;
 }) {
-  const { data, error } = await supabaseAdmin
-    .from("submission_upload_operations")
-    .select("id, cycle_id, submission_id")
-    .eq("discord_user_id", discordUserId)
-    .eq("idempotency_key", idempotencyKey)
-    .eq("status", "completed")
-    .maybeSingle();
+  const { data, error } = await supabaseAdmin.rpc(
+    "get_completed_submission_upload_operation",
+    {
+      p_idempotency_key: idempotencyKey,
+      p_session_id: sessionId,
+    }
+  );
 
   if (error) throwRpcFailure("completed-replay-check", error);
-  if (!data || typeof data.submission_id !== "number") return null;
+  const outcome = getOutcome(data);
+  if (outcome === "not_found") return null;
+  if (
+    outcome !== "completed" ||
+    typeof data.operationId !== "string" ||
+    typeof data.cycleId !== "number" ||
+    typeof data.submissionId !== "number"
+  ) {
+    throwForOutcome(outcome, data);
+  }
 
   return {
-    operationId: data.id,
-    cycleId: data.cycle_id,
-    submissionId: data.submission_id,
+    operationId: data.operationId,
+    cycleId: data.cycleId,
+    submissionId: data.submissionId,
   };
 }
 
@@ -260,12 +271,14 @@ export async function reserveSubmissionUpload({
   requestFingerprint,
   contentSha256,
   mediaBytes,
+  privateData,
 }: {
   sessionId: string;
   idempotencyKey: string;
   requestFingerprint: string;
   contentSha256: string;
   mediaBytes: number;
+  privateData: NormalizedSubmissionPrivateData;
 }): Promise<ReservedSubmissionUpload | CompletedSubmissionUpload> {
   const { data, error } = await supabaseAdmin.rpc(
     "reserve_submission_upload",
@@ -274,8 +287,14 @@ export async function reserveSubmissionUpload({
       p_idempotency_key: idempotencyKey,
       p_media_bytes: mediaBytes,
       p_media_type: "image/webp",
+      p_manual_wallet_address: privateData.manualWalletAddress,
+      p_payout_choice: privateData.payoutChoice,
+      p_profile_wallet_version: privateData.profileWalletVersion,
       p_request_fingerprint: requestFingerprint,
       p_session_id: sessionId,
+      p_split_percent: privateData.splitPercent,
+      p_charity: privateData.charity,
+      p_wallet_source: privateData.walletSource,
     }
   );
 
@@ -298,7 +317,8 @@ export async function reserveSubmissionUpload({
     outcome === "reserved" &&
     typeof data.operationId === "string" &&
     typeof data.cycleId === "number" &&
-    typeof data.storageKey === "string"
+    typeof data.storageKey === "string" &&
+    typeof data.r2Uploaded === "boolean"
   ) {
     return data as ReservedSubmissionUpload;
   }
@@ -339,27 +359,21 @@ export async function markSubmissionUploadR2Uploaded({
 export async function commitSubmissionUpload({
   operationId,
   sessionId,
-  privateData,
   mediaWidth,
   mediaHeight,
 }: {
   operationId: string;
   sessionId: string;
-  privateData: NormalizedSubmissionPrivateData;
   mediaWidth: number;
   mediaHeight: number;
 }): Promise<CompletedSubmissionUpload> {
   const { data, error } = await supabaseAdmin.rpc(
     "commit_submission_upload",
     {
-      p_charity: privateData.charity,
       p_media_height: mediaHeight,
       p_media_width: mediaWidth,
       p_operation_id: operationId,
-      p_payout_choice: privateData.payoutChoice,
       p_session_id: sessionId,
-      p_split_percent: privateData.splitPercent,
-      p_wallet_address: privateData.walletAddress,
     }
   );
 

@@ -395,7 +395,7 @@ export async function getCycleHistorySubmissionPage({
         ? supabaseAdmin
             .from("winner_public_profiles")
             .select(
-              "cycle_id, submission_id, wall, wallet_address, payout_choice, split_percent, charity"
+              "cycle_id, submission_id, wall, payout_choice, split_percent, charity"
             )
             .eq("cycle_id", cycleId)
             .in("submission_id", submissionIds)

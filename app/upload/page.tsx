@@ -16,6 +16,7 @@ import { getLatestCycleState } from "@/lib/cycles/currentCycle";
 import { createParticipationAccessState } from "@/lib/eligibility/participation";
 import type { UserSocialSettings } from "@/lib/socials/getUserSocialSettings";
 import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
+import { getSolProfileWallet } from "@/lib/solana/profileWallet.server";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,8 @@ export default async function UploadPage() {
   > | null = null;
   let participationState = createParticipationAccessState();
   let showDiscordSyncDelayNotice = false;
+  let profileWallet: Awaited<ReturnType<typeof getSolProfileWallet>> | null =
+    null;
 
   if (sessionState.status === "restricted") {
     participationState = createParticipationAccessState({
@@ -53,12 +56,13 @@ export default async function UploadPage() {
       const participationResult = await getParticipationAccess();
       const discordUserId = participationResult.session.discord_user_id;
 
-      [uploadEligibility, socialSettings] = await Promise.all([
+      [uploadEligibility, socialSettings, profileWallet] = await Promise.all([
         getUploadEligibility({
           discordUserId,
           includeDiscordMembership: false,
         }),
         getUserSocialSettings(discordUserId),
+        getSolProfileWallet(sessionState.session),
       ]);
       participationState = uploadEligibility.isBanned
         ? createParticipationAccessState({
@@ -123,6 +127,7 @@ export default async function UploadPage() {
         currentCycleStatus={latestCycle?.status ?? null}
         pausedFromStatus={latestCycle?.paused_from_status ?? null}
         turnstileSiteKey={getTurnstileClientSiteKey()}
+        profileWallet={profileWallet}
       />
     </PageWrapper>
   );

@@ -8,6 +8,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const psql =
   process.env.PSQL_BIN ?? "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe";
 const runId = randomUUID();
+const manualWallet = "So11111111111111111111111111111111111111112";
 const runSeed = BigInt(`0x${runId.replaceAll("-", "").slice(0, 12)}`);
 const userId = `codex-upload-abuse-concurrency-${runId}`;
 const sessionId = randomUUID();
@@ -165,7 +166,7 @@ try {
   );
 
   const reserveSql = (session, key, fingerprint, content) =>
-    `select public.reserve_submission_upload('${session}'::uuid, '${key}'::uuid, repeat('${fingerprint}',64), repeat('${content}',64), 'image/webp', 100)::text;`;
+    `select public.reserve_submission_upload('${session}'::uuid, '${key}'::uuid, repeat('${fingerprint}',64), repeat('${content}',64), 'image/webp', 100, 'manual', null, '${manualWallet}', 'keep', null, null)::text;`;
 
   const sameKey = await Promise.all([
     rpc(databaseUrl, reserveSql(sagaSessionA, requestKeys[0], "a", "b")),
@@ -235,7 +236,7 @@ try {
   try {
     await sql(
       databaseUrl,
-      `select public.reserve_submission_upload('${sessionId}'::uuid, '${requestKeys[5]}'::uuid, repeat('a',64), repeat('b',64), 'image/webp', 100);`
+      `select public.reserve_submission_upload('${sessionId}'::uuid, '${requestKeys[5]}'::uuid, repeat('a',64), repeat('b',64), 'image/webp', 100, 'manual', null, '${manualWallet}', 'keep', null, null);`
     );
   } catch {
     reservationRejected = true;

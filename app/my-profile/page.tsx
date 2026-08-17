@@ -63,7 +63,7 @@ function CurrentSubmissionCard({
   const privateData = submission.privateData;
 
   return (
-    <article className="flex flex-col items-center rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/40 p-4">
+    <article className="flex w-full min-w-0 max-w-lg basis-[28rem] grow flex-col items-center rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/40 p-4">
       {submission.image_url ? (
         <Image
           src={getSubmissionThumbnailUrl(submission.image_url)}
@@ -124,17 +124,28 @@ function CurrentSubmissionCard({
       </div>
 
       {privateData && (
-        <div className="mt-4 w-full max-w-md rounded-lg bg-white/5 p-3 text-left text-sm text-white">
+        <div className="mt-4 w-full min-w-0 max-w-md rounded-lg bg-white/5 p-3 text-left text-sm text-white">
           <div className="font-semibold text-[var(--orange-dark)]">
             Your saved submission details
           </div>
-          <div className="mt-2">
-            <strong>Wallet:</strong>{" "}
-            {privateData.wallet_address
-              ? privateData.wallet_address
-              : privateData.payout_choice === "donate"
-                ? "No wallet required for full donation"
-                : "Not provided"}
+          <div className="mt-2 min-w-0">
+            <strong>Wallet:</strong>
+            {privateData.wallet_address ? (
+              <code
+                className="mt-1 block max-w-full overflow-x-auto whitespace-nowrap rounded-md bg-black/30 px-2 py-1 font-mono text-sm text-gray-100 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                title={privateData.wallet_address}
+                tabIndex={0}
+              >
+                {privateData.wallet_address}
+              </code>
+            ) : (
+              <span>
+                {" "}
+                {privateData.payout_choice === "donate"
+                  ? "No wallet required for full donation"
+                  : "Not provided"}
+              </span>
+            )}
           </div>
           <div className="mt-1">
             <strong>Payout:</strong> {privateData.payout_choice}
@@ -275,13 +286,13 @@ export default async function MyProfilePage() {
           />
         </div>
 
-        <div className="space-y-4">
+        <div className="relative left-1/2 w-[calc(100vw-2rem)] max-w-[120rem] -translate-x-1/2 space-y-4">
           <h2 className="mb-6 flex items-center justify-center gap-2 text-xl font-[Permanent_Marker] text-[var(--orange-dark)] sm:text-2xl">
             Current Cycle
           </h2>
 
           {uploadQuota && (
-            <div className="rounded-lg border border-[var(--orange-dark)]/40 bg-black/30 p-4 text-center text-sm text-gray-200">
+            <div className="mx-auto w-full max-w-5xl rounded-lg border border-[var(--orange-dark)]/40 bg-black/30 p-4 text-center text-sm text-gray-200">
               <strong className="text-[var(--orange-dark)]">
                 {uploadQuota.used} of {uploadQuota.limit} submissions used
               </strong>
@@ -295,7 +306,7 @@ export default async function MyProfilePage() {
           )}
 
           {currentSubmissions.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-wrap justify-center gap-4">
               {currentSubmissions.map((submission) => (
                 <CurrentSubmissionCard
                   key={submission.id}

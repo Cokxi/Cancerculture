@@ -7,6 +7,7 @@ import { SocialPlatformBadge } from "@/app/components/profile/SocialUi";
 import ScannerDisplay from "@/app/components/upload/ScannerDisplay";
 import DiscordCooldownTimer from "@/app/components/DiscordCooldownTimer";
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOverlay } from "@/app/components/overlay/OverlayProvider";
@@ -29,6 +30,7 @@ import {
   TURNSTILE_TOKEN_HEADER,
 } from "@/lib/turnstile/shared";
 import type { SubmissionUploadQuota } from "@/lib/upload/getUploadEligibility";
+import { validateSolRecipientAddress } from "@/lib/solana/address";
 
 
 type PayoutChoice = "keep" | "donate" | "split";
@@ -62,6 +64,7 @@ export default function DesktopUpload({
   currentCycleStatus,
   pausedFromStatus,
   turnstileSiteKey,
+  profileWallet,
 }: {
   hasActiveCycle: boolean;
   showSupportLink: boolean;
@@ -72,6 +75,12 @@ export default function DesktopUpload({
   currentCycleStatus: string | null;
   pausedFromStatus: string | null;
   turnstileSiteKey: string | null;
+  profileWallet: {
+    factorActive: boolean;
+    walletAddress: string | null;
+    version: number | null;
+    updatedAt: string | null;
+  } | null;
 }) {
 
   const { openOverlay } = useOverlay();
@@ -87,6 +96,7 @@ export default function DesktopUpload({
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState("");
+  const [profileWalletView, setProfileWalletView] = useState(profileWallet);
   const [payoutChoice, setPayoutChoice] = useState<PayoutChoice | null>(null);
   const [splitPercent, setSplitPercent] = useState(50);
   const [charity, setCharity] = useState<string | null>(null);
@@ -112,6 +122,13 @@ useEffect(() => {
     setSuccessMode("already");
   }
 }, [initialQuota]);
+
+useEffect(() => {
+  if (uploadAttemptKeyRef.current !== null) return;
+  setProfileWalletView(profileWallet);
+}, [
+  profileWallet,
+]);
 
 useEffect(() => {
   if (!quota?.nextUploadAllowedAt || quota.remaining <= 0) {
@@ -317,9 +334,20 @@ useEffect(() => {
   const walletDisabled = payoutChoice === "donate";
   const walletRequired =
     payoutChoice === "keep" || payoutChoice === "split";
+  const hasProfileWallet =
+    profileWalletView?.factorActive === true &&
+    typeof profileWalletView.walletAddress === "string" &&
+    typeof profileWalletView.version === "number" &&
+    profileWalletView.version > 0;
+  const walletSource = hasProfileWallet ? "profile" : "manual";
+  const effectiveWalletAddress = hasProfileWallet
+    ? profileWalletView.walletAddress ?? ""
+    : walletAddress;
+  const walletIsValid =
+    !walletRequired || validateSolRecipientAddress(effectiveWalletAddress).ok;
   const hasMeta =
     !!payoutChoice &&
-    (!walletRequired || !!walletAddress.trim()) &&
+    walletIsValid &&
     (payoutChoice !== "split" || splitPercent > 0) &&
     (payoutChoice === "keep" || charity);
 
@@ -379,12 +407,12 @@ useEffect(() => {
     setRulesStatus("checking");
 
     const res = await fetch("/api/upload/check-rules");
-    const data = await res.json();
-
     if (!res.ok) {
       setRulesStatus("unknown");
       return;
     }
+
+    const data = await res.json();
 
     if (!data.needsAccept) {
       setRulesStatus("accepted");
@@ -438,6 +466,7 @@ useEffect(() => {
     }
 
     uploadAttemptKeyRef.current = null;
+    setProfileWalletView(profileWallet);
     setFile(f);
     setPreviewUrl((current) => {
       if (current) URL.revokeObjectURL(current);
@@ -462,8 +491,18 @@ useEffect(() => {
       const formData = new FormData();
       formData.append("file", file!);
       formData.append(
+        "walletSource",
+        walletRequired ? walletSource : "none"
+      );
+      formData.append(
         "walletAddress",
-        walletRequired ? walletAddress : ""
+        walletRequired && walletSource === "manual" ? walletAddress : ""
+      );
+      formData.append(
+        "profileWalletVersion",
+        walletRequired && walletSource === "profile"
+          ? String(profileWalletView?.version ?? "")
+          : ""
       );
       formData.append("payoutChoice", payoutChoice!);
       formData.append("splitPercent", splitPercent.toString());
@@ -535,6 +574,18 @@ if (!file) {
     return;
   }
 
+  if (data.error === "PROFILE_WALLET_STALE") {
+    uploadAttemptKeyRef.current = null;
+    setProfileWalletView(profileWallet);
+    setTurnstileToken(null);
+    setTurnstileResetKey((current) => current + 1);
+    router.refresh();
+    alert(
+      "Your saved wallet changed before the upload was reserved. Review the current address and submit again."
+    );
+    return;
+  }
+
   setTurnstileToken(null);
   setTurnstileResetKey((current) => current + 1);
   if (
@@ -591,6 +642,7 @@ if (!file) {
           : null
       );
       uploadAttemptKeyRef.current = null;
+      setProfileWalletView(profileWallet);
       setFile(null);
       setPreviewUrl((current) => {
         if (current) URL.revokeObjectURL(current);
@@ -832,38 +884,111 @@ if (!file) {
                 ) : null}
               </div>
 
-              {!walletDisabled ? (
-                <input
-                  placeholder="Wallet address"
-                  value={walletAddress}
-                  onChange={(e) => {
-                    uploadAttemptKeyRef.current = null;
-                    setWalletAddress(e.target.value);
-                  }}
-                  className="rounded-xl px-4 py-2 bg-white"
-                />
-              ) : (
+              {walletRequired && hasProfileWallet ? (
+                <div className="flex flex-col gap-2">
+                  <p
+                    id="submission-profile-wallet-label"
+                    className="text-sm font-semibold text-white"
+                  >
+                    Wallet recorded for this Submission. You can change it in{" "}
+                    <Link
+                      href="/my-profile"
+                      className="underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    >
+                      Your Profile
+                    </Link>
+                    .
+                  </p>
+                  <input
+                    id="submission-profile-wallet"
+                    aria-labelledby="submission-profile-wallet-label"
+                    value={effectiveWalletAddress}
+                    readOnly
+                    spellCheck={false}
+                    className="h-10 cursor-not-allowed rounded-xl border border-white/20 bg-white/70 px-4 py-2 font-mono text-base text-black/65 shadow-inner"
+                  />
+                </div>
+              ) : walletRequired ? (
+                <div className="flex flex-col gap-2">
+                  <label
+                    htmlFor="submission-manual-wallet"
+                    className="text-sm font-semibold text-white"
+                  >
+                    One-time SOL recipient for this Submission
+                  </label>
+                  <input
+                    id="submission-manual-wallet"
+                    placeholder="SOL wallet address"
+                    value={walletAddress}
+                    aria-invalid={
+                      walletAddress.length > 0 &&
+                      !validateSolRecipientAddress(walletAddress).ok
+                    }
+                    onChange={(e) => {
+                      uploadAttemptKeyRef.current = null;
+                      setProfileWalletView(profileWallet);
+                      setWalletAddress(e.target.value);
+                    }}
+                    className="rounded-xl bg-white px-4 py-2 text-black"
+                  />
+                  {walletAddress.length > 0 &&
+                    !validateSolRecipientAddress(walletAddress).ok ? (
+                      <p className="text-sm font-semibold text-red-300">
+                        Enter a valid Base58 SOL address that decodes to 32
+                        non-zero bytes.
+                      </p>
+                    ) : null}
+                  <p className="text-sm text-white/75">
+                    {profileWalletView?.factorActive ? (
+                      <>
+                        Save a wallet in{" "}
+                        <Link
+                          href="/my-profile"
+                          className="underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                        >
+                          Your Profile
+                        </Link>{" "}
+                        to fill future uploads automatically.
+                      </>
+                    ) : (
+                      <>
+                        2FA can enable a reusable wallet in{" "}
+                        <Link
+                          href="/my-profile"
+                          className="underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                        >
+                          Your Profile
+                        </Link>
+                        , but it is not required to upload.
+                      </>
+                    )}
+                  </p>
+                </div>
+              ) : walletDisabled ? (
                 <div className="text-center font-[Permanent_Marker] text-[var(--orange-dark)]">
                   Clean move. We respect that!
                 </div>
-              )}
+              ) : null}
 
               <div className="flex gap-3">
                 {["keep", "donate", "split"].map((o) => (
                   <button
                     key={o}
+                    type="button"
+                    aria-pressed={payoutChoice === o}
                     onClick={() => {
                       uploadAttemptKeyRef.current = null;
+                      setProfileWalletView(profileWallet);
                       const nextChoice = o as PayoutChoice;
                       setPayoutChoice(nextChoice);
                       if (nextChoice === "donate") {
                         setWalletAddress("");
                       }
                     }}
-                    className={`flex-1 py-2 rounded-xl cursor-pointer transition ${
+                    className={`flex-1 rounded-xl py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black disabled:cursor-not-allowed disabled:opacity-100 ${
                       payoutChoice === o
-                        ? "bg-black text-yellow-300"
-                        : "bg-white"
+                        ? "cursor-pointer bg-black text-yellow-300"
+                        : "cursor-pointer bg-white text-black"
                     }`}
                   >
                     {o}
@@ -880,6 +1005,7 @@ if (!file) {
                 value={splitPercent}
                 onChange={(e) => {
                   uploadAttemptKeyRef.current = null;
+                  setProfileWalletView(profileWallet);
                   setSplitPercent(Number(e.target.value));
                 }}
               />
@@ -896,6 +1022,7 @@ if (!file) {
                     value={charity ?? ""}
                     onChange={(e) => {
                       uploadAttemptKeyRef.current = null;
+                      setProfileWalletView(profileWallet);
                       setCharity(e.target.value);
                     }}
                     className="rounded-xl px-4 py-2 bg-white"
@@ -917,6 +1044,7 @@ if (!file) {
                       value={customCharity}
                       onChange={(e) => {
                         uploadAttemptKeyRef.current = null;
+                        setProfileWalletView(profileWallet);
                         setCustomCharity(e.target.value);
                       }}
                       className="rounded-xl px-4 py-2 bg-white"

@@ -8,6 +8,9 @@ import {
   SubmissionUploadRequestError,
 } from "../../lib/upload/submissionUploadRequest.ts";
 
+const WALLET_A = "So11111111111111111111111111111111111111112";
+const WALLET_B = "Vote111111111111111111111111111111111111111";
+
 function formData(values) {
   const data = new FormData();
   for (const [key, value] of Object.entries(values)) {
@@ -40,13 +43,16 @@ test("normalizes keep, donate, and split private data canonically", () => {
   assert.deepEqual(
     normalizeSubmissionPrivateData(
       formData({
-        walletAddress: " wallet-a ",
+        walletAddress: ` ${WALLET_A} `,
+        walletSource: "manual",
         payoutChoice: "keep",
         splitPercent: 50,
       })
     ),
     {
-      walletAddress: "wallet-a",
+      walletSource: "manual",
+      manualWalletAddress: WALLET_A,
+      profileWalletVersion: null,
       payoutChoice: "keep",
       splitPercent: null,
       charity: null,
@@ -56,13 +62,16 @@ test("normalizes keep, donate, and split private data canonically", () => {
   assert.deepEqual(
     normalizeSubmissionPrivateData(
       formData({
-        walletAddress: "ignored",
+        walletAddress: "",
+        walletSource: "none",
         payoutChoice: "donate",
         charity: " Charity ",
       })
     ),
     {
-      walletAddress: "",
+      walletSource: "none",
+      manualWalletAddress: null,
+      profileWalletVersion: null,
       payoutChoice: "donate",
       splitPercent: null,
       charity: "Charity",
@@ -72,14 +81,17 @@ test("normalizes keep, donate, and split private data canonically", () => {
   assert.deepEqual(
     normalizeSubmissionPrivateData(
       formData({
-        walletAddress: "wallet-b",
+        walletAddress: WALLET_B,
+        walletSource: "manual",
         payoutChoice: "split",
         splitPercent: 25,
         charity: "Charity",
       })
     ),
     {
-      walletAddress: "wallet-b",
+      walletSource: "manual",
+      manualWalletAddress: WALLET_B,
+      profileWalletVersion: null,
       payoutChoice: "split",
       splitPercent: 25,
       charity: "Charity",
@@ -89,15 +101,22 @@ test("normalizes keep, donate, and split private data canonically", () => {
 
 test("invalid private combinations fail before R2 or database writes", () => {
   for (const values of [
-    { payoutChoice: "keep", walletAddress: "" },
-    { payoutChoice: "donate", charity: "" },
+    { payoutChoice: "keep", walletSource: "manual", walletAddress: "" },
+    { payoutChoice: "donate", walletSource: "none", charity: "" },
     {
       payoutChoice: "split",
-      walletAddress: "wallet",
+      walletSource: "manual",
+      walletAddress: WALLET_A,
       charity: "Charity",
       splitPercent: 100,
     },
-    { payoutChoice: "unknown", walletAddress: "wallet" },
+    { payoutChoice: "unknown", walletSource: "manual", walletAddress: WALLET_A },
+    {
+      payoutChoice: "keep",
+      walletSource: "profile",
+      profileWalletVersion: 4,
+      walletAddress: WALLET_B,
+    },
   ]) {
     assert.throws(
       () => normalizeSubmissionPrivateData(formData(values)),
@@ -111,7 +130,9 @@ test("fingerprints are stable for identical canonical data and conflict on chang
     Buffer.from("synthetic transformed image")
   );
   const privateData = {
-    walletAddress: "wallet-a",
+    walletSource: "profile",
+    manualWalletAddress: null,
+    profileWalletVersion: 4,
     payoutChoice: "split",
     splitPercent: 50,
     charity: "Charity",

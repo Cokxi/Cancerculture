@@ -80,21 +80,6 @@ function formatPayoutChoice(
   return `Payout choice: ${winnerProfile.payout_choice}`;
 }
 
-function formatWalletValue(
-  walletAddress: string,
-  payoutChoice: string
-) {
-  if (walletAddress) {
-    return walletAddress;
-  }
-
-  if (payoutChoice === "donate") {
-    return "No wallet required for full donation";
-  }
-
-  return "Not provided";
-}
-
 function formatPublicVisibilityStatus(
   status: SubmissionPublicVisibilityStatus
 ) {
@@ -295,14 +280,7 @@ function SubmissionCard({
             <div className="font-semibold text-[var(--orange-dark)]">
               Winner Transparency
             </div>
-            <div className="mt-2 break-all text-xs">
-              Wallet:{" "}
-              {formatWalletValue(
-                submission.winnerProfile.wallet_address,
-                submission.winnerProfile.payout_choice
-              )}
-            </div>
-            <div className="mt-1 text-xs">
+            <div className="mt-2 text-xs">
               {formatPayoutChoice(submission)}
             </div>
           </div>
@@ -531,14 +509,7 @@ function SubmissionModal({
                   <div className="font-semibold text-[var(--orange-dark)]">
                     Winner Transparency
                   </div>
-                  <div className="mt-2 break-all text-xs">
-                    Wallet:{" "}
-                    {formatWalletValue(
-                      submission.winnerProfile.wallet_address,
-                      submission.winnerProfile.payout_choice
-                    )}
-                  </div>
-                  <div className="mt-1 text-xs">
+                  <div className="mt-2 text-xs">
                     {formatPayoutChoice(submission)}
                   </div>
                 </div>

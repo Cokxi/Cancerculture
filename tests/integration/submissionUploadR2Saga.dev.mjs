@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { register } from "node:module";
@@ -52,6 +53,11 @@ let createSubmissionUploadFingerprint;
 let processStaticImage;
 let submissionMediaProfile;
 let baselineQueue = [];
+let devDatabaseUrl;
+
+function sqlLiteral(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
 
 function parseDotenv(contents) {
   const values = new Map();
@@ -159,6 +165,7 @@ async function loadAndValidateEnvironment() {
   }
 
   safetyValidated = true;
+  return databaseUrl;
 }
 
 function assertSafeExternalOperation() {
@@ -219,17 +226,37 @@ async function assertNoError(operation, label) {
   return result.data;
 }
 
+function runDatabaseSql(source) {
+  const executable =
+    process.env.PSQL_BIN ??
+    "C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe";
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      executable,
+      [devDatabaseUrl, "-X", "-q", "-At", "-v", "ON_ERROR_STOP=1", "-c", source],
+      { cwd: repoRoot, windowsHide: true }
+    );
+    let stdout = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", () => {});
+    child.on("error", () => reject(new Error("DEV_DATABASE_COMMAND_START_FAILED")));
+    child.on("close", (code) => {
+      if (code === 0) resolve(stdout.trim());
+      else reject(new Error("DEV_DATABASE_COMMAND_FAILED"));
+    });
+  });
+}
+
 async function cleanupDatabaseFixtures() {
-  const operationRows = await assertNoError(
-    supabaseAdmin
-      .from("submission_upload_operations")
-      .select("storage_key")
-      .in("discord_user_id", Object.values(users)),
-    "CLEANUP_OPERATION_KEYS"
+  const userList = Object.values(users).map(sqlLiteral).join(",");
+  const operationKeys = await runDatabaseSql(
+    `select storage_key from public.submission_upload_operations where discord_user_id in (${userList}) order by storage_key;`
   );
-  for (const row of operationRows ?? []) {
-    if (!createdKeys.includes(row.storage_key)) {
-      createdKeys.push(row.storage_key);
+  for (const storageKey of operationKeys.split(/\r?\n/u).filter(Boolean)) {
+    if (!createdKeys.includes(storageKey)) {
+      createdKeys.push(storageKey);
     }
   }
 
@@ -240,19 +267,15 @@ async function cleanupDatabaseFixtures() {
       .in("discord_user_id", Object.values(users)),
     "CLEANUP_UPLOAD_LOGS"
   );
+  await runDatabaseSql(
+    `delete from public.submission_upload_operations where discord_user_id in (${userList});`
+  );
   await assertNoError(
     supabaseAdmin
       .from("submissions")
       .delete()
       .in("discord_user_id", Object.values(users)),
     "CLEANUP_SUBMISSIONS"
-  );
-  await assertNoError(
-    supabaseAdmin
-      .from("submission_upload_operations")
-      .delete()
-      .in("discord_user_id", Object.values(users)),
-    "CLEANUP_OPERATIONS"
   );
   await assertNoError(
     supabaseAdmin
@@ -455,6 +478,7 @@ async function reserve({ userType, media, privateData }) {
     requestFingerprint,
     contentSha256: media.contentSha256,
     mediaBytes: media.body.byteLength,
+    privateData,
   });
   assert.equal(result.outcome, "reserved");
   createdKeys.push(result.storageKey);
@@ -464,7 +488,9 @@ async function reserve({ userType, media, privateData }) {
 
 async function runSuccessCase(media) {
   const privateData = {
-    walletAddress: "synthetic-wallet",
+    walletSource: "manual",
+    manualWalletAddress: "So11111111111111111111111111111111111111112",
+    profileWalletVersion: null,
     payoutChoice: "split",
     splitPercent: 50,
     charity: "Synthetic Charity",
@@ -488,7 +514,6 @@ async function runSuccessCase(media) {
   const completed = await commitSubmissionUpload({
     operationId: reservation.operationId,
     sessionId: sessions.success,
-    privateData,
     mediaWidth: media.width,
     mediaHeight: media.height,
   });
@@ -527,6 +552,7 @@ async function runSuccessCase(media) {
     requestFingerprint,
     contentSha256: media.contentSha256,
     mediaBytes: media.body.byteLength,
+    privateData,
   });
   assert.equal(replay.outcome, "already_completed");
   assert.equal(replay.submissionId, completed.submissionId);
@@ -545,7 +571,9 @@ async function runSuccessCase(media) {
 
 async function runCompensationCase(media) {
   const privateData = {
-    walletAddress: "synthetic-wallet-2",
+    walletSource: "manual",
+    manualWalletAddress: "Vote111111111111111111111111111111111111111",
+    profileWalletVersion: null,
     payoutChoice: "keep",
     splitPercent: null,
     charity: null,
@@ -581,7 +609,6 @@ async function runCompensationCase(media) {
     await commitSubmissionUpload({
       operationId: reservation.operationId,
       sessionId: sessions.compensated,
-      privateData,
       mediaWidth: media.width,
       mediaHeight: media.height,
     });
@@ -601,7 +628,7 @@ async function runCompensationCase(media) {
   }
   assert.equal(await objectExists(reservation.storageKey), false);
 
-  const [submissionRows, operationRows, queueRows] = await Promise.all([
+  const [submissionRows, operationRowsJson, queueRows] = await Promise.all([
     assertNoError(
       supabaseAdmin
         .from("submissions")
@@ -609,12 +636,8 @@ async function runCompensationCase(media) {
         .eq("discord_user_id", users.compensated),
       "COMPENSATED_SUBMISSION"
     ),
-    assertNoError(
-      supabaseAdmin
-        .from("submission_upload_operations")
-        .select("status, cleanup_required")
-        .eq("id", reservation.operationId),
-      "COMPENSATED_OPERATION"
+    runDatabaseSql(
+      `select coalesce(json_agg(json_build_object('status', status, 'cleanup_required', cleanup_required)), '[]'::json)::text from public.submission_upload_operations where id=${sqlLiteral(reservation.operationId)}::uuid;`
     ),
     assertNoError(
       supabaseAdmin
@@ -624,6 +647,7 @@ async function runCompensationCase(media) {
       "COMPENSATED_QUEUE"
     ),
   ]);
+  const operationRows = JSON.parse(operationRowsJson);
   assert.equal(submissionRows.length, 0);
   assert.deepEqual(operationRows, [
     { status: "cleanup_pending", cleanup_required: true },
@@ -633,7 +657,9 @@ async function runCompensationCase(media) {
 
 async function runPutFailureCase(media) {
   const privateData = {
-    walletAddress: "synthetic-wallet-3",
+    walletSource: "manual",
+    manualWalletAddress: "So11111111111111111111111111111111111111112",
+    profileWalletVersion: null,
     payoutChoice: "keep",
     splitPercent: null,
     charity: null,
@@ -688,7 +714,7 @@ async function runPutFailureCase(media) {
   assert.equal(await objectExists(reservation.storageKey), false);
 }
 
-await loadAndValidateEnvironment();
+devDatabaseUrl = await loadAndValidateEnvironment();
 
 const [{ supabaseAdmin: loadedSupabase }, { r2 }, cleanupModule, sagaModule, requestModule, mediaModule, profileModule] =
   await Promise.all([

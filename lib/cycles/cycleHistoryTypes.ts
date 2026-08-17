@@ -6,7 +6,6 @@ export type CycleHistoryWinnerProfile = {
   cycle_id: number;
   submission_id: number;
   wall: string;
-  wallet_address: string;
   payout_choice: string;
   split_percent: number | null;
   charity: string | null;
