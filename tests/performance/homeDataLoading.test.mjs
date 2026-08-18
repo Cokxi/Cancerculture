@@ -174,6 +174,7 @@ test("public hero and user account data stay isolated", async () => {
   assert.match(accountRoute, /await getSessionState\(\)/);
   assert.match(
     accountRoute,
-    /const \[accountResult, teamAccess\] = await Promise\.all/
+    /const \[accountResult, teamAccess, unreadNotificationCount\] = await Promise\.all/
   );
+  assert.match(accountRoute, /loadOwnNotificationUnreadCount\(sessionState\.session\.session_id\)/u);
 });

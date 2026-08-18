@@ -35,6 +35,76 @@ self.addEventListener("message", (event) => {
   }
 });
 
+const PUSH_TITLES = new Set([
+  "Winner claim required",
+  "Winner result finalized",
+  "Submission disqualified",
+  "Submission restored",
+  "Cycle results are ready",
+]);
+const PUSH_BODIES = new Set([
+  "Review and confirm your winner claim.",
+  "View your finalized winner result.",
+  "View your moderation history for details.",
+  "View the finalized Cycle results.",
+]);
+const NOTIFICATION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function safePushMessage(event) {
+  try {
+    const value = event.data?.json();
+    if (
+      !value ||
+      !PUSH_TITLES.has(value.title) ||
+      !PUSH_BODIES.has(value.body) ||
+      typeof value.category !== "string" ||
+      !/^[a-z][a-z0-9_]{2,63}$/.test(value.category) ||
+      typeof value.notificationId !== "string" ||
+      !NOTIFICATION_ID_PATTERN.test(value.notificationId)
+    ) throw new Error("invalid");
+    return {
+      title: value.title,
+      body: value.body,
+      url: "/notifications/open/" + value.notificationId,
+      tag: "account-notification:" + value.notificationId,
+    };
+  } catch {
+    return {
+      title: "CancerCulture",
+      body: "You have a new private update.",
+      url: "/notifications",
+      tag: "account-notification",
+    };
+  }
+}
+
+self.addEventListener("push", (event) => {
+  const message = safePushMessage(event);
+  event.waitUntil(self.registration.showNotification(message.title, {
+    body: message.body,
+    tag: message.tag,
+    data: { url: message.url },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const candidate = event.notification.data?.url;
+  const url = typeof candidate === "string" && (
+    candidate === "/notifications" ||
+    /^\/notifications\/open\/[0-9a-f-]{36}$/.test(candidate)
+  ) ? candidate : "/notifications";
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const existing = windows[0];
+    if (existing) {
+      if ("navigate" in existing) await existing.navigate(url);
+      return existing.focus();
+    }
+    return self.clients.openWindow(url);
+  })());
+});
+
 void SERVICE_WORKER_VERSION;
 `;
 }

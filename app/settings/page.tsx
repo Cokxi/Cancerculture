@@ -10,6 +10,18 @@ export default function SettingsPage() {
         Choose a settings category
       </h2>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <Link href="/settings/notifications" className={categoryClassName}>
+          <span>
+            <span className="block font-['Permanent_Marker'] text-lg tracking-wide text-[var(--orange-main)]">Notifications</span>
+            <span className="mt-2 block text-sm leading-relaxed text-white/65">
+              Private account updates and optional per-device Web Push categories.
+            </span>
+            <span className="mt-3 block text-xs font-semibold uppercase tracking-wide text-orange-200/80">
+              Discord sign-in required
+            </span>
+          </span>
+          <span aria-hidden className="text-2xl text-[var(--orange-main)] transition group-hover:translate-x-1">›</span>
+        </Link>
         <Link href="/settings/security" className={categoryClassName}>
           <span>
             <span className="block font-['Permanent_Marker'] text-lg tracking-wide text-[var(--orange-main)]">Security &amp; 2FA</span>

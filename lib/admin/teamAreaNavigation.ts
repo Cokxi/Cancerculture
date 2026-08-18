@@ -36,6 +36,7 @@ export type TeamAreaNavigationCategory = Readonly<{
   title: string;
   items: readonly TeamAreaNavigationItem[];
   badges?: readonly string[];
+  direct?: boolean;
 }>;
 
 export type ResolvedTeamAreaNavigation = readonly TeamAreaNavigationCategory[];

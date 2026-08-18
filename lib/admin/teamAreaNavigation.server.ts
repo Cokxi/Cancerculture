@@ -8,6 +8,45 @@ import {
   type ResolvedTeamAreaNavigation,
 } from "@/lib/admin/teamAreaNavigation";
 import { loadSubmissionReportUnreadCounts } from "@/lib/reports/submissionReportTeam.server";
+import { loadTeamInboxOverview } from "@/lib/teamInbox/teamInbox.server";
+
+async function addTeamInboxNavigation(
+  navigation: ResolvedTeamAreaNavigation,
+  authorization: Awaited<ReturnType<typeof getTeamAuthorizationContext>>
+): Promise<ResolvedTeamAreaNavigation> {
+  try {
+    const topics = await loadTeamInboxOverview(authorization);
+    if (topics.length === 0 && !authorization.isAdmin) return navigation;
+    const newCount = topics.reduce((total, topic) => total + (topic.newCount ?? 0), 0);
+    return Object.freeze([
+      Object.freeze({
+        id: "team-inbox",
+        title: "Team Inbox",
+        direct: true,
+        badges: newCount > 0 ? Object.freeze([`${newCount} new`]) : undefined,
+        items: Object.freeze([
+          Object.freeze({
+            id: "team-inbox",
+            title: "Team Inbox",
+            href: "/admin/inbox",
+            categoryId: "team-inbox",
+            parentId: "team-inbox",
+            description: "Open topic-based team work queues.",
+            requirement: Object.freeze({
+              type: "capability" as const,
+              capability: "winners.payouts.view" as const,
+            }),
+            implemented: true,
+            badges: newCount > 0 ? Object.freeze([`${newCount} new`]) : undefined,
+          }),
+        ]),
+      }),
+      ...navigation,
+    ]);
+  } catch {
+    return navigation;
+  }
+}
 
 async function addFlagBadges(
   navigation: ResolvedTeamAreaNavigation,
@@ -101,8 +140,9 @@ export const getResolvedTeamAreaNavigation = cache(async () => {
     authorization.isAdmin ||
     authorization.resolvedCapabilities.includes("users.flag.review");
 
+  const withInbox = await addTeamInboxNavigation(navigation, authorization);
   const withFlagBadges = canReview
-    ? addFlagBadges(navigation, authorization.isAdmin)
-    : navigation;
+    ? addFlagBadges(withInbox, authorization.isAdmin)
+    : withInbox;
   return addSubmissionReportBadges(await withFlagBadges, authorization);
 });

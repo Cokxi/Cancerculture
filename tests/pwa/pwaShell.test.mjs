@@ -94,8 +94,15 @@ test("service worker is network-only and updates only after explicit confirmatio
   assert.match(route, /self\.clients\.claim\(\)/u);
   assert.match(route, /event\.data\?\.type === "SKIP_WAITING"/u);
   assert.equal(route.match(/self\.skipWaiting\(\)/gu)?.length, 1);
+  assert.match(route, /addEventListener\("push"/u);
+  assert.match(route, /addEventListener\("notificationclick"/u);
+  assert.match(route, /NOTIFICATION_ID_PATTERN/u);
+  assert.match(route, /"\/notifications\/open\/" \+ value\.notificationId/u);
+  assert.match(route, /self\.clients\.matchAll\(\{ type: "window", includeUncontrolled: true \}\)/u);
+  assert.match(route, /self\.clients\.openWindow\(url\)/u);
+  assert.match(route, /candidate === "\/notifications"/u);
   assert.doesNotMatch(
     route,
-    /addEventListener\("fetch"|caches\.|cache\.add|cache\.put|CacheStorage/u
+    /addEventListener\("fetch"|addEventListener\("sync"|caches\.|cache\.add|cache\.put|CacheStorage|backgroundSync/u
   );
 });

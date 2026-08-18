@@ -62,6 +62,18 @@ test("self sees the exact DQ reason while delegates remain redacted", async () =
   assert.doesNotMatch(loader, /evidence|r2_key.*reasonText|request_payload/iu);
 });
 
+test("expanded moderation events render newest first without rewriting history", async () => {
+  const [loader, list] = await Promise.all([
+    source("lib/profile/disqualificationHistoryReadModel.server.ts"),
+    source("app/components/profile/DisqualificationHistoryList.tsx"),
+  ]);
+
+  assert.match(loader, /const chronologicalEvents = parseEvents\(row\.events\)\.sort/u);
+  assert.match(loader, /const latestEvent = chronologicalEvents\.at\(-1\)/u);
+  assert.match(loader, /chronologicalEvents\.slice\(\)\.reverse\(\)\.map/u);
+  assert.doesNotMatch(list, /item\.events\.(?:sort|reverse)\(/u);
+});
+
 test("public profiles omit current DQs and serialize no DQ state or reason", async () => {
   const [publicLoader, publicPage] = await Promise.all([
     source("lib/profile/getPublicUserProfileData.ts"),

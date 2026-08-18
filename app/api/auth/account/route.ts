@@ -7,6 +7,7 @@ import type { GlobalAccountViewState } from "@/lib/auth/globalAccount";
 import { getSessionState } from "@/lib/auth/sessionState";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { getPublicImageUrl } from "@/lib/r2/getPublicImageUrl";
+import { loadOwnNotificationUnreadCount } from "@/lib/notifications/ownerNotifications.server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export async function GET() {
     }
 
     const discordUserId = sessionState.session.discord_user_id;
-    const [accountResult, teamAccess] = await Promise.all([
+    const [accountResult, teamAccess, unreadNotificationCount] = await Promise.all([
       runAuthQueryWithTimeout(
         "global account profile lookup",
         supabaseAdmin
@@ -72,6 +73,10 @@ export async function GET() {
           }
           throw error;
         }),
+      loadOwnNotificationUnreadCount(sessionState.session.session_id).catch((error) => {
+        console.error("[NOTIFICATIONS] global unread count unavailable", error);
+        return 0;
+      }),
     ]);
 
     if (accountResult.error) {
@@ -99,6 +104,7 @@ export async function GET() {
       kind: "authenticated",
       avatarUrl,
       displayName: account?.current_discord_username ?? "Account",
+      unreadNotificationCount,
       navigation,
     });
   } catch (error) {

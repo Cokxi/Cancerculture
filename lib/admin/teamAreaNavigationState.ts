@@ -8,6 +8,7 @@ export type TeamAreaNavigationStateCategory = Readonly<{
   id: string;
   title: string;
   items: readonly TeamAreaNavigationStateItem[];
+  direct?: boolean;
 }>;
 
 export function isTeamAreaPathActive(
@@ -51,7 +52,8 @@ export function getTeamAreaBreadcrumbs(
 ): readonly string[] {
   const active = findActiveTeamAreaItem(navigation, pathname);
   return active
-    ? ["Team Area", active.category.title, active.entry.title]
+    ? active.category.direct
+      ? ["Team Area", active.entry.title]
+      : ["Team Area", active.category.title, active.entry.title]
     : ["Team Area"];
 }
-

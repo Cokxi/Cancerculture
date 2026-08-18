@@ -19,6 +19,8 @@ type AuthenticatedNavigation = Extract<
 type AccountMenuProps = {
   avatarUrl: string | null;
   displayName: string;
+  unreadNotificationCount: number;
+  onOpenNotifications: () => void;
   navigation: AuthenticatedNavigation;
   visibilityAction: {
     label: "Hide" | "Show always";
@@ -33,6 +35,8 @@ function supportsHoverInteraction() {
 export default function AccountMenu({
   avatarUrl,
   displayName,
+  unreadNotificationCount,
+  onOpenNotifications,
   navigation,
   visibilityAction,
 }: AccountMenuProps) {
@@ -175,6 +179,14 @@ export default function AccountMenu({
         >
           {displayName}
         </span>
+        {unreadNotificationCount > 0 ? (
+          <span
+            className="flex min-h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-black"
+            aria-label={`${unreadNotificationCount} unread notification${unreadNotificationCount === 1 ? "" : "s"}`}
+          >
+            {unreadNotificationCount >= 999 ? "999+" : unreadNotificationCount}
+          </span>
+        ) : null}
         <span
           aria-hidden
           className={`text-xs transition-transform ${open ? "rotate-180" : ""}`}
@@ -203,6 +215,22 @@ export default function AccountMenu({
                 Team access temporarily unavailable
               </p>
             ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              className={navigationMenuItemClassName}
+              onClick={() => {
+                closeMenu();
+                onOpenNotifications();
+              }}
+            >
+              <span>Notifications</span>
+              {unreadNotificationCount > 0 ? (
+                <span aria-hidden className="ml-auto rounded-full bg-orange-500 px-2 py-0.5 text-xs font-bold text-black">
+                  {unreadNotificationCount >= 999 ? "999+" : unreadNotificationCount}
+                </span>
+              ) : null}
+            </button>
             <Link
               href="/settings"
               role="menuitem"

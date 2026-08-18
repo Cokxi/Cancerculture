@@ -10,6 +10,11 @@ import {
 import { runAuthQueryWithTimeout } from "@/lib/auth/authQuery";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { enforceRouteMutationGate } from "@/lib/writeGate.server";
+import {
+  PUSH_DEVICE_COOKIE,
+  deactivatePushSubscription,
+  isPushDeviceId,
+} from "@/lib/notifications/pushSubscriptions.server";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -53,8 +58,17 @@ export async function POST(req: Request) {
   );
   const cookieStore = await cookies();
   const sessionId = cookieStore.get("session_id")?.value;
+  const pushDeviceId = cookieStore.get(PUSH_DEVICE_COOKIE)?.value;
 
   if (sessionId && UUID_PATTERN.test(sessionId)) {
+    if (isPushDeviceId(pushDeviceId)) {
+      try {
+        await deactivatePushSubscription(sessionId, pushDeviceId);
+      } catch (error) {
+        // Session revocation remains the fail-closed delivery boundary.
+        console.error("[PUSH] current browser association deactivation failed", error);
+      }
+    }
     const { error } = await runAuthQueryWithTimeout(
       "logout session revocation",
       supabaseAdmin
@@ -85,5 +99,6 @@ export async function POST(req: Request) {
   expireCookie(response, "discord_user_id");
   expireCookie(response, "oauth_state");
   expireCookie(response, "oauth_redirect_path");
+  expireCookie(response, PUSH_DEVICE_COOKIE);
   return response;
 }

@@ -16,6 +16,7 @@ export type GlobalAccountViewState =
       kind: "authenticated";
       avatarUrl: string | null;
       displayName: string;
+      unreadNotificationCount: number;
       navigation: AuthenticatedNavigation;
     };
 

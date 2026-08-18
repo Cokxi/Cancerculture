@@ -23,6 +23,40 @@ function NavigationGroups({
   return (
     <div className="space-y-2">
       {navigation.map((category) => {
+        const directEntry = category.direct && category.items.length === 1
+          ? category.items[0]
+          : null;
+        if (directEntry?.href) {
+          const active = activeItem?.entry.id === directEntry.id;
+          return (
+            <Link
+              key={category.id}
+              href={directEntry.href}
+              aria-current={active ? "page" : undefined}
+              onClick={onNavigate}
+              className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-orange-300 ${
+                active
+                  ? "bg-orange-500/15 text-orange-200"
+                  : "text-white/75 hover:bg-white/[0.07] hover:text-white"
+              }`}
+            >
+              <span>{directEntry.title}</span>
+              {directEntry.badges?.length ? (
+                <span className="flex gap-1" aria-label={directEntry.badges.join(", ")}>
+                  {directEntry.badges.map((badge) => (
+                    <span
+                      key={badge}
+                      className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-200"
+                    >
+                      {badge}
+                    </span>
+                  ))}
+                </span>
+              ) : null}
+            </Link>
+          );
+        }
+
         const open = openCategories.has(category.id);
         const buttonId = `nav-${category.id}`;
         const listId = `nav-${category.id}-items`;
@@ -247,8 +281,12 @@ export default function TeamAreaShell({
               {breadcrumb ? (
                 <>
                   <li aria-hidden="true">/</li>
-                  <li>{breadcrumb.category.title}</li>
-                  <li aria-hidden="true">/</li>
+                  {!breadcrumb.category.direct ? (
+                    <>
+                      <li>{breadcrumb.category.title}</li>
+                      <li aria-hidden="true">/</li>
+                    </>
+                  ) : null}
                   <li className="text-white/80" aria-current="page">
                     {breadcrumb.entry.title}
                   </li>

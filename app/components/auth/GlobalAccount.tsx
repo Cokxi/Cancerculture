@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import AccountMenu from "@/app/components/auth/AccountMenu";
 import AnonymousAccountMenu from "@/app/components/auth/AnonymousAccountMenu";
+import NotificationDrawer from "@/app/components/notifications/NotificationDrawer";
 import {
   GLOBAL_ACCOUNT_HIDDEN_STORAGE_KEY,
   getGlobalAccountVisibilityAction,
@@ -35,6 +36,7 @@ function getVisibilityPreferenceSnapshot() {
 export default function GlobalAccount() {
   const pathname = usePathname();
   const [account, setAccount] = useState<GlobalAccountViewState | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
     () => true,
@@ -85,10 +87,11 @@ export default function GlobalAccount() {
     pathname === "/" ? "right-3 top-[74px] sm:right-5" : "right-4 top-4";
 
   return (
-    <div
-      data-global-account
-      className={`fixed z-[70] ${positionClassName}`}
-    >
+    <>
+      <div
+        data-global-account
+        className={`fixed z-[70] ${positionClassName}`}
+      >
       {!account ? (
         <div
           className="h-11 w-11 animate-pulse rounded-full border border-orange-500/30 bg-black/80"
@@ -119,6 +122,8 @@ export default function GlobalAccount() {
         <AccountMenu
           avatarUrl={account.avatarUrl}
           displayName={account.displayName}
+          unreadNotificationCount={account.unreadNotificationCount}
+          onOpenNotifications={() => setNotificationsOpen(true)}
           navigation={account.navigation}
           visibilityAction={{
             label: getGlobalAccountVisibilityAction(hiddenOnSubpages),
@@ -126,6 +131,25 @@ export default function GlobalAccount() {
           }}
         />
       )}
-    </div>
+      </div>
+      {account?.kind === "authenticated" ? (
+        <NotificationDrawer
+          open={notificationsOpen}
+          onClose={() => setNotificationsOpen(false)}
+          onUnreadDelta={(delta) => {
+            setAccount((current) => current?.kind === "authenticated"
+              ? {
+                  ...current,
+                  unreadNotificationCount: Math.max(
+                    0,
+                    Math.min(999, current.unreadNotificationCount + delta)
+                  ),
+                }
+              : current
+            );
+          }}
+        />
+      ) : null}
+    </>
   );
 }

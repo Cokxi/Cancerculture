@@ -65,6 +65,11 @@ test("logout revokes the server session before expiring auth cookies", async () 
   assert.ok(sessionExpiry > revocation);
   assert.match(route, /expireCookie\(response, "discord_user_id"\)/);
   assert.match(route, /maxAge: 0/);
+  const pushDeactivation = route.indexOf("deactivatePushSubscription(sessionId, pushDeviceId)");
+  assert.ok(pushDeactivation > -1);
+  assert.ok(pushDeactivation < revocation);
+  assert.match(route, /expireCookie\(response, PUSH_DEVICE_COOKIE\)/u);
+  assert.match(route, /Session revocation remains the fail-closed delivery boundary/u);
 });
 
 test("logout redirects to the sanitized public route and refreshes auth UI", async () => {

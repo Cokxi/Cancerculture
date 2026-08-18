@@ -216,15 +216,22 @@ async function readHistoryPage({
     visibleRows.map((row) => row.cycle_id)
   );
   const items = visibleRows.map((row): DisqualificationHistoryItem => {
-    const rawEvents = parseEvents(row.events);
-    if (rawEvents.length !== row.event_count || rawEvents.length === 0) {
+    const chronologicalEvents = parseEvents(row.events).sort(
+      (left, right) =>
+        Date.parse(left.occurredAt) - Date.parse(right.occurredAt) ||
+        left.id.localeCompare(right.id)
+    );
+    if (
+      chronologicalEvents.length !== row.event_count ||
+      chronologicalEvents.length === 0
+    ) {
       throw readUnavailable("USER_DQ_HISTORY_EVENT_COUNT_INVALID");
     }
 
-    const legacyPartial = rawEvents.some(
+    const legacyPartial = chronologicalEvents.some(
       (event) => event.provenance === "legacy_partial"
     );
-    const latestEvent = rawEvents.at(-1);
+    const latestEvent = chronologicalEvents.at(-1);
     if (
       !latestEvent ||
       (!legacyPartial &&
@@ -262,7 +269,7 @@ async function readHistoryPage({
       eventCount: row.event_count,
       legacyPartial,
       events: Object.freeze(
-        rawEvents.map((event) => {
+        chronologicalEvents.slice().reverse().map((event) => {
           const canViewExactReason =
             viewerMode === "owner" ||
             (viewerMode === "self" &&

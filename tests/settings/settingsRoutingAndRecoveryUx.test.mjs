@@ -32,13 +32,19 @@ const [
   source("app/components/auth/AnonymousAccountMenu.tsx"),
 ]);
 
-test("Settings and Security are real direct-link routes with normal page scrolling", () => {
+test("Settings and Security are real direct-link routes with normal page scrolling", async () => {
   assert.match(settingsLayout, /<SettingsNavigation/u);
   assert.match(settingsNavigation, /href: "\/settings"/u);
   assert.match(settingsNavigation, /href: "\/settings\/security"/u);
+  assert.match(settingsNavigation, /href: "\/settings\/notifications"/u);
   assert.match(settingsNavigation, /href: "\/settings\/sponsor-analytics"/u);
   assert.match(settingsNavigation, /aria-current=\{pathname === item\.href \? "page"/u);
   assert.match(settingsPage, /href="\/settings\/security"/u);
+  assert.match(settingsPage, /href="\/settings\/notifications"/u);
+  const notificationSettings = await source("app/components/notifications/PushNotificationSettings.tsx");
+  assert.match(notificationSettings, /role="switch"/u);
+  assert.match(notificationSettings, /aria-checked=\{checked\}/u);
+  assert.match(notificationSettings, /category\.description/u);
   assert.match(securityPage, /<TwoFactorSettings/u);
   assert.match(accountMenu, /href="\/settings"/u);
   assert.match(anonymousMenu, /href="\/settings"/u);
