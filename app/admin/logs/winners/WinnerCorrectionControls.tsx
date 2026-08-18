@@ -41,11 +41,11 @@ export default function WinnerCorrectionControls({ winner }: { winner: TeamWinne
         const code = body.outcome ?? body.error;
         throw new Error(typeof code === "string" ? code : "UNAVAILABLE");
       }
-      setNotice("Correction proposal is ready. The winner received a fresh 24-hour review window.");
+      setNotice("Correction proposal is ready. The winner received a fresh 24-hour review window and was notified.");
       router.refresh();
     } catch (requestError) {
       const code = requestError instanceof Error ? requestError.message : "UNAVAILABLE";
-      setError(code === "claim_stale" ? "The Claim changed in another request. Refresh and review the latest version." : code === "not_manual_recipient" ? "Corrections are limited to winners whose frozen Upload recipient was manual." : "The correction was not accepted. No recipient or Claim state was changed.");
+      setError(code === "claim_stale" ? "The Claim changed in another request. Refresh and review the latest version." : code === "not_manual_recipient" ? "Corrections are limited to winners whose frozen Upload recipient was manual." : code === "WINNER_PROFILE_WALLET_OWNER_CONTROLLED" ? "This winner now controls an active Profile Wallet through 2FA. Team correction is no longer available." : "The correction was not accepted. No recipient or Claim state was changed.");
       requestAnimationFrame(() => errorRef.current?.focus());
     } finally {
       setBusy(false);

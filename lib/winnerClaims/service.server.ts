@@ -75,7 +75,7 @@ function rpcError(error: { message: string }): never {
   const status =
     code.includes("FORBIDDEN") ? 403 :
     code.includes("INPUT_INVALID") || code.includes("CONFIRMATION_REQUIRED") ? 400 :
-    code.includes("REQUEST_REUSED") ? 409 :
+    code.includes("REQUEST_REUSED") || code.includes("PROFILE_WALLET_OWNER_CONTROLLED") ? 409 :
     code.includes("SESSION_INVALID") ? 401 : 503;
   throw new WinnerClaimError(status, code);
 }
@@ -266,6 +266,7 @@ export type TeamWinnerClaim = {
   expiredAt: string | null;
   confirmedRecipientSource: WinnerRecipientSource | null;
   walletAddress: string | null;
+  profileWalletOwnerControlled: boolean;
   correctionEligible: boolean;
   latestCorrection: null | {
     version: number;
@@ -311,6 +312,7 @@ function parseTeamWinner(value: unknown): TeamWinnerClaim | null {
     winShare,
     confirmedRecipientSource: recipientSource(row.confirmedRecipientSource),
     walletAddress: stringValue(row.walletAddress),
+    profileWalletOwnerControlled: row.profileWalletOwnerControlled === true,
     correctionEligible: row.correctionEligible === true,
     latestCorrection,
   };

@@ -72,18 +72,22 @@ test("Team corrections require both view and zero-grant mutation capabilities be
   assert.match(page, /canManageCorrections[\s\S]*WinnerCorrectionControls/u);
   assert.match(page, /winner\.status === "unclaimed"[\s\S]*ClaimCountdown/u);
   assert.match(controls, /Propose correction and start 24h/u);
+  assert.match(page, /winner\.profileWalletOwnerControlled[\s\S]*Team recipient correction is unavailable/u);
+  assert.match(page, /winner\.correctionEligible && !winner\.profileWalletOwnerControlled/u);
+  assert.match(service, /profileWalletOwnerControlled: row\.profileWalletOwnerControlled === true/u);
+  assert.match(controls, /WINNER_PROFILE_WALLET_OWNER_CONTROLLED/u);
   assert.doesNotMatch(controls, /Tally|case reference|report date|datetime-local|record_pending/iu);
   assert.doesNotMatch(route, /caseReference|reportedAt|record_pending|body\?\.action/u);
   assert.match(service, /rpc\("manage_winner_recipient_correction"/u);
 });
 
-test("the winner cannot reject a correction outside the future authenticated Wallet Issue flow", async () => {
+test("the winner cannot reject a correction from the Claim screen", async () => {
   const [client, route, service] = await Promise.all([
     source("app/my-profile/winnings/[claimId]/WinnerClaimClient.tsx"),
     source("app/api/account/winner-claims/[claimId]/route.ts"),
     source("lib/winnerClaims/service.server.ts"),
   ]);
-  assert.match(client, /dedicated authenticated Wallet Issue report flow will be added separately/u);
+  assert.match(client, /Wallet Issue reports must have been sent from the exact Current Cycle Submission before finalization/u);
   assert.doesNotMatch(`${client}\n${route}\n${service}`, /correction_incorrect/u);
 });
 

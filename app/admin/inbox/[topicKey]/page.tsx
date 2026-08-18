@@ -40,6 +40,11 @@ export default async function TeamInboxTopicPage({ params, searchParams }: {
       <header>
         <Link href="/admin/inbox" className="text-sm text-orange-200 hover:underline">← Team Inbox</Link>
         <h1 className="mt-3 font-['Permanent_Marker'] text-4xl text-[var(--orange-main)]">{topic.displayName}</h1>
+        {topicKey === "wallet_issues" ? (
+          <Link href="/admin/inbox/wallet_issues/intake-monitor" className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-orange-300/35 px-4 text-sm text-orange-100">
+            Open Intake Monitor
+          </Link>
+        ) : null}
       </header>
       <nav className="flex flex-wrap gap-2" aria-label="Case filters">
         {FILTERS.map((entry) => (

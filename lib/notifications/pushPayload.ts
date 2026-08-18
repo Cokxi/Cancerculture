@@ -3,6 +3,10 @@ const PAYLOADS = {
     title: "Winner claim required",
     body: "Review and confirm your winner claim.",
   },
+  winner_correction_ready: {
+    title: "Winner claim ready",
+    body: "Review the full recipient and confirm your Claim within 24 hours.",
+  },
   winner_donation_finalized: {
     title: "Winner result finalized",
     body: "View your finalized winner result.",
@@ -18,6 +22,18 @@ const PAYLOADS = {
   cycle_results_ready: {
     title: "Cycle results are ready",
     body: "View the finalized Cycle results.",
+  },
+  wallet_issue_received: {
+    title: "Wallet issue received",
+    body: "Your winning-Submission report is ready for Team review.",
+  },
+  wallet_issue_correction_ready: {
+    title: "Wallet correction ready",
+    body: "Review the full recipient and confirm your Claim within 24 hours.",
+  },
+  wallet_issue_resolved: {
+    title: "Wallet issue resolved",
+    body: "Review the current recipient and confirm your Claim within 24 hours.",
   },
 } as const;
 

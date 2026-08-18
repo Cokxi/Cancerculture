@@ -12,10 +12,14 @@ const UUID_PATTERN =
 const PAGE_SIZE = 20;
 const EVENT_TYPES = new Set([
   "winner_claim_required",
+  "winner_correction_ready",
   "winner_donation_finalized",
   "submission_disqualified",
   "submission_reinstated",
   "cycle_results_ready",
+  "wallet_issue_received",
+  "wallet_issue_correction_ready",
+  "wallet_issue_resolved",
 ]);
 
 export type OwnerNotification = Readonly<{

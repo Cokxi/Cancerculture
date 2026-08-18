@@ -4,6 +4,7 @@ export const TURNSTILE_ACTIONS = {
   vote: "vote",
   submissionUpload: "submission_upload",
   submissionReport: "submission_report",
+  walletIssueIntake: "wallet_issue_intake",
   twoFactorRecovery: "two_factor_recovery",
 } as const;
 

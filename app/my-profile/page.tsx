@@ -19,6 +19,10 @@ import {
   getOwnWinnerClaims,
 } from "@/lib/winnerClaims/service.server";
 import PendingWinnerClaims from "./PendingWinnerClaims";
+import WalletIssueIntakeForm from "./WalletIssueIntakeForm";
+import { getOwnWalletIssueIntakes } from "@/lib/walletIssues/service.server";
+import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
+import type { WalletIssueStatus } from "@/lib/walletIssues/contract";
 
 const MY_PROFILE_PATH = "/my-profile";
 const MY_PROFILE_LOGIN_PATH =
@@ -63,9 +67,13 @@ function renderPublicVisibilityStatus(
 function CurrentSubmissionCard({
   submission,
   showWalletAddress,
+  walletIssueStatus,
+  turnstileSiteKey,
 }: {
   submission: CurrentProfileSubmission;
   showWalletAddress: boolean;
+  walletIssueStatus: WalletIssueStatus | null;
+  turnstileSiteKey: string | null;
 }) {
   const privateData = submission.privateData;
 
@@ -178,6 +186,15 @@ function CurrentSubmissionCard({
           )}
         </div>
       )}
+      {privateData?.payout_choice === "keep" || privateData?.payout_choice === "split" ? (
+        <div className="w-full max-w-md">
+          <WalletIssueIntakeForm
+            submissionId={submission.id}
+            initialStatus={walletIssueStatus}
+            turnstileSiteKey={turnstileSiteKey}
+          />
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -222,11 +239,16 @@ export default async function MyProfilePage() {
   }
 
   const session = sessionState.session;
-  const [profileData, profileWallet, winnings] = await Promise.all([
+  const [profileData, profileWallet, winnings, walletIssueIntakes] = await Promise.all([
     getUserProfileData(session.discord_user_id),
     getSolProfileWallet(session).catch(() => null),
     getOwnWinnerClaims(session).catch(() => null),
+    getOwnWalletIssueIntakes(session).catch(() => []),
   ]);
+  const walletIssueBySubmission = new Map(
+    walletIssueIntakes.map((intake) => [intake.submissionId, intake.status] as const)
+  );
+  const turnstileSiteKey = getTurnstileClientSiteKey();
   const {
     activeCycleId,
     activeCycleNumber,
@@ -331,6 +353,8 @@ export default async function MyProfilePage() {
                   key={submission.id}
                   submission={submission}
                   showWalletAddress={!hasSavedProfileWallet}
+                  walletIssueStatus={walletIssueBySubmission.get(submission.id) ?? null}
+                  turnstileSiteKey={turnstileSiteKey}
                 />
               ))}
             </div>

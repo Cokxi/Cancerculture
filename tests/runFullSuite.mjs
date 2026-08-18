@@ -22,7 +22,7 @@ function collectTestFiles(directory) {
 
 const testFiles = collectTestFiles(testsRoot).sort((left, right) =>
   left.localeCompare(right, "en"),
-);
+).map((filePath) => path.relative(repoRoot, filePath));
 
 if (testFiles.length === 0) {
   console.error("No .test.mjs files found below tests/.");

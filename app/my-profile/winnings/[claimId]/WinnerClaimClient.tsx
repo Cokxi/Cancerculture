@@ -186,7 +186,7 @@ export default function WinnerClaimClient({
             <p className="mt-2">
               Add or change your current 2FA-protected Wallet in <Link className="text-orange-300 underline" href="/my-profile#sol-wallet">My Profile</Link> before the deadline, then return and review the newly resolved full address.
             </p>
-            <p className="mt-2">If the proposed address is still wrong, do not confirm it. A dedicated authenticated Wallet Issue report flow will be added separately.</p>
+            <p className="mt-2">If this address is wrong, do not confirm it. Wallet Issue reports must have been sent from the exact Current Cycle Submission before finalization; otherwise add or change your Profile Wallet through 2FA.</p>
           </div>
         </>
       ) : claim.status === "correction_pending" ? (
@@ -203,7 +203,7 @@ export default function WinnerClaimClient({
         <div className="mt-6 rounded-xl border border-yellow-300/25 bg-yellow-950/20 p-4 text-yellow-100">
           <p className="font-semibold">No valid recipient is available yet.</p>
           <p className="mt-2 text-sm leading-relaxed">
-            Nothing can be confirmed in this state. Before the deadline, add a valid current 2FA-protected Wallet in <Link className="underline" href="/my-profile#sol-wallet">My Profile</Link>. A dedicated authenticated Wallet Issue report flow will be added separately.
+            Nothing can be confirmed in this state. Before the deadline, add a valid current 2FA-protected Wallet in <Link className="underline" href="/my-profile#sol-wallet">My Profile</Link>. Wallet Issue reports are accepted only from an exact Current Cycle Submission before finalization.
           </p>
         </div>
       ) : (

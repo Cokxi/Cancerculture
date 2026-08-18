@@ -84,7 +84,10 @@ export default async function WinnerLogsPage() {
                       ) : winner.payoutChoice !== "donate" ? (
                         <p className="mt-3 rounded-md bg-black/30 p-3 text-xs text-white/55">{winner.status === "unclaimed" ? "Wallet pending winner confirmation" : "No payout Wallet is exposed for this state"}</p>
                       ) : null}
-                      {canManageCorrections && winner.correctionEligible && !terminal ? <WinnerCorrectionControls winner={winner} /> : null}
+                      {canManageCorrections && winner.profileWalletOwnerControlled && !terminal ? (
+                        <p className="mt-4 rounded-lg border border-yellow-300/25 bg-yellow-950/15 p-4 text-sm text-yellow-100">This winner controls the active Profile Wallet through 2FA. Team recipient correction is unavailable; only the winner can change this Wallet.</p>
+                      ) : null}
+                      {canManageCorrections && winner.correctionEligible && !winner.profileWalletOwnerControlled && !terminal ? <WinnerCorrectionControls winner={winner} /> : null}
                     </article>
                   );
                 })}

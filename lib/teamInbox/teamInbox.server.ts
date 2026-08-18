@@ -8,6 +8,7 @@ import {
   encodeTeamInboxCursor,
   parseTeamInboxCursor,
 } from "@/lib/teamInbox/teamInboxCursor";
+import { loadWalletIssueCaseDetail } from "@/lib/walletIssues/service.server";
 
 const TOPIC_PATTERN = /^[a-z][a-z0-9_]{2,63}$/u;
 const UUID_PATTERN =
@@ -128,10 +129,16 @@ export async function loadTeamInboxCases({
 export async function loadTeamInboxCaseDetail(caseId: string) {
   if (!UUID_PATTERN.test(caseId)) throw new AuthError(400, "Invalid case", "TEAM_INBOX_CASE_INVALID");
   const context = await getTeamAuthorizationContext();
-  return rpc("get_team_inbox_case_detail", {
+  const detail = await rpc("get_team_inbox_case_detail", {
     p_actor_discord_user_id: context.discord_user_id,
     p_case_id: caseId,
   });
+  const caseValue = record(detail.case);
+  if (detail.outcome === "found" && caseValue.topicKey === "wallet_issues") {
+    const walletIssue = await loadWalletIssueCaseDetail(context.discord_user_id, caseId);
+    return { ...detail, walletIssue };
+  }
+  return detail;
 }
 
 export async function searchTeamInboxExactDiscordId({
