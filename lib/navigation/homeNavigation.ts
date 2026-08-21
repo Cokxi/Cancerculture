@@ -40,6 +40,12 @@ export const HOME_NAVIGATION_ITEMS: HomeNavigationItem[] = [
     href: "/cycle-history",
     showInDesktopBar: false,
   },
+  {
+    id: "community-votes",
+    label: "Community Votes",
+    href: "/community-votes",
+    showInDesktopBar: false,
+  },
 ];
 
 export function getHomeDesktopNavigationItems() {

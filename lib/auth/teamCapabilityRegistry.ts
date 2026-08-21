@@ -37,6 +37,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "rules.manage",
   "faq.manage",
   "homepage_content.manage",
+  "community.polls.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
   "winners.recipient_corrections.manage",
@@ -919,6 +920,32 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "b9f5db882c8fa65f235ef2fe83f1cc90515761e21ea885e4ca80e58b2476957a",
+  }),
+  "community.polls.manage": defineCapability({
+    key: "community.polls.manage",
+    displayName: "Manage Community Polls",
+    description:
+      "Create, activate, close, abort, replace, and review generic Community polls with immutable live content, automatic tie runoffs, and append-only administration history.",
+    category: "Community",
+    includedActions: [
+      "Create a bounded draft with a question, explanatory context, two to eight ordered options, and an allowlisted duration.",
+      "Activate an immutable poll, close it after its database deadline, and create a linked 24-hour runoff automatically when the lead is tied.",
+      "Abort or replace a poll through expected-version, idempotent, append-only audited transitions.",
+      "Review the protected poll administration history without access to a voter identity or voter-to-option list.",
+    ],
+    excludedActions: [
+      "Seeing live results before the managing account has voted or seeing who voted for an option.",
+      "Changing or withdrawing a vote, editing an activated poll, choosing an Admin tiebreak, or changing a completed result.",
+      "Publishing Homepage Info Boxes, configuring Push, managing notification preferences, or sending Production notifications.",
+      "Transferring SOL, changing Wallets, prize pools, Claims, payout data, organizations, or public payout records.",
+      "Managing roles, grants, Team membership, Owner access, or unrelated content and logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "042a289cd77aca920ab6d07abec54cec1b380423c90aa3693b7fbb11537a9a7e",
   }),
   "sponsorships.reports.view": defineCapability({
     key: "sponsorships.reports.view",

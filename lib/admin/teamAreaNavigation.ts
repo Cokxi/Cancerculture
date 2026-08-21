@@ -139,6 +139,10 @@ const homepageContentManagement = Object.freeze({
   type: "capability",
   capability: "homepage_content.manage",
 } as const);
+const communityPollManagement = Object.freeze({
+  type: "capability",
+  capability: "community.polls.manage",
+} as const);
 const sponsorReportsView = Object.freeze({
   type: "capability",
   capability: "sponsorships.reports.view",
@@ -509,6 +513,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           categoryId: "content",
           description: "Manage the public homepage information boxes.",
           requirement: homepageContentManagement,
+          implemented: true,
+        }),
+        item({
+          id: "community-polls",
+          title: "Community Votes",
+          href: "/admin/community-votes",
+          categoryId: "content",
+          description:
+            "Create and manage generic Community polls and their runoffs.",
+          requirement: communityPollManagement,
           implemented: true,
         }),
         item({

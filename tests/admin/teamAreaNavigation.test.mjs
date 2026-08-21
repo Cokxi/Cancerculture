@@ -327,6 +327,19 @@ test("Homepage Info navigation needs only homepage_content.manage", () => {
   assert.equal(rendered.includes("cycle-management"), false);
 });
 
+test("Community Votes management needs only community.polls.manage", () => {
+  const withoutGrant = resolveTeamAreaNavigation(context());
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["community.polls.manage"] })
+  );
+  const rendered = JSON.stringify(withGrant);
+
+  assert.equal(JSON.stringify(withoutGrant).includes("community-polls"), false);
+  assert.equal(rendered.includes("community-polls"), true);
+  assert.equal(rendered.includes("homepage-info-boxes"), false);
+  assert.equal(rendered.includes("winner-payouts"), false);
+});
+
 test("Winner Payouts navigation needs only its exact read capability", () => {
   const withGrant = resolveTeamAreaNavigation(
     context({ capabilities: ["winners.payouts.view"] })

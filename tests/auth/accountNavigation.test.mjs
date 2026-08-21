@@ -179,7 +179,7 @@ test("global account visibility keeps home as the recovery surface", () => {
 test("desktop and mobile home navigation expose the intended links", () => {
   assert.deepEqual(
     getHomeMenuItems({ mobile: false }).map((item) => item.id),
-    ["cycle-history"]
+    ["cycle-history", "community-votes"]
   );
   assert.deepEqual(
     getHomeMenuItems({ mobile: true }).map((item) => item.id),
@@ -193,6 +193,7 @@ test("desktop and mobile home navigation expose the intended links", () => {
       "wall-fame",
       "wall-shame",
       "cycle-history",
+      "community-votes",
     ]
   );
   assert.equal(
@@ -201,6 +202,18 @@ test("desktop and mobile home navigation expose the intended links", () => {
     ),
     false
   );
+  assert.equal(
+    getHomeDesktopNavigationItems().some(
+      (item) => item.id === "community-votes"
+    ),
+    false
+  );
+  assert.deepEqual(HOME_NAVIGATION_ITEMS.at(-1), {
+    id: "community-votes",
+    label: "Community Votes",
+    href: "/community-votes",
+    showInDesktopBar: false,
+  });
   assert.deepEqual(HOME_NAVIGATION_ITEMS[0], {
     id: "info",
     label: "Info",
