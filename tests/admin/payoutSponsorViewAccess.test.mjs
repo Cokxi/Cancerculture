@@ -5,30 +5,32 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
-test("Winner Payouts exposes only the hardened Claim projection", async () => {
-  const [page, service, correctionRoute, copyButton] = await Promise.all([
-    source("app/admin/logs/winners/page.tsx"),
-    source("lib/winnerClaims/service.server.ts"),
+test("Payouts uses the simple Cycle-grouped server projection and atomic publish flow", async () => {
+  const [page, manager, payoutService, publishRoute, correctionRoute] = await Promise.all([
+    source("app/admin/payouts/page.tsx"),
+    source("app/admin/payouts/PayoutManager.tsx"),
+    source("lib/payouts/service.server.ts"),
+    source("app/api/admin/payouts/[allocationId]/publish/route.ts"),
     source("app/api/admin/winner-recipient-corrections/route.ts"),
-    source("app/admin/logs/winners/CopyWalletButton.tsx"),
   ]);
 
   assert.match(
     page,
     /requireTeamCapabilityPage\(\s*"winners\.payouts\.view"/
   );
-  assert.match(page, /getTeamWinnerClaims/);
+  assert.match(page, /getSimpleTeamPayouts/);
   assert.doesNotMatch(page, /\.from\("winner_public_profiles"\)/);
-  assert.match(service, /rpc\("get_team_winner_claims"/);
-  assert.match(page, /winner\.status === "confirmed"[\s\S]*winner\.walletAddress/);
-  assert.match(page, /Wallet pending winner confirmation/);
-  assert.match(page, /Donation — no claim required/);
+  assert.match(manager, /Cycle #\{cycleNumber\}/u);
+  assert.match(manager, /Save & publish/u);
+  assert.match(manager, /Donation operation wallet/u);
+  assert.doesNotMatch(manager, />Prepare payout<|>lock<|>abort<|>replace</iu);
+  assert.match(payoutService, /rpc\("get_simple_team_payouts_v2"/u);
+  assert.match(payoutService, /rpc\("complete_and_publish_payout_v2"/u);
+  assert.match(publishRoute, /inspectMainnetPayoutTransaction/u);
+  assert.match(publishRoute, /completeAndPublishPayout/u);
   assert.match(correctionRoute, /requireDynamicTeamCapability\("winners\.payouts\.view"\)/);
   assert.match(correctionRoute, /"winners\.recipient_corrections\.manage"/);
   assert.ok(correctionRoute.indexOf('"winners.payouts.view"') < correctionRoute.indexOf('"winners.recipient_corrections.manage"'));
-  assert.match(copyButton, /navigator\.clipboard\.writeText\(walletAddress\)/);
-  assert.match(copyButton, /aria-label="Copy payout wallet address"/);
-  assert.match(copyButton, /Copied/);
 });
 
 test("Sponsor Reports delegates receive aggregates and a redacted export", async () => {

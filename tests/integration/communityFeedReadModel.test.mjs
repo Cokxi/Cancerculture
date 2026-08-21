@@ -206,6 +206,9 @@ mock.module(new URL("../../lib/db/admin.ts", import.meta.url), {
       from(table) {
         return builder(table);
       },
+      rpc() {
+        return Promise.resolve({ data: null, error: null });
+      },
     },
   },
 });
@@ -867,6 +870,7 @@ test("canonical detail returns the exact Live allowlist without final claims", a
     finalizedAt: null,
     finalVoteCount: null,
     rankInCycle: null,
+    payout: null,
   });
   assert.doesNotMatch(serialized, /private-live|discord|moderation/iu);
   assert.equal(state.calls.some((call) => call[0] === "user_logs"), false);

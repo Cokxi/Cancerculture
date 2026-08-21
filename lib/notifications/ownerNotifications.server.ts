@@ -13,6 +13,7 @@ const PAGE_SIZE = 20;
 const EVENT_TYPES = new Set([
   "winner_claim_required",
   "winner_correction_ready",
+  "donation_recipient_change_required",
   "winner_donation_finalized",
   "submission_disqualified",
   "submission_reinstated",

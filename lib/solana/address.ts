@@ -15,7 +15,7 @@ export type SolRecipientAddressResult =
   | { ok: true; address: string }
   | { ok: false; error: SolRecipientAddressError };
 
-function decodeBase58(value: string) {
+export function decodeBase58(value: string) {
   const bytes = [0];
   let leadingZeroes = 0;
 

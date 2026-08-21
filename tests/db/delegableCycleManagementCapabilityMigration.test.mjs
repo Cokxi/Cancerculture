@@ -29,15 +29,17 @@ test("cycles.manage is an exact critical capability and starts with zero grants"
   const hash = createHash("sha256")
     .update(JSON.stringify(canonicalDefinition(definition)), "utf8")
     .digest("hex");
+  const historicalHash =
+    "4f3e07f01bc453f594994689c3049e698ca2bd1d1c99e75927d161056033f710";
 
   assert.equal(
     hash,
-    "4f3e07f01bc453f594994689c3049e698ca2bd1d1c99e75927d161056033f710"
+    "c0ba905e5e737ca1d09afa197f1bcb9adaf8919e7fb6fb37d33b53cfb54fb38a"
   );
   assert.equal(definition.definitionHash, hash);
   assert.equal(definition.riskLevel, "critical");
   assert.equal(definition.assignableToNonAdmin, true);
-  assert.match(migration, new RegExp(hash, "u"));
+  assert.match(migration, new RegExp(historicalHash, "u"));
   assert.match(migration, /insert into public\.capability_catalog/u);
   assert.match(migration, /'cycles\.manage'[\s\S]*'critical'[\s\S]*true,[\s\S]*true,[\s\S]*1,/u);
   assert.doesNotMatch(

@@ -51,7 +51,7 @@ export default function GlobalAccount() {
   const visible = isGlobalAccountVisible({ pathname, hiddenOnSubpages });
 
   useEffect(() => {
-    if (!hydrated || !visible || account) return;
+    if (!hydrated || !visible) return;
 
     const controller = new AbortController();
     fetch("/api/auth/account", {
@@ -69,7 +69,7 @@ export default function GlobalAccount() {
       });
 
     return () => controller.abort();
-  }, [account, hydrated, visible]);
+  }, [hydrated, pathname, visible]);
 
   if (!hydrated || !visible) return null;
 

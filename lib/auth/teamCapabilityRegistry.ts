@@ -41,6 +41,8 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "donation_organizations.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
+  "winners.payout_logs.view",
+  "winners.manage_payouts",
   "winners.recipient_corrections.manage",
 ] as const);
 
@@ -801,10 +803,11 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     key: "cycles.manage",
     displayName: "Manage Cycles",
     description:
-      "Operate the current cycle through hardened start, scheduling, phase, sponsorship, end-review, finalization, pause, and reset workflows.",
+      "Operate the current cycle through hardened start, prize-pool, scheduling, phase, sponsorship, end-review, finalization, pause, and reset workflows.",
     category: "Cycles",
     includedActions: [
       "Create or reuse a clean draft and start normal or sponsored cycles.",
+      "Set or change the optional exact-Lamport prize pool for the current running Cycle before voting ends, with exact amount confirmation.",
       "Set or clear current-phase timers, configure votes per user, pause or resume, and advance submission or voting phases.",
       "Perform exceptional submission disqualification or reinstatement after voting closes and before finalization.",
       "Finalize or reset the current cycle through confirmed auditable workflows.",
@@ -813,15 +816,15 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     excludedActions: [
       "Viewing Cycle Logs or unrelated logs without their separate capabilities.",
       "Managing roles, permissions, team membership, Owner access, or other administrative domains.",
-      "Managing winner payouts, refunding votes, editing individual votes, repairing finalized history, or moderating open phases without their separate capabilities.",
+      "Managing winner payout plans, refunding votes, editing individual votes, repairing finalized history, or moderating open phases without their separate capabilities.",
       "Accessing raw secrets, storage credentials, scheduler credentials, or arbitrary media-cleanup work.",
     ],
     riskLevel: "critical",
     lifecycle: "active",
     assignableToNonAdmin: true,
-    implementationVersion: 1,
+    implementationVersion: 2,
     definitionHash:
-      "4f3e07f01bc453f594994689c3049e698ca2bd1d1c99e75927d161056033f710",
+      "c0ba905e5e737ca1d09afa197f1bcb9adaf8919e7fb6fb37d33b53cfb54fb38a",
   }),
   "votes.refund_disqualified": defineCapability({
     key: "votes.refund_disqualified",
@@ -1021,6 +1024,54 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 2,
     definitionHash:
       "9de22d0055e9c8b6b8cb701e4f6f554aa4c241ab0cbfb0a4709ecc9841702a54",
+  }),
+  "winners.payout_logs.view": defineCapability({
+    key: "winners.payout_logs.view",
+    displayName: "View Payout Logs",
+    description:
+      "Review the append-only prize-pool, payout-plan, transaction-evidence, and community-disposition history without changing payout state or opening private evidence files.",
+    category: "Payouts",
+    includedActions: [
+      "View bounded append-only prize-pool and payout lifecycle events with actor, database time, version, and idempotency context.",
+      "View transaction verification level, canonical explorer reference, replacement linkage, and private evidence metadata.",
+      "View linked Community Vote and applied rollover, alternative-organization, follow-up, or return-Claim outcomes.",
+    ],
+    excludedActions: [
+      "Changing prize pools, payout plans, recipients, transactions, evidence, polls, Claims, or publication state.",
+      "Viewing Treasury secrets, mutable Profile Wallets, unconfirmed winner recipients, raw provider payloads, or private evidence bytes.",
+      "Managing roles, grants, Team membership, Owner access, organizations, Community polls, or unrelated logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "91f8ef9be3147c220c0591843f752145c2b2f865424f58afc76ab0b21448e019",
+  }),
+  "winners.manage_payouts": defineCapability({
+    key: "winners.manage_payouts",
+    displayName: "Manage Payouts",
+    description:
+      "Manage canonical Claim-bound manual SOL payout workflows without custodying Treasury keys or transferring funds automatically.",
+    category: "Payouts",
+    includedActions: [
+      "Prepare, lock, issue, verify, publish, abort, or visibly replace canonical payout plans derived only from finalized Winner records.",
+      "Record a donation operation recipient, transaction evidence, provider confirmation, bounded private proof metadata, and an unavailable-donation state.",
+      "Link a manually created Community Vote and apply its exact binding rollover, named-organization, follow-up, or return-to-winner outcome.",
+    ],
+    excludedActions: [
+      "Entering, confirming, replacing, or changing a winner recipient; only the winner's immutable confirmed Claim may supply it.",
+      "Setting or changing the current Cycle prize pool; that belongs exclusively to Cycle Management and closes when voting ends.",
+      "Changing winners, ranks, win shares, votes, payout choices, split percentages, original organization choices, or locked base components.",
+      "Storing Treasury private keys, connecting a Treasury Wallet, automatically transferring SOL, creating or activating polls, or silently redistributing funds.",
+      "Managing roles, grants, Team membership, Owner access, organization publication, or unrelated content and logs.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 2,
+    definitionHash:
+      "37bc1cd814466cbdca9276fe722bd610ced8b7baf1106b905f8a62a51a8c7a26",
   }),
   "winners.recipient_corrections.manage": defineCapability({
     key: "winners.recipient_corrections.manage",

@@ -283,8 +283,10 @@ test("Roles & Permissions splits all twenty-nine compact responsive rows into Vi
       "homepage_content.manage",
       "sponsorships.reports.view",
       "winners.payouts.view",
+      "winners.payout_logs.view",
+      "winners.manage_payouts",
     ].filter((key) => registry.includes(`"${key}"`)).length,
-    29
+    31
   );
   assert.match(shell, /capabilities=\{readModel\.capabilities\}/);
   assert.match(ui, /capabilitiesByTab\[activePermissionTab\]\.map/);

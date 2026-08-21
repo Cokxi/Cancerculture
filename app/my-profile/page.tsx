@@ -19,6 +19,10 @@ import {
   getOwnWinnerClaims,
 } from "@/lib/winnerClaims/service.server";
 import PendingWinnerClaims from "./PendingWinnerClaims";
+import PendingPayoutReturnClaims from "./PendingPayoutReturnClaims";
+import PendingDonationCorrections from "./PendingDonationCorrections";
+import { getOwnPayoutDonationCorrections, getOwnPayoutReturnClaims } from "@/lib/payouts/service.server";
+import { getDonationOrganizationCatalog } from "@/lib/organizations/data.server";
 import WalletIssueIntakeForm from "./WalletIssueIntakeForm";
 import { getOwnWalletIssueIntakes } from "@/lib/walletIssues/service.server";
 import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
@@ -239,10 +243,13 @@ export default async function MyProfilePage() {
   }
 
   const session = sessionState.session;
-  const [profileData, profileWallet, winnings, walletIssueIntakes] = await Promise.all([
+  const [profileData, profileWallet, winnings, payoutReturns, donationCorrections, organizations, walletIssueIntakes] = await Promise.all([
     getUserProfileData(session.discord_user_id),
     getSolProfileWallet(session).catch(() => null),
     getOwnWinnerClaims(session).catch(() => null),
+    getOwnPayoutReturnClaims(session).catch(() => null),
+    getOwnPayoutDonationCorrections(session).catch(() => null),
+    getDonationOrganizationCatalog().catch(() => []),
     getOwnWalletIssueIntakes(session).catch(() => []),
   ]);
   const walletIssueBySubmission = new Map(
@@ -318,6 +325,10 @@ export default async function MyProfilePage() {
         <SolProfileWalletSettings />
 
         <PendingWinnerClaims items={winnings?.items ?? null} databaseTime={winnings?.databaseTime ?? null} />
+
+        <PendingPayoutReturnClaims items={payoutReturns?.items ?? null} databaseTime={payoutReturns?.databaseTime ?? null} />
+
+        <PendingDonationCorrections items={donationCorrections?.items ?? null} organizations={organizations} databaseTime={donationCorrections?.databaseTime ?? null} />
 
         <div className="space-y-4">
           <ProfileSocialsSection

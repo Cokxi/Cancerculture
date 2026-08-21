@@ -14,6 +14,7 @@ import type { PublicPage } from "@/lib/pagination/publicPagination";
 import { usePublicPagination } from "@/lib/pagination/usePublicPagination";
 import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import type { PublicWallItem } from "@/lib/walls/publicWallTypes";
+import PublicPayoutDetails from "@/app/components/payouts/PublicPayoutDetails";
 import {
   useCallback,
   useEffect,
@@ -347,6 +348,8 @@ export default function ShameGrid({
                       </p>
                     ) : null}
                   </div>
+
+                  <PublicPayoutDetails payout={active.payout} />
 
                 </div>
 

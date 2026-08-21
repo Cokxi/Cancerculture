@@ -25,6 +25,8 @@ import {
   requirePublicCycleNumber,
 } from "@/lib/cycles/publicCycleNumber";
 import { getServerWriteGateMode } from "@/lib/writeGate.server";
+import { getPublicSubmissionPayout } from "@/lib/payouts/service.server";
+import { parsePublicPayoutDetails } from "@/lib/payouts/public";
 
 export type PublicWall = "fame" | "shame";
 
@@ -181,6 +183,7 @@ export async function getPublicWallPage({
     socialLinksBySubmissionId,
     sponsorEntries,
     publicNumberByCycleId,
+    payoutEntries,
   ] =
     await Promise.all([
       discordUserIds.length > 0
@@ -202,6 +205,10 @@ export async function getPublicWallPage({
         ] as const)
       ),
       getPublicCycleNumberMap(cycleIds),
+      Promise.all(visibleSubmissionIds.map(async (submissionId) => [
+        submissionId,
+        parsePublicPayoutDetails(await getPublicSubmissionPayout(submissionId)),
+      ] as const)),
     ]);
 
   if (userLogsResult.error) {
@@ -219,6 +226,7 @@ export async function getPublicWallPage({
     )
   );
   const sponsoredMetaByCycleId = new Map(sponsorEntries);
+  const payoutBySubmissionId = new Map(payoutEntries);
   const items = visibleRows.map((winner): PublicWallItem => {
     const submission = submissionById.get(
       winner.submission_id
@@ -261,6 +269,7 @@ export async function getPublicWallPage({
         [],
       sponsored_meta:
         sponsoredMetaByCycleId.get(winner.cycle_id) ?? null,
+      payout: payoutBySubmissionId.get(winner.submission_id) ?? null,
     };
   });
   const lastScannedRow = pageRows.at(-1);

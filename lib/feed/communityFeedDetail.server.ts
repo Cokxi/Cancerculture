@@ -13,6 +13,8 @@ import {
   type CommunityFeedDetail,
 } from "@/lib/feed/communityFeedDetail";
 import { getPublicProfileAvatarPath } from "@/lib/profile/publicDiscordAvatar";
+import { getPublicSubmissionPayout } from "@/lib/payouts/service.server";
+import { parsePublicPayoutDetails } from "@/lib/payouts/public";
 
 const LIVE_CYCLE_STATUSES = [
   "submission_open",
@@ -226,6 +228,7 @@ async function getLiveDetailSource(submissionId: number) {
       finalizedAt: null,
       finalVoteCount: null,
       rankInCycle: null,
+      payout: null,
     },
     r2Key: submission.r2_key,
     authorDiscordUserId: null,
@@ -298,6 +301,7 @@ async function getFinalizedDetailSource(submissionId: number) {
       finalizedAt: canonicalFeedTimestamp(row.finalized_at),
       finalVoteCount: row.final_vote_count,
       rankInCycle: row.rank_in_cycle,
+      payout: null,
     },
     r2Key: submission.r2_key,
     authorDiscordUserId: submission.discord_user_id ?? null,
@@ -313,13 +317,18 @@ async function resolveCommunityFeedDetailSource(submissionId: number) {
 }
 
 async function hydrateCommunityFeedDetail(source: CommunityFeedDetailSource) {
-  if (source.detail.state === "live" || !source.authorDiscordUserId) {
+  if (source.detail.state === "live") {
     return source.detail;
   }
 
+  const [author, payout] = await Promise.all([
+    source.authorDiscordUserId ? getFinalizedAuthor(source.authorDiscordUserId) : null,
+    getPublicSubmissionPayout(source.detail.submissionId).then(parsePublicPayoutDetails),
+  ]);
   return {
     ...source.detail,
-    author: await getFinalizedAuthor(source.authorDiscordUserId),
+    author,
+    payout,
   } satisfies CommunityFeedDetail;
 }
 

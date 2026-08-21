@@ -47,6 +47,7 @@ function detail(overrides = {}) {
     finalizedAt: "2026-08-13T09:00:00.000Z",
     finalVoteCount: 5,
     rankInCycle: 2,
+    payout: null,
     ...overrides,
   };
 }

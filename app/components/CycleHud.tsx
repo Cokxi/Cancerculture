@@ -12,6 +12,8 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import { requirePublicCycleNumber } from "@/lib/cycles/publicCycleNumber";
 import { POST_VOTING_WRAPPING_UP_TEXT } from "@/lib/cycles/postVoting";
 import CycleCountdown from "./CycleCountdown";
+import { getCurrentCyclePrizePool } from "@/lib/payouts/service.server";
+import { formatLamportsAsSol } from "@/lib/payouts/amount";
 
 const RELEVANT_CYCLE_STATUSES = [
   "submission_open",
@@ -286,6 +288,7 @@ function getDisplayState({
 
 export default async function CycleHud() {
   const cyclePromise = getPreferredCycle();
+  const prizePoolPromise = getCurrentCyclePrizePool();
   const nextCycleThemePromise = supabaseAdmin
     .from("app_config")
     .select("value")
@@ -295,10 +298,11 @@ export default async function CycleHud() {
     cycle?.is_sponsored === true
       ? getCycleSponsoredMeta(cycle.id, "home_hud")
       : Promise.resolve(null);
-  const [sponsoredMeta, { data: configRows }] =
+  const [sponsoredMeta, { data: configRows }, prizePool] =
     await Promise.all([
       sponsorMetaPromise,
       nextCycleThemePromise,
+      prizePoolPromise,
     ]);
   const nextCycleTheme = normalizeString(
     configRows?.[0]?.value
@@ -385,6 +389,15 @@ export default async function CycleHud() {
             {displayState.submissionsPerUser}
           </span>
         </div>
+
+        {prizePool.cycleId === cycle.id && prizePool.totalLamports ? (
+          <div className="font-['Permanent_Marker'] text-xs">
+            <span className="text-[var(--orange-main)]">Prize Pool: </span>
+            <span className="text-green-400">
+              {formatLamportsAsSol(prizePool.totalLamports)} SOL
+            </span>
+          </div>
+        ) : null}
 
         <div className="font-['Permanent_Marker'] text-xs">
           <span className="text-[var(--orange-main)]">

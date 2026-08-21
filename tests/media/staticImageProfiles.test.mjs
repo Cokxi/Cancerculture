@@ -4,6 +4,7 @@ import sharp from "sharp";
 import {
   AVATAR_MEDIA_PROFILE,
   ORGANIZATION_LOGO_MEDIA_PROFILE,
+  PAYOUT_EVIDENCE_MEDIA_PROFILE,
   isCountableSubmissionMediaErrorCode,
   SUBMISSION_MEDIA_PROFILE,
 } from "../../lib/media/profiles.ts";
@@ -74,6 +75,9 @@ test("central profiles expose the exact submission, avatar, and organization-log
   assert.equal(ORGANIZATION_LOGO_MEDIA_PROFILE.maxInputBytes, 4_000_000);
   assert.equal(ORGANIZATION_LOGO_MEDIA_PROFILE.maxOutputWidth, 1024);
   assert.equal(ORGANIZATION_LOGO_MEDIA_PROFILE.resizeFit, "inside");
+  assert.equal(PAYOUT_EVIDENCE_MEDIA_PROFILE.maxInputBytes, 3_000_000);
+  assert.equal(PAYOUT_EVIDENCE_MEDIA_PROFILE.maxOutputBytes, 3_000_000);
+  assert.equal(PAYOUT_EVIDENCE_MEDIA_PROFILE.stripMetadata, true);
 });
 
 test("static JPEG, PNG and WebP become static metadata-free WebP", async () => {

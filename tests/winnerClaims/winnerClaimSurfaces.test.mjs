@@ -60,20 +60,14 @@ test("the owner mutation API accepts only an opaque revision and never an author
   assert.match(route, /Cache-Control": "no-store/u);
 });
 
-test("Team corrections require both view and zero-grant mutation capabilities before the database RPC", async () => {
-  const [route, page, controls, service] = await Promise.all([
+test("Team wallet corrections retain both view and zero-grant mutation capabilities", async () => {
+  const [route, controls, service] = await Promise.all([
     source("app/api/admin/winner-recipient-corrections/route.ts"),
-    source("app/admin/logs/winners/page.tsx"),
     source("app/admin/logs/winners/WinnerCorrectionControls.tsx"),
     source("lib/winnerClaims/service.server.ts"),
   ]);
   assert.ok(route.indexOf('"winners.payouts.view"') < route.indexOf('"winners.recipient_corrections.manage"'));
-  assert.match(page, /hasResolvedTeamCapability[\s\S]*winners\.recipient_corrections\.manage/u);
-  assert.match(page, /canManageCorrections[\s\S]*WinnerCorrectionControls/u);
-  assert.match(page, /winner\.status === "unclaimed"[\s\S]*ClaimCountdown/u);
   assert.match(controls, /Propose correction and start 24h/u);
-  assert.match(page, /winner\.profileWalletOwnerControlled[\s\S]*Team recipient correction is unavailable/u);
-  assert.match(page, /winner\.correctionEligible && !winner\.profileWalletOwnerControlled/u);
   assert.match(service, /profileWalletOwnerControlled: row\.profileWalletOwnerControlled === true/u);
   assert.match(controls, /WINNER_PROFILE_WALLET_OWNER_CONTROLLED/u);
   assert.doesNotMatch(controls, /Tally|case reference|report date|datetime-local|record_pending/iu);

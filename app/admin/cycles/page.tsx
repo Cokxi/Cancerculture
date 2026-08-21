@@ -6,9 +6,13 @@ import {
   DEFAULT_SUBMISSIONS_PER_USER,
   DEFAULT_UPLOAD_SUCCESS_COOLDOWN_SECONDS,
 } from "@/lib/cycles/submissionSettings";
+import { getCyclePrizePoolManagementContext } from "@/lib/cycles/prizePool.server";
 
 export default async function AdminCyclesPage() {
-  await requireTeamCapabilityPage("cycles.manage", "/admin/cycles");
+  const authorization = await requireTeamCapabilityPage(
+    "cycles.manage",
+    "/admin/cycles"
+  );
   const nextThemeResult = await supabaseAdmin
     .from("app_config")
     .select("value")
@@ -52,6 +56,12 @@ export default async function AdminCyclesPage() {
     throw new Error("Cycle management schema or state is unavailable");
   }
   const currentCycle = currentCycleResult.data;
+  const prizePool = currentCycle
+    ? await getCyclePrizePoolManagementContext(
+        authorization.discord_user_id,
+        currentCycle.id
+      )
+    : null;
 
   let resetPreview = {
     submissions: 0,
@@ -110,6 +120,7 @@ export default async function AdminCyclesPage() {
           DEFAULT_UPLOAD_SUCCESS_COOLDOWN_SECONDS
         }
         resetPreview={resetPreview}
+        initialPrizePool={prizePool}
       />
     </div>
   );

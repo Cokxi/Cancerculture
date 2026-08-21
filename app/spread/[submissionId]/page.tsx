@@ -6,6 +6,7 @@ import SponsoredBanner from "@/app/components/SponsoredBanner";
 import CommunityFeedDetailCloseButton from "@/app/spread/[submissionId]/CommunityFeedDetailCloseButton";
 import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
 import { getCommunityFeedDetailPageData } from "@/lib/feed/communityFeedDetail.server";
+import PublicPayoutDetails from "@/app/components/payouts/PublicPayoutDetails";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -209,6 +210,7 @@ export default async function CommunityFeedDetailPage({
                   </>
                 ) : null}
                 </dl>
+                {detail.payout ? <PublicPayoutDetails payout={detail.payout} /> : null}
               </div>
             </details>
 

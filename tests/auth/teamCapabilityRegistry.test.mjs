@@ -53,6 +53,8 @@ const expectedKeys = [
   "donation_organizations.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
+  "winners.payout_logs.view",
+  "winners.manage_payouts",
   "winners.recipient_corrections.manage",
 ];
 
@@ -72,7 +74,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains forty-one known, thirty-seven active, and no staged capability keys", () => {
+test("the server registry contains forty-three known, thirty-nine active, and no staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -174,7 +176,7 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "cycles.logs.view":
       "915c24cf6a167040c8637e59ca27a28510c6299b2ea417ae770f86e992924beb",
     "cycles.manage":
-      "4f3e07f01bc453f594994689c3049e698ca2bd1d1c99e75927d161056033f710",
+      "c0ba905e5e737ca1d09afa197f1bcb9adaf8919e7fb6fb37d33b53cfb54fb38a",
     "votes.refund_disqualified":
       "bd49530c7905d71661f47b343ca8de9251d47c6c7712e84494563075ba8e68ab",
     "rules.manage":
@@ -191,6 +193,10 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "421c31be87cac7864a7fb6fad229e614befed4d38374f0fc05e285ffaa24d655",
     "winners.payouts.view":
       "9de22d0055e9c8b6b8cb701e4f6f554aa4c241ab0cbfb0a4709ecc9841702a54",
+    "winners.payout_logs.view":
+      "91f8ef9be3147c220c0591843f752145c2b2f865424f58afc76ab0b21448e019",
+    "winners.manage_payouts":
+      "37bc1cd814466cbdca9276fe722bd610ced8b7baf1106b905f8a62a51a8c7a26",
     "winners.recipient_corrections.manage":
       "e569fa66e8f9c2794fe030c4e034ebf8a7e458c6ddccf2a868d2cac1fd5ea2bd",
   };
@@ -222,7 +228,9 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       key.startsWith("users.flag.") ||
       key === "users.directory.full.view" ||
       key === "logs.vote_refunds.view" ||
+      key === "cycles.manage" ||
       key === "winners.payouts.view" ||
+      key === "winners.manage_payouts" ||
       key === "winners.recipient_corrections.manage";
     const versionFour = key === "submissions.reports.review";
     assert.equal(definition.assignableToNonAdmin, !deprecated);

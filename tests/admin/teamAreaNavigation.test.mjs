@@ -353,16 +353,23 @@ test("Donation Organization management needs only its exact capability", () => {
   assert.equal(rendered.includes("winner-payouts"), false);
 });
 
-test("Winner Payouts navigation needs only its exact read capability", () => {
+test("Payouts and Payout Logs navigation need their separate exact read capabilities", () => {
   const withGrant = resolveTeamAreaNavigation(
     context({ capabilities: ["winners.payouts.view"] })
   );
   const rendered = JSON.stringify(withGrant);
 
-  assert.equal(rendered.includes("winner-payouts"), true);
+  assert.equal(rendered.includes('"id":"payouts"'), true);
+  assert.equal(rendered.includes("payout-logs"), false);
   assert.equal(rendered.includes("cycle-management"), false);
   assert.equal(rendered.includes("sponsor-reports"), false);
   assert.equal(rendered.includes("social-logs"), false);
+  const logsOnly = JSON.stringify(resolveTeamAreaNavigation(
+    context({ capabilities: ["winners.payout_logs.view"] })
+  ));
+  assert.equal(logsOnly.includes("payout-logs"), true);
+  assert.equal(logsOnly.includes('"id":"payouts"'), true);
+  assert.equal(logsOnly.includes('"href":"/admin/payouts"'), false);
 });
 
 test("Sponsor Reports navigation needs only its exact read capability", () => {

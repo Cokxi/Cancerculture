@@ -12,7 +12,10 @@ export const COMMUNITY_FEED_DETAIL_KEYS = [
   "finalizedAt",
   "finalVoteCount",
   "rankInCycle",
+  "payout",
 ] as const;
+
+import { parsePublicPayoutDetails, type PublicPayoutDetails } from "@/lib/payouts/public";
 
 export const COMMUNITY_FEED_DETAIL_AUTHOR_KEYS = [
   "publicProfileId",
@@ -40,6 +43,7 @@ export type CommunityFeedDetail = {
   finalizedAt: string | null;
   finalVoteCount: number | null;
   rankInCycle: number | null;
+  payout: PublicPayoutDetails | null;
 };
 
 function requireSubmissionId(submissionId: number) {
@@ -151,6 +155,7 @@ export function isCommunityFeedDetail(
         isNullableCanonicalTimestamp(detail.finalizedAt) &&
         (detail.author === null ||
           isCommunityFeedDetailAuthor(detail.author));
+  const payoutIsValid = detail.payout === null || parsePublicPayoutDetails(detail.payout) !== null;
 
   return (
     Number.isSafeInteger(detail.submissionId) &&
@@ -165,6 +170,7 @@ export function isCommunityFeedDetail(
     isNullableCanonicalTimestamp(detail.createdAt) &&
     isNullableCanonicalTimestamp(detail.cycleStartedAt) &&
     isNullableCanonicalTimestamp(detail.cycleEndedAt) &&
+    payoutIsValid &&
     resultIsValid
   );
 }

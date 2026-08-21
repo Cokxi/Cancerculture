@@ -1,7 +1,7 @@
 export type StaticImageInputFormat = "jpeg" | "png" | "webp";
 
 export type StaticImageMediaProfile = {
-  id: "submission" | "avatar" | "organization-logo";
+  id: "submission" | "avatar" | "organization-logo" | "payout-evidence";
   allowedInputFormats: readonly StaticImageInputFormat[];
   allowedBrowserMimeTypes: readonly string[];
   maxInputBytes: number;
@@ -114,10 +114,35 @@ export const ORGANIZATION_LOGO_MEDIA_PROFILE = {
   ],
 } as const satisfies StaticImageMediaProfile;
 
+export const PAYOUT_EVIDENCE_MEDIA_PROFILE = {
+  id: "payout-evidence",
+  allowedInputFormats: STATIC_INPUT_FORMATS,
+  allowedBrowserMimeTypes: STATIC_BROWSER_MIME_TYPES,
+  maxInputBytes: 3_000_000,
+  maxInputWidth: 4_096,
+  maxInputHeight: 8_192,
+  maxInputPixels: 20_000_000,
+  maxPages: 1,
+  outputFormat: "webp",
+  maxOutputBytes: 3_000_000,
+  maxOutputWidth: 2_400,
+  maxOutputHeight: 8_192,
+  maxOutputPixels: 20_000_000,
+  resizeFit: "inside",
+  allowUpscale: false,
+  stripMetadata: true,
+  qualityAttempts: [
+    { quality: 82, resizeScale: 1 },
+    { quality: 72, resizeScale: 1 },
+    { quality: 64, resizeScale: 0.9 },
+  ],
+} as const satisfies StaticImageMediaProfile;
+
 export const MEDIA_PROFILES = {
   submission: SUBMISSION_MEDIA_PROFILE,
   avatar: AVATAR_MEDIA_PROFILE,
   organizationLogo: ORGANIZATION_LOGO_MEDIA_PROFILE,
+  payoutEvidence: PAYOUT_EVIDENCE_MEDIA_PROFILE,
 } as const;
 
 export type MediaValidationErrorCode =

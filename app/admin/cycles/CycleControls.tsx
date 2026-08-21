@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CycleHudControls from "./CycleHudControls";
 import type { SponsoredCycleDraft } from "@/lib/cycles/sponsoredCycle";
+import type { CyclePrizePoolManagementContext } from "@/lib/cycles/prizePool.server";
+import { formatLamportsAsSol } from "@/lib/payouts/amount";
 
 export default function CycleControls({
   initialNextTheme,
@@ -17,6 +19,7 @@ export default function CycleControls({
   initialSubmissionsPerUser,
   initialUploadSuccessCooldownSeconds,
   resetPreview,
+  initialPrizePool,
 }: {
   initialNextTheme: string;
   initialSponsoredDraft: SponsoredCycleDraft;
@@ -32,6 +35,7 @@ export default function CycleControls({
     votes: number;
     affectedSubmitters: number;
   };
+  initialPrizePool: CyclePrizePoolManagementContext | null;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -45,6 +49,14 @@ export default function CycleControls({
   const [nextTheme, setNextTheme] = useState(initialNextTheme);
   const [resetReason, setResetReason] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
+  const [prizePoolAmount, setPrizePoolAmount] = useState("");
+  const [prizePoolConfirmation, setPrizePoolConfirmation] =
+    useState("");
+  const [prizePoolVersion, setPrizePoolVersion] = useState(
+    initialPrizePool?.rowVersion ?? 0
+  );
+  const [currentPrizePoolLamports, setCurrentPrizePoolLamports] =
+    useState(initialPrizePool?.amountLamports ?? null);
   const canFinalize =
     currentCycleId !== null &&
     (currentPhaseStatus === "voting_closed" ||
@@ -66,6 +78,19 @@ export default function CycleControls({
     currentCycleId === null || currentPhaseStatus === "draft";
   const expectedResetConfirmation =
     currentCycleId === null ? "" : `RESET ${currentCycleId}`;
+
+  useEffect(() => {
+    setPrizePoolVersion(initialPrizePool?.rowVersion ?? 0);
+    setCurrentPrizePoolLamports(
+      initialPrizePool?.amountLamports ?? null
+    );
+    setPrizePoolAmount("");
+    setPrizePoolConfirmation("");
+  }, [
+    currentCycleId,
+    initialPrizePool?.amountLamports,
+    initialPrizePool?.rowVersion,
+  ]);
 
   function getErrorMessage(error: unknown) {
     return error instanceof Error
@@ -214,6 +239,43 @@ export default function CycleControls({
     }
   }
 
+  async function savePrizePool() {
+    if (!initialPrizePool?.editable || currentCycleId === null) return;
+
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/admin/cycles/prize-pool", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: crypto.randomUUID(),
+          cycleId: String(currentCycleId),
+          expectedVersion: String(prizePoolVersion),
+          amountSol: prizePoolAmount,
+          confirmedAmountSol: prizePoolConfirmation,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Prize pool could not be saved");
+      }
+
+      setPrizePoolVersion(data.rowVersion);
+      setCurrentPrizePoolLamports(data.amountLamports);
+      setPrizePoolAmount("");
+      setPrizePoolConfirmation("");
+      setMessage(
+        `Prize pool saved: ${formatLamportsAsSol(data.amountLamports)} SOL`
+      );
+      router.refresh();
+    } catch (error) {
+      setMessage("Error: " + getErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div>
       <div
@@ -293,6 +355,97 @@ export default function CycleControls({
           Finalize Cycle
         </button>
       </div>
+
+      <section
+        className="mt-6 max-w-2xl rounded-xl border border-orange-300/25 bg-black/30 p-5"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-xl font-semibold text-orange-300">
+              Prize Pool
+            </h2>
+            <p className="mt-1 text-sm text-white/60">
+              {currentCycleNumber
+                ? `Public Cycle #${currentCycleNumber}`
+                : "No running Cycle"}
+            </p>
+          </div>
+          <div className="rounded-lg bg-white/5 px-4 py-2 text-right">
+            <div className="text-xs uppercase tracking-wide text-white/45">
+              Current amount
+            </div>
+            <strong className="text-lg text-white">
+              {currentPrizePoolLamports
+                ? `${formatLamportsAsSol(currentPrizePoolLamports)} SOL`
+                : "No prize pool set"}
+            </strong>
+          </div>
+        </div>
+
+        {initialPrizePool?.editable ? (
+          <>
+            <p className="mt-4 text-sm leading-6 text-white/70">
+              Set or change the amount before voting ends. The saved amount
+              becomes permanent when the voting phase closes.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2 text-sm font-semibold">
+                Amount (SOL)
+                <input
+                  value={prizePoolAmount}
+                  onChange={(event) =>
+                    setPrizePoolAmount(event.target.value)
+                  }
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="1.25"
+                  className="rounded-lg border border-white/15 bg-black/50 px-3 py-2 font-normal"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-semibold">
+                Confirm exact amount (SOL)
+                <input
+                  value={prizePoolConfirmation}
+                  onChange={(event) =>
+                    setPrizePoolConfirmation(event.target.value)
+                  }
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="Enter 1.25 again"
+                  className="rounded-lg border border-white/15 bg-black/50 px-3 py-2 font-normal"
+                />
+              </label>
+            </div>
+            {prizePoolAmount.trim() &&
+            prizePoolConfirmation.trim() &&
+            prizePoolAmount.trim() !== prizePoolConfirmation.trim() ? (
+              <p className="mt-3 text-sm text-red-300">
+                Both entries must match exactly.
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={savePrizePool}
+              disabled={
+                loading ||
+                !prizePoolAmount.trim() ||
+                prizePoolAmount.trim() !== prizePoolConfirmation.trim()
+              }
+              className="mt-4 rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white enabled:hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Saving..." : "Save Prize Pool"}
+            </button>
+          </>
+        ) : (
+          <p className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3 text-sm leading-6 text-white/65">
+            {currentCycleId === null
+              ? "Start a Cycle before setting its prize pool."
+              : currentPhaseStatus === "draft"
+                ? "Start this Cycle before setting its prize pool."
+                : "Voting has ended. No prize pool can now be added or changed for this Cycle."}
+          </p>
+        )}
+      </section>
 
       {canReset && currentCycleId !== null ? (
         <section

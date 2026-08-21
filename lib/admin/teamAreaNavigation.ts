@@ -155,6 +155,10 @@ const winnerPayoutsView = Object.freeze({
   type: "capability",
   capability: "winners.payouts.view",
 } as const);
+const payoutLogsView = Object.freeze({
+  type: "capability",
+  capability: "winners.payout_logs.view",
+} as const);
 const websiteBanView = Object.freeze({
   type: "capability",
   capability: "users.website_bans.view",
@@ -571,16 +575,25 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
       ],
     },
     {
-      id: "winner-payouts",
-      title: "Winner & Payouts",
+      id: "payouts",
+      title: "Payouts",
       items: [
         item({
-          id: "winner-payouts",
-          title: "Winner Payouts",
-          href: "/admin/logs/winners",
-          categoryId: "winner-payouts",
-          description: "Review protected winner and payout records.",
+          id: "payouts",
+          title: "Payouts",
+          href: "/admin/payouts",
+          categoryId: "payouts",
+          description: "Review canonical winners and prepare exact-Lamport payout plans.",
           requirement: winnerPayoutsView,
+          implemented: true,
+        }),
+        item({
+          id: "payout-logs",
+          title: "Payout Logs",
+          href: "/admin/payout-logs",
+          categoryId: "payouts",
+          description: "Review the append-only payout event history.",
+          requirement: payoutLogsView,
           implemented: true,
         }),
       ],
