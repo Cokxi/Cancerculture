@@ -1,7 +1,7 @@
 export type StaticImageInputFormat = "jpeg" | "png" | "webp";
 
 export type StaticImageMediaProfile = {
-  id: "submission" | "avatar";
+  id: "submission" | "avatar" | "organization-logo";
   allowedInputFormats: readonly StaticImageInputFormat[];
   allowedBrowserMimeTypes: readonly string[];
   maxInputBytes: number;
@@ -88,9 +88,36 @@ export const AVATAR_MEDIA_PROFILE = {
   ],
 } as const satisfies StaticImageMediaProfile;
 
+export const ORGANIZATION_LOGO_MEDIA_PROFILE = {
+  id: "organization-logo",
+  allowedInputFormats: STATIC_INPUT_FORMATS,
+  allowedBrowserMimeTypes: STATIC_BROWSER_MIME_TYPES,
+  maxInputBytes: 4_000_000,
+  maxInputWidth: 4_096,
+  maxInputHeight: 4_096,
+  maxInputPixels: 16_000_000,
+  maxPages: 1,
+  minInputWidth: 128,
+  minInputHeight: 128,
+  outputFormat: "webp",
+  maxOutputBytes: 1_000_000,
+  maxOutputWidth: 1_024,
+  maxOutputHeight: 1_024,
+  maxOutputPixels: 1_024 * 1_024,
+  resizeFit: "inside",
+  allowUpscale: false,
+  stripMetadata: true,
+  qualityAttempts: [
+    { quality: 86, resizeScale: 1 },
+    { quality: 78, resizeScale: 1 },
+    { quality: 70, resizeScale: 0.9 },
+  ],
+} as const satisfies StaticImageMediaProfile;
+
 export const MEDIA_PROFILES = {
   submission: SUBMISSION_MEDIA_PROFILE,
   avatar: AVATAR_MEDIA_PROFILE,
+  organizationLogo: ORGANIZATION_LOGO_MEDIA_PROFILE,
 } as const;
 
 export type MediaValidationErrorCode =

@@ -50,6 +50,7 @@ const expectedKeys = [
   "faq.manage",
   "homepage_content.manage",
   "community.polls.manage",
+  "donation_organizations.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
   "winners.recipient_corrections.manage",
@@ -71,7 +72,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains forty known, thirty-six active, and no staged capability keys", () => {
+test("the server registry contains forty-one known, thirty-seven active, and no staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -184,6 +185,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "b9f5db882c8fa65f235ef2fe83f1cc90515761e21ea885e4ca80e58b2476957a",
     "community.polls.manage":
       "042a289cd77aca920ab6d07abec54cec1b380423c90aa3693b7fbb11537a9a7e",
+    "donation_organizations.manage":
+      "18240d25d2183ebb17f7b1a56345ab2acc3906455d253b90cfee79cd5d6aa58d",
     "sponsorships.reports.view":
       "421c31be87cac7864a7fb6fad229e614befed4d38374f0fc05e285ffaa24d655",
     "winners.payouts.view":

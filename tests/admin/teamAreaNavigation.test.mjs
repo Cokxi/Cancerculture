@@ -340,6 +340,19 @@ test("Community Votes management needs only community.polls.manage", () => {
   assert.equal(rendered.includes("winner-payouts"), false);
 });
 
+test("Donation Organization management needs only its exact capability", () => {
+  const withoutGrant = resolveTeamAreaNavigation(context());
+  const withGrant = resolveTeamAreaNavigation(
+    context({ capabilities: ["donation_organizations.manage"] })
+  );
+  const rendered = JSON.stringify(withGrant);
+
+  assert.equal(JSON.stringify(withoutGrant).includes("donation-organizations"), false);
+  assert.equal(rendered.includes("donation-organizations"), true);
+  assert.equal(rendered.includes("community-polls"), false);
+  assert.equal(rendered.includes("winner-payouts"), false);
+});
+
 test("Winner Payouts navigation needs only its exact read capability", () => {
   const withGrant = resolveTeamAreaNavigation(
     context({ capabilities: ["winners.payouts.view"] })

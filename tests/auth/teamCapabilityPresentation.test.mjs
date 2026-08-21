@@ -45,6 +45,7 @@ const expectedActionKeys = [
   "faq.manage",
   "homepage_content.manage",
   "community.polls.manage",
+  "donation_organizations.manage",
   "winners.recipient_corrections.manage",
 ];
 
@@ -66,7 +67,7 @@ test("every active capability is assigned once to its semantic tab", () => {
   assert.deepEqual(viewKeys, expectedViewKeys);
   assert.deepEqual(actionKeys, expectedActionKeys);
   assert.equal(viewKeys.length, 20);
-  assert.equal(actionKeys.length, 16);
+  assert.equal(actionKeys.length, 17);
   assert.equal(viewKeys.length + actionKeys.length, ACTIVE_TEAM_CAPABILITY_KEYS.length);
   assert.equal(new Set([...viewKeys, ...actionKeys]).size, ACTIVE_TEAM_CAPABILITY_KEYS.length);
   assert.equal(

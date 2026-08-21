@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { SUBMISSION_MEDIA_PROFILE } from "@/lib/media/profiles";
 import { validateSolRecipientAddress } from "@/lib/solana/address";
+import {
+  normalizeOrganizationName,
+  normalizeSafePublicHttpsUrl,
+} from "@/lib/organizations/urlValidation";
+import type { SubmissionOrganizationSelection } from "@/lib/organizations/types";
 
 export const SUBMISSION_UPLOAD_IDEMPOTENCY_HEADER = "idempotency-key";
 export const MAX_SUBMISSION_UPLOAD_SIZE =
@@ -18,6 +23,7 @@ export type NormalizedSubmissionPrivateData = {
   payoutChoice: SubmissionPayoutChoice;
   splitPercent: number | null;
   charity: string | null;
+  organizationSelection: SubmissionOrganizationSelection | null;
 };
 
 export class SubmissionUploadRequestError extends Error {
@@ -57,6 +63,14 @@ export function normalizeSubmissionPrivateData(formData: FormData) {
   const splitPercentValue = formData.get("splitPercent")?.toString();
   const charityValue =
     formData.get("charity")?.toString().trim() ?? "";
+  const organizationSourceValue =
+    formData.get("organizationSource")?.toString().trim() ?? "";
+  const organizationPublicKey =
+    formData.get("organizationPublicKey")?.toString().trim() ?? "";
+  const otherOrganizationName =
+    formData.get("otherOrganizationName")?.toString() ?? "";
+  const otherOrganizationWebsiteUrl =
+    formData.get("otherOrganizationWebsiteUrl")?.toString() ?? "";
 
   if (!(["keep", "donate", "split"] as string[]).includes(payoutChoiceValue)) {
     throw new SubmissionUploadRequestError("INVALID_PAYOUT_CHOICE", 422);
@@ -71,6 +85,44 @@ export function normalizeSubmissionPrivateData(formData: FormData) {
     ? Number.parseInt(profileWalletVersionValue, 10)
     : null;
   const charity = charityValue || null;
+  let organizationSelection: SubmissionOrganizationSelection | null = null;
+
+  if (payoutChoice !== "keep") {
+    if (
+      organizationSourceValue === "catalog" &&
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(organizationPublicKey) &&
+      organizationPublicKey.length <= 80 &&
+      charity
+    ) {
+      organizationSelection = Object.freeze({
+        sourceType: "catalog",
+        publicKey: organizationPublicKey,
+        otherName: null,
+        otherWebsiteUrl: null,
+      });
+    } else if (organizationSourceValue === "other") {
+      try {
+        organizationSelection = Object.freeze({
+          sourceType: "other",
+          publicKey: null,
+          otherName: normalizeOrganizationName(otherOrganizationName),
+          otherWebsiteUrl: normalizeSafePublicHttpsUrl(
+            otherOrganizationWebsiteUrl
+          ),
+        });
+      } catch {
+        throw new SubmissionUploadRequestError(
+          "OTHER_ORGANIZATION_DETAILS_INVALID",
+          422
+        );
+      }
+    } else {
+      throw new SubmissionUploadRequestError(
+        "ORGANIZATION_SELECTION_INVALID",
+        422
+      );
+    }
+  }
 
   if (rawWalletAddress.length > 512 || (charity?.length ?? 0) > 256) {
     throw new SubmissionUploadRequestError("INVALID_PRIVATE_DATA", 422);
@@ -81,7 +133,8 @@ export function normalizeSubmissionPrivateData(formData: FormData) {
     (walletSource !== "none" ||
       rawWalletAddress !== "" ||
       profileWalletVersion !== null ||
-      !charity)
+      !charity ||
+      organizationSelection === null)
   ) {
     throw new SubmissionUploadRequestError("CHARITY_REQUIRED", 422);
   }
@@ -89,6 +142,7 @@ export function normalizeSubmissionPrivateData(formData: FormData) {
   if (
     payoutChoice === "split" &&
     (!charity ||
+      organizationSelection === null ||
       splitPercent === null ||
       splitPercent <= 0 ||
       splitPercent >= 100)
@@ -138,6 +192,10 @@ export function normalizeSubmissionPrivateData(formData: FormData) {
       payoutChoice === "donate" || payoutChoice === "split"
         ? charity
         : null,
+    organizationSelection:
+      payoutChoice === "donate" || payoutChoice === "split"
+        ? organizationSelection
+        : null,
   } satisfies NormalizedSubmissionPrivateData;
 }
 
@@ -156,6 +214,7 @@ export function createSubmissionUploadFingerprint({
     profileWalletVersion: privateData.profileWalletVersion,
     splitPercent: privateData.splitPercent,
     walletSource: privateData.walletSource,
+    organizationSelection: privateData.organizationSelection,
   });
 
   return createHash("sha256").update(canonicalPayload).digest("hex");

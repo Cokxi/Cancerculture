@@ -23,6 +23,7 @@ const {
   commitSubmissionUpload,
   getCompletedSubmissionUploadOperation,
   reserveSubmissionUpload,
+  bindSubmissionUploadOrganization,
 } = await import("../../lib/upload/submissionUploadSaga.ts");
 
 const sessionId = "123e4567-e89b-42d3-a456-426614174000";
@@ -34,12 +35,48 @@ const profilePrivateData = {
   payoutChoice: "keep",
   splitPercent: null,
   charity: null,
+  organizationSelection: null,
 };
 
 test.beforeEach(() => {
   state.calls = [];
   state.data = null;
   state.error = null;
+});
+
+test("catalog binding sends only the stable public key and reservation fingerprint", async () => {
+  state.data = { outcome: "bound", replayed: false };
+  await bindSubmissionUploadOrganization({
+    operationId: "423e4567-e89b-42d3-a456-426614174000",
+    sessionId,
+    requestFingerprint: "a".repeat(64),
+    privateData: {
+      walletSource: "none",
+      manualWalletAddress: null,
+      profileWalletVersion: null,
+      payoutChoice: "donate",
+      splitPercent: null,
+      charity: "Animal Haven",
+      organizationSelection: {
+        sourceType: "catalog",
+        publicKey: "animal-haven",
+        otherName: null,
+        otherWebsiteUrl: null,
+      },
+    },
+  });
+  assert.deepEqual(state.calls[0], {
+    name: "bind_submission_upload_organization",
+    parameters: {
+      p_operation_id: "423e4567-e89b-42d3-a456-426614174000",
+      p_session_id: sessionId,
+      p_request_fingerprint: "a".repeat(64),
+      p_source_type: "catalog",
+      p_public_key: "animal-haven",
+      p_other_name: null,
+      p_other_website_url: null,
+    },
+  });
 });
 
 test("completed replay lookup is session-scoped and returns no private data", async () => {

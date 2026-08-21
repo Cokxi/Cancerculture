@@ -38,6 +38,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "faq.manage",
   "homepage_content.manage",
   "community.polls.manage",
+  "donation_organizations.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
   "winners.recipient_corrections.manage",
@@ -946,6 +947,31 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "042a289cd77aca920ab6d07abec54cec1b380423c90aa3693b7fbb11537a9a7e",
+  }),
+  "donation_organizations.manage": defineCapability({
+    key: "donation_organizations.manage",
+    displayName: "Manage Donation Organizations",
+    description:
+      "Create, review, publish, sort, deactivate, and archive versioned donation organizations and review Other references without rewriting historical Submission choices.",
+    category: "Content",
+    includedActions: [
+      "View published and draft organization revisions, provider availability, selectability, managed logos, and append-only catalog history.",
+      "Create or edit a versioned draft and atomically publish its public selector and overlay content without a Website deployment.",
+      "Change ordering, selectability, provider availability, activation, or archival state through expected-version and idempotent transitions.",
+      "Correct, verify, quarantine, or use an exact reviewed Other URL as a deduplicated draft candidate while preserving its immutable original snapshot.",
+    ],
+    excludedActions: [
+      "Automatically publishing reviewed Other entries or Community Vote results, guessing missing historical URLs, or fuzzy-merging organizations.",
+      "Changing historical Submission, Winner Claim, or payout snapshots, disqualifying content because of an organization URL, or deleting referenced organizations.",
+      "Exposing internal identifiers, private original Other data, storage keys, reviewer identities, or audit details on public surfaces.",
+      "Managing the Giving Block operational wallet, prize pools, transfers, Claims, public payout records, roles, grants, Team membership, or Owner access.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "18240d25d2183ebb17f7b1a56345ab2acc3906455d253b90cfee79cd5d6aa58d",
   }),
   "sponsorships.reports.view": defineCapability({
     key: "sponsorships.reports.view",

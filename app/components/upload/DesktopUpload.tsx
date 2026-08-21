@@ -31,6 +31,7 @@ import {
 } from "@/lib/turnstile/shared";
 import type { SubmissionUploadQuota } from "@/lib/upload/getUploadEligibility";
 import { validateSolRecipientAddress } from "@/lib/solana/address";
+import type { PublicDonationOrganization } from "@/lib/organizations/types";
 
 
 type PayoutChoice = "keep" | "donate" | "split";
@@ -39,20 +40,6 @@ type SubmitState = "idle" | "partial" | "ready";
 const NOT_IN_DISCORD_POLL_MS = 12_000;
 const MEMBERSHIP_PENDING_POLL_MS = 25_000;
 const CONFIRMATION_RETRY_DELAYS_MS = [2_000, 5_000, 10_000] as const;
-
-const CHARITY_OPTIONS = [
-  { value: "Animal Haven", label: "Animal Haven" },
-  { value: "Animal Rescue Corps, Inc.", label: "Animal Rescue Corps, Inc." },
-  { value: "Doctors Without Borders U.S.A., Inc.", label: "Doctors Without Borders U.S.A., Inc." },
-  { value: "Feeding Pets of the Homeless", label: "Feeding Pets of the Homeless" },
-  { value: "Institute for Justice", label: "Institute for Justice" },
-  { value: "No Kid Hungry", label: "No Kid Hungry" },
-  { value: "Save the Children", label: "Save the Children" },
-  { value: "Sea Shepherd Conservation Society", label: "Sea Shepherd Conservation Society" },
-  { value: "St. Jude Children's Research Hospital", label: "St. Jude Children's Research Hospital" },
-  { value: "Young Lives vs Cancer", label: "Young Lives vs Cancer" },
-];
-
 
 export default function DesktopUpload({ 
   hasActiveCycle,
@@ -65,6 +52,8 @@ export default function DesktopUpload({
   pausedFromStatus,
   turnstileSiteKey,
   profileWallet,
+  donationOrganizations,
+  donationOrganizationsAvailable,
 }: {
   hasActiveCycle: boolean;
   showSupportLink: boolean;
@@ -81,6 +70,8 @@ export default function DesktopUpload({
     version: number | null;
     updatedAt: string | null;
   } | null;
+  donationOrganizations: readonly PublicDonationOrganization[];
+  donationOrganizationsAvailable: boolean;
 }) {
 
   const { openOverlay } = useOverlay();
@@ -101,6 +92,7 @@ export default function DesktopUpload({
   const [splitPercent, setSplitPercent] = useState(50);
   const [charity, setCharity] = useState<string | null>(null);
   const [customCharity, setCustomCharity] = useState("");
+  const [customCharityWebsite, setCustomCharityWebsite] = useState("");
   const [successMode, setSuccessMode] = useState<"success" | "already">("success");
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -349,7 +341,11 @@ useEffect(() => {
     !!payoutChoice &&
     walletIsValid &&
     (payoutChoice !== "split" || splitPercent > 0) &&
-    (payoutChoice === "keep" || charity);
+    (payoutChoice === "keep" ||
+      (charity &&
+        (charity !== "other" ||
+          (customCharity.trim().length >= 2 &&
+            customCharityWebsite.trim().length > 0))));
 
   const submitState: SubmitState =
   hasImage && hasMeta ? "ready" : hasImage || hasMeta ? "partial" : "idle";
@@ -506,8 +502,19 @@ useEffect(() => {
       );
       formData.append("payoutChoice", payoutChoice!);
       formData.append("splitPercent", splitPercent.toString());
-      if (charity === "other") formData.append("charity", customCharity);
-      else if (charity) formData.append("charity", charity);
+      if (charity === "other") {
+        formData.append("charity", customCharity);
+        formData.append("organizationSource", "other");
+        formData.append("otherOrganizationName", customCharity);
+        formData.append("otherOrganizationWebsiteUrl", customCharityWebsite);
+      } else if (charity) {
+        const selectedOrganization = donationOrganizations.find(
+          (organization) => organization.publicKey === charity
+        );
+        formData.append("charity", selectedOrganization?.selectorName ?? "");
+        formData.append("organizationSource", "catalog");
+        formData.append("organizationPublicKey", charity);
+      }
 
 if (!file) {
   alert("No file selected");
@@ -653,6 +660,7 @@ if (!file) {
       setSplitPercent(50);
       setCharity(null);
       setCustomCharity("");
+      setCustomCharityWebsite("");
       setRulesStatus("unknown");
       setTurnstileToken(null);
       setTurnstileResetKey((current) => current + 1);
@@ -1018,8 +1026,20 @@ if (!file) {
 
               {(payoutChoice === "donate" || payoutChoice === "split") && (
                 <>
+                  <label
+                    htmlFor="donation-organization"
+                    className="sr-only"
+                  >
+                    Donation organization
+                  </label>
                   <select
+                    id="donation-organization"
                     value={charity ?? ""}
+                    aria-describedby={
+                      donationOrganizationsAvailable
+                        ? undefined
+                        : "donation-organization-status"
+                    }
                     onChange={(e) => {
                       uploadAttemptKeyRef.current = null;
                       setProfileWalletView(profileWallet);
@@ -1028,34 +1048,92 @@ if (!file) {
                     className="rounded-xl px-4 py-2 bg-white"
                   >
                     <option value="" disabled>
-                      Select charity
+                      {donationOrganizationsAvailable
+                        ? "Select charity"
+                        : "Organizations temporarily unavailable"}
                     </option>
-                    {CHARITY_OPTIONS.map((org) => (
-                      <option key={org.value} value={org.value}>
-                        {org.label}
+                    {donationOrganizations
+                      .filter(
+                        (organization) =>
+                          organization.selectable &&
+                          organization.providerStatus === "available"
+                      )
+                      .map((organization) => (
+                      <option
+                        key={organization.publicKey}
+                        value={organization.publicKey}
+                      >
+                        {organization.selectorName}
                       </option>
                     ))}
                     <option value="other">Other</option>
                   </select>
 
+                  {!donationOrganizationsAvailable ? (
+                    <p
+                      id="donation-organization-status"
+                      role="status"
+                      className="max-w-xl text-sm text-yellow-200"
+                    >
+                      The organization catalog cannot be verified right now.
+                      Predefined selections are temporarily unavailable; no
+                      fallback list is used.
+                    </p>
+                  ) : null}
+
                   {charity === "other" && (
-                    <input
-                      placeholder="Custom charity"
-                      value={customCharity}
-                      onChange={(e) => {
-                        uploadAttemptKeyRef.current = null;
-                        setProfileWalletView(profileWallet);
-                        setCustomCharity(e.target.value);
-                      }}
-                      className="rounded-xl px-4 py-2 bg-white"
-                    />
+                    <div className="grid gap-3">
+                      <label htmlFor="other-organization-name" className="sr-only">
+                        Organization name
+                      </label>
+                      <input
+                        id="other-organization-name"
+                        placeholder="Organization name"
+                        value={customCharity}
+                        maxLength={120}
+                        onChange={(e) => {
+                          uploadAttemptKeyRef.current = null;
+                          setProfileWalletView(profileWallet);
+                          setCustomCharity(e.target.value);
+                        }}
+                        className="rounded-xl px-4 py-2 bg-white"
+                      />
+                      <label htmlFor="other-organization-url" className="sr-only">
+                        Official public HTTPS website
+                      </label>
+                      <input
+                        id="other-organization-url"
+                        type="url"
+                        inputMode="url"
+                        aria-describedby="other-organization-privacy"
+                        placeholder="Official public HTTPS website"
+                        value={customCharityWebsite}
+                        maxLength={600}
+                        onChange={(e) => {
+                          uploadAttemptKeyRef.current = null;
+                          setProfileWalletView(profileWallet);
+                          setCustomCharityWebsite(e.target.value);
+                        }}
+                        className="rounded-xl px-4 py-2 bg-white"
+                      />
+                      <p
+                        id="other-organization-privacy"
+                        className="max-w-xl text-xs text-white/70"
+                      >
+                        The original name and official URL are stored privately
+                        with this Submission. They are not published until an
+                        authorized review verifies a safe reference.
+                      </p>
+                    </div>
                   )}
-                  
+
 <div className="relative flex justify-center">
   {(payoutChoice === "donate" || payoutChoice === "split") && (
     <button
   type="button"
-  onClick={() => openOverlay(<CharitiesOverlay />)}
+  onClick={() => openOverlay(
+    <CharitiesOverlay organizations={donationOrganizations} />
+  )}
   className="
     text-sm
     text-[var(--orange-main)]

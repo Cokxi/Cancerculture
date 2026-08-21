@@ -17,13 +17,17 @@ import { createParticipationAccessState } from "@/lib/eligibility/participation"
 import type { UserSocialSettings } from "@/lib/socials/getUserSocialSettings";
 import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 import { getSolProfileWallet } from "@/lib/solana/profileWallet.server";
+import { getDonationOrganizationCatalog } from "@/lib/organizations/data.server";
 
 export const dynamic = "force-dynamic";
 
 export default async function UploadPage() {
-  const [sessionState, latestCycle] = await Promise.all([
+  const [sessionState, latestCycle, donationOrganizationState] = await Promise.all([
     getSessionState(),
     getLatestCycleState(),
+    getDonationOrganizationCatalog()
+      .then((organizations) => ({ organizations, available: true as const }))
+      .catch(() => ({ organizations: [], available: false as const })),
   ]);
   const emptySocialSettings: UserSocialSettings = {
     showSocialsOnSubmissions: false,
@@ -128,6 +132,8 @@ export default async function UploadPage() {
         pausedFromStatus={latestCycle?.paused_from_status ?? null}
         turnstileSiteKey={getTurnstileClientSiteKey()}
         profileWallet={profileWallet}
+        donationOrganizations={donationOrganizationState.organizations}
+        donationOrganizationsAvailable={donationOrganizationState.available}
       />
     </PageWrapper>
   );

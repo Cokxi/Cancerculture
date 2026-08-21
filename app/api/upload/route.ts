@@ -33,6 +33,7 @@ import {
 } from "@/lib/upload/submissionUploadRequest";
 import {
   commitSubmissionUpload,
+  bindSubmissionUploadOrganization,
   compensateSubmissionUpload,
   getSubmissionUploadAbuseStatus,
   getCompletedSubmissionUploadOperation,
@@ -309,6 +310,13 @@ export async function POST(req: Request) {
 
     operationId = reservation.operationId;
     cycleId = reservation.cycleId;
+
+    await bindSubmissionUploadOrganization({
+      operationId,
+      sessionId,
+      requestFingerprint,
+      privateData,
+    });
 
     if (
       !isCanonicalQueuedStorageKey(reservation.storageKey) ||

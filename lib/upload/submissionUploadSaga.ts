@@ -81,6 +81,10 @@ const OUTCOME_HTTP_ERRORS: Record<
   },
   profile_wallet_stale: { code: "PROFILE_WALLET_STALE", status: 409 },
   invalid_private_data: { code: "INVALID_PRIVATE_DATA", status: 422 },
+  organization_unavailable: {
+    code: "ORGANIZATION_UNAVAILABLE",
+    status: 409,
+  },
   invalid_media_metadata: { code: "INVALID_MEDIA_METADATA", status: 422 },
   invalid_request: { code: "INVALID_UPLOAD_REQUEST", status: 400 },
   invalid_state: { code: "UPLOAD_STATE_CONFLICT", status: 409 },
@@ -354,6 +358,37 @@ export async function markSubmissionUploadR2Uploaded({
   }
 
   throwForOutcome(outcome, data);
+}
+
+export async function bindSubmissionUploadOrganization({
+  operationId,
+  sessionId,
+  requestFingerprint,
+  privateData,
+}: {
+  operationId: string;
+  sessionId: string;
+  requestFingerprint: string;
+  privateData: NormalizedSubmissionPrivateData;
+}) {
+  const selection = privateData.organizationSelection;
+  if (!selection) return;
+
+  const { data, error } = await supabaseAdmin.rpc(
+    "bind_submission_upload_organization",
+    {
+      p_operation_id: operationId,
+      p_session_id: sessionId,
+      p_request_fingerprint: requestFingerprint,
+      p_source_type: selection.sourceType,
+      p_public_key: selection.publicKey,
+      p_other_name: selection.otherName,
+      p_other_website_url: selection.otherWebsiteUrl,
+    }
+  );
+  if (error) throwRpcFailure("bind-organization", error);
+  const outcome = getOutcome(data);
+  if (outcome !== "bound") throwForOutcome(outcome, data);
 }
 
 export async function commitSubmissionUpload({

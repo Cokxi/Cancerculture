@@ -143,6 +143,10 @@ const communityPollManagement = Object.freeze({
   type: "capability",
   capability: "community.polls.manage",
 } as const);
+const donationOrganizationManagement = Object.freeze({
+  type: "capability",
+  capability: "donation_organizations.manage",
+} as const);
 const sponsorReportsView = Object.freeze({
   type: "capability",
   capability: "sponsorships.reports.view",
@@ -523,6 +527,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           description:
             "Create and manage generic Community polls and their runoffs.",
           requirement: communityPollManagement,
+          implemented: true,
+        }),
+        item({
+          id: "donation-organizations",
+          title: "Donation Organizations",
+          href: "/admin/content/organizations",
+          categoryId: "content",
+          description:
+            "Draft, preview, publish, sort, deactivate, and archive the donation catalog.",
+          requirement: donationOrganizationManagement,
           implemented: true,
         }),
         item({

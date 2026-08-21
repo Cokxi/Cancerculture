@@ -3,6 +3,7 @@ import test from "node:test";
 import sharp from "sharp";
 import {
   AVATAR_MEDIA_PROFILE,
+  ORGANIZATION_LOGO_MEDIA_PROFILE,
   isCountableSubmissionMediaErrorCode,
   SUBMISSION_MEDIA_PROFILE,
 } from "../../lib/media/profiles.ts";
@@ -53,7 +54,7 @@ async function pngWithDeclaredDimensions(width, height) {
   return buffer;
 }
 
-test("central profiles expose the exact submission and avatar boundaries", () => {
+test("central profiles expose the exact submission, avatar, and organization-logo boundaries", () => {
   assert.deepEqual(SUBMISSION_MEDIA_PROFILE.allowedInputFormats, [
     "jpeg",
     "png",
@@ -70,6 +71,9 @@ test("central profiles expose the exact submission and avatar boundaries", () =>
   assert.equal(AVATAR_MEDIA_PROFILE.minInputWidth, 256);
   assert.equal(AVATAR_MEDIA_PROFILE.outputWidth, 512);
   assert.equal(AVATAR_MEDIA_PROFILE.outputHeight, 512);
+  assert.equal(ORGANIZATION_LOGO_MEDIA_PROFILE.maxInputBytes, 4_000_000);
+  assert.equal(ORGANIZATION_LOGO_MEDIA_PROFILE.maxOutputWidth, 1024);
+  assert.equal(ORGANIZATION_LOGO_MEDIA_PROFILE.resizeFit, "inside");
 });
 
 test("static JPEG, PNG and WebP become static metadata-free WebP", async () => {

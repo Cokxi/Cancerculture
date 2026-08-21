@@ -56,6 +56,7 @@ test("normalizes keep, donate, and split private data canonically", () => {
       payoutChoice: "keep",
       splitPercent: null,
       charity: null,
+      organizationSelection: null,
     }
   );
 
@@ -66,6 +67,8 @@ test("normalizes keep, donate, and split private data canonically", () => {
         walletSource: "none",
         payoutChoice: "donate",
         charity: " Charity ",
+        organizationSource: "catalog",
+        organizationPublicKey: "animal-haven",
       })
     ),
     {
@@ -75,6 +78,12 @@ test("normalizes keep, donate, and split private data canonically", () => {
       payoutChoice: "donate",
       splitPercent: null,
       charity: "Charity",
+      organizationSelection: {
+        sourceType: "catalog",
+        publicKey: "animal-haven",
+        otherName: null,
+        otherWebsiteUrl: null,
+      },
     }
   );
 
@@ -86,6 +95,9 @@ test("normalizes keep, donate, and split private data canonically", () => {
         payoutChoice: "split",
         splitPercent: 25,
         charity: "Charity",
+        organizationSource: "other",
+        otherOrganizationName: " Charity ",
+        otherOrganizationWebsiteUrl: "https://example.org/about",
       })
     ),
     {
@@ -95,6 +107,12 @@ test("normalizes keep, donate, and split private data canonically", () => {
       payoutChoice: "split",
       splitPercent: 25,
       charity: "Charity",
+      organizationSelection: {
+        sourceType: "other",
+        publicKey: null,
+        otherName: "Charity",
+        otherWebsiteUrl: "https://example.org/about",
+      },
     }
   );
 });
@@ -125,6 +143,28 @@ test("invalid private combinations fail before R2 or database writes", () => {
   }
 });
 
+test("Other requires a normalized public HTTPS URL and rejects local or credentialed targets", () => {
+  for (const url of [
+    "http://example.org",
+    "https://localhost/about",
+    "https://127.0.0.1/about",
+    "https://user:secret@example.org/about",
+    "https://service.internal/about",
+  ]) {
+    assert.throws(
+      () => normalizeSubmissionPrivateData(formData({
+        walletSource: "none",
+        payoutChoice: "donate",
+        charity: "Example",
+        organizationSource: "other",
+        otherOrganizationName: "Example",
+        otherOrganizationWebsiteUrl: url,
+      })),
+      (error) => error.code === "OTHER_ORGANIZATION_DETAILS_INVALID"
+    );
+  }
+});
+
 test("fingerprints are stable for identical canonical data and conflict on changes", () => {
   const contentSha256 = createSubmissionContentHash(
     Buffer.from("synthetic transformed image")
@@ -136,6 +176,12 @@ test("fingerprints are stable for identical canonical data and conflict on chang
     payoutChoice: "split",
     splitPercent: 50,
     charity: "Charity",
+    organizationSelection: {
+      sourceType: "catalog",
+      publicKey: "animal-haven",
+      otherName: null,
+      otherWebsiteUrl: null,
+    },
   };
   const first = createSubmissionUploadFingerprint({
     contentSha256,
