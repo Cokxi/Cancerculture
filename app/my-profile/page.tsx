@@ -71,11 +71,13 @@ function renderPublicVisibilityStatus(
 function CurrentSubmissionCard({
   submission,
   showWalletAddress,
+  walletIssueIntakeAllowed,
   walletIssueStatus,
   turnstileSiteKey,
 }: {
   submission: CurrentProfileSubmission;
   showWalletAddress: boolean;
+  walletIssueIntakeAllowed: boolean;
   walletIssueStatus: WalletIssueStatus | null;
   turnstileSiteKey: string | null;
 }) {
@@ -190,7 +192,8 @@ function CurrentSubmissionCard({
           )}
         </div>
       )}
-      {privateData?.payout_choice === "keep" || privateData?.payout_choice === "split" ? (
+      {walletIssueIntakeAllowed &&
+      (privateData?.payout_choice === "keep" || privateData?.payout_choice === "split") ? (
         <div className="w-full max-w-md">
           <WalletIssueIntakeForm
             submissionId={submission.id}
@@ -245,7 +248,7 @@ export default async function MyProfilePage() {
   const session = sessionState.session;
   const [profileData, profileWallet, winnings, payoutReturns, donationCorrections, organizations, walletIssueIntakes] = await Promise.all([
     getUserProfileData(session.discord_user_id),
-    getSolProfileWallet(session).catch(() => null),
+    getSolProfileWallet(session).catch(() => undefined),
     getOwnWinnerClaims(session).catch(() => null),
     getOwnPayoutReturnClaims(session).catch(() => null),
     getOwnPayoutDonationCorrections(session).catch(() => null),
@@ -274,6 +277,9 @@ export default async function MyProfilePage() {
   const hasSavedProfileWallet =
     profileWallet?.factorActive === true &&
     profileWallet.walletAddress !== null;
+  const profileWalletAvailable = profileWallet !== undefined;
+  const walletIssueIntakeAllowed =
+    profileWallet !== undefined && profileWallet.factorActive === false;
 
   return (
     <>
@@ -363,7 +369,8 @@ export default async function MyProfilePage() {
                 <CurrentSubmissionCard
                   key={submission.id}
                   submission={submission}
-                  showWalletAddress={!hasSavedProfileWallet}
+                  showWalletAddress={profileWalletAvailable && !hasSavedProfileWallet}
+                  walletIssueIntakeAllowed={walletIssueIntakeAllowed}
                   walletIssueStatus={walletIssueBySubmission.get(submission.id) ?? null}
                   turnstileSiteKey={turnstileSiteKey}
                 />

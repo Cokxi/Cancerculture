@@ -20,6 +20,7 @@ test("owner intake is authenticated, submission-bound, replay-safe, and verifies
   const image = route.indexOf("normalizeWalletIssueScreenshot(", handler);
   assert.ok(auth < replay && replay < eligibility && eligibility < verification);
   assert.ok(verification < formData && formData < image);
+  assert.match(route, /getAuthErrorCode\(error\)/u);
   assert.match(service, /create_own_wallet_issue_intake/u);
   assert.match(service, /p_submission_id: input\.submissionId/u);
   assert.match(turnstile, /walletIssueIntake: "wallet_issue_intake"/u);
@@ -39,17 +40,41 @@ test("optional screenshots are bounded, decoded once, rotated, resized, re-encod
   assert.doesNotMatch(screenshot, /withMetadata/u);
 });
 
-test("My Profile renders one Wallet Issue intake control per eligible current Submission", async () => {
+test("My Profile renders Wallet Issue intake only without active 2FA", async () => {
   const [page, form] = await Promise.all([
     source("app/my-profile/page.tsx"),
     source("app/my-profile/WalletIssueIntakeForm.tsx"),
   ]);
   assert.match(page, /currentSubmissions\.map/u);
   assert.match(page, /privateData\?\.payout_choice === "keep"[\s\S]*privateData\?\.payout_choice === "split"/u);
+  assert.match(page, /walletIssueIntakeAllowed[\s\S]*profileWallet !== undefined[\s\S]*profileWallet\.factorActive === false/u);
+  assert.match(page, /walletIssueIntakeAllowed &&[\s\S]*privateData\?\.payout_choice/u);
   assert.match(page, /submissionId=\{submission\.id\}/u);
   assert.match(form, /Report Wallet Issue for this Submission/u);
   assert.match(form, /only becomes a Team case if this exact Submission wins/u);
   assert.match(form, /It is tied only to Submission #\{submissionId\}/u);
+});
+
+test("Wallet Issue RPCs reject active 2FA before intake creation and finalization promotion", async () => {
+  const migration = await source(
+    "supabase/migrations/20260822000500_wallet_issue_two_factor_self_service.sql"
+  );
+  const eligibility = migration.match(
+    /create or replace function public\.assert_own_wallet_issue_intake_open[\s\S]*?\$function\$;/u
+  )?.[0] ?? "";
+  const finalization = migration.match(
+    /create or replace function public\.finalize_cycle_without_prize_pool[\s\S]*?\$function\$;/u
+  )?.[0] ?? "";
+  assert.match(eligibility, /account-2fa:/u);
+  assert.match(eligibility, /account_totp_factors/u);
+  assert.match(eligibility, /WALLET_ISSUE_TWO_FACTOR_SELF_SERVICE/u);
+  assert.match(finalization, /account_totp_factors/u);
+  assert.match(finalization, /status = 'not_relevant'/u);
+  assert.match(finalization, /status = 'correction_pending'/u);
+  assert.ok(
+    finalization.indexOf("account_totp_factors") <
+      finalization.indexOf("status = 'correction_pending'")
+  );
 });
 
 test("Intake Monitor is a separate permission-protected shadow view and normal topic history links only promoted cases", async () => {

@@ -26,7 +26,7 @@ function rpcError(error: { code?: string; message: string }): never {
   const code = error.message.match(/[A-Z][A-Z0-9_]{4,}/u)?.[0] ?? "WALLET_ISSUE_UNAVAILABLE";
   const status = error.code === "42501" || code.includes("FORBIDDEN") ? 403
     : code.includes("INPUT_INVALID") || code.includes("SCREENSHOT_INVALID") ? 400
-      : code.includes("CLOSED") || code.includes("COOLDOWN") || code.includes("NOT_APPLICABLE") || code.includes("PROFILE_WALLET_OWNER_CONTROLLED") ? 409
+      : code.includes("CLOSED") || code.includes("COOLDOWN") || code.includes("NOT_APPLICABLE") || code.includes("PROFILE_WALLET_OWNER_CONTROLLED") || code.includes("TWO_FACTOR_SELF_SERVICE") ? 409
         : 503;
   throw new AuthError(status, "Wallet Issue unavailable", code);
 }

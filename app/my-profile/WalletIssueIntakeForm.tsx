@@ -20,6 +20,8 @@ function failureText(code: unknown) {
       return "This Cycle can no longer accept Wallet Issue reports.";
     case "WALLET_ISSUE_INTAKE_COOLDOWN":
       return "Please wait a moment before sending another Wallet Issue report.";
+    case "WALLET_ISSUE_TWO_FACTOR_SELF_SERVICE":
+      return "Use your 2FA-protected Profile Wallet settings to update the recipient.";
     case "TURNSTILE_REQUIRED":
     case "TURNSTILE_INVALID":
       return "Verification expired or failed. Please verify again.";

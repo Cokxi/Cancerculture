@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import { getAuthErrorStatus } from "@/lib/auth/AuthError";
+import { getAuthErrorCode, getAuthErrorStatus } from "@/lib/auth/AuthError";
 import { requireSession } from "@/lib/auth/requireSession";
 import { TURNSTILE_ACTIONS } from "@/lib/turnstile/shared";
 import { verifyTurnstileRequest } from "@/lib/turnstile/verify.server";
@@ -88,9 +88,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     const status = getAuthErrorStatus(error) ?? 503;
-    const code = error instanceof Error && /^[A-Z][A-Z0-9_]{4,}$/u.test(error.message)
-      ? error.message
-      : "WALLET_ISSUE_UNAVAILABLE";
+    const authCode = getAuthErrorCode(error);
+    const code = authCode ?? (
+      error instanceof Error && /^[A-Z][A-Z0-9_]{4,}$/u.test(error.message)
+        ? error.message
+        : "WALLET_ISSUE_UNAVAILABLE"
+    );
     return NextResponse.json({ error: code }, {
       status,
       headers: { "Cache-Control": "no-store" },

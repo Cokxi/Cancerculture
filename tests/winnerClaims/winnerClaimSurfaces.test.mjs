@@ -98,8 +98,9 @@ test("Wall DTOs deliberately allowlist only the confirmed winner projection", as
   assert.match(readModel, /getServerWriteGateMode\(\) === "open"/u);
   assert.match(readModel, /claim_expired: winner\.claim_expired === true/u);
   assert.match(readModel, /winner\.payout_choice === "keep" \|\| winner\.payout_choice === "split"[\s\S]*winner\.wallet_address/u);
-  assert.match(fame, /active\.wallet_address[\s\S]*Confirmed winner recipient/u);
-  assert.match(shame, /active\.wallet_address[\s\S]*Confirmed winner recipient/u);
+  assert.match(fame, /!active\.payout && !active\.claim_expired[\s\S]*Payout pending/u);
+  assert.match(shame, /!active\.payout && !active\.claim_expired[\s\S]*Payout pending/u);
+  assert.doesNotMatch(`${fame}\n${shame}`, /Confirmed winner recipient/u);
   assert.match(fame, /active\.claim_expired[\s\S]*not claimed within the 24-hour window/u);
   assert.match(shame, /active\.claim_expired[\s\S]*not claimed within the 24-hour window/u);
   assert.match(fame, /winner\.claim_expired[\s\S]*Not claimed in time/u);
