@@ -12,6 +12,15 @@ export const PUSH_DEVICE_COOKIE = "push_device_id";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const CATEGORY_PATTERN = /^[a-z][a-z0-9_]{2,63}$/u;
+const CYCLE_PREFERENCE_KEYS = new Set([
+  "new_cycle_started",
+  "submission_phase_ends",
+  "voting_phase_ends",
+  "cycle_results_ready",
+  "remind_15_minutes",
+  "remind_10_minutes",
+  "remind_5_minutes",
+]);
 
 type BrowserSubscription = Readonly<{
   endpoint: string;
@@ -121,6 +130,28 @@ export async function setPushSubscriptionPreference({
     p_session_id: sessionId,
     p_device_id: deviceId,
     p_category_key: categoryKey,
+    p_enabled: enabled,
+  });
+}
+
+export async function setPushCyclePreference({
+  sessionId,
+  deviceId,
+  preferenceKey,
+  enabled,
+}: {
+  sessionId: string;
+  deviceId: string;
+  preferenceKey: string;
+  enabled: boolean;
+}) {
+  if (!isPushDeviceId(deviceId) || !CYCLE_PREFERENCE_KEYS.has(preferenceKey)) {
+    throw new AuthError(400, "Invalid Cycle push preference", "PUSH_CYCLE_PREFERENCE_INVALID");
+  }
+  return rpc("set_own_push_cycle_preference", {
+    p_session_id: sessionId,
+    p_device_id: deviceId,
+    p_preference_key: preferenceKey,
     p_enabled: enabled,
   });
 }

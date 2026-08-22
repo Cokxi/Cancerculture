@@ -86,13 +86,15 @@ test("management page and every action recheck the exact capability", async () =
   assert.match(page, /requireTeamCapabilityPage\(\s*"community\.polls\.manage"/u);
   assert.equal(
     actions.match(/requireDynamicTeamCapability\(\s*"community\.polls\.manage"/gu)?.length,
-    5
+    6
   );
   assert.match(navigation, /href: "\/admin\/community-votes"/u);
-  assert.match(page, /without publishing a Homepage Info Box/u);
+  assert.match(page, /without automatically publishing a Homepage Info Box/u);
+  assert.match(page, /use Announce poll separately/u);
   assert.match(button, /useFormStatus/u);
   assert.match(button, /window\.confirm/u);
   assert.match(data, /requireManagementOutcome/u);
   assert.match(data, /This poll changed\. Refresh the page/u);
-  assert.doesNotMatch(actions, /homepage_info_blocks|push|VAPID/iu);
+  assert.doesNotMatch(actions, /homepage_info_blocks|VAPID/iu);
+  assert.match(actions, /announceCommunityPoll/u);
 });

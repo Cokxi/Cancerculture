@@ -47,6 +47,7 @@ export type CommunityPollAdminEvent = Readonly<{
   eventType:
     | "created"
     | "activated"
+    | "announced"
     | "closed"
     | "aborted"
     | "replaced"
@@ -59,9 +60,21 @@ export type CommunityPollAdminEvent = Readonly<{
   occurredAt: string;
 }>;
 
+export type CommunityPollAnnouncementState = Readonly<{
+  pollPublicId: string;
+  announcedAt: string;
+}>;
+
 export type CommunityPollManagement = Readonly<{
   serverNow: string;
   actorRole: string;
   polls: readonly CommunityPoll[];
   events: readonly CommunityPollAdminEvent[];
+  announcements: readonly CommunityPollAnnouncementState[];
+}>;
+
+export type CurrentCommunityPollAnnouncement = Readonly<{
+  pollPublicId: string;
+  question: string;
+  deadlineAt: string;
 }>;

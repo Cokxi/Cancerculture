@@ -6,22 +6,11 @@ import {
   encodeNotificationCursor,
   parseNotificationCursor,
 } from "@/lib/notifications/notificationCursor";
+import { isPushEventType } from "@/lib/notifications/pushPayload";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const PAGE_SIZE = 20;
-const EVENT_TYPES = new Set([
-  "winner_claim_required",
-  "winner_correction_ready",
-  "donation_recipient_change_required",
-  "winner_donation_finalized",
-  "submission_disqualified",
-  "submission_reinstated",
-  "cycle_results_ready",
-  "wallet_issue_received",
-  "wallet_issue_correction_ready",
-  "wallet_issue_resolved",
-]);
 
 export type OwnerNotification = Readonly<{
   id: string;
@@ -48,7 +37,7 @@ function parseItem(value: unknown): OwnerNotification | null {
     typeof item.categoryKey !== "string" ||
     !/^[a-z][a-z0-9_]{2,63}$/u.test(item.categoryKey) ||
     typeof item.eventType !== "string" ||
-    !EVENT_TYPES.has(item.eventType) ||
+    !isPushEventType(item.eventType) ||
     typeof item.title !== "string" ||
     item.title.length > 120 ||
     typeof item.body !== "string" ||

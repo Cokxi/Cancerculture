@@ -8,6 +8,7 @@ import CycleHud from "@/app/components/CycleHud";
 import DiscordCellAnimated from "./components/DiscordCellAnimated";
 import TelegramCellAnimated from "./components/TelegramCellAnimated";
 import HomeInfoBlocks from "@/app/components/homepageInfoBlocks/HomeInfoBlocks";
+import HomeCommunityVoteAnnouncement from "@/app/components/communityVotes/HomeCommunityVoteAnnouncement";
 import HomeMenu from "@/app/components/navigation/HomeMenu";
 import { getPrimaryCoinLaunch } from "@/lib/coinLaunches/getActiveCoinLaunches";
 import { processDueCycleTransitions } from "@/lib/cycles/phaseAutomation";
@@ -150,6 +151,10 @@ export default function Home() {
         </div>
 
         <div data-home-dynamic className="home-dynamic-content">
+          <Suspense fallback={null}>
+            <HomeCommunityVoteAnnouncement />
+          </Suspense>
+
           <Suspense fallback={null}>
             <HomePrimaryCoinLaunch launchPromise={launchPromise} />
           </Suspense>

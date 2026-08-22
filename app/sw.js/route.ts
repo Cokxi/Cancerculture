@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 
+import { getServiceWorkerPushAllowlist } from "@/lib/notifications/pushPayload";
+
 const VERSION_ENVIRONMENT_KEYS = [
   "APP_BUILD_VERSION",
   "VERCEL_GIT_COMMIT_SHA",
@@ -17,6 +19,10 @@ function getServiceWorkerVersion() {
 }
 
 function renderServiceWorker(version: string) {
+  const pushAllowlist = getServiceWorkerPushAllowlist().map((content) => [
+    JSON.stringify([content.title, content.body]),
+    content.categoryKey,
+  ]);
   return `"use strict";
 
 const SERVICE_WORKER_VERSION = ${JSON.stringify(version)};
@@ -35,28 +41,16 @@ self.addEventListener("message", (event) => {
   }
 });
 
-const PUSH_TITLES = new Set([
-  "Winner claim required",
-  "Winner result finalized",
-  "Submission disqualified",
-  "Submission restored",
-  "Cycle results are ready",
-]);
-const PUSH_BODIES = new Set([
-  "Review and confirm your winner claim.",
-  "View your finalized winner result.",
-  "View your moderation history for details.",
-  "View the finalized Cycle results.",
-]);
+const PUSH_MESSAGES = new Map(${JSON.stringify(pushAllowlist)});
 const NOTIFICATION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const NOTIFICATION_OPEN_PATH_PATTERN = /^\\/notifications\\/open\\/[0-9a-f-]{36}$/;
 
 function safePushMessage(event) {
   try {
     const value = event.data?.json();
     if (
       !value ||
-      !PUSH_TITLES.has(value.title) ||
-      !PUSH_BODIES.has(value.body) ||
+      PUSH_MESSAGES.get(JSON.stringify([value.title, value.body])) !== value.category ||
       typeof value.category !== "string" ||
       !/^[a-z][a-z0-9_]{2,63}$/.test(value.category) ||
       typeof value.notificationId !== "string" ||
@@ -92,7 +86,7 @@ self.addEventListener("notificationclick", (event) => {
   const candidate = event.notification.data?.url;
   const url = typeof candidate === "string" && (
     candidate === "/notifications" ||
-    /^\/notifications\/open\/[0-9a-f-]{36}$/.test(candidate)
+    NOTIFICATION_OPEN_PATH_PATTERN.test(candidate)
   ) ? candidate : "/notifications";
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });

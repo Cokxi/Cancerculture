@@ -5,7 +5,11 @@ import {
   encodeNotificationCursor,
   parseNotificationCursor,
 } from "../../lib/notifications/notificationCursor.ts";
-import { buildGenericPushPayload } from "../../lib/notifications/pushPayload.ts";
+import {
+  PUSH_PAYLOAD_CATALOG,
+  buildGenericPushPayload,
+  getServiceWorkerPushAllowlist,
+} from "../../lib/notifications/pushPayload.ts";
 
 const root = new URL("../../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
@@ -37,6 +41,62 @@ test("push payloads are generic and contain no private producer data", () => {
     categoryKey: "submission_moderation",
     notificationId: "123e4567-e89b-42d3-a456-426614174000",
   }), /PUSH_PAYLOAD_INVALID/u);
+  assert.throws(() => buildGenericPushPayload({
+    eventType: "submission_disqualified",
+    categoryKey: "winners_claims",
+    notificationId: "123e4567-e89b-42d3-a456-426614174000",
+  }), /PUSH_PAYLOAD_INVALID/u);
+  assert.throws(() => buildGenericPushPayload({
+    eventType: "submission_disqualified",
+    categoryKey: "submission_moderation",
+    notificationId: "not-a-uuid-------------------------",
+  }), /PUSH_PAYLOAD_INVALID/u);
+});
+
+test("the central Push catalog covers every currently implemented notification event", () => {
+  const expected = [
+    "winner_claim_required",
+    "winner_correction_ready",
+    "winner_donation_finalized",
+    "winner_payout_sent",
+    "donation_recipient_change_required",
+    "submission_disqualified",
+    "submission_reinstated",
+    "cycle_results_ready",
+    "cycle_started",
+    "cycle_submission_ending_15m",
+    "cycle_submission_ending_10m",
+    "cycle_submission_ending_5m",
+    "cycle_submission_ended",
+    "cycle_voting_ending_15m",
+    "cycle_voting_ending_10m",
+    "cycle_voting_ending_5m",
+    "cycle_voting_ended",
+    "community_vote_announced",
+    "wallet_issue_received",
+    "wallet_issue_correction_ready",
+    "wallet_issue_resolved",
+  ];
+  assert.deepEqual(Object.keys(PUSH_PAYLOAD_CATALOG), expected);
+  assert.equal(getServiceWorkerPushAllowlist().length, expected.length);
+
+  for (const [eventType, content] of Object.entries(PUSH_PAYLOAD_CATALOG)) {
+    const payload = buildGenericPushPayload({
+      eventType,
+      categoryKey: content.categoryKey,
+      notificationId: "123e4567-e89b-42d3-a456-426614174000",
+    });
+    assert.deepEqual(payload, {
+      title: content.title,
+      body: content.body,
+      category: content.categoryKey,
+      notificationId: "123e4567-e89b-42d3-a456-426614174000",
+    });
+    assert.doesNotMatch(
+      JSON.stringify(payload),
+      /discord|report text|moderation reason|charity reason|transaction|team identity|secret/iu
+    );
+  }
 });
 
 test("the additive migration produces immutable idempotent events in source transactions", async () => {
@@ -84,7 +144,7 @@ test("notification storage, outbox, subscriptions, and owner RPCs are closed and
 });
 
 test("review adjustments keep history immutable while the visible center is voluntary and bounded", async () => {
-  const [reviewMigration, channelMigration, service, list, drawer, account, listRoute, readAllRoute] = await Promise.all([
+  const [reviewMigration, channelMigration, service, list, drawer, account, listRoute, readAllRoute, unreadRoute] = await Promise.all([
     source("supabase/migrations/20260818000400_notification_center_review_adjustments.sql"),
     source("supabase/migrations/20260818000500_notification_channel_availability.sql"),
     source("lib/notifications/ownerNotifications.server.ts"),
@@ -93,6 +153,7 @@ test("review adjustments keep history immutable while the visible center is volu
     source("app/components/auth/GlobalAccount.tsx"),
     source("app/api/notifications/route.ts"),
     source("app/api/notifications/read-all/route.ts"),
+    source("app/api/notifications/unread-count/route.ts"),
   ]);
   const migration = `${reviewMigration}\n${channelMigration}`;
   assert.match(migration, /required_in_product = false/u);
@@ -122,6 +183,15 @@ test("review adjustments keep history immutable while the visible center is volu
   assert.match(drawer, /event\.key === "Escape"/u);
   assert.match(account, /<NotificationDrawer/u);
   assert.match(account, /onUnreadDelta/u);
+  assert.match(account, /fetch\("\/api\/notifications\/unread-count"/u);
+  assert.match(account, /window\.setTimeout\(refreshUnreadCount, 1_500\)/u);
+  assert.match(account, /window\.addEventListener\("focus", refreshUnreadCount\)/u);
+  assert.match(account, /window\.addEventListener\("pageshow", refreshUnreadCount\)/u);
+  assert.match(account, /document\.addEventListener\("visibilitychange"/u);
+  assert.doesNotMatch(account, /setInterval/u);
+  assert.match(unreadRoute, /requireSession\(\)/u);
+  assert.match(unreadRoute, /loadOwnNotificationUnreadCount/u);
+  assert.match(unreadRoute, /Cache-Control": "no-store"/u);
 });
 
 test("Push UI never requests permission on load and keeps device categories independent", async () => {
@@ -133,6 +203,18 @@ test("Push UI never requests permission on load and keeps device categories inde
   const effect = component.slice(component.indexOf("useEffect"), component.indexOf("const enablePush"));
   assert.doesNotMatch(effect, /requestPermission|\.subscribe\(/u);
   assert.match(component, /Notification\.requestPermission\(\)/u);
+  assert.ok(
+    component.indexOf("Notification.requestPermission()") <
+      component.indexOf("!state.configurationAvailable || !state.vapidPublicKey"),
+    "the explicit user click must reach the browser permission prompt before delivery configuration is checked"
+  );
+  assert.match(component, /disabled=\{busy\}/u);
+  assert.doesNotMatch(component, /disabled=\{busy \|\| !state\.configurationAvailable\}/u);
+  assert.match(component, /Enable push notifications on this browser/u);
+  assert.match(component, /browser cannot ask again until you allow notifications in its site permissions/u);
+  assert.match(component, /brave:\/\/settings\/privacy/u);
+  assert.match(component, /Use Google services for push messaging/u);
+  assert.match(component, /error\.name === "AbortError"/u);
   assert.match(component, /userVisibleOnly: true/u);
   assert.match(component, /getRegistration\("\/"\)/u);
   assert.match(component, /role="switch"/u);
@@ -142,7 +224,11 @@ test("Push UI never requests permission on load and keeps device categories inde
   assert.match(component, /left-0\.5 top-0\.5 h-5 w-5/u);
   assert.match(component, /checked \? "translate-x-5" : "translate-x-0"/u);
   assert.match(component, /category\.description/u);
-  assert.doesNotMatch(component, /type="checkbox"/u);
+  assert.match(component, /type="checkbox"/u);
+  assert.match(component, /remind_15_minutes/u);
+  assert.match(component, /remind_10_minutes/u);
+  assert.match(component, /remind_5_minutes/u);
+  assert.match(component, /If you select any times, Push arrives only at those times/u);
   assert.doesNotMatch(component, /serviceWorker\.register/u);
   assert.match(route, /httpOnly: true/u);
   assert.match(route, /sameSite: "lax"/u);

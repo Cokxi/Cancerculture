@@ -71,6 +71,63 @@ export default function GlobalAccount() {
     return () => controller.abort();
   }, [hydrated, pathname, visible]);
 
+  useEffect(() => {
+    if (!hydrated || !visible || account?.kind !== "authenticated") return;
+
+    let disposed = false;
+    let lastStartedAt = 0;
+    let controller: AbortController | null = null;
+    const refreshUnreadCount = () => {
+      const now = Date.now();
+      if (disposed || now - lastStartedAt < 1_000) return;
+      lastStartedAt = now;
+      controller?.abort();
+      controller = new AbortController();
+      fetch("/api/notifications/unread-count", {
+        cache: "no-store",
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("Unread count request failed");
+          return await response.json() as { unreadCount?: unknown };
+        })
+        .then((result) => {
+          const unreadCount = Number(result.unreadCount);
+          if (
+            disposed ||
+            !Number.isSafeInteger(unreadCount) ||
+            unreadCount < 0 ||
+            unreadCount > 999
+          ) return;
+          setAccount((current) => current?.kind === "authenticated"
+            ? { ...current, unreadNotificationCount: unreadCount }
+            : current
+          );
+        })
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          // The last verified badge remains visible when this bounded refresh fails.
+        });
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshUnreadCount();
+    };
+    const delayedRefresh = window.setTimeout(refreshUnreadCount, 1_500);
+    window.addEventListener("focus", refreshUnreadCount);
+    window.addEventListener("pageshow", refreshUnreadCount);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    if (notificationsOpen) refreshUnreadCount();
+
+    return () => {
+      disposed = true;
+      window.clearTimeout(delayedRefresh);
+      controller?.abort();
+      window.removeEventListener("focus", refreshUnreadCount);
+      window.removeEventListener("pageshow", refreshUnreadCount);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [account?.kind, hydrated, notificationsOpen, visible]);
+
   if (!hydrated || !visible) return null;
 
   const setVisibilityPreference = () => {

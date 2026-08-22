@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { Script } from "node:vm";
 import sharp from "sharp";
+import { GET as getServiceWorker } from "../../app/sw.js/route.ts";
 
 const root = new URL("../../", import.meta.url);
 const readRepoFile = (path) => readFile(new URL(path, root), "utf8");
@@ -96,7 +98,11 @@ test("service worker is network-only and updates only after explicit confirmatio
   assert.equal(route.match(/self\.skipWaiting\(\)/gu)?.length, 1);
   assert.match(route, /addEventListener\("push"/u);
   assert.match(route, /addEventListener\("notificationclick"/u);
+  assert.match(route, /getServiceWorkerPushAllowlist/u);
+  assert.match(route, /const PUSH_MESSAGES = new Map/u);
+  assert.match(route, /PUSH_MESSAGES\.get\(JSON\.stringify\(\[value\.title, value\.body\]\)\) !== value\.category/u);
   assert.match(route, /NOTIFICATION_ID_PATTERN/u);
+  assert.match(route, /NOTIFICATION_OPEN_PATH_PATTERN/u);
   assert.match(route, /"\/notifications\/open\/" \+ value\.notificationId/u);
   assert.match(route, /self\.clients\.matchAll\(\{ type: "window", includeUncontrolled: true \}\)/u);
   assert.match(route, /self\.clients\.openWindow\(url\)/u);
@@ -105,4 +111,13 @@ test("service worker is network-only and updates only after explicit confirmatio
     route,
     /addEventListener\("fetch"|addEventListener\("sync"|caches\.|cache\.add|cache\.put|CacheStorage|backgroundSync/u
   );
+
+  const response = getServiceWorker();
+  const deliveredWorker = await response.text();
+  assert.equal(response.status, 200);
+  assert.doesNotThrow(
+    () => new Script(deliveredWorker, { filename: "delivered-sw.js" }),
+    "the actual generated Service Worker must compile as JavaScript"
+  );
+  assert.match(deliveredWorker, /NOTIFICATION_OPEN_PATH_PATTERN/u);
 });

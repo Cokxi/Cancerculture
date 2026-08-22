@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/db/admin";
 import type {
   CommunityPoll,
   CommunityPollAdminEvent,
+  CurrentCommunityPollAnnouncement,
   CommunityPollDurationHours,
   CommunityPollIndex,
   CommunityPollManagement,
@@ -80,6 +81,7 @@ const POLL_OUTCOMES = new Set([
 const ADMIN_EVENT_TYPES = new Set([
   "created",
   "activated",
+  "announced",
   "closed",
   "aborted",
   "replaced",
@@ -302,7 +304,7 @@ export async function getCommunityPollManagement(actorDiscordUserId: string) {
     }),
     "management"
   );
-  if (!Array.isArray(item.polls) || !Array.isArray(item.events)) {
+  if (!Array.isArray(item.polls) || !Array.isArray(item.events) || !Array.isArray(item.announcements)) {
     throw new Error("Community poll management is unavailable");
   }
   return Object.freeze({
@@ -310,7 +312,47 @@ export async function getCommunityPollManagement(actorDiscordUserId: string) {
     actorRole: string(item.actorRole, "management role"),
     polls: Object.freeze(item.polls.map(parseCommunityPoll)),
     events: Object.freeze(item.events.map(parseAdminEvent)),
+    announcements: Object.freeze(item.announcements.map((value) => {
+      const announcement = record(value, "announcement");
+      return Object.freeze({
+        pollPublicId: requireUuid(announcement.pollPublicId, "Announcement poll"),
+        announcedAt: string(announcement.announcedAt, "announcement time"),
+      });
+    })),
   }) satisfies CommunityPollManagement;
+}
+
+export async function announceCommunityPoll(
+  actorDiscordUserId: string,
+  input: {
+    pollPublicId: unknown;
+    requestId: unknown;
+    expectedPollVersion: unknown;
+  }
+) {
+  return requireManagementOutcome(await rpc("announce_community_poll", {
+    p_actor_discord_user_id: actorDiscordUserId,
+    p_poll_public_id: requireUuid(input.pollPublicId, "Poll"),
+    p_request_id: requireUuid(input.requestId, "Request"),
+    p_expected_poll_version: requirePositiveVersion(input.expectedPollVersion),
+  }), "announced");
+}
+
+export async function getCurrentCommunityPollAnnouncement(
+  viewerDiscordUserId?: string
+): Promise<CurrentCommunityPollAnnouncement | null> {
+  const item = record(await rpc("get_current_community_poll_announcement", {
+    p_viewer_discord_user_id: viewerDiscordUserId ?? null,
+  }), "announcement");
+  if (item.outcome === "none") return null;
+  if (item.outcome !== "available") {
+    throw new Error("Community poll announcement is unavailable");
+  }
+  return Object.freeze({
+    pollPublicId: requireUuid(item.pollPublicId, "Announcement poll"),
+    question: string(item.question, "announcement question"),
+    deadlineAt: string(item.deadlineAt, "announcement deadline"),
+  });
 }
 
 export async function createCommunityPoll(

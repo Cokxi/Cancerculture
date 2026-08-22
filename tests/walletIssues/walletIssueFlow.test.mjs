@@ -100,8 +100,8 @@ test("Wallet Issue notifications use generic copies without recipient, descripti
     "wallet_issue_correction_ready",
     "wallet_issue_resolved",
   ]) {
-    assert.match(owner, new RegExp(eventType, "u"));
     assert.match(push, new RegExp(eventType, "u"));
   }
+  assert.match(owner, /isPushEventType\(item\.eventType\)/u);
   assert.doesNotMatch(push, /recipient address|desiredRecipient|description|screenshot/iu);
 });

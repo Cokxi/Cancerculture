@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import webpush from "web-push";
 import { supabaseAdmin } from "@/lib/db/admin";
 import { decryptPushSubscription } from "@/lib/notifications/pushCrypto.server";
+import { classifyPushDeliveryError } from "@/lib/notifications/pushDeliveryPolicy";
 import { buildGenericPushPayload } from "@/lib/notifications/pushPayload";
 
 type ClaimedJob = {
@@ -74,18 +75,6 @@ function parseSubscription(value: string): webpush.PushSubscription {
   return candidate;
 }
 
-function classifyDeliveryError(error: unknown) {
-  const statusCode = typeof error === "object" && error !== null && "statusCode" in error
-    && typeof error.statusCode === "number" ? error.statusCode : null;
-  if (statusCode === 404 || statusCode === 410) {
-    return { code: `provider_${statusCode}`, retryable: false, subscriptionInvalid: true };
-  }
-  if (statusCode === 408 || statusCode === 429 || (statusCode !== null && statusCode >= 500)) {
-    return { code: statusCode ? `provider_${statusCode}` : "provider_retryable", retryable: true, subscriptionInvalid: false };
-  }
-  return { code: statusCode ? `provider_${statusCode}` : "delivery_failed", retryable: false, subscriptionInvalid: false };
-}
-
 export async function processDueNotificationWork({
   broadcastLimit = 100,
   deliveryLimit = 20,
@@ -96,6 +85,7 @@ export async function processDueNotificationWork({
   const config = deliveryConfig();
   if (!config) throw new Error("PUSH_DELIVERY_CONFIGURATION_UNAVAILABLE");
   webpush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
+  const cycleReminders = record(await rpc("produce_due_cycle_push_notifications", {}));
   const broadcast = record(await rpc("process_notification_broadcast_batch", {
     p_limit: broadcastLimit,
   }));
@@ -130,7 +120,7 @@ export async function processDueNotificationWork({
       });
       delivered += 1;
     } catch (error) {
-      const failure = classifyDeliveryError(error);
+      const failure = classifyPushDeliveryError(error);
       const result = record(await rpc("fail_push_delivery", {
         p_job_id: job.jobId,
         p_lease_token: job.leaseToken,
@@ -143,6 +133,7 @@ export async function processDueNotificationWork({
     }
   }
   return {
+    cycleRemindersCreated: typeof cycleReminders.created === "number" ? cycleReminders.created : 0,
     broadcastOutcome: typeof broadcast.outcome === "string" ? broadcast.outcome : "unknown",
     broadcastProcessed: typeof broadcast.processed === "number" ? broadcast.processed : 0,
     claimed: jobs.length,

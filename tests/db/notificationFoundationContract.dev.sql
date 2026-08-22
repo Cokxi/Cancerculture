@@ -90,7 +90,11 @@ begin
   delete from public.account_notification_preferences
   where owner_discord_user_id = v_actor;
   v_result := public.get_own_notification_settings(v_session);
-  if jsonb_array_length(v_result -> 'categories') <> 2
+  if jsonb_array_length(v_result -> 'categories') <> (
+      select count(*)
+      from public.notification_category_catalog
+      where is_active and in_product_available
+    )
     or exists (
       select 1 from jsonb_array_elements(v_result -> 'categories') category
       where category ->> 'inProductEnabled' <> 'true'

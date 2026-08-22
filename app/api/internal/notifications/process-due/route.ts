@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json(await processDueNotificationWork(), { headers });
   } catch (error) {
     console.error("[PUSH] due delivery processing failed", {
-      code: error instanceof Error ? error.message : "unknown",
+      errorName: error instanceof Error ? error.name : "UnknownError",
     });
     return NextResponse.json({ error: "DELIVERY_UNAVAILABLE" }, { status: 503, headers });
   }

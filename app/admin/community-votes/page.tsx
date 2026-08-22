@@ -9,6 +9,7 @@ import {
 import { COMMUNITY_POLL_LIMITS } from "@/lib/communityPolls/validation";
 import {
   abortCommunityPollAction,
+  announceCommunityPollAction,
   activateCommunityPollAction,
   closeCommunityPollAction,
   createCommunityPollAction,
@@ -111,6 +112,12 @@ export default async function CommunityVotesAdminPage() {
     authorization.discord_user_id
   );
   const serverNow = new Date(management.serverNow).getTime();
+  const announcedPolls = new Map(
+    management.announcements.map((announcement) => [
+      announcement.pollPublicId,
+      announcement.announcedAt,
+    ])
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-10">
@@ -120,7 +127,7 @@ export default async function CommunityVotesAdminPage() {
           Community Votes
         </h1>
         <p className="max-w-3xl text-sm leading-6 text-white/65">
-          Create generic polls without publishing a Homepage Info Box. Activated content and deadlines are immutable; corrections use Abort or Replace. Closing after the database deadline records the result and creates a 24-hour runoff automatically for a tied lead.
+          Create generic polls without automatically publishing a Homepage Info Box. After activation, use Announce poll separately to publish the Homepage notice and optional Push. Activated content and deadlines are immutable; corrections use Abort or Replace. Closing after the database deadline records the result and creates a 24-hour runoff automatically for a tied lead.
         </p>
         <Link className="inline-flex text-sm font-semibold text-orange-300 hover:underline" href="/community-votes">
           Open public Community Votes
@@ -150,6 +157,7 @@ export default async function CommunityVotesAdminPage() {
           const deadlineReached = poll.deadlineAt
             ? new Date(poll.deadlineAt).getTime() <= serverNow
             : false;
+          const announcedAt = announcedPolls.get(poll.publicId);
           return (
             <details key={poll.publicId} className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
               <summary className="cursor-pointer rounded font-semibold text-orange-200 outline-none focus-visible:ring-2 focus-visible:ring-orange-300">
@@ -161,6 +169,7 @@ export default async function CommunityVotesAdminPage() {
                   <div><dt className="font-semibold text-white">Activated</dt><dd>{formatDate(poll.activatedAt)}</dd></div>
                   <div><dt className="font-semibold text-white">Deadline</dt><dd>{formatDate(poll.deadlineAt)}</dd></div>
                   <div><dt className="font-semibold text-white">Outcome</dt><dd>{poll.outcome ?? "—"}</dd></div>
+                  <div><dt className="font-semibold text-white">Announced</dt><dd>{formatDate(announcedAt)}</dd></div>
                 </dl>
                 <ol className="list-decimal space-y-1 pl-5 text-sm text-white/70">
                   {poll.options.map((option) => <li key={option.publicId}>{option.label}</li>)}
@@ -177,6 +186,24 @@ export default async function CommunityVotesAdminPage() {
                         Activate poll
                       </CommunityPollActionButton>
                     </form>
+                  ) : null}
+                  {poll.status === "active" ? (
+                    announcedAt ? (
+                      <span className="inline-flex min-h-11 items-center rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-100">
+                        Push and Homepage announcement sent
+                      </span>
+                    ) : (
+                      <form action={announceCommunityPollAction}>
+                        <HiddenTransitionFields poll={poll} />
+                        <CommunityPollActionButton
+                          className={primaryButtonClassName}
+                          pendingLabel="Announcing…"
+                          confirmation="Announce this active poll now? This queues one optional generic Push and shows the orange Homepage box until the viewer votes or the poll ends."
+                        >
+                          Announce poll
+                        </CommunityPollActionButton>
+                      </form>
+                    )
                   ) : null}
                   {poll.status === "active" ? (
                     <form action={closeCommunityPollAction}>

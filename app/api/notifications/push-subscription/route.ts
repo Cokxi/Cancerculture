@@ -14,6 +14,7 @@ import {
   isPushDeviceId,
   loadPushSubscriptionSettings,
   registerPushSubscription,
+  setPushCyclePreference,
   setPushSubscriptionPreference,
 } from "@/lib/notifications/pushSubscriptions.server";
 import { enforceRouteMutationGate } from "@/lib/writeGate.server";
@@ -61,6 +62,10 @@ export async function GET() {
       vapidPublicKey: configuration.publicKey,
       active: settings.active === true,
       categories: Array.isArray(settings.categories) ? settings.categories : [],
+      cyclePreferences:
+        settings.cyclePreferences && typeof settings.cyclePreferences === "object"
+          ? settings.cyclePreferences
+          : {},
     }, { headers: responseHeaders });
     setDeviceCookie(response, deviceId);
     return response;
@@ -100,7 +105,18 @@ export async function PATCH(request: Request) {
     const session = await requireSession();
     const deviceId = (await cookies()).get(PUSH_DEVICE_COOKIE)?.value;
     const body = await request.json() as Record<string, unknown>;
-    if (!isPushDeviceId(deviceId) || typeof body.categoryKey !== "string" || typeof body.enabled !== "boolean") {
+    if (!isPushDeviceId(deviceId) || typeof body.enabled !== "boolean") {
+      return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400, headers: responseHeaders });
+    }
+    if (typeof body.cyclePreferenceKey === "string") {
+      return NextResponse.json(await setPushCyclePreference({
+        sessionId: session.session_id,
+        deviceId,
+        preferenceKey: body.cyclePreferenceKey,
+        enabled: body.enabled,
+      }), { headers: responseHeaders });
+    }
+    if (typeof body.categoryKey !== "string") {
       return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400, headers: responseHeaders });
     }
     return NextResponse.json(await setPushSubscriptionPreference({

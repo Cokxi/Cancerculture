@@ -12,12 +12,33 @@ type Category = {
   inProductEnabled?: boolean;
 };
 
+type CyclePreferences = {
+  newCycleStarted: boolean;
+  submissionPhaseEnds: boolean;
+  votingPhaseEnds: boolean;
+  cycleResultsReady: boolean;
+  remind15Minutes: boolean;
+  remind10Minutes: boolean;
+  remind5Minutes: boolean;
+};
+
+const emptyCyclePreferences: CyclePreferences = {
+  newCycleStarted: false,
+  submissionPhaseEnds: false,
+  votingPhaseEnds: false,
+  cycleResultsReady: false,
+  remind15Minutes: false,
+  remind10Minutes: false,
+  remind5Minutes: false,
+};
+
 type SettingsState = {
   status: "loading" | "anonymous" | "ready" | "unavailable";
   configurationAvailable: boolean;
   vapidPublicKey: string | null;
   active: boolean;
   pushCategories: Category[];
+  cyclePreferences: CyclePreferences;
   inProductCategories: Category[];
 };
 
@@ -27,8 +48,24 @@ const initialState: SettingsState = {
   vapidPublicKey: null,
   active: false,
   pushCategories: [],
+  cyclePreferences: emptyCyclePreferences,
   inProductCategories: [],
 };
+
+function parseCyclePreferences(value: unknown): CyclePreferences {
+  const item = value && typeof value === "object"
+    ? value as Record<string, unknown>
+    : {};
+  return {
+    newCycleStarted: item.newCycleStarted === true,
+    submissionPhaseEnds: item.submissionPhaseEnds === true,
+    votingPhaseEnds: item.votingPhaseEnds === true,
+    cycleResultsReady: item.cycleResultsReady === true,
+    remind15Minutes: item.remind15Minutes === true,
+    remind10Minutes: item.remind10Minutes === true,
+    remind5Minutes: item.remind5Minutes === true,
+  };
+}
 
 function SettingsSwitch({
   checked,
@@ -72,6 +109,20 @@ function applicationServerKey(value: string) {
   return Uint8Array.from(raw, (character) => character.charCodeAt(0));
 }
 
+async function pushActivationErrorMessage(error: unknown) {
+  const brave = (navigator as Navigator & {
+    brave?: { isBrave?: () => Promise<boolean> };
+  }).brave;
+  const isBrave = await brave?.isBrave?.().catch(() => false) ?? false;
+  const isPushServiceFailure = error instanceof Error
+    && (error.name === "AbortError" || /push service/iu.test(error.message));
+
+  if (isBrave && isPushServiceFailure) {
+    return "Brave's push service is disabled. Open brave://settings/privacy, enable Use Google services for push messaging, restart Brave, and try again.";
+  }
+  return error instanceof Error ? error.message : "Push could not be activated.";
+}
+
 export default function PushNotificationSettings() {
   const [state, setState] = useState<SettingsState>(initialState);
   const [busy, setBusy] = useState(false);
@@ -96,6 +147,7 @@ export default function PushNotificationSettings() {
         vapidPublicKey: typeof push.vapidPublicKey === "string" ? push.vapidPublicKey : null,
         active: push.active === true,
         pushCategories: Array.isArray(push.categories) ? push.categories as Category[] : [],
+        cyclePreferences: parseCyclePreferences(push.cyclePreferences),
         inProductCategories: Array.isArray(settings.categories) ? settings.categories as Category[] : [],
       });
     } catch {
@@ -109,20 +161,26 @@ export default function PushNotificationSettings() {
     setBusy(true);
     setMessage(null);
     try {
-      if (
-        !state.configurationAvailable ||
-        !state.vapidPublicKey ||
-        !("serviceWorker" in navigator) ||
-        !("PushManager" in window) ||
-        !("Notification" in window)
-      ) {
-        throw new Error("Push is not available on this device yet.");
+      if (!("Notification" in window)) {
+        throw new Error("This browser does not support notification permission.");
+      }
+      if (!window.isSecureContext) {
+        throw new Error("Browser notifications require a secure connection.");
       }
       const permission = Notification.permission === "default"
         ? await Notification.requestPermission()
         : Notification.permission;
+      if (permission === "denied") {
+        throw new Error("Notifications are blocked for this site. The browser cannot ask again until you allow notifications in its site permissions.");
+      }
       if (permission !== "granted") {
-        throw new Error("Browser notification permission was not granted.");
+        throw new Error("The browser question was closed. Click Enable push notifications on this browser when you are ready.");
+      }
+      if (!state.configurationAvailable || !state.vapidPublicKey) {
+        throw new Error("Browser permission is granted. Push delivery is not configured in this environment yet.");
+      }
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        throw new Error("This browser does not support Web Push on this device.");
       }
       const registration = await navigator.serviceWorker.getRegistration("/");
       if (!registration) {
@@ -142,7 +200,7 @@ export default function PushNotificationSettings() {
       setMessage("Push is active for this browser. Categories remain off until you enable them below.");
       await refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Push could not be activated.");
+      setMessage(await pushActivationErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -180,6 +238,24 @@ export default function PushNotificationSettings() {
       await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Category could not be updated.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateCyclePreference = async (cyclePreferenceKey: string, enabled: boolean) => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/notifications/push-subscription", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cyclePreferenceKey, enabled }),
+      });
+      if (!response.ok) throw new Error("Cycle Push preference could not be updated.");
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Cycle Push preference could not be updated.");
     } finally {
       setBusy(false);
     }
@@ -244,20 +320,69 @@ export default function PushNotificationSettings() {
         </p>
         {!state.configurationAvailable ? (
           <p className="mt-4 rounded-lg border border-amber-400/25 bg-amber-500/10 p-3 text-sm text-amber-100" role="status">
-            Public Push activation is not available in this environment.
+            You can still ask this browser for notification permission. Delivery becomes active after Push is configured for this environment.
           </p>
         ) : null}
         <button
           type="button"
-          disabled={busy || !state.configurationAvailable}
+          disabled={busy}
           onClick={() => void (state.active ? disablePush() : enablePush())}
           className="mt-4 min-h-11 cursor-pointer rounded-lg bg-orange-500 px-4 py-2 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-45"
         >
-          {state.active ? "Disable on this browser" : "Enable on this browser"}
+          {state.active ? "Disable push notifications on this browser" : "Enable push notifications on this browser"}
         </button>
-        {state.active ? (
-          <div className="mt-5 space-y-3" aria-label="Push categories">
-            {state.pushCategories.map((category) => (
+        <div className="mt-5 space-y-3" aria-label="Push categories">
+          <div className="rounded-xl border border-white/10 p-4">
+            <h3 className="font-semibold">Cycles &amp; Voting</h3>
+            <p className="mt-1 text-xs leading-relaxed text-white/50">
+              Choose each Cycle event separately. The 5, 10, and 15 minute options are freely combinable and apply to every enabled phase-end notification.
+            </p>
+            <div className="mt-4 space-y-3">
+              {([
+                ["new_cycle_started", "A new Cycle starts", state.cyclePreferences.newCycleStarted],
+                ["submission_phase_ends", "Submission phase ends", state.cyclePreferences.submissionPhaseEnds],
+                ["voting_phase_ends", "Voting phase ends", state.cyclePreferences.votingPhaseEnds],
+                ["cycle_results_ready", "Cycle results are ready", state.cyclePreferences.cycleResultsReady],
+              ] as const).map(([key, label, checked]) => (
+                <div key={key} className="flex min-h-12 items-center justify-between gap-4 rounded-lg border border-white/10 px-3 py-2">
+                  <span className="text-sm font-medium">{label}</span>
+                  <SettingsSwitch
+                    checked={checked}
+                    disabled={busy || !state.active}
+                    label={label}
+                    onChange={(enabled) => void updateCyclePreference(key, enabled)}
+                  />
+                </div>
+              ))}
+            </div>
+            <fieldset className="mt-4 border-t border-white/10 pt-4" disabled={busy || !state.active}>
+              <legend className="text-sm font-semibold">Before an enabled phase ends</legend>
+              <p className="mt-1 text-xs leading-relaxed text-white/50">
+                With no time selected, one Push arrives when that phase ends. If you select any times, Push arrives only at those times and not again at the phase change.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {([
+                  ["remind_15_minutes", "15 minutes before", state.cyclePreferences.remind15Minutes],
+                  ["remind_10_minutes", "10 minutes before", state.cyclePreferences.remind10Minutes],
+                  ["remind_5_minutes", "5 minutes before", state.cyclePreferences.remind5Minutes],
+                ] as const).map(([key, label, checked]) => (
+                  <label key={key} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={busy || !state.active}
+                      onChange={(event) => void updateCyclePreference(key, event.target.checked)}
+                      className="h-4 w-4 accent-orange-500"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </div>
+          {state.pushCategories
+            .filter((category) => category.categoryKey !== "cycles_voting")
+            .map((category) => (
               <div key={category.categoryKey} className="flex min-h-16 items-center justify-between gap-4 rounded-xl border border-white/10 px-4 py-3">
                 <span>
                   <span className="block font-semibold">{category.displayName}</span>
@@ -265,14 +390,13 @@ export default function PushNotificationSettings() {
                 </span>
                 <SettingsSwitch
                   checked={category.enabled === true}
-                  disabled={busy}
+                  disabled={busy || !state.active}
                   label={`${category.displayName} push`}
                   onChange={(checked) => void updatePushCategory(category.categoryKey, checked)}
                 />
               </div>
             ))}
-          </div>
-        ) : null}
+        </div>
         {message ? <p className="mt-4 text-sm text-white/70" role="status">{message}</p> : null}
       </section>
     </div>

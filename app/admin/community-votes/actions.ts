@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireDynamicTeamCapability } from "@/lib/auth/teamAuthorization";
 import {
   abortCommunityPoll,
+  announceCommunityPoll,
   createCommunityPoll,
   replaceCommunityPoll,
   transitionCommunityPoll,
@@ -14,8 +15,20 @@ function value(formData: FormData, name: string) {
 }
 
 function invalidate() {
+  revalidatePath("/");
   revalidatePath("/community-votes");
   revalidatePath("/admin/community-votes");
+}
+export async function announceCommunityPollAction(formData: FormData) {
+  const authorization = await requireDynamicTeamCapability(
+    "community.polls.manage"
+  );
+  await announceCommunityPoll(authorization.discord_user_id, {
+    pollPublicId: value(formData, "poll_public_id"),
+    requestId: value(formData, "request_id"),
+    expectedPollVersion: value(formData, "expected_version"),
+  });
+  invalidate();
 }
 
 export async function createCommunityPollAction(formData: FormData) {
