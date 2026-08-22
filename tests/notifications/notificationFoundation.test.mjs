@@ -208,7 +208,7 @@ test("Push UI never requests permission on load and keeps device categories inde
       component.indexOf("!state.configurationAvailable || !state.vapidPublicKey"),
     "the explicit user click must reach the browser permission prompt before delivery configuration is checked"
   );
-  assert.match(component, /disabled=\{busy\}/u);
+  assert.match(component, /disabled=\{busy \|\| savingSettingKeys\.size > 0\}/u);
   assert.doesNotMatch(component, /disabled=\{busy \|\| !state\.configurationAvailable\}/u);
   assert.match(component, /Enable push notifications on this browser/u);
   assert.match(component, /browser cannot ask again until you allow notifications in its site permissions/u);

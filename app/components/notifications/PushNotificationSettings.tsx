@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Category = {
   categoryKey: string;
@@ -31,6 +31,18 @@ const emptyCyclePreferences: CyclePreferences = {
   remind10Minutes: false,
   remind5Minutes: false,
 };
+
+const cyclePreferenceStateKeys = {
+  new_cycle_started: "newCycleStarted",
+  submission_phase_ends: "submissionPhaseEnds",
+  voting_phase_ends: "votingPhaseEnds",
+  cycle_results_ready: "cycleResultsReady",
+  remind_15_minutes: "remind15Minutes",
+  remind_10_minutes: "remind10Minutes",
+  remind_5_minutes: "remind5Minutes",
+} as const satisfies Record<string, keyof CyclePreferences>;
+
+type CyclePreferenceKey = keyof typeof cyclePreferenceStateKeys;
 
 type SettingsState = {
   status: "loading" | "anonymous" | "ready" | "unavailable";
@@ -65,6 +77,10 @@ function parseCyclePreferences(value: unknown): CyclePreferences {
     remind10Minutes: item.remind10Minutes === true,
     remind5Minutes: item.remind5Minutes === true,
   };
+}
+
+function responseRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }
 
 function SettingsSwitch({
@@ -126,7 +142,10 @@ async function pushActivationErrorMessage(error: unknown) {
 export default function PushNotificationSettings() {
   const [state, setState] = useState<SettingsState>(initialState);
   const [busy, setBusy] = useState(false);
+  const [savingSettingKeys, setSavingSettingKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [message, setMessage] = useState<string | null>(null);
+  const nextPreferenceRequestId = useRef(0);
+  const activePreferenceRequestIds = useRef(new Map<string, number>());
 
   const refresh = useCallback(async () => {
     try {
@@ -226,56 +245,129 @@ export default function PushNotificationSettings() {
     }
   };
 
-  const updatePushCategory = async (categoryKey: string, enabled: boolean) => {
-    setBusy(true);
+  const savePreference = async ({
+    settingKey,
+    enabled,
+    applyValue,
+    request,
+    confirms,
+    failureMessage,
+    unexpectedMessage,
+  }: {
+    settingKey: string;
+    enabled: boolean;
+    applyValue: (current: SettingsState, value: boolean) => SettingsState;
+    request: () => Promise<Response>;
+    confirms: (result: Record<string, unknown>) => boolean;
+    failureMessage: string;
+    unexpectedMessage: string;
+  }) => {
+    if (activePreferenceRequestIds.current.has(settingKey)) return;
+
+    const requestId = ++nextPreferenceRequestId.current;
+    activePreferenceRequestIds.current.set(settingKey, requestId);
+    setSavingSettingKeys((current) => new Set(current).add(settingKey));
+    setMessage(null);
+    setState((current) => applyValue(current, enabled));
+
     try {
-      const response = await fetch("/api/notifications/push-subscription", {
+      const response = await request();
+      if (!response.ok) {
+        throw new Error(response.status === 401
+          ? "Your session expired. Sign in again, then retry the setting."
+          : failureMessage);
+      }
+      let result: Record<string, unknown>;
+      try {
+        result = responseRecord(await response.json());
+      } catch {
+        throw new Error(unexpectedMessage);
+      }
+      if (!confirms(result)) throw new Error(unexpectedMessage);
+      if (activePreferenceRequestIds.current.get(settingKey) !== requestId) return;
+
+      setState((current) => applyValue(current, enabled));
+    } catch (error) {
+      if (activePreferenceRequestIds.current.get(settingKey) !== requestId) return;
+      setState((current) => applyValue(current, !enabled));
+      setMessage(error instanceof Error ? error.message : failureMessage);
+    } finally {
+      if (activePreferenceRequestIds.current.get(settingKey) === requestId) {
+        activePreferenceRequestIds.current.delete(settingKey);
+        setSavingSettingKeys((current) => {
+          const next = new Set(current);
+          next.delete(settingKey);
+          return next;
+        });
+      }
+    }
+  };
+
+  const updatePushCategory = async (categoryKey: string, enabled: boolean) => {
+    const settingKey = `push-category:${categoryKey}`;
+    await savePreference({
+      settingKey,
+      enabled,
+      applyValue: (current, value) => ({
+        ...current,
+        pushCategories: current.pushCategories.map((category) => category.categoryKey === categoryKey
+          ? { ...category, enabled: value }
+          : category),
+      }),
+      request: () => fetch("/api/notifications/push-subscription", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryKey, enabled }),
-      });
-      if (!response.ok) throw new Error("Category could not be updated.");
-      await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Category could not be updated.");
-    } finally {
-      setBusy(false);
-    }
+      }),
+      confirms: (result) => result.outcome === "updated" && result.enabled === enabled,
+      failureMessage: "This Push setting could not be saved. It was changed back.",
+      unexpectedMessage: "The Push setting could not be confirmed. It was changed back.",
+    });
   };
 
-  const updateCyclePreference = async (cyclePreferenceKey: string, enabled: boolean) => {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const response = await fetch("/api/notifications/push-subscription", {
+  const updateCyclePreference = async (cyclePreferenceKey: CyclePreferenceKey, enabled: boolean) => {
+    const settingKey = `cycle-preference:${cyclePreferenceKey}`;
+    const stateKey = cyclePreferenceStateKeys[cyclePreferenceKey];
+    await savePreference({
+      settingKey,
+      enabled,
+      applyValue: (current, value) => ({
+        ...current,
+        cyclePreferences: { ...current.cyclePreferences, [stateKey]: value },
+      }),
+      request: () => fetch("/api/notifications/push-subscription", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cyclePreferenceKey, enabled }),
-      });
-      if (!response.ok) throw new Error("Cycle Push preference could not be updated.");
-      await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Cycle Push preference could not be updated.");
-    } finally {
-      setBusy(false);
-    }
+      }),
+      confirms: (result) => result.outcome === "updated" && result.enabled === enabled,
+      failureMessage: "This Cycle Push setting could not be saved. It was changed back.",
+      unexpectedMessage: "The Cycle Push setting could not be confirmed. It was changed back.",
+    });
   };
 
   const updateInProductCategory = async (categoryKey: string, inProductEnabled: boolean) => {
-    setBusy(true);
-    try {
-      const response = await fetch("/api/notifications/settings", {
+    const settingKey = `in-product:${categoryKey}`;
+    await savePreference({
+      settingKey,
+      enabled: inProductEnabled,
+      applyValue: (current, value) => ({
+        ...current,
+        inProductCategories: current.inProductCategories.map((category) => category.categoryKey === categoryKey
+          ? { ...category, inProductEnabled: value }
+          : category),
+      }),
+      request: () => fetch("/api/notifications/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ categoryKey, inProductEnabled }),
-      });
-      if (!response.ok) throw new Error("Preference could not be updated.");
-      await refresh();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Preference could not be updated.");
-    } finally {
-      setBusy(false);
-    }
+      }),
+      confirms: (result) => result.outcome === "updated"
+        && result.categoryKey === categoryKey
+        && result.inProductEnabled === inProductEnabled,
+      failureMessage: "This in-app setting could not be saved. It was changed back.",
+      unexpectedMessage: "The in-app setting could not be confirmed. It was changed back.",
+    });
   };
 
   if (state.status === "loading") return <p role="status">Loading notification settings…</p>;
@@ -304,7 +396,7 @@ export default function PushNotificationSettings() {
               </span>
               <SettingsSwitch
                 checked={category.inProductEnabled === true}
-                disabled={busy}
+                disabled={busy || savingSettingKeys.has(`in-product:${category.categoryKey}`)}
                 label={category.displayName}
                 onChange={(checked) => void updateInProductCategory(category.categoryKey, checked)}
               />
@@ -325,7 +417,7 @@ export default function PushNotificationSettings() {
         ) : null}
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || savingSettingKeys.size > 0}
           onClick={() => void (state.active ? disablePush() : enablePush())}
           className="mt-4 min-h-11 cursor-pointer rounded-lg bg-orange-500 px-4 py-2 font-semibold text-black disabled:cursor-not-allowed disabled:opacity-45"
         >
@@ -348,7 +440,7 @@ export default function PushNotificationSettings() {
                   <span className="text-sm font-medium">{label}</span>
                   <SettingsSwitch
                     checked={checked}
-                    disabled={busy || !state.active}
+                    disabled={busy || !state.active || savingSettingKeys.has(`cycle-preference:${key}`)}
                     label={label}
                     onChange={(enabled) => void updateCyclePreference(key, enabled)}
                   />
@@ -370,7 +462,7 @@ export default function PushNotificationSettings() {
                     <input
                       type="checkbox"
                       checked={checked}
-                      disabled={busy || !state.active}
+                      disabled={busy || !state.active || savingSettingKeys.has(`cycle-preference:${key}`)}
                       onChange={(event) => void updateCyclePreference(key, event.target.checked)}
                       className="h-4 w-4 accent-orange-500"
                     />
@@ -390,7 +482,7 @@ export default function PushNotificationSettings() {
                 </span>
                 <SettingsSwitch
                   checked={category.enabled === true}
-                  disabled={busy || !state.active}
+                  disabled={busy || !state.active || savingSettingKeys.has(`push-category:${category.categoryKey}`)}
                   label={`${category.displayName} push`}
                   onChange={(checked) => void updatePushCategory(category.categoryKey, checked)}
                 />
