@@ -3,6 +3,7 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import {
+  COMMUNITY_COMMENT_CURSOR_CONTRACT_VERSION,
   PUBLIC_PAGINATION_CURSOR_VERSION,
   PUBLIC_PAGINATION_SCOPES,
   type PaginationView,
@@ -64,6 +65,19 @@ function isNonNegativeInteger(value: unknown): value is number {
     typeof value === "number" &&
     Number.isSafeInteger(value) &&
     value >= 0
+  );
+}
+
+function isInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value);
+}
+
+function isUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+      value
+    )
   );
 }
 
@@ -250,6 +264,86 @@ function validatePayload(
       !hasExactKeys(value.values, ["cycleNumber"]) ||
       value.context.catalog !== "finalized-cycles" ||
       !isId(value.values.cycleNumber)
+    ) {
+      return fail();
+    }
+
+    return value as PublicPaginationCursorPayload;
+  }
+
+  if (value.scope === PUBLIC_PAGINATION_SCOPES.commentRootsTop) {
+    if (
+      !hasExactKeys(value.context, [
+        "contractVersion",
+        "sort",
+        "submissionId",
+      ]) ||
+      !hasExactKeys(value.values, [
+        "createdAt",
+        "netScore",
+        "publicCommentId",
+        "snapshotAt",
+      ]) ||
+      value.context.contractVersion !==
+        COMMUNITY_COMMENT_CURSOR_CONTRACT_VERSION ||
+      value.context.sort !== "top" ||
+      !isId(value.context.submissionId) ||
+      !isPreciseUtcTimestamp(value.values.snapshotAt) ||
+      !isPreciseUtcTimestamp(value.values.createdAt) ||
+      !isInteger(value.values.netScore) ||
+      !isUuid(value.values.publicCommentId)
+    ) {
+      return fail();
+    }
+
+    return value as PublicPaginationCursorPayload;
+  }
+
+  if (value.scope === PUBLIC_PAGINATION_SCOPES.commentRootsNewest) {
+    if (
+      !hasExactKeys(value.context, [
+        "contractVersion",
+        "sort",
+        "submissionId",
+      ]) ||
+      !hasExactKeys(value.values, [
+        "createdAt",
+        "publicCommentId",
+        "snapshotAt",
+      ]) ||
+      value.context.contractVersion !==
+        COMMUNITY_COMMENT_CURSOR_CONTRACT_VERSION ||
+      value.context.sort !== "newest" ||
+      !isId(value.context.submissionId) ||
+      !isPreciseUtcTimestamp(value.values.snapshotAt) ||
+      !isPreciseUtcTimestamp(value.values.createdAt) ||
+      !isUuid(value.values.publicCommentId)
+    ) {
+      return fail();
+    }
+
+    return value as PublicPaginationCursorPayload;
+  }
+
+  if (value.scope === PUBLIC_PAGINATION_SCOPES.commentReplies) {
+    if (
+      !hasExactKeys(value.context, [
+        "contractVersion",
+        "rootPublicCommentId",
+        "submissionId",
+      ]) ||
+      !hasExactKeys(value.values, [
+        "createdAt",
+        "publicCommentId",
+        "snapshotAt",
+      ]) ||
+      value.context.contractVersion !==
+        COMMUNITY_COMMENT_CURSOR_CONTRACT_VERSION ||
+      !isId(value.context.submissionId) ||
+      !isUuid(value.context.rootPublicCommentId) ||
+      !isPreciseUtcTimestamp(value.values.snapshotAt) ||
+      !isPreciseUtcTimestamp(value.values.createdAt) ||
+      !isUuid(value.values.publicCommentId)
     ) {
       return fail();
     }

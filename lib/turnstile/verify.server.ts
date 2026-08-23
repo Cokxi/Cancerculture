@@ -17,6 +17,7 @@ type SiteverifyPayload = {
   success?: unknown;
   action?: unknown;
   hostname?: unknown;
+  challenge_ts?: unknown;
   "error-codes"?: unknown;
 };
 
@@ -55,7 +56,11 @@ function hasSecretConfigurationError(payload: SiteverifyPayload) {
 export async function verifyTurnstileRequest(
   request: Request,
   expectedAction: TurnstileAction,
-  options: { fetchImpl?: typeof fetch } = {}
+  options: {
+    fetchImpl?: typeof fetch;
+    maxTokenAgeMs?: number;
+    now?: () => number;
+  } = {}
 ): Promise<TurnstileVerificationResult> {
   const token = request.headers.get(TURNSTILE_TOKEN_HEADER)?.trim();
 
@@ -145,6 +150,23 @@ export async function verifyTurnstileRequest(
           !config.allowedHostnames.has(payload.hostname.toLowerCase()))
       ) {
         return { status: "rejected", code: "TURNSTILE_INVALID" };
+      }
+
+      if (options.maxTokenAgeMs !== undefined) {
+        const challengeAt =
+          typeof payload.challenge_ts === "string"
+            ? Date.parse(payload.challenge_ts)
+            : Number.NaN;
+        const age = (options.now ?? Date.now)() - challengeAt;
+        if (
+          !Number.isFinite(options.maxTokenAgeMs) ||
+          options.maxTokenAgeMs <= 0 ||
+          !Number.isFinite(challengeAt) ||
+          age < -30_000 ||
+          age > options.maxTokenAgeMs
+        ) {
+          return { status: "rejected", code: "TURNSTILE_INVALID" };
+        }
       }
 
       return { status: "verified" };

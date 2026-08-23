@@ -6,6 +6,7 @@ export const TURNSTILE_ACTIONS = {
   submissionReport: "submission_report",
   walletIssueIntake: "wallet_issue_intake",
   twoFactorRecovery: "two_factor_recovery",
+  communityComment: "community_comment",
 } as const;
 
 export type TurnstileAction =

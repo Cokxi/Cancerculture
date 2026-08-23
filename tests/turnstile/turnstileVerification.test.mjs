@@ -184,3 +184,43 @@ test("managed mode requires an exact configured hostname", async () => {
     }
   }
 });
+
+test("risk-gated calls require a fresh challenge timestamp", async () => {
+  const now = Date.parse("2026-08-23T12:00:00.000Z");
+  const options = {
+    maxTokenAgeMs: 5 * 60_000,
+    now: () => now,
+  };
+
+  assert.deepEqual(
+    await verifyTurnstileRequest(request(), "community_comment", {
+      ...options,
+      fetchImpl: async () =>
+        jsonResponse({
+          success: true,
+          action: "community_comment",
+          challenge_ts: "2026-08-23T11:56:00.000Z",
+        }),
+    }),
+    { status: "verified" }
+  );
+
+  for (const challenge_ts of [
+    undefined,
+    "2026-08-23T11:54:59.999Z",
+    "2026-08-23T12:00:31.000Z",
+  ]) {
+    assert.deepEqual(
+      await verifyTurnstileRequest(request(), "community_comment", {
+        ...options,
+        fetchImpl: async () =>
+          jsonResponse({
+            success: true,
+            action: "community_comment",
+            challenge_ts,
+          }),
+      }),
+      { status: "rejected", code: "TURNSTILE_INVALID" }
+    );
+  }
+});

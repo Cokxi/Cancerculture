@@ -1,5 +1,10 @@
 export const PUBLIC_SUBMISSION_PAGE_SIZE = 48;
 export const PUBLIC_PAGINATION_CURSOR_VERSION = 1;
+export const COMMUNITY_COMMENT_ROOT_PAGE_SIZE = 20;
+export const COMMUNITY_COMMENT_REPLY_PAGE_SIZE = 20;
+export const COMMUNITY_COMMENT_REPLY_PREVIEW_SIZE = 3;
+export const COMMUNITY_COMMENT_BATCH_MAX_IDS = 100;
+export const COMMUNITY_COMMENT_CURSOR_CONTRACT_VERSION = 1;
 
 export const PUBLIC_PAGINATION_SCOPES = {
   submissions: "submissions",
@@ -12,6 +17,9 @@ export const PUBLIC_PAGINATION_SCOPES = {
   feedAll: "feed-all",
   feedTrash: "feed-trash",
   feedCycleCatalog: "feed-cycle-catalog",
+  commentRootsTop: "comment-roots-top",
+  commentRootsNewest: "comment-roots-newest",
+  commentReplies: "comment-replies",
 } as const;
 
 export type PublicPaginationScope =
@@ -88,6 +96,49 @@ export type PublicPaginationCursorPayload =
       scope: typeof PUBLIC_PAGINATION_SCOPES.feedCycleCatalog;
       context: { catalog: "finalized-cycles" };
       values: { cycleNumber: number };
+    }
+  | {
+      version: typeof PUBLIC_PAGINATION_CURSOR_VERSION;
+      scope: typeof PUBLIC_PAGINATION_SCOPES.commentRootsTop;
+      context: {
+        submissionId: number;
+        sort: "top";
+        contractVersion: typeof COMMUNITY_COMMENT_CURSOR_CONTRACT_VERSION;
+      };
+      values: {
+        snapshotAt: string;
+        netScore: number;
+        createdAt: string;
+        publicCommentId: string;
+      };
+    }
+  | {
+      version: typeof PUBLIC_PAGINATION_CURSOR_VERSION;
+      scope: typeof PUBLIC_PAGINATION_SCOPES.commentRootsNewest;
+      context: {
+        submissionId: number;
+        sort: "newest";
+        contractVersion: typeof COMMUNITY_COMMENT_CURSOR_CONTRACT_VERSION;
+      };
+      values: {
+        snapshotAt: string;
+        createdAt: string;
+        publicCommentId: string;
+      };
+    }
+  | {
+      version: typeof PUBLIC_PAGINATION_CURSOR_VERSION;
+      scope: typeof PUBLIC_PAGINATION_SCOPES.commentReplies;
+      context: {
+        submissionId: number;
+        rootPublicCommentId: string;
+        contractVersion: typeof COMMUNITY_COMMENT_CURSOR_CONTRACT_VERSION;
+      };
+      values: {
+        snapshotAt: string;
+        createdAt: string;
+        publicCommentId: string;
+      };
     };
 
 export type PublicPaginationCursorPayloadForScope<
