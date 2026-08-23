@@ -67,7 +67,7 @@ test("preview surfaces use thumbnails while full-size views keep originals", asy
     "lib/admin/moderationLogs.ts",
     "app/admin/users/UserSubmissionsDropdown.tsx",
     "app/cycle-history/CycleHistoryClient.tsx",
-    "app/my-profile/ProfileSections.tsx",
+    "app/my-profile/ProfileHistoryLists.tsx",
     "app/my-profile/page.tsx",
     "app/profile/[publicProfileId]/page.tsx",
     "app/submissions/SubmissionsClient.tsx",
@@ -107,4 +107,26 @@ test("preview surfaces use thumbnails while full-size views keep originals", asy
   assert.match(cycleHistory, /src=\{submission\.imageUrl\}/u);
   assert.match(fame, /src=\{active\.image_url\}/u);
   assert.match(shame, /src=\{active\.image_url\}/u);
+});
+
+test("Cycle History thumbnails use a responsive fill frame without aspect-ratio warnings", async () => {
+  const cycleHistory = await readFile(
+    new URL("app/cycle-history/CycleHistoryClient.tsx", repoRoot),
+    "utf8"
+  );
+
+  assert.match(
+    cycleHistory,
+    /className="relative h-56 w-full overflow-hidden rounded-lg"[\s\S]*?<Image/u
+  );
+  assert.match(cycleHistory, /\bfill\b/u);
+  assert.match(
+    cycleHistory,
+    /sizes="\(max-width: 639px\) 100vw, \(max-width: 1279px\) 50vw, 33vw"/u
+  );
+  assert.match(cycleHistory, /className="object-cover"/u);
+  assert.doesNotMatch(
+    cycleHistory,
+    /width=\{400\}[\s\S]*?height=\{224\}[\s\S]*?className="h-56 w-full/u
+  );
 });

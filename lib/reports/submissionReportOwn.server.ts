@@ -18,10 +18,15 @@ const PAGE_SIZE = 25;
 export async function loadOwnSubmissionReports({
   cursor: cursorValue,
   discordUserId,
+  limit = PAGE_SIZE,
 }: {
   cursor?: string | null;
   discordUserId: string;
+  limit?: number;
 }) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > PAGE_SIZE) {
+    throw new SubmissionReportError(400, "REPORT_LIMIT_INVALID");
+  }
   const cursor = parseSubmissionReportCursor(cursorValue);
   if (cursorValue && !cursor) {
     throw new SubmissionReportError(400, "REPORT_CURSOR_INVALID");
@@ -47,7 +52,7 @@ export async function loadOwnSubmissionReports({
       p_reporter_dedupe_hash: identity.digest,
       p_before_created_at: cursor?.createdAt ?? null,
       p_before_report_id: cursor?.reportId ?? null,
-      p_limit: PAGE_SIZE,
+      p_limit: limit,
     }
   );
 

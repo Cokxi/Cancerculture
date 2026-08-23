@@ -38,7 +38,7 @@ export default async function WinnerClaimPage({
 
   return (
     <>
-      <BackButton href="/my-profile" label="My Profile" />
+      <BackButton href="/" label="Home" />
       <main className="mx-auto min-h-screen max-w-3xl px-4 py-10 text-white">
         <WinnerClaimClient claim={result.claim} databaseTime={result.databaseTime} />
       </main>

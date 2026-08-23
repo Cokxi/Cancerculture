@@ -12,6 +12,7 @@ const [
   thumbnailServer,
   ownServer,
   myReportsPage,
+  myReportsList,
   myModerationHistoryPage,
 ] = await Promise.all([
   read("supabase/migrations/20260809001000_submission_report_outcome_history.sql"),
@@ -21,6 +22,7 @@ const [
   read("lib/reports/submissionReportThumbnail.server.ts"),
   read("lib/reports/submissionReportOwn.server.ts"),
   read("app/my-reports/page.tsx"),
+  read("app/my-reports/OwnSubmissionReportsList.tsx"),
   read("app/my-profile/disqualifications/page.tsx"),
 ]);
 
@@ -109,9 +111,9 @@ test("Outcome History and My Reports share a fresh visibility-safe thumbnail bou
   assert.match(ownServer, /addVisibilitySafeSubmissionReportThumbnails/u);
   assert.match(outcomePage, /Current public preview unavailable/u);
   assert.match(outcomePage, /<Image/u);
-  assert.match(myReportsPage, /Current public preview unavailable/u);
-  assert.match(myReportsPage, /Open current public view of submission/u);
-  assert.match(myReportsPage, /<Image/u);
+  assert.match(myReportsList, /Current public preview unavailable/u);
+  assert.match(myReportsList, /Open current public view of submission/u);
+  assert.match(myReportsList, /<Image/u);
   assert.doesNotMatch(thumbnailServer, /snapshot|copy|insert|update|delete/iu);
 });
 

@@ -15,6 +15,12 @@ import { getSolProfileWallet } from "@/lib/solana/profileWallet.server";
 import ProfileSocialsSection from "@/app/components/profile/ProfileSocialsSection";
 import { redirect } from "next/navigation";
 import ProfileSections from "./ProfileSections";
+import SavedMemesClient from "./saved-memes/SavedMemesClient";
+import { getOwnSavedMemes } from "@/lib/savedMemes/service.server";
+import { loadOwnSubmissionReports } from "@/lib/reports/submissionReportOwn.server";
+import OwnSubmissionReportsList from "@/app/my-reports/OwnSubmissionReportsList";
+import { loadOwnDisqualificationHistory } from "@/lib/profile/disqualificationHistoryReadModel.server";
+import DisqualificationHistoryList from "@/app/components/profile/DisqualificationHistoryList";
 import {
   getOwnWinnerClaims,
 } from "@/lib/winnerClaims/service.server";
@@ -27,10 +33,12 @@ import WalletIssueIntakeForm from "./WalletIssueIntakeForm";
 import { getOwnWalletIssueIntakes } from "@/lib/walletIssues/service.server";
 import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 import type { WalletIssueStatus } from "@/lib/walletIssues/contract";
+import { enrichOwnWinnerClaims } from "@/lib/profile/profileWinSummary";
 
 const MY_PROFILE_PATH = "/my-profile";
 const MY_PROFILE_LOGIN_PATH =
   `/api/auth/discord/login?state=${MY_PROFILE_PATH}`;
+const PROFILE_PREVIEW_LIMIT = 5;
 
 function renderRank(submission: {
   rank: number | null;
@@ -246,7 +254,7 @@ export default async function MyProfilePage() {
   }
 
   const session = sessionState.session;
-  const [profileData, profileWallet, winnings, payoutReturns, donationCorrections, organizations, walletIssueIntakes] = await Promise.all([
+  const [profileData, profileWallet, winnings, payoutReturns, donationCorrections, organizations, walletIssueIntakes, savedMemesPreview, reportsPreview, moderationHistoryPreview] = await Promise.all([
     getUserProfileData(session.discord_user_id),
     getSolProfileWallet(session).catch(() => undefined),
     getOwnWinnerClaims(session).catch(() => null),
@@ -254,6 +262,15 @@ export default async function MyProfilePage() {
     getOwnPayoutDonationCorrections(session).catch(() => null),
     getDonationOrganizationCatalog().catch(() => []),
     getOwnWalletIssueIntakes(session).catch(() => []),
+    getOwnSavedMemes({
+      sessionId: session.session_id,
+      limit: PROFILE_PREVIEW_LIMIT,
+    }).catch(() => null),
+    loadOwnSubmissionReports({
+      discordUserId: session.discord_user_id,
+      limit: PROFILE_PREVIEW_LIMIT,
+    }).catch(() => null),
+    loadOwnDisqualificationHistory({}).catch(() => null),
   ]);
   const walletIssueBySubmission = new Map(
     walletIssueIntakes.map((intake) => [intake.submissionId, intake.status] as const)
@@ -280,6 +297,10 @@ export default async function MyProfilePage() {
   const profileWalletAvailable = profileWallet !== undefined;
   const walletIssueIntakeAllowed =
     profileWallet !== undefined && profileWallet.factorActive === false;
+  const profileWinnings = enrichOwnWinnerClaims(
+    winnings?.items ?? null,
+    submissions,
+  );
 
   return (
     <>
@@ -398,7 +419,37 @@ export default async function MyProfilePage() {
         <ProfileSections
           submissions={submissions}
           votes={votes}
-          winnings={winnings?.items ?? null}
+          winnings={profileWinnings}
+          savedMemesPreview={
+            savedMemesPreview ? (
+              <SavedMemesClient initialPage={savedMemesPreview} preview />
+            ) : (
+              <p className="text-sm text-gray-400">Saved memes are temporarily unavailable.</p>
+            )
+          }
+          reportsPreview={
+            reportsPreview ? (
+              <OwnSubmissionReportsList
+                reports={reportsPreview.items.slice(0, PROFILE_PREVIEW_LIMIT)}
+              />
+            ) : (
+              <p className="text-sm text-gray-400">Reports are temporarily unavailable.</p>
+            )
+          }
+          moderationHistoryPreview={
+            moderationHistoryPreview ? (
+              <DisqualificationHistoryList
+                page={{
+                  ...moderationHistoryPreview,
+                  items: moderationHistoryPreview.items.slice(0, PROFILE_PREVIEW_LIMIT),
+                  nextCursor: null,
+                }}
+                nextHref={null}
+              />
+            ) : (
+              <p className="text-sm text-gray-400">Moderation history is temporarily unavailable.</p>
+            )
+          }
         />
       </div>
     </>

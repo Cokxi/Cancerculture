@@ -44,6 +44,10 @@ const transpiled = ts.transpileModule(componentSource, {
     "const CommunityFeedSponsor = () => null;",
   )
   .replace(
+    'import CommunityFeedCardActions from "@/app/spread/CommunityFeedCardActions";',
+    "const CommunityFeedCardActions = () => null;",
+  )
+  .replace(
     `import { CommunityFeedCycleNavigatorButton, CommunityFeedCycleNavigatorDrawer, CommunityFeedCycleNavigatorPanel, } from "@/app/spread/CommunityFeedCycleNavigator";`,
     `const CommunityFeedCycleNavigatorButton = () => null;
 const CommunityFeedCycleNavigatorDrawer = () => null;
@@ -87,7 +91,11 @@ test("Feed card is a compact, stable, keyboard-openable meme link", () => {
   assert.match(markup, /height="900"/u);
   assert.match(markup, /loading="eager"/u);
   assert.match(markup, /fetchPriority="high"/u);
+  assert.match(markup, /border-2 border-orange-500\/35/u);
+  assert.match(markup, /bg-black\/80 p-1/u);
+  assert.match(markup, /overflow-hidden rounded-\[1\.25rem\]/u);
   assert.doesNotMatch(markup, /Cycle #8|Rank #2|5 votes|<time/u);
+  assert.doesNotMatch(markup, />Comments</u);
 });
 
 test("legacy or unavailable media keeps a stable placeholder without leaking hidden detail", () => {

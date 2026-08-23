@@ -22,6 +22,7 @@ import {
   getDelegatedSubmissionModerationReason,
   type DelegatedSubmissionModerationReason,
 } from "@/lib/admin/submissionModerationLogAccess";
+import { getSubmissionDestinationHref } from "@/lib/submissions/getSubmissionDestinationHref";
 
 type BaseProfileSubmission = Awaited<
   ReturnType<typeof getUserSubmissions>
@@ -47,6 +48,7 @@ export type ProfileVote = {
   submission_id: number;
   created_at: string;
   image_url: string | null;
+  destination_href: string | null;
 };
 
 export type CurrentProfileSubmission = ProfileSubmission & {
@@ -241,13 +243,25 @@ export async function getUserProfileData(
     new Set(voteRows.map((vote) => vote.submission_id))
   );
 
-  const voteSubmissionsResult =
+  const voteCycleIds = Array.from(
+    new Set(voteRows.map((vote) => vote.cycle_id))
+  );
+  const [voteSubmissionsResult, voteCyclesResult] = await Promise.all([
     submissionIds.length > 0
-      ? await supabaseServer
+      ? supabaseServer
           .from("submissions")
-          .select("id, r2_key, public_visibility_status")
+          .select(
+            "id, cycle_id, r2_key, is_disqualified, public_visibility_status"
+          )
           .in("id", submissionIds)
-      : { data: [], error: null };
+      : Promise.resolve({ data: [], error: null }),
+    voteCycleIds.length > 0
+      ? supabaseServer
+          .from("voting_cycles")
+          .select("id, status")
+          .in("id", voteCycleIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
 
   if (voteSubmissionsResult.error) {
     console.error(
@@ -256,6 +270,20 @@ export async function getUserProfileData(
     );
   }
 
+  if (voteCyclesResult.error) {
+    console.error(
+      "Failed to load voted submission cycles:",
+      voteCyclesResult.error
+    );
+  }
+
+  const voteCycleStatusById = new Map(
+    (voteCyclesResult.data ?? []).map((cycle) => [
+      cycle.id,
+      cycle.status,
+    ])
+  );
+
   const voteSubmissionMap = new Map(
     (voteSubmissionsResult.data ?? []).map((submission) => {
       const visibilityStatus =
@@ -263,24 +291,35 @@ export async function getUserProfileData(
           submission.public_visibility_status
         );
 
-      return [
-        submission.id,
-        showsSubmissionImagePublicly(visibilityStatus)
+      return [submission.id, {
+        imageUrl: showsSubmissionImagePublicly(visibilityStatus)
           ? getPublicImageUrl(submission.r2_key) ?? null
           : null,
-      ];
+        destinationHref: getSubmissionDestinationHref({
+          cycleId: submission.cycle_id,
+          cycleStatus: voteCycleStatusById.get(submission.cycle_id),
+          isDisqualified: submission.is_disqualified,
+          publicVisibilityStatus: submission.public_visibility_status,
+          submissionId: submission.id,
+        }),
+      }] as const;
     })
   );
 
-  const votes: ProfileVote[] = voteRows.map((vote) => ({
-    cycle_id: vote.cycle_id,
-    cycle_number: requirePublicCycleNumber(
-      publicNumberByCycleId.get(vote.cycle_id)
-    ),
-    submission_id: vote.submission_id,
-    created_at: vote.created_at,
-    image_url: voteSubmissionMap.get(vote.submission_id) ?? null,
-  }));
+  const votes: ProfileVote[] = voteRows.map((vote) => {
+    const voteSubmission = voteSubmissionMap.get(vote.submission_id);
+
+    return {
+      cycle_id: vote.cycle_id,
+      cycle_number: requirePublicCycleNumber(
+        publicNumberByCycleId.get(vote.cycle_id)
+      ),
+      submission_id: vote.submission_id,
+      created_at: vote.created_at,
+      image_url: voteSubmission?.imageUrl ?? null,
+      destination_href: voteSubmission?.destinationHref ?? null,
+    };
+  });
 
   const currentCycleStatuses = new Set([
     "active",

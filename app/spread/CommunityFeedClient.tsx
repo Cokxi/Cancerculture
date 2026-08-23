@@ -16,6 +16,9 @@ import {
   CommunityFeedCycleNavigatorPanel,
 } from "@/app/spread/CommunityFeedCycleNavigator";
 import CommunityFeedSponsor from "@/app/spread/CommunityFeedSponsor";
+import CommunityFeedCardActions, {
+  type SavedMemeAccountState,
+} from "@/app/spread/CommunityFeedCardActions";
 import {
   COMMUNITY_FEEDS,
   type CommunityFeedContext,
@@ -81,11 +84,19 @@ export function CommunityFeedCard({
   item,
   position,
   selectedCycleNumber,
+  saved = false,
+  savedStateKnown = false,
+  savedAccountState = "unknown",
+  onSavedChange = () => undefined,
 }: {
   feed: CommunityFeedKind;
   item: CommunityFeedItem;
   position: number;
   selectedCycleNumber: number | null;
+  saved?: boolean;
+  savedStateKnown?: boolean;
+  savedAccountState?: SavedMemeAccountState;
+  onSavedChange?: (saved: boolean) => void;
 }) {
   const hasDimensions = Boolean(item.mediaWidth && item.mediaHeight);
 
@@ -97,12 +108,12 @@ export function CommunityFeedCard({
       aria-label={`Meme ${position}`}
       aria-posinset={position}
       data-feed-submission-id={item.submissionId}
-      className="relative scroll-mt-56 overflow-hidden rounded-3xl border border-white/10 bg-black/55 shadow-xl shadow-black/30 outline-none focus-visible:ring-2 focus-visible:ring-[var(--orange-main)] lg:scroll-mt-40"
+      className="relative scroll-mt-56 overflow-hidden rounded-3xl border-2 border-orange-500/35 bg-black/80 p-1 shadow-[0_20px_60px_rgba(0,0,0,0.42)] outline-none transition-[border-color,box-shadow] duration-200 hover:border-orange-400/60 hover:shadow-[0_22px_70px_rgba(249,115,22,0.12)] focus-visible:ring-2 focus-visible:ring-[var(--orange-main)] lg:scroll-mt-40"
     >
       <Link
         href={getCommunityFeedDetailHref(item.submissionId)}
         aria-label="Open meme details"
-        className="block min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--orange-main)]"
+        className="block min-h-11 overflow-hidden rounded-[1.25rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--orange-main)]"
       >
         <div
           className="relative w-full overflow-hidden bg-neutral-950"
@@ -136,6 +147,13 @@ export function CommunityFeedCard({
         feed={feed}
         submissionId={item.submissionId}
         cycleNumber={selectedCycleNumber}
+      />
+      <CommunityFeedCardActions
+        submissionId={item.submissionId}
+        saved={saved}
+        savedStateKnown={savedStateKnown}
+        accountState={savedAccountState}
+        onSavedChange={onSavedChange}
       />
     </article>
   );
@@ -189,6 +207,15 @@ export default function CommunityFeedClient({
   const [notice, setNotice] = useState<string | null>(() =>
     initialFallbackNotice(initialPage)
   );
+  const [savedAccountState, setSavedAccountState] =
+    useState<SavedMemeAccountState>("unknown");
+  const [savedSubmissionIds, setSavedSubmissionIds] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const [knownSavedSubmissionIds, setKnownSavedSubmissionIds] = useState<
+    Set<number>
+  >(() => new Set());
+  const requestedSavedStatusIdsRef = useRef<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [restartError, setRestartError] = useState<string | null>(null);
@@ -268,6 +295,102 @@ export default function CommunityFeedClient({
     void loadCycleCatalog(null, controller.signal);
     return () => controller.abort();
   }, [feed, loadCycleCatalog]);
+
+  useEffect(() => {
+    const submissionIds = page.items
+      .map((item) => item.submissionId)
+      .filter(
+        (submissionId) =>
+          !knownSavedSubmissionIds.has(submissionId) &&
+          !requestedSavedStatusIdsRef.current.has(submissionId),
+      )
+      .slice(0, 100);
+    if (submissionIds.length === 0) return;
+
+    const requestedIds = requestedSavedStatusIdsRef.current;
+    for (const submissionId of submissionIds) {
+      requestedIds.add(submissionId);
+    }
+    const controller = new AbortController();
+    let completed = false;
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/account/saved-memes/status?submissionIds=${submissionIds.join(",")}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          },
+        );
+        if (response.status === 401) {
+          completed = true;
+          setSavedAccountState("anonymous");
+          setKnownSavedSubmissionIds((current) =>
+            new Set([...current, ...submissionIds]),
+          );
+          return;
+        }
+        const value: unknown = await response.json().catch(() => null);
+        const result =
+          value && typeof value === "object"
+            ? (value as Record<string, unknown>)
+            : {};
+        if (
+          !response.ok ||
+          !Array.isArray(result.savedSubmissionIds) ||
+          result.savedSubmissionIds.some(
+            (submissionId) =>
+              !Number.isSafeInteger(submissionId) ||
+              !submissionIds.includes(Number(submissionId)),
+          )
+        ) {
+          throw new Error("SAVED_MEME_STATUS_INVALID");
+        }
+        completed = true;
+        setSavedAccountState("authenticated");
+        setSavedSubmissionIds((current) =>
+          new Set([
+            ...current,
+            ...(result.savedSubmissionIds as number[]),
+          ]),
+        );
+        setKnownSavedSubmissionIds((current) =>
+          new Set([...current, ...submissionIds]),
+        );
+      } catch {
+        if (!controller.signal.aborted) {
+          setSavedAccountState("unavailable");
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+      if (!completed) {
+        for (const submissionId of submissionIds) {
+          requestedIds.delete(submissionId);
+        }
+      }
+    };
+  }, [knownSavedSubmissionIds, page.items]);
+
+  const handleSavedChange = useCallback(
+    (submissionId: number, saved: boolean) => {
+      setSavedSubmissionIds((current) => {
+        const next = new Set(current);
+        if (saved) next.add(submissionId);
+        else next.delete(submissionId);
+        return next;
+      });
+      setKnownSavedSubmissionIds((current) =>
+        new Set(current).add(submissionId),
+      );
+    },
+    [],
+  );
 
   const clearSavedProgress = useCallback(() => {
     try {
@@ -694,7 +817,7 @@ export default function CommunityFeedClient({
             role="feed"
             aria-label={`${feedLabel} submissions`}
             aria-busy={isLoading}
-            className="space-y-6"
+            className="space-y-8 sm:space-y-10"
           >
             {page.items.map((item, index) => (
               <CommunityFeedCard
@@ -703,6 +826,14 @@ export default function CommunityFeedClient({
                 item={item}
                 position={index + 1}
                 selectedCycleNumber={cycleNumber}
+                saved={savedSubmissionIds.has(item.submissionId)}
+                savedStateKnown={knownSavedSubmissionIds.has(
+                  item.submissionId,
+                )}
+                savedAccountState={savedAccountState}
+                onSavedChange={(saved) =>
+                  handleSavedChange(item.submissionId, saved)
+                }
               />
             ))}
           </div>

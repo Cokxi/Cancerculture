@@ -6,10 +6,11 @@ const root = new URL("../../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
 test("My Profile separates active Claims below the Wallet from collapsed win history", async () => {
-  const [page, pending, sections, countdown] = await Promise.all([
+  const [page, pending, sections, historyLists, countdown] = await Promise.all([
     source("app/my-profile/page.tsx"),
     source("app/my-profile/PendingWinnerClaims.tsx"),
     source("app/my-profile/ProfileSections.tsx"),
+    source("app/my-profile/ProfileHistoryLists.tsx"),
     source("app/components/winners/ClaimCountdown.tsx"),
   ]);
   assert.match(page, /getOwnWinnerClaims\(session\)/u);
@@ -17,11 +18,11 @@ test("My Profile separates active Claims below the Wallet from collapsed win his
   assert.ok(page.indexOf("<SolProfileWalletSettings") < page.indexOf("<PendingWinnerClaims"));
   assert.match(pending, /filter\(\(claim\) => claim\.status === "unclaimed"\)/u);
   assert.match(sections, /<Section title="My Submissions">[\s\S]*<Section title="My Wins">/u);
-  assert.match(sections, /filter\(\(claim\) => claim\.status !== "unclaimed"\)/u);
+  assert.match(sections, /filter\([\s\S]*claim\.status !== "unclaimed"/u);
   assert.match(countdown, /data-winner-claim-countdown/u);
   assert.match(countdown, /router\.refresh\(\)/u);
   assert.match(pending, /\/my-profile\/winnings\/\$\{claim\.claimId\}/u);
-  assert.match(sections, /Donation — no claim required/u);
+  assert.match(historyLists, /Donation — no claim required/u);
 });
 
 test("the direct Claim route awaits Next 16 params and enforces the owning Website session", async () => {

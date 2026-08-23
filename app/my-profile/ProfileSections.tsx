@@ -1,380 +1,122 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useState, type ReactNode } from "react";
-import { SUBMISSION_PUBLIC_VISIBILITY } from "@/lib/moderation/submissionPublicVisibility";
-import { formatReason } from "@/lib/profile/formatReason";
-import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import type {
   ProfileSubmission,
   ProfileVote,
 } from "@/lib/profile/getUserProfileData";
-import type { OwnWinnerClaimSummary } from "@/lib/winnerClaims/service.server";
+import type { ProfileWinSummary } from "@/lib/profile/profileWinSummary";
+import {
+  ProfileSubmissionList,
+  ProfileVotesList,
+  ProfileWinsList,
+} from "./ProfileHistoryLists";
 
-function winnerStatusLabel(status: OwnWinnerClaimSummary["status"]) {
-  if (status === "not_required") return "Donation — no claim required";
-  if (status === "correction_pending") return "Wallet correction pending";
-  if (status === "confirmed") return "Claimed";
-  if (status === "declined") return "Declined";
-  if (status === "expired") return "Not claimed within 24 hours";
-  return "Unclaimed";
-}
+export const PROFILE_PREVIEW_LIMIT = 5;
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="rounded-lg border-2 border-[var(--orange-dark)]/60 bg-black/30">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left font-[var(--font-marker)] tracking-wide text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left font-['Permanent_Marker'] text-lg tracking-wide text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
       >
         {title}
-        <span className="text-lg">{open ? "-" : "+"}</span>
+        <span aria-hidden="true" className="text-lg">
+          {open ? "−" : "+"}
+        </span>
       </button>
-
-      {open && <div className="p-4">{children}</div>}
+      {open ? <div className="p-4">{children}</div> : null}
     </div>
   );
 }
 
-function renderRank(submission: ProfileSubmission) {
-  if (!submission.rank) {
-    return "-";
-  }
-
-  return `${submission.rank} / ${submission.total}${
-    submission.tie_count > 1
-      ? ` (${submission.tie_count} tied)`
-      : ""
-  }`;
-}
-
-function renderPublicVisibilityStatus(
-  submission: ProfileSubmission
-) {
-  if (
-    submission.public_visibility_status ===
-    SUBMISSION_PUBLIC_VISIBILITY.legalReview
-  ) {
-    return "Hidden pending legal review";
-  }
-
-  if (
-    submission.public_visibility_status ===
-    SUBMISSION_PUBLIC_VISIBILITY.removed
-  ) {
-    return "Removed from public view";
-  }
-
-  return null;
+function OverviewLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="mt-4 inline-flex min-h-11 items-center rounded-full border border-[var(--orange-dark)]/40 px-4 py-2 text-sm text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
+    >
+      {children}
+    </Link>
+  );
 }
 
 export default function ProfileSections({
   submissions,
   votes,
   winnings,
+  savedMemesPreview,
+  reportsPreview,
+  moderationHistoryPreview,
 }: {
   submissions: ProfileSubmission[];
   votes: ProfileVote[];
-  winnings: OwnWinnerClaimSummary[] | null;
+  winnings: ProfileWinSummary[] | null;
+  savedMemesPreview: ReactNode;
+  reportsPreview: ReactNode;
+  moderationHistoryPreview: ReactNode;
 }) {
-  const [hidingSubmissionId, setHidingSubmissionId] =
-    useState<number | null>(null);
-
-  async function hideSubmissionFromProfile(
-    submissionId: number
-  ) {
-    const confirmed = window.confirm(
-      "Hide this disqualified submission from your profile? This does not delete moderation records."
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setHidingSubmissionId(submissionId);
-
-    try {
-      const response = await fetch(
-        `/api/profile/submissions/${submissionId}/hide`,
-        {
-          method: "POST",
-        }
-      );
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ??
-            "Failed to hide submission from profile"
-        );
-      }
-
-      window.location.reload();
-    } catch (error) {
-      window.alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to hide submission from profile"
-      );
-      setHidingSubmissionId(null);
-    }
-  }
+  const completedWins = winnings?.filter(
+    (claim) => claim.status !== "unclaimed",
+  ) ?? null;
 
   return (
     <div className="space-y-4">
       <Section title="My Submissions">
-        {submissions.length > 0 ? (
-          <div className="space-y-4">
-            {submissions.map((submission) => (
-              <div
-                key={submission.id}
-                className="rounded-lg border-2 border-[var(--orange-dark)]/40 bg-black/40 p-4 text-white"
-              >
-                {(() => {
-                  const destinationHref = submission.destination_href;
-
-                  return (
-                    <>
-                {submission.image_url ? (
-                  destinationHref ? (
-                    <Link
-                      href={destinationHref}
-                      className="mb-2 block h-40 w-40 rounded focus:outline-none focus:ring-2 focus:ring-[var(--orange-dark)]"
-                    >
-                      <Image
-                        src={getSubmissionThumbnailUrl(submission.image_url)}
-                        className="h-40 w-40 rounded object-cover transition hover:opacity-85"
-                        alt={`Submission for cycle ${submission.cycle_number}`}
-                        width={160}
-                        height={160}
-                        unoptimized
-                      />
-                    </Link>
-                  ) : (
-                    <Image
-                      src={getSubmissionThumbnailUrl(submission.image_url)}
-                      className="mb-2 h-40 w-40 rounded object-cover"
-                      alt={`Submission for cycle ${submission.cycle_number}`}
-                      width={160}
-                      height={160}
-                      unoptimized
-                    />
-                  )
-                  ) : (
-                    <div className="mb-2 flex h-40 w-40 items-center justify-center rounded bg-orange-200/20 text-4xl">
-                      {renderPublicVisibilityStatus(submission)
-                        ? "-"
-                        : "?"}
-                    </div>
-                  )}
-
-                <p className="text-sm text-gray-300">
-                  Cycle: {submission.cycle_number}
-                </p>
-
-                <p className="text-sm text-gray-300">
-                  Votes: {submission.vote_count}
-                </p>
-
-                <p className="text-sm text-gray-300">
-                  Rank:{" "}
-                  <span className="font-[var(--font-marker)] text-[var(--orange-dark)]">
-                    {renderRank(submission)}
-                  </span>
-                </p>
-
-                {destinationHref ? (
-                  <Link
-                    href={destinationHref}
-                    className="mt-2 inline-flex rounded-full border border-[var(--orange-dark)]/40 px-3 py-1 text-xs text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
-                  >
-                    {destinationHref.startsWith("/submissions")
-                      ? "View in Current Submissions"
-                      : "View in Cycle History"}
-                  </Link>
-                ) : null}
-                    </>
-                  );
-                })()}
-
-                <div className="mt-2 text-xs">
-                  {submission.is_disqualified ? (
-                    <div className="text-red-400">
-                      Disqualified
-
-                      {(submission.disqualification_reason_code ||
-                        submission.disqualification_reason_category) && (
-                        <div className="mt-1 text-[11px] text-red-300">
-                          {formatReason(
-                            submission.disqualification_reason_code ??
-                              submission.disqualification_reason_category!
-                          )}
-                        </div>
-                      )}
-
-                      {submission.disqualification_reason_text && (
-                        <div className="mt-1 text-[11px] text-red-300">
-                          Explanation:{" "}
-                          {submission.disqualification_reason_text}
-                        </div>
-                      )}
-                    </div>
-                  ) : renderPublicVisibilityStatus(
-                      submission
-                    ) ? (
-                    <div className="text-yellow-300">
-                      {renderPublicVisibilityStatus(submission)}
-
-                      {submission.public_visibility_reason_code && (
-                        <div className="mt-1 text-[11px] text-yellow-200">
-                          {formatReason(
-                            submission.public_visibility_reason_code
-                          )}
-                        </div>
-                      )}
-
-                      {submission.public_visibility_reason_text && (
-                        <div className="mt-1 text-[11px] text-yellow-200">
-                          {submission.public_visibility_reason_text}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-green-400">Active</div>
-                  )}
-                </div>
-
-                {submission.can_hide_from_profile ? (
-                  <button
-                    type="button"
-                    disabled={hidingSubmissionId === submission.id}
-                    onClick={() =>
-                      hideSubmissionFromProfile(submission.id)
-                    }
-                    className="mt-3 cursor-pointer rounded-full border border-yellow-400/30 bg-yellow-500/10 px-3 py-1.5 text-xs text-yellow-200 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {hidingSubmissionId === submission.id
-                      ? "Hiding..."
-                      : "Hide from my profile"}
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-gray-400">
-            No submissions yet.
-          </div>
-        )}
+        <ProfileSubmissionList
+          submissions={submissions.slice(0, PROFILE_PREVIEW_LIMIT)}
+        />
+        <OverviewLink href="/my-profile/submissions">
+          Open My Submissions to see all submissions
+        </OverviewLink>
       </Section>
 
       <Section title="My Wins">
-        {winnings === null ? (
-          <p className="text-sm text-gray-400">Winner Claims are temporarily unavailable.</p>
-        ) : winnings.filter((claim) => claim.status !== "unclaimed").length === 0 ? (
-          <p className="text-sm text-gray-400">No completed or pending-correction wins yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {winnings.filter((claim) => claim.status !== "unclaimed").map((claim) => (
-              <article key={claim.claimId} className="rounded-lg border border-[var(--orange-dark)]/40 bg-black/40 p-4 text-white">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">Cycle #{claim.cycleNumber ?? claim.cycleId} · Submission #{claim.submissionId}</p>
-                    <p className="mt-1 text-sm text-gray-300">
-                      {claim.payoutChoice === "keep" ? "Keep 100%" : claim.payoutChoice === "donate" ? `Donate 100%${claim.charity ? ` to ${claim.charity}` : ""}` : `Keep ${claim.splitPercent}% / donate ${100 - (claim.splitPercent ?? 0)}%${claim.charity ? ` to ${claim.charity}` : ""}`}
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/75">{winnerStatusLabel(claim.status)}</span>
-                </div>
-                {claim.status !== "not_required" ? (
-                  <Link href={`/my-profile/winnings/${claim.claimId}`} className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-[var(--orange-dark)]/40 px-4 py-2 text-sm text-[var(--orange-dark)] outline-none transition hover:bg-[var(--orange-dark)]/10 focus-visible:ring-2 focus-visible:ring-[var(--orange-dark)]">
-                    View Claim
-                  </Link>
-                ) : null}
-              </article>
-            ))}
-          </div>
-        )}
+        <ProfileWinsList
+          winnings={
+            completedWins === null
+              ? null
+              : completedWins.slice(0, PROFILE_PREVIEW_LIMIT)
+          }
+        />
+        <OverviewLink href="/my-profile/winnings">
+          Open My Wins to see all wins
+        </OverviewLink>
+      </Section>
+
+      <Section title="My Saved Memes">
+        <div>{savedMemesPreview}</div>
+        <OverviewLink href="/my-profile/saved-memes">
+          Open My Saved Memes to see all saved memes
+        </OverviewLink>
       </Section>
 
       <Section title="My Reports">
-        <p className="text-sm text-gray-300">
-          Review the reports submitted by your account and their
-          privacy-safe status.
-        </p>
-        <Link
-          href="/my-reports"
-          className="mt-3 inline-flex cursor-pointer rounded-full border border-[var(--orange-dark)]/40 px-4 py-2 text-sm text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
-        >
-          View all reports
-        </Link>
+        <div>{reportsPreview}</div>
+        <OverviewLink href="/my-reports">
+          Open My Reports to see all reports
+        </OverviewLink>
       </Section>
 
       <Section title="My Moderation History">
-        <p className="text-sm text-gray-300">
-          Review your private history of recorded submission
-          disqualifications and reinstatements.
-        </p>
-        <Link
-          href="/my-profile/disqualifications"
-          className="mt-3 inline-flex rounded-full border border-[var(--orange-dark)]/40 px-4 py-2 text-sm text-[var(--orange-dark)] transition hover:bg-[var(--orange-dark)]/10"
-        >
-          Open moderation history
-        </Link>
+        <div>{moderationHistoryPreview}</div>
+        <OverviewLink href="/my-profile/disqualifications">
+          Open My Moderation History to see all history
+        </OverviewLink>
       </Section>
 
       <Section title="My Votes">
-        {votes.length > 0 ? (
-          <div className="space-y-3">
-            {votes.map((vote) => (
-              <div
-                key={`${vote.cycle_id}-${vote.submission_id}-${vote.created_at}`}
-                className="rounded border border-[#222] bg-[#0b0b0b] p-3 text-sm"
-              >
-                <div>
-                  <strong>Cycle #{vote.cycle_number}</strong>
-                </div>
-
-                {vote.image_url ? (
-                  <Image
-                    src={getSubmissionThumbnailUrl(vote.image_url)}
-                    className="mt-2 h-24 w-24 rounded border border-[#222] object-cover"
-                    alt={`Voted submission ${vote.submission_id}`}
-                    width={96}
-                    height={96}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="mt-2 flex h-24 w-24 items-center justify-center rounded bg-orange-200/20 text-2xl">
-                    ?
-                  </div>
-                )}
-
-                <div className="mt-2 text-xs text-gray-500">
-                  {vote.created_at
-                    ? new Date(vote.created_at).toLocaleString()
-                    : ""}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-gray-400">
-            No votes yet.
-          </div>
-        )}
+        <ProfileVotesList votes={votes.slice(0, PROFILE_PREVIEW_LIMIT)} />
+        <OverviewLink href="/my-profile/votes">
+          Open My Votes to see all votes
+        </OverviewLink>
       </Section>
-
     </div>
   );
 }

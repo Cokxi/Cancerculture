@@ -3,9 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
-const [page, client, navigator, route, surface, resume, navigation, detailPage, layout, globalStyles] = await Promise.all([
+const [page, client, actions, navigator, route, surface, resume, navigation, detailPage, layout, globalStyles] = await Promise.all([
   readFile(new URL("app/spread/page.tsx", root), "utf8"),
   readFile(new URL("app/spread/CommunityFeedClient.tsx", root), "utf8"),
+  readFile(new URL("app/spread/CommunityFeedCardActions.tsx", root), "utf8"),
   readFile(new URL("app/spread/CommunityFeedCycleNavigator.tsx", root), "utf8"),
   readFile(new URL("app/api/community-feed/route.ts", root), "utf8"),
   readFile(new URL("lib/feed/communityFeedSurface.server.ts", root), "utf8"),
@@ -68,6 +69,34 @@ test("Feed cards open the canonical detail route without nested Sponsor interact
   assert.match(detailPage, /getCommunityFeedDetailPageData\(submissionId\)/u);
   assert.match(detailPage, /<SponsoredBanner/u);
   assert.match(surface, /resolveCommunityFeedAnchor/u);
+});
+
+test("Feed cards use the CancerCulture shell and preserve breathing room for future actions", () => {
+  assert.match(client, /border-2 border-orange-500\/35 bg-black\/80 p-1/u);
+  assert.match(client, /hover:border-orange-400\/60/u);
+  assert.match(client, /space-y-8 sm:space-y-10/u);
+  assert.ok(
+    client.indexOf("</Link>") < client.indexOf("<CommunityFeedSponsor"),
+  );
+  assert.match(client, /<CommunityFeedCardActions/u);
+  assert.doesNotMatch(client, />Comments</u);
+});
+
+test("Feed actions share the canonical detail and batch-load private saved state", () => {
+  assert.match(actions, /navigator\.share/u);
+  assert.match(actions, /navigator\.canShare/u);
+  assert.match(actions, /getCommunityFeedDetailMediaPath/u);
+  assert.match(actions, /https:\/\/t\.me\/share\/url/u);
+  assert.match(actions, /https:\/\/wa\.me\//u);
+  assert.match(actions, /shareWithApps\("signal"\)/u);
+  assert.match(actions, /Copy link/u);
+  assert.doesNotMatch(actions, /facebook|Signal, Instagram, TikTok and 9GAG/iu);
+  assert.match(actions, /aria-expanded/u);
+  assert.match(actions, /method: saved \? "DELETE" : "PUT"/u);
+  assert.match(actions, /requestIdentityRef/u);
+  assert.match(client, /\/api\/account\/saved-memes\/status\?submissionIds=/u);
+  assert.match(client, /cache: "no-store"/u);
+  assert.match(client, /knownSavedSubmissionIds/u);
 });
 
 test("direct anchors, Reload fallback, and Cycle/reset expiry stay bounded", () => {

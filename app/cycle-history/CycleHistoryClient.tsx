@@ -157,14 +157,16 @@ function SubmissionPreview({
 
   if (!showPlaceholder && submission.imageUrl) {
     return (
-      <Image
-        src={getSubmissionThumbnailUrl(submission.imageUrl)}
-        alt={`Cycle ${submission.cycleNumber} submission ${submission.id}`}
-        width={400}
-        height={224}
-        unoptimized
-        className="h-56 w-full rounded-lg object-cover"
-      />
+      <div className="relative h-56 w-full overflow-hidden rounded-lg">
+        <Image
+          src={getSubmissionThumbnailUrl(submission.imageUrl)}
+          alt={`Cycle ${submission.cycleNumber} submission ${submission.id}`}
+          fill
+          sizes="(max-width: 639px) 100vw, (max-width: 1279px) 50vw, 33vw"
+          unoptimized
+          className="object-cover"
+        />
+      </div>
     );
   }
 

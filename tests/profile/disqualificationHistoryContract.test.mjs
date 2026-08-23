@@ -89,10 +89,10 @@ test("public profiles omit current DQs and serialize no DQ state or reason", asy
 });
 
 test("the private current-profile projection shows the DQ reason but no actor", async () => {
-  const [profileLoader, profilePage, sections] = await Promise.all([
+  const [profileLoader, profilePage, historyLists] = await Promise.all([
     source("lib/profile/getUserProfileData.ts"),
     source("app/my-profile/page.tsx"),
-    source("app/my-profile/ProfileSections.tsx"),
+    source("app/my-profile/ProfileHistoryLists.tsx"),
   ]);
 
   assert.match(profileLoader, /disqualification_reason_category/u);
@@ -100,8 +100,8 @@ test("the private current-profile projection shows the DQ reason but no actor", 
   assert.match(profileLoader, /\| "disqualified_by_discord_username"/u);
   assert.match(profilePage, /disqualification_reason_text/u);
   assert.doesNotMatch(profilePage, /disqualified_by_discord_username/u);
-  assert.match(sections, /disqualification_reason_text/u);
-  assert.doesNotMatch(sections, /disqualified_by_discord_username/u);
+  assert.match(historyLists, /disqualification_reason_text/u);
+  assert.doesNotMatch(historyLists, /disqualified_by_discord_username/u);
 });
 
 test("the user directory links directly to the complete moderation history", async () => {
