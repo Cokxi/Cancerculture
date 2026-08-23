@@ -3,23 +3,15 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  getCommunityFeedDetailHref,
-  getCommunityFeedDetailMediaPath,
+  getCommunityFeedCanonicalUrl,
 } from "@/lib/feed/communityFeedDetail";
+import { shareCommunityFeedMeme } from "@/lib/feed/communityFeedShare";
 
 export type SavedMemeAccountState =
   | "unknown"
   | "authenticated"
   | "anonymous"
   | "unavailable";
-
-function shareText(url: string) {
-  return `Found this meme on CancerCulture: ${url}`;
-}
-
-function openExternal(url: string) {
-  window.open(url, "_blank", "noopener,noreferrer");
-}
 
 async function copyToClipboard(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -38,30 +30,6 @@ async function copyToClipboard(value: string) {
   if (!copied) throw new Error("COPY_FAILED");
 }
 
-function fileExtension(contentType: string) {
-  if (contentType === "image/png") return "png";
-  if (contentType === "image/jpeg") return "jpg";
-  if (contentType === "image/gif") return "gif";
-  return "webp";
-}
-
-async function loadShareFile(submissionId: number) {
-  const response = await fetch(
-    getCommunityFeedDetailMediaPath(submissionId),
-    { cache: "no-store" },
-  );
-  if (!response.ok) return null;
-  const blob = await response.blob();
-  if (!blob.type.startsWith("image/") || blob.size === 0 || blob.size > 10_000_000) {
-    return null;
-  }
-  return new File(
-    [blob],
-    `cancerculture-meme-${submissionId}.${fileExtension(blob.type)}`,
-    { type: blob.type },
-  );
-}
-
 export default function CommunityFeedCardActions({
   submissionId,
   saved,
@@ -76,17 +44,14 @@ export default function CommunityFeedCardActions({
   onSavedChange: (saved: boolean) => void;
 }) {
   const router = useRouter();
-  const [shareOpen, setShareOpen] = useState(false);
   const [shareBusy, setShareBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const requestIdentityRef = useRef(0);
+  const shareBusyRef = useRef(false);
 
   function canonicalUrl() {
-    return new URL(
-      getCommunityFeedDetailHref(submissionId),
-      window.location.origin,
-    ).toString();
+    return getCommunityFeedCanonicalUrl(submissionId);
   }
 
   async function copyLink(message = "Meme link copied.") {
@@ -98,55 +63,22 @@ export default function CommunityFeedCardActions({
     }
   }
 
-  function directShare(target: "whatsapp" | "telegram") {
-    const url = canonicalUrl();
-    const text = shareText(url);
-    const targetUrl =
-      target === "whatsapp"
-        ? `https://wa.me/?text=${encodeURIComponent(text)}`
-        : `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent("Found this meme on CancerCulture")}`;
-    openExternal(targetUrl);
-    setStatus(`Opened ${target === "whatsapp" ? "WhatsApp" : "Telegram"} sharing.`);
-  }
-
-  async function shareWithApps(target: "all" | "signal") {
-    if (typeof navigator.share !== "function") {
-      await copyLink(
-        target === "signal"
-          ? "Meme link copied. Paste it into Signal."
-          : "Meme link copied.",
-      );
-      return;
-    }
-
+  async function shareNative() {
+    if (shareBusyRef.current) return;
+    shareBusyRef.current = true;
     setShareBusy(true);
     setStatus(null);
-    const url = canonicalUrl();
-    const baseShareData: ShareData = {
-      title: "CancerCulture meme",
-      text: "Found this meme on CancerCulture",
-      url,
-    };
-
     try {
-      const file = await loadShareFile(submissionId).catch(() => null);
-      const fileShareData: ShareData | null = file
-        ? { ...baseShareData, files: [file] }
-        : null;
-      const data =
-        fileShareData &&
-        typeof navigator.canShare === "function" &&
-        navigator.canShare(fileShareData)
-          ? fileShareData
-          : baseShareData;
-      await navigator.share(data);
-      setStatus("The meme was handed to your share menu.");
-      setShareOpen(false);
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === "AbortError")) {
-        setStatus("Sharing did not complete. You can still copy the link.");
+      const outcome = await shareCommunityFeedMeme({ submissionId });
+      if (outcome === "unsupported") {
+        setStatus("Native sharing is not available here. Use Copy Link instead.");
+      } else if (outcome === "aborted") {
+        setStatus("Sharing canceled.");
+      } else if (outcome === "failed") {
+        setStatus("Sharing did not work. Use Copy Link instead.");
       }
     } finally {
+      shareBusyRef.current = false;
       setShareBusy(false);
     }
   }
@@ -220,20 +152,24 @@ export default function CommunityFeedCardActions({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          aria-expanded={shareOpen}
-          aria-controls={`share-menu-${submissionId}`}
-          onClick={() => {
-            setShareOpen((open) => !open);
-            setStatus(null);
-          }}
-          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-orange-500/35 px-4 py-2 text-sm font-semibold text-orange-100 transition hover:border-orange-400/70 hover:bg-orange-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+          disabled={shareBusy}
+          aria-busy={shareBusy}
+          onClick={shareNative}
+          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-orange-500/35 px-4 py-2 text-sm font-semibold text-orange-100 transition hover:border-orange-400/70 hover:bg-orange-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:cursor-wait disabled:opacity-60"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M14 5h5v5" />
             <path d="M10 14 19 5" />
             <path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" />
           </svg>
-          Share
+          {shareBusy ? "Preparing..." : "Share"}
+        </button>
+        <button
+          type="button"
+          onClick={() => copyLink()}
+          className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/35 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+        >
+          Copy Link
         </button>
         <button
           type="button"
@@ -252,24 +188,6 @@ export default function CommunityFeedCardActions({
               : "Save"}
         </button>
       </div>
-
-      {shareOpen ? (
-        <div
-          id={`share-menu-${submissionId}`}
-          className="mt-3 rounded-2xl border border-orange-500/30 bg-neutral-950 p-3 shadow-2xl"
-        >
-          <p className="text-sm font-semibold text-white">Share this meme</p>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            <button type="button" onClick={() => directShare("whatsapp")} className="min-h-11 cursor-pointer rounded-xl bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10">WhatsApp</button>
-            <button type="button" onClick={() => directShare("telegram")} className="min-h-11 cursor-pointer rounded-xl bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10">Telegram</button>
-            <button type="button" disabled={shareBusy} onClick={() => shareWithApps("signal")} className="min-h-11 cursor-pointer rounded-xl bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60">Signal</button>
-            <button type="button" disabled={shareBusy} onClick={() => shareWithApps("all")} className="min-h-11 cursor-pointer rounded-xl bg-orange-500/15 px-3 py-2 text-sm text-orange-100 transition hover:bg-orange-500/25 disabled:cursor-wait disabled:opacity-60">
-              {shareBusy ? "Preparing..." : "More apps"}
-            </button>
-            <button type="button" onClick={() => copyLink()} className="min-h-11 cursor-pointer rounded-xl bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10">Copy link</button>
-          </div>
-        </div>
-      ) : null}
 
       {status ? (
         <p role="status" className="mt-2 text-xs text-white/70">

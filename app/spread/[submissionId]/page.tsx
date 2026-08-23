@@ -1,11 +1,16 @@
 import type { CSSProperties } from "react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import SponsoredBanner from "@/app/components/SponsoredBanner";
 import CommunityFeedDetailCloseButton from "@/app/spread/[submissionId]/CommunityFeedDetailCloseButton";
 import { getCycleSponsoredMeta } from "@/lib/cycles/sponsoredCycle";
-import { getCommunityFeedDetailPageData } from "@/lib/feed/communityFeedDetail.server";
+import {
+  getCommunityFeedDetailMetadataSource,
+  getCommunityFeedDetailPageData,
+} from "@/lib/feed/communityFeedDetail.server";
+import { createCommunityFeedMetadata } from "@/lib/feed/communityFeedMetadata";
 import PublicPayoutDetails from "@/app/components/payouts/PublicPayoutDetails";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +21,22 @@ function parseSubmissionId(value: string) {
   return Number.isSafeInteger(submissionId) && submissionId > 0
     ? submissionId
     : null;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ submissionId: string }>;
+}): Promise<Metadata> {
+  const submissionId = parseSubmissionId((await params).submissionId);
+  if (!submissionId) return createCommunityFeedMetadata(null);
+
+  try {
+    const source = await getCommunityFeedDetailMetadataSource(submissionId);
+    return createCommunityFeedMetadata(source);
+  } catch {
+    return createCommunityFeedMetadata(null);
+  }
 }
 
 function mediaStyle(

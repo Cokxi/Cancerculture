@@ -58,8 +58,22 @@ export function getCommunityFeedDetailHref(submissionId: number) {
   return `/spread/${requireSubmissionId(submissionId)}`;
 }
 
+export function getCommunityFeedCanonicalUrl(submissionId: number) {
+  return new URL(
+    getCommunityFeedDetailHref(submissionId),
+    "https://cancerculture.fun",
+  ).toString();
+}
+
 export function getCommunityFeedDetailMediaPath(submissionId: number) {
   return `/api/community-feed/detail/media/${requireSubmissionId(submissionId)}`;
+}
+
+export function getCommunityFeedDetailMediaUrl(submissionId: number) {
+  return new URL(
+    getCommunityFeedDetailMediaPath(submissionId),
+    "https://cancerculture.fun",
+  ).toString();
 }
 
 function isNullableCanonicalTimestamp(value: unknown) {

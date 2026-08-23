@@ -5,19 +5,14 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
-test("the Feed share menu keeps the requested order and leaves Facebook to the device sheet", async () => {
+test("the Feed exposes native Share and Copy Link without app-specific targets", async () => {
   const actions = await source("app/spread/CommunityFeedCardActions.tsx");
-  const whatsapp = actions.indexOf(">WhatsApp</button>");
-  const telegram = actions.indexOf(">Telegram</button>");
-  const signal = actions.indexOf(">Signal</button>");
-  const moreApps = actions.indexOf('"More apps"');
-  const copyLink = actions.indexOf(">Copy link</button>");
-
-  assert.ok(whatsapp > 0);
-  assert.ok(whatsapp < telegram && telegram < signal && signal < moreApps);
-  assert.ok(moreApps < copyLink);
-  assert.doesNotMatch(actions, /facebook|Signal, Instagram, TikTok and 9GAG/iu);
-  assert.match(actions, /shareWithApps\("signal"\)/u);
+  assert.match(actions, /onClick=\{shareNative\}/u);
+  assert.match(actions, />\s*Copy Link\s*</u);
+  assert.doesNotMatch(
+    actions,
+    /facebook|whatsapp|telegram|signal|More apps|t\.me|wa\.me/iu,
+  );
 });
 
 test("My Profile uses Permanent Marker headings and five-item history previews", async () => {

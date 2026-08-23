@@ -346,6 +346,18 @@ export async function getCommunityFeedDetailPageData(submissionId: number) {
   };
 }
 
+export async function getCommunityFeedDetailMetadataSource(
+  submissionId: number,
+) {
+  const source = await resolveCommunityFeedDetailSource(submissionId);
+  if (!source?.r2Key || !source.detail.imageUrl) return null;
+  return {
+    submissionId: source.detail.submissionId,
+    mediaWidth: source.detail.mediaWidth,
+    mediaHeight: source.detail.mediaHeight,
+  };
+}
+
 export async function resolveCommunityFeedDetailMediaSource(
   submissionId: number
 ) {

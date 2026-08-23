@@ -3,10 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../../", import.meta.url);
-const [page, client, actions, navigator, route, surface, resume, navigation, detailPage, layout, globalStyles] = await Promise.all([
+const [page, client, actions, shareHelper, navigator, route, surface, resume, navigation, detailPage, layout, globalStyles] = await Promise.all([
   readFile(new URL("app/spread/page.tsx", root), "utf8"),
   readFile(new URL("app/spread/CommunityFeedClient.tsx", root), "utf8"),
   readFile(new URL("app/spread/CommunityFeedCardActions.tsx", root), "utf8"),
+  readFile(new URL("lib/feed/communityFeedShare.ts", root), "utf8"),
   readFile(new URL("app/spread/CommunityFeedCycleNavigator.tsx", root), "utf8"),
   readFile(new URL("app/api/community-feed/route.ts", root), "utf8"),
   readFile(new URL("lib/feed/communityFeedSurface.server.ts", root), "utf8"),
@@ -82,16 +83,19 @@ test("Feed cards use the CancerCulture shell and preserve breathing room for fut
   assert.doesNotMatch(client, />Comments</u);
 });
 
-test("Feed actions share the canonical detail and batch-load private saved state", () => {
-  assert.match(actions, /navigator\.share/u);
-  assert.match(actions, /navigator\.canShare/u);
-  assert.match(actions, /getCommunityFeedDetailMediaPath/u);
-  assert.match(actions, /https:\/\/t\.me\/share\/url/u);
-  assert.match(actions, /https:\/\/wa\.me\//u);
-  assert.match(actions, /shareWithApps\("signal"\)/u);
-  assert.match(actions, /Copy link/u);
-  assert.doesNotMatch(actions, /facebook|Signal, Instagram, TikTok and 9GAG/iu);
-  assert.match(actions, /aria-expanded/u);
+test("Feed actions use native sharing, keep Copy Link visible, and batch-load private saved state", () => {
+  assert.match(shareHelper, /navigatorImpl\.share/u);
+  assert.match(shareHelper, /navigatorImpl\.canShare/u);
+  assert.match(shareHelper, /getCommunityFeedDetailMediaPath/u);
+  assert.match(actions, /shareCommunityFeedMeme/u);
+  assert.match(actions, />\s*Copy Link\s*</u);
+  assert.doesNotMatch(
+    `${actions}\n${shareHelper}`,
+    /facebook|whatsapp|telegram|signal|More apps|t\.me|wa\.me/iu,
+  );
+  assert.match(actions, /shareBusyRef\.current/u);
+  assert.match(actions, /if \(shareBusyRef\.current\) return/u);
+  assert.match(actions, /aria-busy=\{shareBusy\}/u);
   assert.match(actions, /method: saved \? "DELETE" : "PUT"/u);
   assert.match(actions, /requestIdentityRef/u);
   assert.match(client, /\/api\/account\/saved-memes\/status\?submissionIds=/u);

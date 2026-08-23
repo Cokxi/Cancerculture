@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   COMMUNITY_FEED_DETAIL_KEYS,
   getCommunityFeedDetailHref,
+  getCommunityFeedCanonicalUrl,
   getCommunityFeedDetailMediaPath,
+  getCommunityFeedDetailMediaUrl,
   isCommunityFeedDetail,
 } from "../../lib/feed/communityFeedDetail.ts";
 
@@ -55,8 +57,16 @@ function detail(overrides = {}) {
 test("canonical detail and media URLs use only the public Submission id", () => {
   assert.equal(getCommunityFeedDetailHref(17), "/spread/17");
   assert.equal(
+    getCommunityFeedCanonicalUrl(17),
+    "https://cancerculture.fun/spread/17",
+  );
+  assert.equal(
     getCommunityFeedDetailMediaPath(17),
     "/api/community-feed/detail/media/17",
+  );
+  assert.equal(
+    getCommunityFeedDetailMediaUrl(17),
+    "https://cancerculture.fun/api/community-feed/detail/media/17",
   );
   for (const invalid of [0, -1, 1.5, Number.NaN]) {
     assert.throws(() => getCommunityFeedDetailHref(invalid), TypeError);
@@ -122,6 +132,8 @@ test("detail delivery is service-only, fail-closed, and no-store", () => {
   assert.match(page, /revalidate = 0/u);
   assert.match(mediaRoute, /createNeutralCommunityFeedMediaResponse/u);
   assert.match(mediaRoute, /resolveCommunityFeedDetailMediaSource/u);
+  assert.match(readModel, /getCommunityFeedDetailMetadataSource/u);
+  assert.match(readModel, /if \(!source\?\.r2Key \|\| !source\.detail\.imageUrl\) return null/u);
 });
 
 test("detail UI is modal-like, initially collapsed, and reserves comments below the metadata", () => {
