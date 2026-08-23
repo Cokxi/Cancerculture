@@ -19,6 +19,7 @@ import CommunityFeedSponsor from "@/app/spread/CommunityFeedSponsor";
 import CommunityFeedCardActions, {
   type SavedMemeAccountState,
 } from "@/app/spread/CommunityFeedCardActions";
+import CommunityCommentThread from "@/app/components/comments/CommunityCommentThread";
 import {
   COMMUNITY_FEEDS,
   type CommunityFeedContext,
@@ -88,6 +89,7 @@ export function CommunityFeedCard({
   savedStateKnown = false,
   savedAccountState = "unknown",
   onSavedChange = () => undefined,
+  turnstileSiteKey = null,
 }: {
   feed: CommunityFeedKind;
   item: CommunityFeedItem;
@@ -97,6 +99,7 @@ export function CommunityFeedCard({
   savedStateKnown?: boolean;
   savedAccountState?: SavedMemeAccountState;
   onSavedChange?: (saved: boolean) => void;
+  turnstileSiteKey?: string | null;
 }) {
   const hasDimensions = Boolean(item.mediaWidth && item.mediaHeight);
 
@@ -155,6 +158,12 @@ export function CommunityFeedCard({
         accountState={savedAccountState}
         onSavedChange={onSavedChange}
       />
+      {feed !== "live" ? (
+        <CommunityCommentThread
+          submissionId={item.submissionId}
+          turnstileSiteKey={turnstileSiteKey}
+        />
+      ) : null}
     </article>
   );
 }
@@ -193,12 +202,14 @@ export default function CommunityFeedClient({
   feedLabel,
   initialAnchorRequested,
   initialPage,
+  turnstileSiteKey,
 }: {
   feed: CommunityFeedKind;
   cycleNumber: number | null;
   feedLabel: string;
   initialAnchorRequested: boolean;
   initialPage: CommunityFeedPage;
+  turnstileSiteKey: string | null;
 }) {
   const [page, setPage] = useState(initialPage);
   const [resumeRecord, setResumeRecord] =
@@ -834,6 +845,7 @@ export default function CommunityFeedClient({
                 onSavedChange={(saved) =>
                   handleSavedChange(item.submissionId, saved)
                 }
+                turnstileSiteKey={turnstileSiteKey}
               />
             ))}
           </div>

@@ -7,6 +7,7 @@ const replyRoute = await readFile(new URL("../../app/api/comments/submissions/[s
 const commentRoute = await readFile(new URL("../../app/api/comments/[publicCommentId]/route.ts", import.meta.url), "utf8");
 const service = await readFile(new URL("../../lib/comments/commentService.server.ts", import.meta.url), "utf8");
 const abuse = await readFile(new URL("../../lib/comments/commentAbuse.server.ts", import.meta.url), "utf8");
+const releaseStateProjection = await readFile(new URL("../../supabase/migrations/20260823000500_comment_release_state_projection.sql", import.meta.url), "utf8");
 
 test("public reads and authenticated writes stay in thin Node route handlers", () => {
   for (const route of [rootRoute, replyRoute, commentRoute]) {
@@ -35,4 +36,14 @@ test("server owns eligibility, HMAC abuse digest, fresh Turnstile and exact RPC 
     "edit_community_comment",
     "delete_community_comment",
   ]) assert.ok(service.includes(`rpc("${rpc}"`), `${rpc} RPC must be used`);
+});
+
+test("root reads expose the server-authoritative mutation availability without weakening ACLs", () => {
+  assert.match(service, /releaseState: value\.releaseState as "read_only" \| "open"/u);
+  assert.match(service, /\["read_only", "open"\]\.includes\(String\(value\.releaseState\)\)/u);
+  assert.match(releaseStateProjection, /'releaseState', v_release_state/gu);
+  assert.match(releaseStateProjection, /v_release_state = 'off'/u);
+  assert.match(releaseStateProjection, /revoke all on function public\.get_community_comment_thread_page[\s\S]*from public, anon, authenticated, discord_bot, service_role/iu);
+  assert.match(releaseStateProjection, /grant execute on function public\.get_community_comment_thread_page[\s\S]*to service_role/iu);
+  assert.doesNotMatch(releaseStateProjection, /grant execute on function public\.get_community_comment_release_state/iu);
 });

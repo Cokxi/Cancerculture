@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [sql, correctionSql, topAliasCorrectionSql, devContract, concurrencyContract, postflightContract] = await Promise.all([
+const [sql, correctionSql, topAliasCorrectionSql, releaseStateProjectionSql, devContract, concurrencyContract, postflightContract] = await Promise.all([
   readFile(new URL("../../supabase/migrations/20260823000200_comment_text_domain_foundation.sql", import.meta.url), "utf8"),
   readFile(new URL("../../supabase/migrations/20260823000300_comment_digest_schema_qualification.sql", import.meta.url), "utf8"),
   readFile(new URL("../../supabase/migrations/20260823000400_comment_top_cursor_alias_correction.sql", import.meta.url), "utf8"),
+  readFile(new URL("../../supabase/migrations/20260823000500_comment_release_state_projection.sql", import.meta.url), "utf8"),
   readFile(new URL("./commentTextDomainFoundation.dev.sql", import.meta.url), "utf8"),
   readFile(new URL("./commentTextDomainConcurrency.dev.mjs", import.meta.url), "utf8"),
   readFile(new URL("./commentTextDomainPostflight.dev.sql", import.meta.url), "utf8"),
@@ -114,6 +115,23 @@ test("Top cursor correction replaces only the invalid same-level alias", () => {
   assert.match(topAliasCorrectionSql, /COMMUNITY_COMMENT_TOP_ALIAS_CORRECTION_POSTFLIGHT_MISMATCH/u);
   assert.doesNotMatch(topAliasCorrectionSql, /grant execute|alter table|insert into|delete from|truncate|drop /iu);
   assert.match(topAliasCorrectionSql, /commit;\s*$/u);
+});
+
+test("release-state projection is additive, fail-closed, and keeps the read RPC service-only", () => {
+  assert.match(releaseStateProjectionSql, /^begin;/u);
+  assert.match(releaseStateProjectionSql, /COMMUNITY_COMMENT_RELEASE_STATE_PROJECTION_BASELINE_MISMATCH/u);
+  assert.match(releaseStateProjectionSql, /v_release_state = 'off'/u);
+  assert.equal(
+    [...releaseStateProjectionSql.matchAll(/'releaseState', v_release_state/gu)].length,
+    2,
+  );
+  assert.match(releaseStateProjectionSql, /case when p_sort = 'top' then 0 end desc/u);
+  assert.match(releaseStateProjectionSql, /COMMUNITY_COMMENT_RELEASE_STATE_PROJECTION_POSTFLIGHT_MISMATCH/u);
+  assert.match(releaseStateProjectionSql, /from public, anon, authenticated, discord_bot, service_role/iu);
+  assert.match(releaseStateProjectionSql, /to service_role/iu);
+  assert.doesNotMatch(releaseStateProjectionSql, /grant execute on function public\.get_community_comment_release_state/iu);
+  assert.doesNotMatch(releaseStateProjectionSql, /alter table|insert into|delete from|truncate|drop /iu);
+  assert.match(releaseStateProjectionSql, /commit;\s*$/u);
 });
 
 test("DEV concurrency contract uses independent transactions and leaves fail-closed state", () => {

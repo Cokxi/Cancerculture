@@ -2,6 +2,7 @@ import ShameGrid from "./ShameGrid";
 import AnimatedCellShame from "./AnimatedCellShame";
 import PageWrapper from "@/app/components/ui/PageWrapper";
 import { getPublicWallPage } from "@/lib/walls/getPublicWallPage";
+import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,10 @@ export default async function WallOfShamePage() {
           <span>Wall of Shame</span>
         </h1>
 
-        <ShameGrid initialPage={initialPage} />
+        <ShameGrid
+          initialPage={initialPage}
+          turnstileSiteKey={getTurnstileClientSiteKey()}
+        />
       </div>
     </PageWrapper>
   );

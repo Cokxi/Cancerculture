@@ -165,6 +165,7 @@ export async function getCommunityCommentRootPage(input: {
   });
   readOutcome(value);
   if (
+    !["read_only", "open"].includes(String(value.releaseState)) ||
     value.submissionId !== input.submissionId ||
     value.sort !== input.sort ||
     !timestamp(value.snapshotAt) ||
@@ -175,6 +176,7 @@ export async function getCommunityCommentRootPage(input: {
   const tuple = parsePageTuple(value.nextTuple, input.sort);
   if (value.hasMore !== (tuple !== null)) unavailable();
   return {
+    releaseState: value.releaseState as "read_only" | "open",
     submissionId: input.submissionId,
     sort: input.sort,
     snapshotAt: value.snapshotAt,

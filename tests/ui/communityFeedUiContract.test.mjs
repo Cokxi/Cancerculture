@@ -152,7 +152,7 @@ test("media boxes are stable and placeholders prevent scroll jumps", () => {
   assert.match(client, /object-contain/u);
 });
 
-test("Phase 3 adds no mutation, database access, comments, PWA, Sponsor tracking, or private DTO", () => {
+test("the Feed core adds no direct mutation, database access, PWA, Sponsor tracking, Comment Votes, or private DTO", () => {
   const publicSurface = `${page}\n${client}\n${route}\n${surface}\n${resume}`;
   assert.match(surface, /^import "server-only";/u);
   assert.match(surface, /communityFeedReadModel\.server/u);
@@ -162,8 +162,9 @@ test("Phase 3 adds no mutation, database access, comments, PWA, Sponsor tracking
   );
   assert.doesNotMatch(
     publicSurface,
-    /discord(?:_user)?_?id|moderationReason|reportReason|viewerHash|walletAddress|sponsorImpression|comment(?:s|Vote)/iu,
+    /discord(?:_user)?_?id|moderationReason|reportReason|viewerHash|walletAddress|sponsorImpression|commentVote/iu,
   );
+  assert.match(client, /CommunityCommentThread/u);
   assert.doesNotMatch(publicSurface, /manifest\.webmanifest|serviceWorker|beforeinstallprompt/u);
   assert.doesNotMatch(client, /SponsorImpressionTracker|SponsoredBanner/u);
 });

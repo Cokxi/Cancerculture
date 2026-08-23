@@ -136,14 +136,16 @@ test("detail delivery is service-only, fail-closed, and no-store", () => {
   assert.match(readModel, /if \(!source\?\.r2Key \|\| !source\.detail\.imageUrl\) return null/u);
 });
 
-test("detail UI is modal-like, initially collapsed, and reserves comments below the metadata", () => {
+test("detail UI is modal-like and mounts finalized Comments below collapsed metadata", () => {
   assert.match(page, /data-spread-detail-sponsor-slot/u);
   assert.match(page, /getCycleSponsoredMeta/u);
   assert.match(page, /"spread_detail"/u);
   assert.match(page, /<SponsoredBanner/u);
   assert.match(page, /format="feed"/u);
   assert.match(page, /label="Sponsored by"/u);
-  assert.match(page, /data-spread-detail-community-slot/u);
+  assert.match(page, /<CommunityCommentThread/u);
+  assert.match(page, /submissionId=\{submissionId\}/u);
+  assert.match(page, /defaultOpen/u);
   assert.match(page, /<details className=/u);
   assert.doesNotMatch(page, /<details\s+open/u);
   assert.match(page, /detail\.state === "finalized"/u);
@@ -156,7 +158,7 @@ test("detail UI is modal-like, initially collapsed, and reserves comments below 
   assert.doesNotMatch(page, />\s*The Spread\s*</u);
   assert.doesNotMatch(page, />\s*Meme detail\s*</u);
   assert.ok(
-    page.indexOf("data-spread-detail-community-slot") >
+    page.indexOf("<CommunityCommentThread") >
       page.indexOf("spread-detail-metadata-title"),
   );
   assert.match(page, /CommunityFeedDetailCloseButton/u);

@@ -9,6 +9,7 @@ import {
 } from "@/lib/feed/communityFeedSurface";
 import { getCommunityFeedSurfacePage } from "@/lib/feed/communityFeedSurface.server";
 import CommunityFeedClient from "./CommunityFeedClient";
+import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,7 @@ export default async function CommunityFeedPage({
           feedLabel={COMMUNITY_FEED_LABELS[feed]}
           initialAnchorRequested={anchorSubmissionId !== null}
           initialPage={initialPage}
+          turnstileSiteKey={getTurnstileClientSiteKey()}
         />
       </main>
     </div>

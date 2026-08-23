@@ -2,6 +2,7 @@ import FameGrid from "./FameGrid";
 import AnimatedCell from "./AnimatedCell";
 import PageWrapper from "@/app/components/ui/PageWrapper";
 import { getPublicWallPage } from "@/lib/walls/getPublicWallPage";
+import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,10 @@ export default async function WallOfFamePage() {
           <span>Wall of Fame</span>
         </h1>
 
-        <FameGrid initialPage={initialPage} />
+        <FameGrid
+          initialPage={initialPage}
+          turnstileSiteKey={getTurnstileClientSiteKey()}
+        />
       </div>
     </PageWrapper>
   );

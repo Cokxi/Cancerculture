@@ -12,6 +12,8 @@ import {
 } from "@/lib/feed/communityFeedDetail.server";
 import { createCommunityFeedMetadata } from "@/lib/feed/communityFeedMetadata";
 import PublicPayoutDetails from "@/app/components/payouts/PublicPayoutDetails";
+import CommunityCommentThread from "@/app/components/comments/CommunityCommentThread";
+import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -235,8 +237,13 @@ export default async function CommunityFeedDetailPage({
               </div>
             </details>
 
-            {/* A reusable finalized comment thread can mount here after its own contract. */}
-            <div data-spread-detail-community-slot aria-hidden="true" />
+            {detail.state === "finalized" ? (
+              <CommunityCommentThread
+                submissionId={submissionId}
+                turnstileSiteKey={getTurnstileClientSiteKey()}
+                defaultOpen
+              />
+            ) : null}
           </div>
         </article>
       </main>

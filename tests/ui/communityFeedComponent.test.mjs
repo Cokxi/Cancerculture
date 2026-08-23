@@ -48,6 +48,10 @@ const transpiled = ts.transpileModule(componentSource, {
     "const CommunityFeedCardActions = () => null;",
   )
   .replace(
+    'import CommunityCommentThread from "@/app/components/comments/CommunityCommentThread";',
+    "const CommunityCommentThread = () => null;",
+  )
+  .replace(
     `import { CommunityFeedCycleNavigatorButton, CommunityFeedCycleNavigatorDrawer, CommunityFeedCycleNavigatorPanel, } from "@/app/spread/CommunityFeedCycleNavigator";`,
     `const CommunityFeedCycleNavigatorButton = () => null;
 const CommunityFeedCycleNavigatorDrawer = () => null;

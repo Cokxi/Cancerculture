@@ -15,6 +15,7 @@ import { formatReason } from "@/lib/profile/formatReason";
 import { getSubmissionThumbnailUrl } from "@/lib/r2/getSubmissionThumbnailUrl";
 import type { PublicWallItem } from "@/lib/walls/publicWallTypes";
 import PublicPayoutDetails from "@/app/components/payouts/PublicPayoutDetails";
+import CommunityCommentThread from "@/app/components/comments/CommunityCommentThread";
 import {
   useCallback,
   useEffect,
@@ -68,8 +69,10 @@ function VisibilityPlaceholder({
 
 export default function FameGrid({
   initialPage,
+  turnstileSiteKey,
 }: {
   initialPage: PublicPage<Winner>;
+  turnstileSiteKey: string | null;
 }) {
   const [active, setActive] = useState<Winner | null>(null);
   const [showOriginalSize, setShowOriginalSize] = useState(false);
@@ -365,6 +368,14 @@ export default function FameGrid({
                   className="mx-auto mt-4 w-full max-w-md"
                 />
               )}
+              {active.public_visibility_status ===
+              SUBMISSION_PUBLIC_VISIBILITY.visible ? (
+                <CommunityCommentThread
+                  submissionId={active.submission_id}
+                  turnstileSiteKey={turnstileSiteKey}
+                  defaultOpen
+                />
+              ) : null}
             </div>
           </div>
         </div>

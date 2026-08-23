@@ -34,7 +34,7 @@ export async function GET() {
         supabaseAdmin
           .from("user_logs")
           .select(
-            "avatar_key, avatar_updated_at, current_discord_username, discord_avatar"
+            "avatar_key, avatar_updated_at, current_discord_username, discord_avatar, public_profile_id"
           )
           .eq("discord_user_id", discordUserId)
           .maybeSingle()
@@ -104,6 +104,10 @@ export async function GET() {
       kind: "authenticated",
       avatarUrl,
       displayName: account?.current_discord_username ?? "Account",
+      publicProfileId:
+        typeof account?.public_profile_id === "string"
+          ? account.public_profile_id
+          : null,
       unreadNotificationCount,
       navigation,
     });

@@ -14,6 +14,7 @@ import SubmissionSocialLinks from "@/app/components/profile/SubmissionSocialLink
 import ProfileLinkButton from "@/app/components/profile/ProfileLinkButton";
 import LoadMoreButton from "@/app/components/ui/LoadMoreButton";
 import ModalCloseButton from "@/app/components/ui/ModalCloseButton";
+import CommunityCommentThread from "@/app/components/comments/CommunityCommentThread";
 import type {
   CycleHistoryCycleSummaryItem,
   CycleHistorySubmission,
@@ -539,6 +540,16 @@ function SubmissionModal({
               className="mx-auto w-full max-w-md"
             />
           )}
+
+          {!submission.isDisqualified &&
+          submission.publicVisibilityStatus ===
+            SUBMISSION_PUBLIC_VISIBILITY.visible ? (
+            <CommunityCommentThread
+              submissionId={submission.id}
+              turnstileSiteKey={turnstileSiteKey}
+              defaultOpen
+            />
+          ) : null}
 
           {!submission.isDisqualified &&
           !isSubmissionRemovedFromPublic(
