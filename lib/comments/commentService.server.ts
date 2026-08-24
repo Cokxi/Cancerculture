@@ -37,7 +37,8 @@ type JsonRecord = Record<string, unknown>;
 export class CommunityCommentServiceError extends Error {
   constructor(
     public readonly status: 400 | 401 | 403 | 404 | 409 | 429 | 503,
-    public readonly code: string
+    public readonly code: string,
+    public readonly retryAfter?: number
   ) {
     super(code);
     this.name = "CommunityCommentServiceError";

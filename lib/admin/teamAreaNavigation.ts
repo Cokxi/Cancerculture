@@ -590,6 +590,16 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           implemented: true,
         }),
         item({
+          id: "comment-safety-controls",
+          title: "Comment Safety Controls",
+          href: "/admin/comments/policies",
+          categoryId: "content",
+          description:
+            "Manage the owner-only Comment release gate and private versioned abuse policies.",
+          requirement: adminOnly,
+          implemented: true,
+        }),
+        item({
           id: "coin-launch-links",
           title: "Coin Launch Links",
           href: "/admin/coin-launches",

@@ -29,3 +29,24 @@ export function getCommunityCommentContentDigest(body: string) {
     .update(body, "utf8")
     .digest("hex");
 }
+
+export function getCommunityCommentReportDigest(input: {
+  reporterDiscordUserId: string;
+  publicCommentId: string;
+  category: string;
+  explanation: string | null;
+}) {
+  return createHmac(
+    "sha256",
+    resolveCommunityCommentAbuseSecret(process.env)
+  )
+    .update("community-comment-report\0", "utf8")
+    .update(input.reporterDiscordUserId, "utf8")
+    .update("\0", "utf8")
+    .update(input.publicCommentId, "utf8")
+    .update("\0", "utf8")
+    .update(input.category, "utf8")
+    .update("\0", "utf8")
+    .update(input.explanation ?? "", "utf8")
+    .digest("hex");
+}

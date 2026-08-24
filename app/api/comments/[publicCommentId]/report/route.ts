@@ -17,6 +17,7 @@ export async function POST(request: Request, context: Context) {
     return commentJson(await submitCommunityCommentReport({
       request,
       sessionId: session.session_id,
+      reporterDiscordUserId: session.discord_user_id,
       publicCommentId: (await context.params).publicCommentId,
       body: await parseCommunityCommentJson(request),
     }), 201);

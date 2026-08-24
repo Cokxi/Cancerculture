@@ -1,7 +1,7 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/lib/db/admin";
+import { getCommunityCommentReportDigest } from "@/lib/comments/commentAbuse.server";
 import { CommunityCommentServiceError } from "@/lib/comments/commentService.server";
 import { parseCommunityCommentReportInput } from "@/lib/comments/commentReportContract";
 import { TURNSTILE_ACTIONS } from "@/lib/turnstile/shared";
@@ -14,6 +14,7 @@ const REPORT_TURNSTILE_MAX_AGE_MS = 5 * 60_000;
 export async function submitCommunityCommentReport(input: {
   request: Request;
   sessionId: string;
+  reporterDiscordUserId: string;
   publicCommentId: string;
   body: unknown;
 }) {
@@ -35,12 +36,12 @@ export async function submitCommunityCommentReport(input: {
     throw new CommunityCommentServiceError(503, "TURNSTILE_UNAVAILABLE");
   }
 
-  const requestHash = createHash("sha256").update(JSON.stringify({
+  const requestHash = getCommunityCommentReportDigest({
+    reporterDiscordUserId: input.reporterDiscordUserId,
     publicCommentId: input.publicCommentId,
     category: parsed.category,
     explanation: parsed.explanation,
-    rulesAffirmed: true,
-  })).digest("hex");
+  });
   const { data, error } = await supabaseAdmin.rpc("submit_community_comment_report", {
     p_session_id: input.sessionId,
     p_public_comment_id: input.publicCommentId,
@@ -69,6 +70,22 @@ export async function submitCommunityCommentReport(input: {
   }
   if (result.outcome === "idempotency_conflict") {
     throw new CommunityCommentServiceError(409, "COMMENT_REPORT_IDEMPOTENCY_CONFLICT");
+  }
+  if (result.outcome === "rate_limited") {
+    const retryAfter = typeof result.retryAfter === "number"
+      ? Math.max(1, Math.ceil(result.retryAfter))
+      : 1;
+    throw new CommunityCommentServiceError(
+      429,
+      "COMMENT_REPORT_COOLDOWN",
+      retryAfter
+    );
+  }
+  if (
+    result.outcome === "abuse_configuration_unavailable" ||
+    result.outcome === "feature_unavailable"
+  ) {
+    throw new CommunityCommentServiceError(503, "COMMENT_REPORT_UNAVAILABLE");
   }
   throw new CommunityCommentServiceError(503, "COMMENT_REPORT_UNAVAILABLE");
 }

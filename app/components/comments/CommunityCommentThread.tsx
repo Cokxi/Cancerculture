@@ -529,6 +529,16 @@ export default function CommunityCommentThread({
   const [composerKey, setComposerKey] = useState(0);
   const deepLinkHandled = useRef(false);
   const voteBusyIds = useRef(new Set<string>());
+  const voteViewerAccountGeneration = useRef(0);
+  const voteViewerAccountKey =
+    account.kind === "authenticated"
+      ? `authenticated:${account.publicProfileId ?? account.displayName}`
+      : account.kind;
+
+  useEffect(() => {
+    voteViewerAccountGeneration.current += 1;
+    setVoteViewerById({});
+  }, [voteViewerAccountKey]);
 
   useEffect(() => {
     try {
@@ -602,14 +612,14 @@ export default function CommunityCommentThread({
       return next;
     });
 
-    let disposed = false;
+    const accountGeneration = voteViewerAccountGeneration.current;
     const batches: string[][] = [];
     for (let index = 0; index < missing.length; index += 100) {
       batches.push(missing.slice(index, index + 100));
     }
     void Promise.all(batches.map(fetchCommunityCommentVoteViewerState))
       .then((pages) => {
-        if (disposed) return;
+        if (accountGeneration !== voteViewerAccountGeneration.current) return;
         const loaded = new Map(pages.flat().map((item) => [item.publicCommentId, item]));
         setVoteViewerById((current) => {
           const next = { ...current };
@@ -623,7 +633,7 @@ export default function CommunityCommentThread({
         });
       })
       .catch(() => {
-        if (disposed) return;
+        if (accountGeneration !== voteViewerAccountGeneration.current) return;
         setVoteViewerById((current) => {
           const next = { ...current };
           for (const publicCommentId of missing) {
@@ -636,7 +646,6 @@ export default function CommunityCommentThread({
           return next;
         });
       });
-    return () => { disposed = true; };
   }, [account, branches, ownNewRoot, releaseState, roots, voteViewerById]);
 
   function applyPage(next: CommunityCommentRootPage, replace: boolean) {

@@ -27,6 +27,18 @@ test("viewer state uses one bounded deduplicated batch path instead of per-Comme
   assert.match(viewerRoute, /Object\.keys\(body\)\.length !== 1/u);
 });
 
+test("viewer-state loading renders do not cancel their own in-flight batch", () => {
+  const batchEffect = thread.slice(
+    thread.indexOf("const accountGeneration = voteViewerAccountGeneration.current"),
+    thread.indexOf("function applyPage"),
+  );
+
+  assert.match(thread, /const voteViewerAccountGeneration = useRef\(0\)/u);
+  assert.match(batchEffect, /accountGeneration !== voteViewerAccountGeneration\.current/u);
+  assert.doesNotMatch(batchEffect, /disposed/u);
+  assert.doesNotMatch(batchEffect, /return \(\) =>/u);
+});
+
 test("Vote routes are thin Node handlers and require the hardened Website session", () => {
   for (const route of [voteRoute, viewerRoute]) {
     assert.match(route, /runtime = "nodejs"/u);

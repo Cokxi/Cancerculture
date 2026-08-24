@@ -80,6 +80,17 @@ export async function verifyTurnstileRequest(
     };
   }
 
+  // The public test widget proves the browser rendered the explicit
+  // non-Production challenge. Production cannot resolve this mode, so local
+  // tests stay deterministic without treating Cloudflare's test response as a
+  // managed, action-bound attestation.
+  if (
+    config.mode === "test" &&
+    process.env.TURNSTILE_MODE?.trim().toLowerCase() === "test"
+  ) {
+    return { status: "verified" };
+  }
+
   const fetchImpl = options.fetchImpl ?? fetch;
   const idempotencyKey = randomUUID();
 

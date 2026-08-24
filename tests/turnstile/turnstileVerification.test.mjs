@@ -135,6 +135,34 @@ test("production cannot silently fall back to public test keys", async () => {
   }
 });
 
+test("explicit non-Production test mode accepts a bounded widget token locally", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalMode = process.env.TURNSTILE_MODE;
+  let calls = 0;
+
+  try {
+    process.env.NODE_ENV = "test";
+    process.env.TURNSTILE_MODE = "test";
+
+    assert.deepEqual(
+      await verifyTurnstileRequest(request("test-widget-token"), "community_comment", {
+        maxTokenAgeMs: 5 * 60_000,
+        fetchImpl: async () => {
+          calls += 1;
+          throw new Error("test mode must not contact the provider");
+        },
+      }),
+      { status: "verified" }
+    );
+    assert.equal(calls, 0);
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+    if (originalMode === undefined) delete process.env.TURNSTILE_MODE;
+    else process.env.TURNSTILE_MODE = originalMode;
+  }
+});
+
 test("managed mode requires an exact configured hostname", async () => {
   const original = {
     mode: process.env.TURNSTILE_MODE,

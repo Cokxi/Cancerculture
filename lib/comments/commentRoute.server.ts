@@ -38,7 +38,21 @@ export function commentJson(value: unknown, status = 200) {
 
 export function commentError(error: unknown) {
   if (error instanceof CommunityCommentServiceError) {
-    return commentJson({ error: error.code }, error.status);
+    const retryAfter = error.status === 429 && Number.isSafeInteger(error.retryAfter)
+      ? Math.max(1, Number(error.retryAfter))
+      : null;
+    return NextResponse.json(
+      retryAfter === null
+        ? { error: error.code }
+        : { error: error.code, retryAfter },
+      {
+        status: error.status,
+        headers: {
+          ...COMMENT_NO_STORE_HEADERS,
+          ...(retryAfter === null ? {} : { "Retry-After": String(retryAfter) }),
+        },
+      }
+    );
   }
   if (error instanceof PublicPaginationCursorError) {
     return commentJson({ error: "INVALID_CURSOR" }, 400);
