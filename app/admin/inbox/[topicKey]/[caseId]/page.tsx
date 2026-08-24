@@ -17,7 +17,12 @@ export default async function TeamInboxCasePage({ params }: {
     <section className="space-y-6">
       <Link prefetch={false} href={`/admin/inbox/${topicKey}`} className="text-sm text-orange-200 hover:underline">← Topic queue</Link>
       <h1 className="font-['Permanent_Marker'] text-4xl text-[var(--orange-main)]">Team Inbox Case</h1>
-      <TeamInboxCaseDetail caseId={caseId} isAdmin={authorization.isAdmin} />
+      <TeamInboxCaseDetail
+        caseId={caseId}
+        topicKey={topicKey}
+        isAdmin={authorization.isAdmin}
+        canModerate={authorization.isAdmin || authorization.resolvedCapabilities.includes("community.comments.moderate")}
+      />
     </section>
   );
 }

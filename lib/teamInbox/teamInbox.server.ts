@@ -9,6 +9,7 @@ import {
   parseTeamInboxCursor,
 } from "@/lib/teamInbox/teamInboxCursor";
 import { loadWalletIssueCaseDetail } from "@/lib/walletIssues/service.server";
+import { loadCommunityCommentReviewCaseDetail } from "@/lib/comments/commentModeration.server";
 
 const TOPIC_PATTERN = /^[a-z][a-z0-9_]{2,63}$/u;
 const UUID_PATTERN =
@@ -126,14 +127,25 @@ export async function loadTeamInboxCases({
   };
 }
 
-export async function loadTeamInboxCaseDetail(caseId: string) {
+export async function loadTeamInboxCaseDetail(caseId: string, expectedTopicKey: string) {
   if (!UUID_PATTERN.test(caseId)) throw new AuthError(400, "Invalid case", "TEAM_INBOX_CASE_INVALID");
   const context = await getTeamAuthorizationContext();
+  if (!["wallet_issues", "comment_reports", "comment_spam"].includes(expectedTopicKey)) {
+    throw new AuthError(400, "Invalid topic", "TEAM_INBOX_TOPIC_INVALID");
+  }
+  if (expectedTopicKey === "comment_reports" || expectedTopicKey === "comment_spam") {
+    return loadCommunityCommentReviewCaseDetail(
+      context.discord_user_id, caseId, expectedTopicKey,
+    );
+  }
   const detail = await rpc("get_team_inbox_case_detail", {
     p_actor_discord_user_id: context.discord_user_id,
     p_case_id: caseId,
   });
   const caseValue = record(detail.case);
+  if (detail.outcome === "found" && caseValue.topicKey !== expectedTopicKey) {
+    return { outcome: "not_found" };
+  }
   if (detail.outcome === "found" && caseValue.topicKey === "wallet_issues") {
     const walletIssue = await loadWalletIssueCaseDetail(context.discord_user_id, caseId);
     return { ...detail, walletIssue };
@@ -179,6 +191,7 @@ export async function searchTeamInboxExactDiscordId({
 }
 
 export async function mutateTeamInboxCase(input: {
+  topicKey: string;
   caseId: string;
   idempotencyKey: string;
   action: string;
@@ -188,6 +201,7 @@ export async function mutateTeamInboxCase(input: {
   note: string | null;
 }) {
   if (
+    !TOPIC_PATTERN.test(input.topicKey) ||
     !UUID_PATTERN.test(input.caseId) ||
     !UUID_PATTERN.test(input.idempotencyKey) ||
     !["claim", "return", "force_release"].includes(input.action) ||
@@ -196,6 +210,7 @@ export async function mutateTeamInboxCase(input: {
     !Number.isSafeInteger(input.expectedWorkVersion) || input.expectedWorkVersion < 1 ||
     (input.note !== null && (input.note.trim().length < 3 || input.note.trim().length > 1000))
   ) throw new AuthError(400, "Invalid mutation", "TEAM_INBOX_MUTATION_INVALID");
+  await loadTeamInboxCaseDetail(input.caseId, input.topicKey);
   const context = await getTeamAuthorizationContext();
   return rpc("mutate_team_inbox_case", {
     p_actor_discord_user_id: context.discord_user_id,

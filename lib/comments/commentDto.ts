@@ -39,7 +39,7 @@ export type CommunityCommentPublicDto = {
   createdAt: string;
   edited: boolean;
   editedAt: string | null;
-  tombstone: "author_deleted" | null;
+  tombstone: "author_deleted" | "team_removed" | null;
   body: string | null;
   author: {
     publicProfileId: string;
@@ -106,7 +106,11 @@ export function parseCommunityCommentPublicDto(
     Number.isNaN(new Date(value.createdAt).getTime()) ||
     typeof value.edited !== "boolean" ||
     !isTimestampOrNull(value.editedAt) ||
-    !(value.tombstone === null || value.tombstone === "author_deleted") ||
+    !(
+      value.tombstone === null ||
+      value.tombstone === "author_deleted" ||
+      value.tombstone === "team_removed"
+    ) ||
     !(value.body === null || typeof value.body === "string") ||
     !Number.isSafeInteger(value.replyCount) ||
     (value.replyCount as number) < 0 ||
@@ -148,7 +152,7 @@ export function parseCommunityCommentPublicDto(
   }
 
   if (
-    value.tombstone === "author_deleted" &&
+    value.tombstone !== null &&
     (value.body !== null || value.mentions.length !== 0 || value.voteCounts !== null)
   ) {
     return invalid();

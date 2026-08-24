@@ -38,6 +38,12 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "faq.manage",
   "homepage_content.manage",
   "community.polls.manage",
+  "community.comment_reports.view",
+  "community.comment_reports.review",
+  "community.comments.moderate",
+  "community.comment_spam.view",
+  "community.comment_spam.review",
+  "logs.community_comment_moderation.view",
   "donation_organizations.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
@@ -950,6 +956,149 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "042a289cd77aca920ab6d07abec54cec1b380423c90aa3693b7fbb11537a9a7e",
+  }),
+  "community.comment_reports.view": defineCapability({
+    key: "community.comment_reports.view",
+    displayName: "View Comment Reports",
+    description:
+      "View redacted Comment Report queues, case details, immutable report facts, and the integrated append-only Case timeline without claiming or changing a Case.",
+    category: "Community",
+    includedActions: [
+      "View the redacted Comment Report Team Inbox topic, bounded queues, full Case details, and permanent Case timeline.",
+      "View report categories, allowlisted explanations, Comment context, and report counts without reporter identity.",
+      "Use capability-protected bounded username and exact Discord ID Case search.",
+    ],
+    excludedActions: [
+      "Claiming, returning, solving, removing, or restoring a Comment.",
+      "Viewing reporter identity, raw abuse signals, manual User Flags, private security data, or prior Comment bodies.",
+      "Viewing automated Spam Review Cases or the standalone moderation log.",
+      "Managing roles, grants, Team membership, Owner access, or unrelated content and logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "70902b326e0b5f2247e1c20443886f28fa16480aca8e05f6d63ad3367b1bffcd",
+  }),
+  "community.comment_reports.review": defineCapability({
+    key: "community.comment_reports.review",
+    displayName: "Review Comment Reports",
+    description:
+      "Claim, return, and resolve Comment Report Cases with No action, always together with the exact Comment Report View capability.",
+    category: "Community",
+    includedActions: [
+      "Exclusively claim an open Comment Report Case and return unresolved work with a bounded internal note.",
+      "Solve an assigned Comment Report Case with No action under expected Case and source versions.",
+      "Use idempotent, concurrency-safe Case workflow actions while preserving the append-only timeline.",
+    ],
+    excludedActions: [
+      "Viewing a Comment Report Case without community.comment_reports.view.",
+      "Removing or restoring Comments without community.comments.moderate.",
+      "Viewing reporter identity, automated Spam Cases, raw signals, or the standalone moderation log.",
+      "Taking over another reviewer assignment or managing roles, grants, Team membership, or Owner access.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "b201f956e4cc586b0a445455935224c3cefd5d5c950260e6899c451191e19da9",
+  }),
+  "community.comments.moderate": defineCapability({
+    key: "community.comments.moderate",
+    displayName: "Moderate Comments",
+    description:
+      "Remove or restore eligible Comments through expected-version, idempotent, append-only audited moderation without implied Report, Spam, or log access.",
+    category: "Community",
+    includedActions: [
+      "Remove a visible Comment directly or atomically while solving an assigned Report or Spam Case when the additional Case rights are present.",
+      "Restore the latest retainable Comment body, Mentions, and Vote presentation after an internal correction reason and expected-version check.",
+      "Close a removed Root branch and preserve existing Replies and immutable moderation history.",
+    ],
+    excludedActions: [
+      "Viewing Comment Report or Spam Case details without their exact View rights.",
+      "Claiming, returning, or solving Cases without their exact Review rights.",
+      "Overriding author deletion, unavailable Submission state, retention limits, account state, or public release controls.",
+      "Viewing reporter identities, raw Spam signals, moderation logs, roles, grants, Team membership, or Owner access.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "68c743df9ccd4dba9cf6f511a0d7b737e1d7ba84450425722846912784c17e9f",
+  }),
+  "community.comment_spam.view": defineCapability({
+    key: "community.comment_spam.view",
+    displayName: "View Comment Spam Review",
+    description:
+      "View redacted user-centered automated Comment Spam Review queues, bounded aggregates, related public Comment context, and permanent Case timelines.",
+    category: "Community",
+    includedActions: [
+      "View the redacted Spam Review Team Inbox topic, bounded queues, full Case details, and permanent Case timeline.",
+      "View bounded aggregate risk context and allowlisted related Comment references without raw signal weights or thresholds.",
+      "Use capability-protected bounded username and exact Discord ID Case search.",
+    ],
+    excludedActions: [
+      "Claiming, returning, solving, removing, or restoring a Comment.",
+      "Viewing raw Spam signals, private heuristics, IP or device data, manual User Flags, reporter identity, or prior Comment bodies.",
+      "Viewing Comment Report Cases or the standalone moderation log.",
+      "Managing roles, grants, Team membership, Owner access, or unrelated content and logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "389916756fe7326a7ba51977168f22d0f4a079b77b25deed29bdeeb1e05d42da",
+  }),
+  "community.comment_spam.review": defineCapability({
+    key: "community.comment_spam.review",
+    displayName: "Review Comment Spam Cases",
+    description:
+      "Claim, return, and resolve automated Comment Spam Review Cases with No action, always together with the exact Spam View capability.",
+    category: "Community",
+    includedActions: [
+      "Exclusively claim an open automated Spam Review Case and return unresolved work with a bounded internal note.",
+      "Solve an assigned Spam Review Case with No action under expected Case and source versions.",
+      "Use idempotent, concurrency-safe Case workflow actions while preserving the append-only timeline.",
+    ],
+    excludedActions: [
+      "Viewing a Spam Review Case without community.comment_spam.view.",
+      "Removing or restoring Comments without community.comments.moderate.",
+      "Viewing raw signal weights, thresholds, IP or device data, manual User Flags, reporter identity, or the standalone moderation log.",
+      "Automatically sanctioning an account or taking over another reviewer assignment.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "eb211f298b166f8896c55f669cb721c790f3b27c3eb87d60799b7af741c14b76",
+  }),
+  "logs.community_comment_moderation.view": defineCapability({
+    key: "logs.community_comment_moderation.view",
+    displayName: "View Comment Moderation Logs",
+    description:
+      "View the redacted append-only Comment moderation log without gaining Comment, Report, Spam Case, or workflow mutation authority.",
+    category: "Logs",
+    includedActions: [
+      "View bounded newest-first Remove and Restore events with safe public Comment references, action, database time, and redacted actor snapshot.",
+      "Review immutable moderation version transitions and allowlisted outcome codes without opening Case payloads.",
+    ],
+    excludedActions: [
+      "Removing or restoring Comments, claiming or solving Cases, or viewing Report and Spam Case details.",
+      "Viewing reporter identities, raw Spam signals, private heuristics, prior Comment bodies, or unrelated moderation data.",
+      "Exporting unbounded logs or exposing internal IDs, Discord IDs, secrets, IP, device, or security data.",
+      "Managing roles, grants, Team membership, Owner access, or unrelated logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "6db2fa540e00d5146aebbfe021eec0a26dea7bf1078f59a5dda74ad8a5813ea3",
   }),
   "donation_organizations.manage": defineCapability({
     key: "donation_organizations.manage",

@@ -99,6 +99,14 @@ const submissionModerationLogsView = Object.freeze({
   type: "capability",
   capability: "logs.submission_moderation.view",
 } as const);
+const communityCommentModeration = Object.freeze({
+  type: "capability",
+  capability: "community.comments.moderate",
+} as const);
+const communityCommentModerationLogsView = Object.freeze({
+  type: "capability",
+  capability: "logs.community_comment_moderation.view",
+} as const);
 const liveSubmissionReportView = Object.freeze({
   type: "capability",
   capability: "submissions.reports.live.view",
@@ -318,6 +326,15 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           requirement: websiteBanView,
           implemented: true,
         }),
+        item({
+          id: "comment-moderation",
+          title: "Comment Moderation",
+          href: "/admin/moderation/comments",
+          categoryId: "moderation",
+          description: "Remove or restore Comments by public Comment ID.",
+          requirement: communityCommentModeration,
+          implemented: true,
+        }),
       ],
     },
     {
@@ -415,6 +432,15 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           categoryId: "logs",
           description: "Browse redacted submission-moderation actions.",
           requirement: submissionModerationLogsView,
+          implemented: true,
+        }),
+        item({
+          id: "comment-moderation-logs",
+          title: "Comment Moderation Log",
+          href: "/admin/logs/comment-moderation",
+          categoryId: "logs",
+          description: "Review redacted append-only Comment moderation events.",
+          requirement: communityCommentModerationLogsView,
           implemented: true,
         }),
         item({

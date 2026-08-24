@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import CommunityCommentComposer from "@/app/components/comments/CommunityCommentComposer";
+import CommunityCommentReportDialog from "@/app/components/comments/CommunityCommentReportDialog";
 import {
   CommunityCommentClientError,
   fetchCommunityCommentAccount,
@@ -94,6 +95,9 @@ function textParts(value: string, keyPrefix: string) {
 function CommentBody({ comment }: { comment: CommunityCommentPublicDto }) {
   if (comment.tombstone === "author_deleted") {
     return <p className="mt-2 italic text-white/55">Comment deleted by its author</p>;
+  }
+  if (comment.tombstone === "team_removed") {
+    return <p className="mt-2 italic text-white/65">Comment removed by the team</p>;
   }
   const characters = Array.from(comment.body ?? "");
   const content: React.ReactNode[] = [];
@@ -322,6 +326,7 @@ function CommentItem({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const deleteBusyRef = useRef(false);
   const own =
     account.kind === "authenticated" &&
@@ -335,6 +340,7 @@ function CommentItem({
   const canToggleReplies =
     !isReply && comment.replyCount > 0 && onToggleReplies !== undefined;
   const canManage = canMutate && own;
+  const canReport = canMutate && !own && account.kind === "authenticated";
   const canVote =
     canMutate &&
     (account.kind === "authenticated" || account.kind === "anonymous");
@@ -416,7 +422,7 @@ function CommentItem({
         <CommentBody comment={comment} />
       )}
 
-      {!editing && (voteCounts || canReply || canToggleReplies || canManage) ? (
+      {!editing && (voteCounts || canReply || canToggleReplies || canManage || canReport) ? (
         <div className="mt-2 flex min-h-8 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           {voteCounts ? (
             <div className="flex items-center gap-1" aria-label="Comment votes">
@@ -480,8 +486,14 @@ function CommentItem({
               <button type="button" onClick={() => setConfirmingDelete(true)} className="min-h-8 cursor-pointer rounded px-1 py-1.5 font-semibold text-red-300/80 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300">Delete</button>
             </div>
           ) : null}
+          {canReport ? (
+            <button type="button" onClick={() => setReportOpen(true)} className="ml-auto min-h-8 cursor-pointer rounded px-1 py-1.5 font-semibold text-white/55 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
+              Report
+            </button>
+          ) : null}
         </div>
       ) : null}
+      {reportOpen ? <CommunityCommentReportDialog publicCommentId={comment.publicCommentId} siteKey={turnstileSiteKey} onClose={() => setReportOpen(false)} /> : null}
       {confirmingDelete ? <DeleteConfirmation busy={deleteBusy} onCancel={() => setConfirmingDelete(false)} onConfirm={() => void deleteComment()} /> : null}
       {deleteError ? <p className="mt-2 text-sm text-red-200" role="alert">{deleteError}</p> : null}
       {voteViewer.error ? <p className="mt-2 text-sm text-red-200" role="alert">{voteViewer.error}</p> : null}

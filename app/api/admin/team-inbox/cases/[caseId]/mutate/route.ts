@@ -14,6 +14,7 @@ export async function POST(request: Request, context: { params: Promise<{ caseId
       request.json() as Promise<Record<string, unknown>>,
     ]);
     const result = await mutateTeamInboxCase({
+      topicKey: typeof body.topicKey === "string" ? body.topicKey : "",
       caseId,
       idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : "",
       action: typeof body.action === "string" ? body.action : "",

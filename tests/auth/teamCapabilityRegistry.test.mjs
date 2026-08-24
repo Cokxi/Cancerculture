@@ -50,6 +50,12 @@ const expectedKeys = [
   "faq.manage",
   "homepage_content.manage",
   "community.polls.manage",
+  "community.comment_reports.view",
+  "community.comment_reports.review",
+  "community.comments.moderate",
+  "community.comment_spam.view",
+  "community.comment_spam.review",
+  "logs.community_comment_moderation.view",
   "donation_organizations.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
@@ -74,7 +80,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains forty-three known, thirty-nine active, and no staged capability keys", () => {
+test("the server registry contains forty-nine known, forty-five active, and no staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -187,6 +193,18 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "b9f5db882c8fa65f235ef2fe83f1cc90515761e21ea885e4ca80e58b2476957a",
     "community.polls.manage":
       "042a289cd77aca920ab6d07abec54cec1b380423c90aa3693b7fbb11537a9a7e",
+    "community.comment_reports.view":
+      "70902b326e0b5f2247e1c20443886f28fa16480aca8e05f6d63ad3367b1bffcd",
+    "community.comment_reports.review":
+      "b201f956e4cc586b0a445455935224c3cefd5d5c950260e6899c451191e19da9",
+    "community.comments.moderate":
+      "68c743df9ccd4dba9cf6f511a0d7b737e1d7ba84450425722846912784c17e9f",
+    "community.comment_spam.view":
+      "389916756fe7326a7ba51977168f22d0f4a079b77b25deed29bdeeb1e05d42da",
+    "community.comment_spam.review":
+      "eb211f298b166f8896c55f669cb721c790f3b27c3eb87d60799b7af741c14b76",
+    "logs.community_comment_moderation.view":
+      "6db2fa540e00d5146aebbfe021eec0a26dea7bf1078f59a5dda74ad8a5813ea3",
     "donation_organizations.manage":
       "18240d25d2183ebb17f7b1a56345ab2acc3906455d253b90cfee79cd5d6aa58d",
     "sponsorships.reports.view":
