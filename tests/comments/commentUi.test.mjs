@@ -98,12 +98,20 @@ test("one reusable thread integrates all four finalized public surfaces and excl
   assert.doesNotMatch(thread, /surface|feedKind|wallKind|cycleId/u);
 });
 
-test("reader supports signed cursors, bounded deep links, refresh snapshots and one-level Replies", () => {
+test("reader supports signed cursors, bounded deep links, automatic reconciliation and one-level Replies", () => {
   assert.match(client, /cursor=.*encodeURIComponent\(input\.cursor\)/u);
   assert.match(client, /windowLimit !== 20/u);
   assert.match(thread, /params\.get\("comment"\)/u);
   assert.match(thread, /fetchCommunityCommentDeepLink\(targetId\)/u);
-  assert.match(thread, /New comments or replies may be available/u);
+  assert.match(thread, /COMMENT_RECONCILIATION_INTERVAL_MS = 10_000/u);
+  assert.match(thread, /window\.addEventListener\("focus", check\)/u);
+  assert.match(thread, /window\.addEventListener\("pageshow", onPageShow\)/u);
+  assert.match(thread, /document\.addEventListener\("visibilitychange", check\)/u);
+  assert.match(thread, /usePathname\(\)/u);
+  assert.match(thread, /fetchRootWindow/u);
+  assert.match(thread, /fetchReplyWindow/u);
+  assert.match(thread, /captureScrollAnchor/u);
+  assert.doesNotMatch(thread, /Refresh comments|serviceWorker|caches\./u);
   assert.match(thread, /expanded: false/u);
   assert.match(thread, /branch\.expanded &&/u);
   assert.match(thread, /View \$\{comment\.replyCount\}/u);
@@ -135,7 +143,8 @@ test("server-confirmed create, edit and irreversible delete receipts drive visib
   assert.match(thread, /expectedRootVersion: branch\.rootVersion/u);
   assert.match(thread, /expectedRootVersion: ownNewBranch\.rootVersion/u);
   assert.match(thread, /expectedTargetVersion: replyTarget\.target\.version/u);
-  assert.match(thread, /expectedVersion: comment\.version/u);
+  assert.match(thread, /editBaseVersion \?\? comment\.version/u);
+  assert.match(thread, /deleteBaseVersion \?\? comment\.version/u);
   assert.match(thread, /confirmed: true/u);
   assert.match(thread, /version: receipt\.rootVersion \?\? item\.version/u);
   assert.match(thread, /Comment deleted by its author/u);
@@ -158,7 +167,7 @@ test("Comment controls retain keyboard targets, live status and accessible confi
   assert.match(thread, /confirmRef\.current\?\.focus\(\)/u);
   assert.match(thread, /const titleId = useId\(\)/u);
   assert.match(thread, /account\.kind === "authenticated" \|\| account\.kind === "anonymous"/u);
-  assert.match(thread, /key=\{`reply:\$\{replyTarget\.target\.publicCommentId\}:[\s\S]*autoFocus/u);
+  assert.match(thread, /key=\{`reply:\$\{replyTarget\.target\.publicCommentId\}`\}[\s\S]*autoFocus/u);
   assert.match(thread, /ml-auto flex items-center/u);
   assert.match(thread, /\[&_button:not\(:disabled\)\]:cursor-pointer/u);
   assert.match(thread, /min-h-11/gu);

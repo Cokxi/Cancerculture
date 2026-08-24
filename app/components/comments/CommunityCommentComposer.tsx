@@ -102,11 +102,13 @@ function messageForError(error: CommunityCommentClientError) {
     case "MENTION_ONLY_REJECTED":
       return "Add some text of your own alongside the mention.";
     case "STALE_THREAD":
+      return "The conversation updated while you posted. Your draft is still here and the latest comments were loaded.";
     case "STALE_COMMENT":
+      return "This comment changed elsewhere. Your draft is still here; review the latest version before trying again.";
     case "ROOT_UNAVAILABLE":
     case "TARGET_UNAVAILABLE":
     case "BRANCH_CLOSED":
-      return "This conversation changed. Refresh comments before trying again.";
+      return "This reply target is no longer available. Your draft is still here.";
     case "EDIT_WINDOW_CLOSED":
       return "The 15-minute editing window has closed.";
     case "COOLDOWN":

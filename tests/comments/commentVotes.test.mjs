@@ -21,7 +21,10 @@ test("viewer state uses one bounded deduplicated batch path instead of per-Comme
   assert.match(client, /fetchCommunityCommentVoteViewerState/u);
   assert.match(client, /publicCommentIds: \[\.\.\.new Set\(publicCommentIds\)\]/u);
   assert.match(thread, /index \+= 100/u);
-  assert.match(thread, /Promise\.all\(batches\.map\(fetchCommunityCommentVoteViewerState\)\)/u);
+  assert.match(
+    thread,
+    /Promise\.all\(batches\.map\(\(ids\) => fetchCommunityCommentVoteViewerState\(ids\)\)\)/u,
+  );
   assert.doesNotMatch(thread, /for \([^)]*comment[^)]*\)[\s\S]{0,160}await fetchCommunityCommentVoteViewerState/iu);
   assert.match(service, /input\.publicCommentIds\.length > COMMUNITY_COMMENT_BATCH_MAX_IDS/u);
   assert.match(viewerRoute, /Object\.keys\(body\)\.length !== 1/u);

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import CommunityCommentComposer from "@/app/components/comments/CommunityCommentComposer";
 import CommunityCommentReportDialog from "@/app/components/comments/CommunityCommentReportDialog";
@@ -19,6 +20,7 @@ import {
   type CommunityCommentAccountState,
   type CommunityCommentMutationReceipt,
   type CommunityCommentReleaseState,
+  type CommunityCommentReplyPage,
   type CommunityCommentRootItem,
   type CommunityCommentRootPage,
   type CommunityCommentSort,
@@ -31,24 +33,20 @@ const UUID_PATTERN =
 const INTERNAL_LINK_PATTERN =
   /(?:https:\/\/cancerculture\.fun)?\/(?:spread\/\d+|cycle-history|wall\/(?:fame|shame)|profile\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?:[?#][^\s<>()]*)?/gu;
 const COMMENT_VOTE_LAYOUT_STORAGE_KEY = "cancerculture.comment-vote-layout.v1";
+const COMMENT_RECONCILIATION_INTERVAL_MS = 10_000;
+const COMMENT_PAGE_SIZE = 20;
 
 type CommentVoteLayout = "thumbs" | "expressive";
 
 let releaseProbe: Promise<CommunityCommentReleaseState | null> | null = null;
+let releaseProbeStartedAt = 0;
 let accountProbe: Promise<CommunityCommentAccountState> | null = null;
-const probedPages = new Map<string, CommunityCommentRootPage>();
-
-function pageKey(submissionId: number, sort: CommunityCommentSort) {
-  return `${submissionId}:${sort}`;
-}
 
 async function probeReleaseState(submissionId: number) {
-  if (!releaseProbe) {
+  if (!releaseProbe || Date.now() - releaseProbeStartedAt >= COMMENT_RECONCILIATION_INTERVAL_MS) {
+    releaseProbeStartedAt = Date.now();
     releaseProbe = fetchCommunityCommentRootPage({ submissionId, sort: "top" })
-      .then((page) => {
-        probedPages.set(pageKey(submissionId, "top"), page);
-        return page.releaseState;
-      })
+      .then((page) => page.releaseState)
       .catch((error) => {
         if (
           error instanceof CommunityCommentClientError &&
@@ -56,6 +54,7 @@ async function probeReleaseState(submissionId: number) {
           error.code === "COMMENTS_UNAVAILABLE"
         ) return null;
         releaseProbe = null;
+        releaseProbeStartedAt = 0;
         throw error;
       });
   }
@@ -261,6 +260,112 @@ function initialBranch(root: CommunityCommentRootItem): ReplyBranch {
   };
 }
 
+type ScrollAnchor = {
+  id: string | null;
+  scrollContainer: HTMLElement | null;
+  scrollTop: number;
+  top: number;
+};
+
+function captureScrollAnchor(container: HTMLElement | null): ScrollAnchor | null {
+  if (!container) return null;
+  const comments = [...container.querySelectorAll<HTMLElement>('article[id^="comment-"]')];
+  const anchor = comments.find((element) => element.getBoundingClientRect().bottom > 0) ?? null;
+  let scrollContainer: HTMLElement | null = container.parentElement;
+  while (scrollContainer) {
+    const style = window.getComputedStyle(scrollContainer);
+    if (
+      scrollContainer.scrollHeight > scrollContainer.clientHeight &&
+      (style.overflowY === "auto" || style.overflowY === "scroll")
+    ) break;
+    scrollContainer = scrollContainer.parentElement;
+  }
+  return {
+    id: anchor?.id ?? null,
+    scrollContainer,
+    scrollTop: scrollContainer?.scrollTop ?? window.scrollY,
+    top: anchor?.getBoundingClientRect().top ?? 0,
+  };
+}
+
+function restoreScrollAnchor(anchor: ScrollAnchor | null) {
+  if (!anchor) return;
+  window.requestAnimationFrame(() => {
+    const element = anchor.id ? document.getElementById(anchor.id) : null;
+    if (element) {
+      const delta = element.getBoundingClientRect().top - anchor.top;
+      if (anchor.scrollContainer) {
+        anchor.scrollContainer.scrollBy({ top: delta });
+      } else {
+        window.scrollBy({ top: delta });
+      }
+      return;
+    }
+    if (anchor.scrollContainer) {
+      anchor.scrollContainer.scrollTo({ top: anchor.scrollTop });
+    } else {
+      window.scrollTo({ top: anchor.scrollTop });
+    }
+  });
+}
+
+async function fetchRootWindow(input: {
+  submissionId: number;
+  sort: CommunityCommentSort;
+  pageCount: number;
+  signal: AbortSignal;
+}) {
+  const pages: CommunityCommentRootPage[] = [];
+  let cursor: string | null = null;
+  for (let index = 0; index < input.pageCount; index += 1) {
+    const next = await fetchCommunityCommentRootPage({
+      submissionId: input.submissionId,
+      sort: input.sort,
+      cursor,
+      signal: input.signal,
+    });
+    pages.push(next);
+    cursor = next.nextCursor;
+    if (!cursor) break;
+  }
+  const first = pages[0];
+  const last = pages.at(-1);
+  if (!first || !last) throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
+  return {
+    ...last,
+    snapshotAt: first.snapshotAt,
+    threadVersion: Math.max(...pages.map((item) => item.threadVersion)),
+    items: pages.flatMap((item) => item.items),
+  } satisfies CommunityCommentRootPage;
+}
+
+async function fetchReplyWindow(input: {
+  submissionId: number;
+  rootPublicCommentId: string;
+  pageCount: number;
+  signal: AbortSignal;
+}) {
+  const pages: CommunityCommentReplyPage[] = [];
+  let cursor: string | null = null;
+  for (let index = 0; index < input.pageCount; index += 1) {
+    const next = await fetchCommunityCommentReplyPage({
+      submissionId: input.submissionId,
+      rootPublicCommentId: input.rootPublicCommentId,
+      cursor,
+      signal: input.signal,
+    });
+    pages.push(next);
+    cursor = next.nextCursor;
+    if (!cursor) break;
+  }
+  const last = pages.at(-1);
+  if (!last) throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
+  return {
+    ...last,
+    items: mergeCommunityComments([], pages.flatMap((item) => item.items)),
+  } satisfies CommunityCommentReplyPage;
+}
+
 function DeleteConfirmation({
   busy,
   onCancel,
@@ -323,7 +428,9 @@ function CommentItem({
   voteViewer: VoteViewerProjection;
 }) {
   const [editing, setEditing] = useState(false);
+  const [editBaseVersion, setEditBaseVersion] = useState<number | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteBaseVersion, setDeleteBaseVersion] = useState<number | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -356,12 +463,13 @@ function CommentItem({
         url: `/api/comments/${encodeURIComponent(comment.publicCommentId)}`,
         method: "DELETE",
         body: {
-          expectedVersion: comment.version,
+          expectedVersion: deleteBaseVersion ?? comment.version,
           requestId: crypto.randomUUID(),
           confirmed: true,
         },
       });
       setConfirmingDelete(false);
+      setDeleteBaseVersion(null);
       onDelete(receipt);
     } catch (error) {
       if (error instanceof CommunityCommentClientError && error.status === 401) {
@@ -370,7 +478,7 @@ function CommentItem({
       }
       setDeleteError(
         error instanceof CommunityCommentClientError && error.status === 409
-          ? "This comment changed. Refresh comments before trying again."
+          ? "This comment changed elsewhere. The latest version has been loaded; review it before trying again."
           : "The comment could not be deleted. Please try again.",
       );
     } finally {
@@ -403,17 +511,26 @@ function CommentItem({
             label="Edit comment"
             submitLabel="Save changes"
             turnstileSiteKey={turnstileSiteKey}
-            onCancel={() => setEditing(false)}
+            onCancel={() => {
+              setEditing(false);
+              setEditBaseVersion(null);
+            }}
             onSubmit={({ body, mentions, requestId, turnstileToken }) =>
               sendMutation({
                 url: `/api/comments/${encodeURIComponent(comment.publicCommentId)}`,
                 method: "PATCH",
-                body: { body, mentions, requestId, expectedVersion: comment.version },
+                body: {
+                  body,
+                  mentions,
+                  requestId,
+                  expectedVersion: editBaseVersion ?? comment.version,
+                },
                 turnstileToken,
               })
             }
             onSuccess={(receipt) => {
               setEditing(false);
+              setEditBaseVersion(null);
               onEdit(receipt);
             }}
           />
@@ -481,9 +598,9 @@ function CommentItem({
           {canManage ? (
             <div className="ml-auto flex items-center gap-3 pl-3">
               {editWindowOpen ? (
-                <button type="button" onClick={() => setEditing(true)} className="min-h-8 cursor-pointer rounded px-1 py-1.5 font-semibold text-white/55 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">Edit</button>
+                <button type="button" onClick={() => { setEditBaseVersion(comment.version); setEditing(true); }} className="min-h-8 cursor-pointer rounded px-1 py-1.5 font-semibold text-white/55 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">Edit</button>
               ) : null}
-              <button type="button" onClick={() => setConfirmingDelete(true)} className="min-h-8 cursor-pointer rounded px-1 py-1.5 font-semibold text-red-300/80 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300">Delete</button>
+              <button type="button" onClick={() => { setDeleteBaseVersion(comment.version); setConfirmingDelete(true); }} className="min-h-8 cursor-pointer rounded px-1 py-1.5 font-semibold text-red-300/80 hover:text-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300">Delete</button>
             </div>
           ) : null}
           {canReport ? (
@@ -494,7 +611,7 @@ function CommentItem({
         </div>
       ) : null}
       {reportOpen ? <CommunityCommentReportDialog publicCommentId={comment.publicCommentId} siteKey={turnstileSiteKey} onClose={() => setReportOpen(false)} /> : null}
-      {confirmingDelete ? <DeleteConfirmation busy={deleteBusy} onCancel={() => setConfirmingDelete(false)} onConfirm={() => void deleteComment()} /> : null}
+      {confirmingDelete ? <DeleteConfirmation busy={deleteBusy} onCancel={() => { setConfirmingDelete(false); setDeleteBaseVersion(null); }} onConfirm={() => void deleteComment()} /> : null}
       {deleteError ? <p className="mt-2 text-sm text-red-200" role="alert">{deleteError}</p> : null}
       {voteViewer.error ? <p className="mt-2 text-sm text-red-200" role="alert">{voteViewer.error}</p> : null}
     </article>
@@ -510,6 +627,7 @@ export default function CommunityCommentThread({
   turnstileSiteKey: string | null;
   defaultOpen?: boolean;
 }) {
+  const pathname = usePathname();
   const [releaseState, setReleaseState] = useState<CommunityCommentReleaseState | null>(null);
   const [hidden, setHidden] = useState(false);
   const [open, setOpen] = useState(defaultOpen);
@@ -525,15 +643,45 @@ export default function CommunityCommentThread({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [refreshAvailable, setRefreshAvailable] = useState(false);
+  const [replyConflict, setReplyConflict] = useState<string | null>(null);
   const [composerKey, setComposerKey] = useState(0);
+  const [loadedRootPages, setLoadedRootPages] = useState(1);
+  const sectionRef = useRef<HTMLElement>(null);
   const deepLinkHandled = useRef(false);
+  const previousOpen = useRef(open);
+  const previousPathname = useRef(pathname);
+  const initialLoadBusy = useRef(false);
+  const reconciliationBusy = useRef(false);
+  const reconciliationController = useRef<AbortController | null>(null);
   const voteBusyIds = useRef(new Set<string>());
   const voteViewerAccountGeneration = useRef(0);
   const voteViewerAccountKey =
     account.kind === "authenticated"
       ? `authenticated:${account.publicProfileId ?? account.displayName}`
       : account.kind;
+  const latestState = useRef({
+    account,
+    branches,
+    loadedRootPages,
+    open,
+    ownNewRoot,
+    page,
+    replyTarget,
+    roots,
+    sort,
+  });
+  latestState.current = {
+    account,
+    branches,
+    loadedRootPages,
+    open,
+    ownNewRoot,
+    page,
+    replyTarget,
+    roots,
+    sort,
+  };
+  const hasPage = page !== null;
 
   useEffect(() => {
     voteViewerAccountGeneration.current += 1;
@@ -562,6 +710,18 @@ export default function CommunityCommentThread({
 
   useEffect(() => {
     let disposed = false;
+    reconciliationController.current?.abort();
+    reconciliationBusy.current = false;
+    deepLinkHandled.current = false;
+    setHidden(false);
+    setReleaseState(null);
+    setPage(null);
+    setRoots([]);
+    setBranches({});
+    setOwnNewRoot(null);
+    setReplyTarget(null);
+    setReplyConflict(null);
+    setLoadedRootPages(1);
     probeReleaseState(submissionId)
       .then((state) => {
         if (disposed) return;
@@ -570,9 +730,7 @@ export default function CommunityCommentThread({
           return;
         }
         setReleaseState(state);
-        const probed = probedPages.get(pageKey(submissionId, "top"));
-        if (probed) applyPage(probed, true);
-        if (state === "open") {
+        if (state === "open" && latestState.current.open) {
           void loadAccountOnce().then((value) => {
             if (!disposed) setAccount(value);
           });
@@ -583,7 +741,10 @@ export default function CommunityCommentThread({
       .catch(() => {
         if (!disposed) setError("Comments are temporarily unavailable.");
       });
-    return () => { disposed = true; };
+    return () => {
+      disposed = true;
+      reconciliationController.current?.abort();
+    };
   }, [submissionId]);
 
   useEffect(() => {
@@ -617,7 +778,7 @@ export default function CommunityCommentThread({
     for (let index = 0; index < missing.length; index += 100) {
       batches.push(missing.slice(index, index + 100));
     }
-    void Promise.all(batches.map(fetchCommunityCommentVoteViewerState))
+    void Promise.all(batches.map((ids) => fetchCommunityCommentVoteViewerState(ids)))
       .then((pages) => {
         if (accountGeneration !== voteViewerAccountGeneration.current) return;
         const loaded = new Map(pages.flat().map((item) => [item.publicCommentId, item]));
@@ -667,19 +828,26 @@ export default function CommunityCommentThread({
   }
 
   async function loadInitial(nextSort = sort, force = false) {
-    if (loading || (!force && page?.sort === nextSort)) return;
+    if (initialLoadBusy.current || (!force && page?.sort === nextSort)) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       setError("You appear to be offline. Reconnect and try again.");
       return;
     }
+    initialLoadBusy.current = true;
     setLoading(true);
     setError(null);
     try {
       const next = await fetchCommunityCommentRootPage({ submissionId, sort: nextSort });
       setSort(nextSort);
       applyPage(next, true);
+      setLoadedRootPages(1);
       setOwnNewRoot(null);
-      setRefreshAvailable(false);
+      setReplyConflict(null);
+      if (next.releaseState === "open") {
+        void loadAccountOnce().then(setAccount);
+      } else {
+        setAccount({ kind: "anonymous" });
+      }
     } catch (reason) {
       if (reason instanceof CommunityCommentClientError && reason.status === 404) {
         setHidden(true);
@@ -687,6 +855,7 @@ export default function CommunityCommentThread({
         setError("Comments are temporarily unavailable. Please try again.");
       }
     } finally {
+      initialLoadBusy.current = false;
       setLoading(false);
     }
   }
@@ -695,8 +864,8 @@ export default function CommunityCommentThread({
   loadInitialRef.current = loadInitial;
 
   useEffect(() => {
-    if (open && releaseState && !page) void loadInitialRef.current();
-  }, [open, page, releaseState]);
+    if (open && releaseState && !page) void loadInitialRef.current(sort, true);
+  }, [open, page, releaseState, sort]);
 
   useEffect(() => {
     if (!open || !page || deepLinkHandled.current) return;
@@ -743,34 +912,264 @@ export default function CommunityCommentThread({
       .catch(() => setError("That linked comment is no longer available."));
   }, [open, page, submissionId]);
 
-  useEffect(() => {
-    if (!open || !page) return;
-    let lastChecked = 0;
-    const check = () => {
-      const now = Date.now();
-      if (now - lastChecked < 15_000 || document.visibilityState !== "visible") return;
-      lastChecked = now;
-      fetchCommunityCommentRootPage({ submissionId, sort })
-        .then((fresh) => {
-          if (fresh.threadVersion > page.threadVersion) setRefreshAvailable(true);
-        })
-        .catch((reason) => {
-          if (
-            reason instanceof CommunityCommentClientError &&
-            reason.status === 404 &&
-            reason.code === "COMMENTS_UNAVAILABLE"
-          ) {
-            setHidden(true);
-          }
+  async function reconcileThread() {
+    const snapshot = latestState.current;
+    if (
+      reconciliationBusy.current ||
+      !snapshot.open ||
+      !snapshot.page ||
+      document.visibilityState !== "visible"
+    ) return null;
+
+    reconciliationBusy.current = true;
+    const controller = new AbortController();
+    reconciliationController.current = controller;
+    const scrollAnchor = captureScrollAnchor(sectionRef.current);
+    try {
+      const nextPage = await fetchRootWindow({
+        submissionId,
+        sort: snapshot.sort,
+        pageCount: Math.max(1, snapshot.loadedRootPages),
+        signal: controller.signal,
+      });
+
+      const batchIds = new Set<string>();
+      if (snapshot.ownNewRoot) batchIds.add(snapshot.ownNewRoot.publicCommentId);
+      if (snapshot.replyTarget) {
+        batchIds.add(snapshot.replyTarget.root.publicCommentId);
+        batchIds.add(snapshot.replyTarget.target.publicCommentId);
+      }
+      for (const branch of Object.values(snapshot.branches)) {
+        if (!branch.expanded) {
+          for (const item of branch.items) batchIds.add(item.publicCommentId);
+        }
+      }
+      const batches = [...batchIds].reduce<string[][]>((items, publicCommentId, index) => {
+        if (index % 100 === 0) items.push([]);
+        items.at(-1)!.push(publicCommentId);
+        return items;
+      }, []);
+      const [batchPages, replyPages] = await Promise.all([
+        Promise.all(batches.map((ids) => fetchCommunityCommentsBatch(ids, controller.signal))),
+        Promise.all(Object.entries(snapshot.branches)
+          .filter(([, branch]) => branch.expanded)
+          .map(async ([rootPublicCommentId, branch]) => {
+            try {
+              const replyPage = await fetchReplyWindow({
+                submissionId,
+                rootPublicCommentId,
+                pageCount: Math.max(1, Math.ceil(branch.items.length / COMMENT_PAGE_SIZE)),
+                signal: controller.signal,
+              });
+              return [rootPublicCommentId, replyPage] as const;
+            } catch (reason) {
+              if (controller.signal.aborted) throw reason;
+              return [rootPublicCommentId, null] as const;
+            }
+          })),
+      ]);
+
+      const currentById = new Map<string, CommunityCommentPublicDto>();
+      for (const root of nextPage.items) {
+        currentById.set(root.publicCommentId, root);
+        for (const reply of root.replyPreview) currentById.set(reply.publicCommentId, reply);
+      }
+      for (const item of batchPages.flat()) currentById.set(item.publicCommentId, item);
+      for (const [, replyPage] of replyPages) {
+        for (const item of replyPage?.items ?? []) currentById.set(item.publicCommentId, item);
+      }
+      const replyPageByRoot = new Map(replyPages);
+
+      const pinnedRoot = snapshot.replyTarget
+        ? currentById.get(snapshot.replyTarget.root.publicCommentId)
+        : null;
+      const nextRoots = [...nextPage.items];
+      if (
+        pinnedRoot?.rootPublicCommentId === null &&
+        !nextRoots.some((root) => root.publicCommentId === pinnedRoot.publicCommentId)
+      ) {
+        nextRoots.push({
+          ...pinnedRoot,
+          replyPreview: snapshot.replyTarget?.root.replyPreview ?? [],
+          replyPreviewHasMore: snapshot.replyTarget?.root.replyPreviewHasMore ?? false,
         });
+      }
+
+      const refreshedOwnRoot = snapshot.ownNewRoot
+        ? currentById.get(snapshot.ownNewRoot.publicCommentId)
+        : null;
+      const rootsForBranches = [...nextRoots];
+      if (
+        refreshedOwnRoot?.rootPublicCommentId === null &&
+        !rootsForBranches.some((root) => root.publicCommentId === refreshedOwnRoot.publicCommentId)
+      ) {
+        rootsForBranches.push({
+          ...refreshedOwnRoot,
+          replyPreview: snapshot.ownNewRoot?.replyPreview ?? [],
+          replyPreviewHasMore: snapshot.ownNewRoot?.replyPreviewHasMore ?? false,
+        });
+      }
+
+      const nextBranches: Record<string, ReplyBranch> = {};
+      for (const root of rootsForBranches) {
+        const current = snapshot.branches[root.publicCommentId] ?? initialBranch(root);
+        const refreshedReplies = replyPageByRoot.get(root.publicCommentId);
+        if (refreshedReplies) {
+          nextBranches[root.publicCommentId] = {
+            ...current,
+            items: refreshedReplies.items,
+            rootVersion: refreshedReplies.rootVersion,
+            branchOpen: refreshedReplies.branchOpen,
+            hasMore: refreshedReplies.hasMore,
+            nextCursor: refreshedReplies.nextCursor,
+            initialized: true,
+            loading: false,
+            error: null,
+          };
+          continue;
+        }
+        const currentItems = current.items.flatMap((item) => {
+          const refreshed = currentById.get(item.publicCommentId);
+          return refreshed ? [refreshed] : [];
+        });
+        const items = mergeCommunityComments(currentItems, root.replyPreview);
+        nextBranches[root.publicCommentId] = {
+          ...current,
+          items,
+          rootVersion: root.version,
+          branchOpen: root.tombstone === null,
+          hasMore: root.replyCount > items.length,
+          nextCursor: null,
+          initialized: false,
+          loading: false,
+          error: current.expanded ? "Could not refresh replies. Trying again shortly." : null,
+        };
+      }
+
+      setPage(nextPage);
+      setReleaseState(nextPage.releaseState);
+      setRoots(nextRoots);
+      setBranches(nextBranches);
+      setOwnNewRoot(
+        refreshedOwnRoot?.rootPublicCommentId === null
+          ? {
+              ...refreshedOwnRoot,
+              replyPreview: snapshot.ownNewRoot?.replyPreview ?? [],
+              replyPreviewHasMore: snapshot.ownNewRoot?.replyPreviewHasMore ?? false,
+            }
+          : null,
+      );
+
+      if (snapshot.replyTarget) {
+        const root = rootsForBranches.find((item) =>
+          item.publicCommentId === snapshot.replyTarget?.root.publicCommentId
+        );
+        const target = currentById.get(snapshot.replyTarget.target.publicCommentId);
+        const branch = root ? nextBranches[root.publicCommentId] : null;
+        if (!root || !target || root.tombstone !== null || target.tombstone !== null || !branch?.branchOpen) {
+          setReplyConflict("This reply target is no longer available. Your draft is still here.");
+        } else {
+          setReplyTarget({ root, target });
+          setReplyConflict(null);
+        }
+      } else {
+        setReplyConflict(null);
+      }
+
+      if (snapshot.account.kind === "authenticated" && nextPage.releaseState === "open") {
+        const voteIds = new Set<string>();
+        for (const root of rootsForBranches) {
+          if (root.tombstone === null) voteIds.add(root.publicCommentId);
+          for (const reply of nextBranches[root.publicCommentId]?.items ?? []) {
+            if (reply.tombstone === null) voteIds.add(reply.publicCommentId);
+          }
+        }
+        const voteBatches = [...voteIds].reduce<string[][]>((items, publicCommentId, index) => {
+          if (index % 100 === 0) items.push([]);
+          items.at(-1)!.push(publicCommentId);
+          return items;
+        }, []);
+        void Promise.all(voteBatches.map((ids) =>
+          fetchCommunityCommentVoteViewerState(ids, controller.signal)
+        )).then((pages) => {
+          if (controller.signal.aborted) return;
+          const refreshed = new Map(pages.flat().map((item) => [item.publicCommentId, item]));
+          setVoteViewerById((current) => {
+            const next = { ...current };
+            for (const publicCommentId of voteIds) {
+              const item = refreshed.get(publicCommentId);
+              if (item) {
+                next[publicCommentId] = {
+                  state: item.state,
+                  version: item.version,
+                  loading: false,
+                  error: null,
+                };
+              }
+            }
+            return next;
+          });
+        }).catch(() => {
+          // Public reconciliation remains valid if private viewer state briefly fails.
+        });
+      }
+      restoreScrollAnchor(scrollAnchor);
+      return nextPage;
+    } catch (reason) {
+      if (controller.signal.aborted || (reason instanceof Error && reason.name === "AbortError")) {
+        return null;
+      }
+      if (
+        reason instanceof CommunityCommentClientError &&
+        reason.status === 404 &&
+        reason.code === "COMMENTS_UNAVAILABLE"
+      ) {
+        setHidden(true);
+      }
+      return null;
+    } finally {
+      if (reconciliationController.current === controller) {
+        reconciliationController.current = null;
+      }
+      reconciliationBusy.current = false;
+    }
+  }
+
+  const reconcileThreadRef = useRef(reconcileThread);
+  reconcileThreadRef.current = reconcileThread;
+
+  useEffect(() => {
+    const justOpened = open && !previousOpen.current;
+    const navigated = pathname !== previousPathname.current;
+    previousOpen.current = open;
+    previousPathname.current = pathname;
+    if (open && hasPage && (justOpened || navigated)) {
+      void reconcileThreadRef.current();
+    }
+  }, [hasPage, open, pathname]);
+
+  useEffect(() => {
+    if (!open || !hasPage) return;
+    const check = () => {
+      if (document.visibilityState !== "visible") {
+        reconciliationController.current?.abort();
+        return;
+      }
+      void reconcileThreadRef.current();
     };
+    const onPageShow = () => check();
+    const interval = window.setInterval(check, COMMENT_RECONCILIATION_INTERVAL_MS);
     window.addEventListener("focus", check);
+    window.addEventListener("pageshow", onPageShow);
     document.addEventListener("visibilitychange", check);
     return () => {
+      reconciliationController.current?.abort();
+      window.clearInterval(interval);
       window.removeEventListener("focus", check);
+      window.removeEventListener("pageshow", onPageShow);
       document.removeEventListener("visibilitychange", check);
     };
-  }, [open, page, sort, submissionId]);
+  }, [hasPage, open, submissionId]);
 
   async function loadMoreRoots() {
     if (!page?.nextCursor || loadingMore) return;
@@ -778,6 +1177,7 @@ export default function CommunityCommentThread({
     setError(null);
     try {
       applyPage(await fetchCommunityCommentRootPage({ submissionId, sort, cursor: page.nextCursor }), false);
+      setLoadedRootPages((current) => current + 1);
     } catch {
       setError("Could not load more comments. Please try again.");
     } finally {
@@ -954,6 +1354,7 @@ export default function CommunityCommentThread({
       ? { ...current, threadVersion: receipt.threadVersion }
       : current);
     setReplyTarget(null);
+    setReplyConflict(null);
   }
 
   async function guardedMutation(
@@ -966,6 +1367,30 @@ export default function CommunityCommentThread({
         if (reason.code === "READ_ONLY") setReleaseState("read_only");
         if (reason.status === 404 && reason.code === "COMMENTS_UNAVAILABLE") {
           setHidden(true);
+        }
+        if ([
+          "STALE_THREAD",
+          "STALE_COMMENT",
+          "ROOT_UNAVAILABLE",
+          "TARGET_UNAVAILABLE",
+          "BRANCH_CLOSED",
+          "COMMENT_UNAVAILABLE",
+          "AUTHOR_DELETED",
+        ].includes(reason.code)) {
+          const refreshed = await reconcileThreadRef.current();
+          const rootAppend =
+            reason.code === "STALE_THREAD" &&
+            input.method === "POST" &&
+            input.url === `/api/comments/submissions/${submissionId}`;
+          if (rootAppend && refreshed) {
+            return sendCommunityCommentMutation({
+              ...input,
+              body: {
+                ...input.body,
+                expectedThreadVersion: refreshed.threadVersion,
+              },
+            });
+          }
         }
       }
       throw reason;
@@ -984,6 +1409,7 @@ export default function CommunityCommentThread({
       };
     });
     setReplyTarget({ root, target });
+    setReplyConflict(null);
   }
 
   function toggleReplies(root: CommunityCommentRootItem) {
@@ -998,6 +1424,7 @@ export default function CommunityCommentThread({
     }));
     if (!expanded && replyTarget?.root.publicCommentId === root.publicCommentId) {
       setReplyTarget(null);
+      setReplyConflict(null);
     }
   }
 
@@ -1015,7 +1442,7 @@ export default function CommunityCommentThread({
     };
 
   return (
-    <section data-comment-thread data-comment-submission-id={submissionId} className="min-w-0 border-t border-orange-500/20 bg-neutral-950/70 [&_a]:cursor-pointer [&_button:not(:disabled)]:cursor-pointer">
+    <section ref={sectionRef} data-comment-thread data-comment-submission-id={submissionId} className="min-w-0 border-t border-orange-500/20 bg-neutral-950/70 [&_a]:cursor-pointer [&_button:not(:disabled)]:cursor-pointer">
       <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400 sm:px-5">
           <span>Comments</span>
@@ -1041,13 +1468,6 @@ export default function CommunityCommentThread({
                 </div>
                 <button type="button" onClick={() => void loadInitial(sort, true)} disabled={loading} className="min-h-11 rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/75 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:opacity-50">Refresh</button>
               </div>
-
-              {refreshAvailable ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-orange-400/25 bg-orange-500/10 px-3 py-2 text-sm text-orange-100" role="status">
-                  <span>New comments or replies may be available.</span>
-                  <button type="button" onClick={() => void loadInitial(sort, true)} className="min-h-11 rounded-full px-3 py-2 font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300">Refresh comments</button>
-                </div>
-              ) : null}
 
               {releaseState === "read_only" ? (
                 <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/65" role="status">Comments are currently read-only.</p>
@@ -1092,15 +1512,19 @@ export default function CommunityCommentThread({
                   account.kind === "authenticated" && ownNewBranch ? (
                     <div className="mt-3">
                       <p className="mb-2 text-sm text-white/60">Replying to @{replyTarget.target.author.displayName}</p>
+                      {replyConflict ? <p className="mb-2 text-sm text-red-200" role="alert">{replyConflict}</p> : null}
                       <CommunityCommentComposer
-                        key={`reply:${replyTarget.target.publicCommentId}:${replyTarget.target.version}`}
+                        key={`reply:${replyTarget.target.publicCommentId}`}
                         autoFocus
                         label="Write a reply"
                         submitLabel="Post reply"
                         turnstileSiteKey={turnstileSiteKey}
-                        onCancel={() => setReplyTarget(null)}
-                        onSubmit={({ body, mentions, requestId, turnstileToken }) =>
-                          guardedMutation({
+                        onCancel={() => { setReplyTarget(null); setReplyConflict(null); }}
+                        onSubmit={({ body, mentions, requestId, turnstileToken }) => {
+                          if (replyConflict) {
+                            return Promise.reject(new CommunityCommentClientError(409, "TARGET_UNAVAILABLE"));
+                          }
+                          return guardedMutation({
                             url: `/api/comments/submissions/${submissionId}/${encodeURIComponent(ownNewRoot.publicCommentId)}/replies`,
                             method: "POST",
                             body: {
@@ -1112,8 +1536,8 @@ export default function CommunityCommentThread({
                               expectedTargetVersion: replyTarget.target.version,
                             },
                             turnstileToken,
-                          })
-                        }
+                          });
+                        }}
                         onSuccess={(receipt) =>
                           acceptReply(ownNewRoot, ownNewBranch, receipt)
                         }
@@ -1154,15 +1578,19 @@ export default function CommunityCommentThread({
                         account.kind === "authenticated" ? (
                           <div className="ml-3 sm:ml-6">
                             <p className="mb-2 text-sm text-white/60">Replying to @{replyTarget.target.author.displayName}</p>
+                            {replyConflict ? <p className="mb-2 text-sm text-red-200" role="alert">{replyConflict}</p> : null}
                             <CommunityCommentComposer
-                              key={`reply:${replyTarget.target.publicCommentId}:${replyTarget.target.version}`}
+                              key={`reply:${replyTarget.target.publicCommentId}`}
                               autoFocus
                               label="Write a reply"
                               submitLabel="Post reply"
                               turnstileSiteKey={turnstileSiteKey}
-                              onCancel={() => setReplyTarget(null)}
-                              onSubmit={({ body, mentions, requestId, turnstileToken }) =>
-                                guardedMutation({
+                              onCancel={() => { setReplyTarget(null); setReplyConflict(null); }}
+                              onSubmit={({ body, mentions, requestId, turnstileToken }) => {
+                                if (replyConflict) {
+                                  return Promise.reject(new CommunityCommentClientError(409, "TARGET_UNAVAILABLE"));
+                                }
+                                return guardedMutation({
                                   url: `/api/comments/submissions/${submissionId}/${encodeURIComponent(root.publicCommentId)}/replies`,
                                   method: "POST",
                                   body: {
@@ -1174,8 +1602,8 @@ export default function CommunityCommentThread({
                                     expectedTargetVersion: replyTarget.target.version,
                                   },
                                   turnstileToken,
-                                })
-                              }
+                                });
+                              }}
                               onSuccess={(receipt) => acceptReply(root, branch, receipt)}
                             />
                           </div>

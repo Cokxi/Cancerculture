@@ -266,13 +266,14 @@ export async function fetchCommunityCommentReplyPage(input: {
   submissionId: number;
   rootPublicCommentId: string;
   cursor?: string | null;
+  signal?: AbortSignal;
 }) {
   const suffix = input.cursor
     ? `?cursor=${encodeURIComponent(input.cursor)}`
     : "";
   const response = await fetch(
     `/api/comments/submissions/${input.submissionId}/${encodeURIComponent(input.rootPublicCommentId)}/replies${suffix}`,
-    { cache: "no-store" },
+    { cache: "no-store", signal: input.signal },
   );
   return parseCommunityCommentReplyPage(
     await responseJson(response),
@@ -305,12 +306,16 @@ export async function fetchCommunityCommentDeepLink(publicCommentId: string) {
   };
 }
 
-export async function fetchCommunityCommentsBatch(publicCommentIds: string[]) {
+export async function fetchCommunityCommentsBatch(
+  publicCommentIds: string[],
+  signal?: AbortSignal,
+) {
   const response = await fetch("/api/comments/batch", {
     method: "POST",
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ publicCommentIds: [...new Set(publicCommentIds)] }),
+    signal,
   });
   const value = record(await responseJson(response));
   if (!exactKeys(value, ["items"]) || !Array.isArray(value.items)) {
@@ -388,12 +393,14 @@ function parseVoteState(value: unknown): CommunityCommentVoteState {
 
 export async function fetchCommunityCommentVoteViewerState(
   publicCommentIds: string[],
+  signal?: AbortSignal,
 ) {
   const response = await fetch("/api/comments/votes/viewer-state", {
     method: "POST",
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ publicCommentIds: [...new Set(publicCommentIds)] }),
+    signal,
   });
   const value = record(await responseJson(response));
   if (!exactKeys(value, ["items"]) || !Array.isArray(value.items)) {
