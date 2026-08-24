@@ -43,6 +43,25 @@ export type CommunityCommentMutationReceipt = {
   comment: CommunityCommentPublicDto;
 };
 
+export type CommunityCommentVoteState = "up" | "down" | null;
+
+export type CommunityCommentVoteViewerState = {
+  publicCommentId: string;
+  state: CommunityCommentVoteState;
+  version: number;
+};
+
+export type CommunityCommentVoteReceipt = {
+  outcome: "voted";
+  replayed: boolean;
+  projection: {
+    publicCommentId: string;
+    voteCounts: { up: number; down: number };
+    viewerState: CommunityCommentVoteState;
+    viewerVersion: number;
+  };
+};
+
 export type CommunityCommentMentionTarget = {
   publicProfileId: string;
   displayName: string;
@@ -286,6 +305,20 @@ export async function fetchCommunityCommentDeepLink(publicCommentId: string) {
   };
 }
 
+export async function fetchCommunityCommentsBatch(publicCommentIds: string[]) {
+  const response = await fetch("/api/comments/batch", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ publicCommentIds: [...new Set(publicCommentIds)] }),
+  });
+  const value = record(await responseJson(response));
+  if (!exactKeys(value, ["items"]) || !Array.isArray(value.items)) {
+    throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
+  }
+  return value.items.map(parseCommunityCommentPublicDto);
+}
+
 export async function fetchCommunityCommentAccount(): Promise<CommunityCommentAccountState> {
   try {
     const response = await fetch("/api/auth/account", { cache: "no-store" });
@@ -346,6 +379,93 @@ export async function sendCommunityCommentMutation(input: {
     body: JSON.stringify(input.body),
   });
   return parseCommunityCommentMutationReceipt(await responseJson(response));
+}
+
+function parseVoteState(value: unknown): CommunityCommentVoteState {
+  if (value === null || value === "up" || value === "down") return value;
+  throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
+}
+
+export async function fetchCommunityCommentVoteViewerState(
+  publicCommentIds: string[],
+) {
+  const response = await fetch("/api/comments/votes/viewer-state", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ publicCommentIds: [...new Set(publicCommentIds)] }),
+  });
+  const value = record(await responseJson(response));
+  if (!exactKeys(value, ["items"]) || !Array.isArray(value.items)) {
+    throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
+  }
+  return value.items.map((candidate): CommunityCommentVoteViewerState => {
+    const item = record(candidate);
+    if (
+      !exactKeys(item, ["publicCommentId", "state", "version"]) ||
+      typeof item.publicCommentId !== "string" ||
+      !nonNegativeInteger(item.version)
+    ) {
+      throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
+    }
+    return {
+      publicCommentId: item.publicCommentId,
+      state: parseVoteState(item.state),
+      version: item.version as number,
+    };
+  });
+}
+
+export async function sendCommunityCommentVote(input: {
+  publicCommentId: string;
+  desiredState: CommunityCommentVoteState;
+  expectedVersion: number;
+  requestId: string;
+}) {
+  const response = await fetch(
+    `/api/comments/${encodeURIComponent(input.publicCommentId)}/vote`,
+    {
+      method: "PUT",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        desiredState: input.desiredState,
+        expectedVersion: input.expectedVersion,
+        requestId: input.requestId,
+      }),
+    },
+  );
+  const receipt = record(await responseJson(response));
+  const projection = record(receipt.projection);
+  const counts = record(projection.voteCounts);
+  if (
+    !exactKeys(receipt, ["outcome", "projection", "replayed"]) ||
+    receipt.outcome !== "voted" ||
+    typeof receipt.replayed !== "boolean" ||
+    !exactKeys(projection, [
+      "publicCommentId",
+      "viewerState",
+      "viewerVersion",
+      "voteCounts",
+    ]) ||
+    projection.publicCommentId !== input.publicCommentId ||
+    !nonNegativeInteger(projection.viewerVersion) ||
+    !exactKeys(counts, ["down", "up"]) ||
+    !nonNegativeInteger(counts.up) ||
+    !nonNegativeInteger(counts.down)
+  ) {
+    throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
+  }
+  return {
+    outcome: "voted" as const,
+    replayed: receipt.replayed,
+    projection: {
+      publicCommentId: input.publicCommentId,
+      voteCounts: { up: counts.up as number, down: counts.down as number },
+      viewerState: parseVoteState(projection.viewerState),
+      viewerVersion: projection.viewerVersion as number,
+    },
+  } satisfies CommunityCommentVoteReceipt;
 }
 
 export function mergeCommunityComments(

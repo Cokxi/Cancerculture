@@ -12,6 +12,7 @@ export const COMMUNITY_COMMENT_PUBLIC_KEYS = [
   "submissionId",
   "tombstone",
   "version",
+  "voteCounts",
 ] as const;
 
 const AUTHOR_KEYS = [
@@ -53,6 +54,7 @@ export type CommunityCommentPublicDto = {
     endIndex: number;
   }>;
   replyCount: number;
+  voteCounts: { up: number; down: number } | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -108,6 +110,15 @@ export function parseCommunityCommentPublicDto(
     !(value.body === null || typeof value.body === "string") ||
     !Number.isSafeInteger(value.replyCount) ||
     (value.replyCount as number) < 0 ||
+    !(
+      value.voteCounts === null ||
+      (isRecord(value.voteCounts) &&
+        hasExactKeys(value.voteCounts, ["down", "up"]) &&
+        Number.isSafeInteger(value.voteCounts.up) &&
+        Number(value.voteCounts.up) >= 0 &&
+        Number.isSafeInteger(value.voteCounts.down) &&
+        Number(value.voteCounts.down) >= 0)
+    ) ||
     typeof value.author.publicProfileId !== "string" ||
     !UUID_PATTERN.test(value.author.publicProfileId) ||
     typeof value.author.displayName !== "string" ||
@@ -138,11 +149,14 @@ export function parseCommunityCommentPublicDto(
 
   if (
     value.tombstone === "author_deleted" &&
-    (value.body !== null || value.mentions.length !== 0)
+    (value.body !== null || value.mentions.length !== 0 || value.voteCounts !== null)
   ) {
     return invalid();
   }
   if (value.tombstone === null && typeof value.body !== "string") {
+    return invalid();
+  }
+  if (value.tombstone === null && value.voteCounts === null) {
     return invalid();
   }
 

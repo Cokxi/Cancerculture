@@ -24,7 +24,7 @@ test("Comment root cursors bind submission, sort, snapshot, and full keyset", ()
   const payload = {
     version: 1,
     scope: p.PUBLIC_PAGINATION_SCOPES.commentRootsTop,
-    context: { submissionId: 42, sort: "top", contractVersion: 1 },
+    context: { submissionId: 42, sort: "top", contractVersion: 2 },
     values: {
       snapshotAt: "2026-08-23T12:00:00.000000+00:00",
       netScore: 0,
@@ -37,7 +37,7 @@ test("Comment root cursors bind submission, sort, snapshot, and full keyset", ()
   for (const context of [
     { ...payload.context, submissionId: 43 },
     { ...payload.context, sort: "newest" },
-    { ...payload.context, contractVersion: 2 },
+    { ...payload.context, contractVersion: 3 },
   ]) assert.throws(() => codec.decodePublicPaginationCursor(encoded, payload.scope, context, secret));
 });
 
@@ -48,7 +48,7 @@ test("Reply cursors have an independent root-bound scope", () => {
     context: {
       submissionId: 42,
       rootPublicCommentId: "018f0ed0-5c89-4c0f-9c38-8cebd4e18422",
-      contractVersion: 1,
+      contractVersion: 2,
     },
     values: {
       snapshotAt: "2026-08-23T12:00:00.000000+00:00",

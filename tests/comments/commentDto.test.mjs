@@ -17,6 +17,7 @@ const base = {
   author: { publicProfileId: id, displayName: "Ada", isCreator: true, isBanned: false },
   mentions: [],
   replyCount: 0,
+  voteCounts: { up: 0, down: 0 },
 };
 
 test("public Comment DTO accepts only the narrow current projection", () => {
@@ -33,7 +34,7 @@ test("public Comment DTO accepts only the narrow current projection", () => {
 });
 
 test("author tombstones remove body and current mentions", () => {
-  const tombstone = { ...base, version: 2, tombstone: "author_deleted", body: null, mentions: [] };
+  const tombstone = { ...base, version: 2, tombstone: "author_deleted", body: null, mentions: [], voteCounts: null };
   assert.deepEqual(parseCommunityCommentPublicDto(tombstone), tombstone);
   assert.throws(() => parseCommunityCommentPublicDto({ ...tombstone, body: "old text" }));
 });

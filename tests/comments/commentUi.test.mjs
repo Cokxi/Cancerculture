@@ -28,6 +28,7 @@ const baseComment = {
   },
   mentions: [],
   replyCount: 0,
+  voteCounts: { up: 0, down: 0 },
 };
 
 const [thread, composer, client, feed, detail, history, fame, shame, accountRoute] =

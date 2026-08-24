@@ -287,6 +287,84 @@ export async function getCommunityCommentsBatch(publicCommentIds: string[]) {
   return { items: value.items.map(parseCommunityCommentPublicDto) };
 }
 
+export type CommunityCommentVoteState = "up" | "down" | null;
+
+function parseVoteState(value: unknown): CommunityCommentVoteState {
+  if (value === null || value === "up" || value === "down") return value;
+  unavailable();
+}
+
+function parseVoteCounts(value: unknown) {
+  const counts = record(value);
+  if (
+    !exactKeys(counts, ["down", "up"]) ||
+    !nonNegativeInteger(counts.up) ||
+    !nonNegativeInteger(counts.down)
+  ) unavailable();
+  return { up: counts.up as number, down: counts.down as number };
+}
+
+function parseVoteProjection(value: unknown, expectedPublicCommentId: string) {
+  const projection = record(value);
+  if (
+    !exactKeys(projection, [
+      "publicCommentId",
+      "viewerState",
+      "viewerVersion",
+      "voteCounts",
+    ]) ||
+    projection.publicCommentId !== expectedPublicCommentId ||
+    !nonNegativeInteger(projection.viewerVersion)
+  ) unavailable();
+  return {
+    publicCommentId: expectedPublicCommentId,
+    voteCounts: parseVoteCounts(projection.voteCounts),
+    viewerState: parseVoteState(projection.viewerState),
+    viewerVersion: projection.viewerVersion as number,
+  };
+}
+
+export async function getCommunityCommentVoteViewerState(input: {
+  sessionId: string;
+  publicCommentIds: string[];
+}) {
+  if (
+    !uuid(input.sessionId) ||
+    !Array.isArray(input.publicCommentIds) ||
+    input.publicCommentIds.length > COMMUNITY_COMMENT_BATCH_MAX_IDS
+  ) {
+    throw new CommunityCommentServiceError(400, "COMMENT_VOTE_VIEWER_INVALID");
+  }
+  const ids = [...new Set(input.publicCommentIds)];
+  if (
+    ids.length > COMMUNITY_COMMENT_BATCH_MAX_IDS ||
+    ids.some((publicCommentId) => !uuid(publicCommentId))
+  ) {
+    throw new CommunityCommentServiceError(400, "COMMENT_VOTE_VIEWER_INVALID");
+  }
+  const value = await rpc("get_community_comment_vote_viewer_state", {
+    p_session_id: input.sessionId,
+    p_public_comment_ids: ids,
+  });
+  readOutcome(value);
+  if (!Array.isArray(value.items)) unavailable();
+  return {
+    items: value.items.map((candidate) => {
+      const item = record(candidate);
+      if (
+        !exactKeys(item, ["publicCommentId", "state", "version"]) ||
+        !uuid(item.publicCommentId) ||
+        !nonNegativeInteger(item.version)
+      ) unavailable();
+      return {
+        publicCommentId: item.publicCommentId as string,
+        state: parseVoteState(item.state),
+        version: item.version as number,
+      };
+    }),
+  };
+}
+
 export async function searchCommunityCommentMentionTargets(input: {
   sessionId: string;
   query: string;
@@ -464,4 +542,67 @@ export async function deleteCommunityComment(input: {
     p_request_id: input.body.requestId,
     p_confirmed: true,
   }));
+}
+
+export async function setCommunityCommentVote(input: {
+  request: Request;
+  sessionId: string;
+  publicCommentId: string;
+  body: JsonRecord;
+}) {
+  if (
+    !exactKeys(input.body, ["desiredState", "expectedVersion", "requestId"]) ||
+    !uuid(input.sessionId) ||
+    !uuid(input.publicCommentId) ||
+    !uuid(input.body.requestId) ||
+    !nonNegativeInteger(input.body.expectedVersion) ||
+    !(
+      input.body.desiredState === null ||
+      input.body.desiredState === "up" ||
+      input.body.desiredState === "down"
+    )
+  ) {
+    throw new CommunityCommentServiceError(400, "COMMENT_VOTE_INVALID");
+  }
+
+  const value = await rpc("set_community_comment_vote", {
+    p_session_id: input.sessionId,
+    p_public_comment_id: input.publicCommentId,
+    p_desired_state: input.body.desiredState,
+    p_expected_version: input.body.expectedVersion,
+    p_request_id: input.body.requestId,
+    p_content_digest: getCommunityCommentContentDigest(
+      `${input.publicCommentId}:${input.body.desiredState ?? "neutral"}`
+    ),
+    p_turnstile_verified: await turnstileVerified(input.request),
+  });
+
+  if (value.outcome === "voted") {
+    if (typeof value.replayed !== "boolean") unavailable();
+    return {
+      outcome: "voted" as const,
+      replayed: value.replayed,
+      projection: parseVoteProjection(value.projection, input.publicCommentId),
+    };
+  }
+
+  if (value.outcome === "stale_vote") {
+    throw new CommunityCommentServiceError(409, "STALE_VOTE");
+  }
+  if (value.outcome === "idempotency_conflict") {
+    throw new CommunityCommentServiceError(409, "IDEMPOTENCY_CONFLICT");
+  }
+  if (value.outcome === "comment_unavailable") {
+    throw new CommunityCommentServiceError(404, "COMMENT_NOT_FOUND");
+  }
+  if (value.outcome === "feature_off") {
+    throw new CommunityCommentServiceError(404, "COMMENTS_UNAVAILABLE");
+  }
+  if (value.outcome === "read_only") {
+    throw new CommunityCommentServiceError(503, "READ_ONLY");
+  }
+  if (value.outcome === "cooldown" || value.outcome === "turnstile_required") {
+    throw new CommunityCommentServiceError(429, String(value.outcome).toUpperCase());
+  }
+  unavailable();
 }
