@@ -51,6 +51,8 @@ export default function ProfileSections({
   submissions,
   votes,
   winnings,
+  commentsPreview,
+  mentionsPreview,
   savedMemesPreview,
   reportsPreview,
   moderationHistoryPreview,
@@ -58,6 +60,8 @@ export default function ProfileSections({
   submissions: ProfileSubmission[];
   votes: ProfileVote[];
   winnings: ProfileWinSummary[] | null;
+  commentsPreview: ReactNode;
+  mentionsPreview: ReactNode;
   savedMemesPreview: ReactNode;
   reportsPreview: ReactNode;
   moderationHistoryPreview: ReactNode;
@@ -94,6 +98,20 @@ export default function ProfileSections({
         <div>{savedMemesPreview}</div>
         <OverviewLink href="/my-profile/saved-memes">
           Open My Saved Memes to see all saved memes
+        </OverviewLink>
+      </Section>
+
+      <Section title="My Comments">
+        <div>{commentsPreview}</div>
+        <OverviewLink href="/my-profile/comments">
+          Open My Comments to see all comments
+        </OverviewLink>
+      </Section>
+
+      <Section title="My Mentions">
+        <div>{mentionsPreview}</div>
+        <OverviewLink href="/my-profile/mentions">
+          Open My Mentions to see all mentions
         </OverviewLink>
       </Section>
 

@@ -34,6 +34,8 @@ import { getOwnWalletIssueIntakes } from "@/lib/walletIssues/service.server";
 import { getTurnstileClientSiteKey } from "@/lib/turnstile/config.server";
 import type { WalletIssueStatus } from "@/lib/walletIssues/contract";
 import { enrichOwnWinnerClaims } from "@/lib/profile/profileWinSummary";
+import { loadOwnComments, loadOwnMentions } from "@/lib/comments/commentOwner.server";
+import { OwnCommentsList, OwnMentionsList } from "./CommentOwnerLists";
 
 const MY_PROFILE_PATH = "/my-profile";
 const MY_PROFILE_LOGIN_PATH =
@@ -254,7 +256,7 @@ export default async function MyProfilePage() {
   }
 
   const session = sessionState.session;
-  const [profileData, profileWallet, winnings, payoutReturns, donationCorrections, organizations, walletIssueIntakes, savedMemesPreview, reportsPreview, moderationHistoryPreview] = await Promise.all([
+  const [profileData, profileWallet, winnings, payoutReturns, donationCorrections, organizations, walletIssueIntakes, savedMemesPreview, reportsPreview, moderationHistoryPreview, commentsPreview, mentionsPreview] = await Promise.all([
     getUserProfileData(session.discord_user_id),
     getSolProfileWallet(session).catch(() => undefined),
     getOwnWinnerClaims(session).catch(() => null),
@@ -271,6 +273,14 @@ export default async function MyProfilePage() {
       limit: PROFILE_PREVIEW_LIMIT,
     }).catch(() => null),
     loadOwnDisqualificationHistory({}).catch(() => null),
+    loadOwnComments({
+      sessionId: session.session_id,
+      limit: PROFILE_PREVIEW_LIMIT,
+    }).catch(() => null),
+    loadOwnMentions({
+      sessionId: session.session_id,
+      limit: PROFILE_PREVIEW_LIMIT,
+    }).catch(() => null),
   ]);
   const walletIssueBySubmission = new Map(
     walletIssueIntakes.map((intake) => [intake.submissionId, intake.status] as const)
@@ -420,6 +430,20 @@ export default async function MyProfilePage() {
           submissions={submissions}
           votes={votes}
           winnings={profileWinnings}
+          commentsPreview={
+            commentsPreview ? (
+              <OwnCommentsList items={commentsPreview.items} />
+            ) : (
+              <p className="text-sm text-gray-400">Comments are temporarily unavailable.</p>
+            )
+          }
+          mentionsPreview={
+            mentionsPreview ? (
+              <OwnMentionsList page={mentionsPreview} preview />
+            ) : (
+              <p className="text-sm text-gray-400">Mentions are temporarily unavailable.</p>
+            )
+          }
           savedMemesPreview={
             savedMemesPreview ? (
               <SavedMemesClient initialPage={savedMemesPreview} preview />

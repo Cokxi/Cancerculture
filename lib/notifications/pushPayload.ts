@@ -104,6 +104,16 @@ export const PUSH_PAYLOAD_CATALOG = Object.freeze({
     title: "Wallet issue resolved",
     body: "Review the current recipient and confirm your Claim within 24 hours.",
   },
+  comment_reply: {
+    categoryKey: "comment_replies",
+    title: "New comment reply",
+    body: "You have a new reply.",
+  },
+  comment_mention: {
+    categoryKey: "comment_mentions",
+    title: "New comment mention",
+    body: "You were mentioned.",
+  },
 } as const);
 
 export type PushEventType = keyof typeof PUSH_PAYLOAD_CATALOG;

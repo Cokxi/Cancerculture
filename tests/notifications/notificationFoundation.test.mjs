@@ -76,6 +76,8 @@ test("the central Push catalog covers every currently implemented notification e
     "wallet_issue_received",
     "wallet_issue_correction_ready",
     "wallet_issue_resolved",
+    "comment_reply",
+    "comment_mention",
   ];
   assert.deepEqual(Object.keys(PUSH_PAYLOAD_CATALOG), expected);
   assert.equal(getServiceWorkerPushAllowlist().length, expected.length);
