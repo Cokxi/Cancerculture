@@ -8,6 +8,7 @@ import CommunityCommentReportDialog from "@/app/components/comments/CommunityCom
 import {
   CommunityCommentClientError,
   fetchCommunityCommentAccount,
+  fetchCommunityCommentCounts,
   fetchCommunityCommentsBatch,
   fetchCommunityCommentDeepLink,
   fetchCommunityCommentReplyPage,
@@ -41,12 +42,88 @@ type CommentVoteLayout = "thumbs" | "expressive";
 let releaseProbe: Promise<CommunityCommentReleaseState | null> | null = null;
 let releaseProbeStartedAt = 0;
 let accountProbe: Promise<CommunityCommentAccountState> | null = null;
+type CommentCountListener = (totalCount: number | null) => void;
+const commentCountCache = new Map<number, number>();
+const commentCountListeners = new Map<number, Set<CommentCountListener>>();
+const pendingCommentCountIds = new Set<number>();
+let commentCountFlushTimer: number | null = null;
+let commentCountFlushBusy = false;
+
+function publishCommunityCommentCount(submissionId: number, totalCount: number) {
+  commentCountCache.set(submissionId, totalCount);
+  for (const listener of commentCountListeners.get(submissionId) ?? []) {
+    listener(totalCount);
+  }
+}
+
+function clearCommunityCommentCount(submissionId: number) {
+  commentCountCache.delete(submissionId);
+  for (const listener of commentCountListeners.get(submissionId) ?? []) {
+    listener(null);
+  }
+}
+
+function scheduleCommunityCommentCountFlush() {
+  if (commentCountFlushTimer !== null || commentCountFlushBusy) return;
+  commentCountFlushTimer = window.setTimeout(() => {
+    commentCountFlushTimer = null;
+    void flushCommunityCommentCounts();
+  }, 0);
+}
+
+function queueCommunityCommentCountRefresh(submissionId: number) {
+  pendingCommentCountIds.add(submissionId);
+  scheduleCommunityCommentCountFlush();
+}
+
+async function flushCommunityCommentCounts() {
+  if (commentCountFlushBusy) return;
+  const submissionIds = [...pendingCommentCountIds].slice(0, 100);
+  if (submissionIds.length === 0) return;
+  for (const submissionId of submissionIds) pendingCommentCountIds.delete(submissionId);
+  commentCountFlushBusy = true;
+  try {
+    const items = await fetchCommunityCommentCounts(submissionIds);
+    const counts = new Map(items.map((item) => [item.submissionId, item.totalCount]));
+    for (const submissionId of submissionIds) {
+      const totalCount = counts.get(submissionId);
+      if (totalCount === undefined) clearCommunityCommentCount(submissionId);
+      else publishCommunityCommentCount(submissionId, totalCount);
+    }
+  } catch {
+    // Keep the last server-confirmed count; opening the thread retries through its Root page.
+  } finally {
+    commentCountFlushBusy = false;
+    if (pendingCommentCountIds.size > 0) scheduleCommunityCommentCountFlush();
+  }
+}
+
+function subscribeCommunityCommentCount(
+  submissionId: number,
+  listener: CommentCountListener,
+) {
+  const listeners = commentCountListeners.get(submissionId) ?? new Set<CommentCountListener>();
+  listeners.add(listener);
+  commentCountListeners.set(submissionId, listeners);
+  if (commentCountCache.has(submissionId)) {
+    listener(commentCountCache.get(submissionId)!);
+  }
+  queueCommunityCommentCountRefresh(submissionId);
+  return () => {
+    const current = commentCountListeners.get(submissionId);
+    current?.delete(listener);
+    if (current?.size === 0) commentCountListeners.delete(submissionId);
+  };
+}
 
 async function probeReleaseState(submissionId: number) {
   if (!releaseProbe || Date.now() - releaseProbeStartedAt >= COMMENT_RECONCILIATION_INTERVAL_MS) {
     releaseProbeStartedAt = Date.now();
     releaseProbe = fetchCommunityCommentRootPage({ submissionId, sort: "top" })
-      .then((page) => page.releaseState)
+      .then((page) => {
+        publishCommunityCommentCount(page.submissionId, page.totalCount);
+        return page.releaseState;
+      })
       .catch((error) => {
         if (
           error instanceof CommunityCommentClientError &&
@@ -638,6 +715,7 @@ export default function CommunityCommentThread({
   const [open, setOpen] = useState(defaultOpen);
   const [sort, setSort] = useState<CommunityCommentSort>("top");
   const [page, setPage] = useState<CommunityCommentRootPage | null>(null);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [roots, setRoots] = useState<CommunityCommentRootItem[]>([]);
   const [branches, setBranches] = useState<Record<string, ReplyBranch>>({});
   const [account, setAccount] = useState<CommunityCommentAccountState>({ kind: "loading" });
@@ -736,6 +814,15 @@ export default function CommunityCommentThread({
   useEffect(() => () => restoreDisclosureScrollAnchoring(), []);
 
   useEffect(() => {
+    if (!releaseState) return;
+    return subscribeCommunityCommentCount(submissionId, setTotalCount);
+  }, [releaseState, submissionId]);
+
+  useEffect(() => {
+    if (page) publishCommunityCommentCount(submissionId, page.totalCount);
+  }, [page, submissionId]);
+
+  useEffect(() => {
     voteViewerAccountGeneration.current += 1;
     setVoteViewerById({});
   }, [voteViewerAccountKey]);
@@ -767,6 +854,7 @@ export default function CommunityCommentThread({
     deepLinkHandled.current = false;
     setHidden(false);
     setReleaseState(null);
+    setTotalCount(null);
     setPage(null);
     setRoots([]);
     setBranches({});
@@ -1403,8 +1491,13 @@ export default function CommunityCommentThread({
         : current,
     );
     setPage((current) => current
-      ? { ...current, threadVersion: receipt.threadVersion }
+      ? {
+          ...current,
+          threadVersion: receipt.threadVersion,
+          totalCount: current.totalCount + 1,
+        }
       : current);
+    queueCommunityCommentCountRefresh(submissionId);
     setReplyTarget(null);
     setReplyConflict(null);
   }
@@ -1497,7 +1590,17 @@ export default function CommunityCommentThread({
     <section ref={sectionRef} data-comment-thread data-comment-submission-id={submissionId} className="min-w-0 border-t border-orange-500/20 bg-neutral-950/70 [&_a]:cursor-pointer [&_button:not(:disabled)]:cursor-pointer">
       <details open={open} onToggle={handleDisclosureToggle}>
         <summary onClick={suppressDisclosureScrollAnchoring} className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400 sm:px-5">
-          <span>Comments</span>
+          <span className="flex items-center gap-2">
+            <span>Comments</span>
+            {totalCount !== null ? (
+              <span
+                aria-label={`${totalCount} total ${totalCount === 1 ? "comment" : "comments"}`}
+                className="inline-flex min-w-6 items-center justify-center rounded-full border border-orange-300/30 bg-orange-500/10 px-1.5 py-0.5 text-xs font-bold tabular-nums text-orange-100"
+              >
+                {totalCount}
+              </span>
+            ) : null}
+          </span>
           <span aria-hidden="true" className="text-orange-200">{open ? "−" : "+"}</span>
         </summary>
         <div className="border-t border-white/10 px-3 py-4 sm:px-5 sm:py-5">
@@ -1541,7 +1644,12 @@ export default function CommunityCommentThread({
                     const root: CommunityCommentRootItem = { ...receipt.comment, replyPreview: [], replyPreviewHasMore: false };
                     setOwnNewRoot(root);
                     setBranches((current) => ({ ...current, [root.publicCommentId]: initialBranch(root) }));
-                    setPage((current) => current ? { ...current, threadVersion: receipt.threadVersion } : current);
+                    setPage((current) => current ? {
+                      ...current,
+                      threadVersion: receipt.threadVersion,
+                      totalCount: current.totalCount + 1,
+                    } : current);
+                    queueCommunityCommentCountRefresh(submissionId);
                     setComposerKey((current) => current + 1);
                   }}
                 />

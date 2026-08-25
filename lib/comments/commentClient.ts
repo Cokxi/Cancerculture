@@ -19,6 +19,7 @@ export type CommunityCommentRootPage = {
   sort: CommunityCommentSort;
   snapshotAt: string;
   threadVersion: number;
+  totalCount: number;
   items: CommunityCommentRootItem[];
   hasMore: boolean;
   nextCursor: string | null;
@@ -162,6 +163,7 @@ export function parseCommunityCommentRootPage(
       "sort",
       "snapshotAt",
       "threadVersion",
+      "totalCount",
       "items",
       "hasMore",
       "nextCursor",
@@ -171,6 +173,7 @@ export function parseCommunityCommentRootPage(
     page.sort !== expectedSort ||
     !timestamp(page.snapshotAt) ||
     !nonNegativeInteger(page.threadVersion) ||
+    !nonNegativeInteger(page.totalCount) ||
     !Array.isArray(page.items) ||
     typeof page.hasMore !== "boolean" ||
     !(page.nextCursor === null || typeof page.nextCursor === "string") ||
@@ -184,6 +187,7 @@ export function parseCommunityCommentRootPage(
     sort: expectedSort,
     snapshotAt: page.snapshotAt as string,
     threadVersion: page.threadVersion as number,
+    totalCount: page.totalCount as number,
     items: page.items.map(parseRootItem),
     hasMore: page.hasMore,
     nextCursor: page.nextCursor as string | null,
@@ -322,6 +326,43 @@ export async function fetchCommunityCommentsBatch(
     throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
   }
   return value.items.map(parseCommunityCommentPublicDto);
+}
+
+export type CommunityCommentCount = {
+  submissionId: number;
+  totalCount: number;
+};
+
+export async function fetchCommunityCommentCounts(
+  submissionIds: number[],
+  signal?: AbortSignal,
+) {
+  const response = await fetch("/api/comments/counts", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ submissionIds: [...new Set(submissionIds)] }),
+    signal,
+  });
+  const value = record(await responseJson(response));
+  if (!exactKeys(value, ["items"]) || !Array.isArray(value.items)) {
+    throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
+  }
+  return value.items.map((candidate): CommunityCommentCount => {
+    const item = record(candidate);
+    if (
+      !exactKeys(item, ["submissionId", "totalCount"]) ||
+      !positiveInteger(item.submissionId) ||
+      !nonNegativeInteger(item.totalCount) ||
+      !submissionIds.includes(item.submissionId as number)
+    ) {
+      throw new CommunityCommentClientError(503, "COMMENTS_UNAVAILABLE");
+    }
+    return {
+      submissionId: item.submissionId as number,
+      totalCount: item.totalCount as number,
+    };
+  });
 }
 
 export async function fetchCommunityCommentAccount(): Promise<CommunityCommentAccountState> {

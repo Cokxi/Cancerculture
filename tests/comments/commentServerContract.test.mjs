@@ -5,12 +5,13 @@ import test from "node:test";
 const rootRoute = await readFile(new URL("../../app/api/comments/submissions/[submissionId]/route.ts", import.meta.url), "utf8");
 const replyRoute = await readFile(new URL("../../app/api/comments/submissions/[submissionId]/[rootPublicCommentId]/replies/route.ts", import.meta.url), "utf8");
 const commentRoute = await readFile(new URL("../../app/api/comments/[publicCommentId]/route.ts", import.meta.url), "utf8");
+const countRoute = await readFile(new URL("../../app/api/comments/counts/route.ts", import.meta.url), "utf8");
 const service = await readFile(new URL("../../lib/comments/commentService.server.ts", import.meta.url), "utf8");
 const abuse = await readFile(new URL("../../lib/comments/commentAbuse.server.ts", import.meta.url), "utf8");
 const releaseStateProjection = await readFile(new URL("../../supabase/migrations/20260823000500_comment_release_state_projection.sql", import.meta.url), "utf8");
 
 test("public reads and authenticated writes stay in thin Node route handlers", () => {
-  for (const route of [rootRoute, replyRoute, commentRoute]) {
+  for (const route of [rootRoute, replyRoute, commentRoute, countRoute]) {
     assert.match(route, /runtime = "nodejs"/u);
     assert.match(route, /dynamic = "force-dynamic"/u);
     assert.doesNotMatch(route, /supabaseAdmin|\.from\(/u);
@@ -27,7 +28,8 @@ test("server owns eligibility, HMAC abuse digest, fresh Turnstile and exact RPC 
   assert.match(service, /maxTokenAgeMs: COMMENT_TURNSTILE_MAX_AGE_MS/u);
   assert.doesNotMatch(service, /remoteip|ipAddress|deviceId|discordMembership|participationHold/iu);
   for (const rpc of [
-    "get_community_comment_thread_page",
+    "get_community_comment_thread_page_v2",
+    "get_community_comment_counts",
     "get_community_comment_replies",
     "get_community_comment_deep_link",
     "get_community_comments_batch",
@@ -36,6 +38,8 @@ test("server owns eligibility, HMAC abuse digest, fresh Turnstile and exact RPC 
     "edit_community_comment",
     "delete_community_comment",
   ]) assert.ok(service.includes(`rpc("${rpc}"`), `${rpc} RPC must be used`);
+  assert.match(countRoute, /getCommunityCommentCounts/u);
+  assert.match(countRoute, /submissionIds/u);
 });
 
 test("root reads expose the server-authoritative mutation availability without weakening ACLs", () => {

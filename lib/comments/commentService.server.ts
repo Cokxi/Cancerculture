@@ -155,7 +155,7 @@ export async function getCommunityCommentRootPage(input: {
     ? decodeCommunityCommentRootCursor(input.cursor, input.submissionId, input.sort)
     : null;
   const values = decoded?.values;
-  const value = await rpc("get_community_comment_thread_page", {
+  const value = await rpc("get_community_comment_thread_page_v2", {
     p_submission_id: input.submissionId,
     p_sort: input.sort,
     p_snapshot_at: values?.snapshotAt ?? null,
@@ -171,6 +171,7 @@ export async function getCommunityCommentRootPage(input: {
     value.sort !== input.sort ||
     !timestamp(value.snapshotAt) ||
     !nonNegativeInteger(value.threadVersion) ||
+    !nonNegativeInteger(value.totalCount) ||
     !Array.isArray(value.items) ||
     typeof value.hasMore !== "boolean"
   ) unavailable();
@@ -182,6 +183,7 @@ export async function getCommunityCommentRootPage(input: {
     sort: input.sort,
     snapshotAt: value.snapshotAt,
     threadVersion: value.threadVersion,
+    totalCount: value.totalCount,
     items: value.items.map(parseRootItem),
     hasMore: value.hasMore,
     nextCursor: tuple
@@ -195,6 +197,44 @@ export async function getCommunityCommentRootPage(input: {
         })
       : null,
   };
+}
+
+export async function getCommunityCommentCounts(submissionIds: number[]) {
+  const ids = [...new Set(submissionIds)];
+  if (
+    ids.length === 0 ||
+    ids.length > COMMUNITY_COMMENT_BATCH_MAX_IDS ||
+    ids.length !== submissionIds.length ||
+    ids.some((id) => !positiveInteger(id))
+  ) {
+    throw new CommunityCommentServiceError(400, "COMMENT_COUNT_BATCH_INVALID");
+  }
+  const value = await rpc("get_community_comment_counts", {
+    p_submission_ids: ids,
+  });
+  readOutcome(value);
+  if (!exactKeys(value, ["items", "outcome"]) || !Array.isArray(value.items)) {
+    unavailable();
+  }
+  const items = value.items.map((candidate) => {
+    const item = record(candidate);
+    if (
+      !exactKeys(item, ["submissionId", "totalCount"]) ||
+      !positiveInteger(item.submissionId) ||
+      !nonNegativeInteger(item.totalCount) ||
+      !ids.includes(item.submissionId)
+    ) {
+      unavailable();
+    }
+    return {
+      submissionId: item.submissionId as number,
+      totalCount: item.totalCount as number,
+    };
+  });
+  if (new Set(items.map((item) => item.submissionId)).size !== items.length) {
+    unavailable();
+  }
+  return { items };
 }
 
 export async function getCommunityCommentReplyPage(input: {

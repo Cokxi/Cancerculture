@@ -51,11 +51,13 @@ test("root-page client parser requires the exact server-authoritative release st
     sort: "top",
     snapshotAt: "2026-08-23T12:00:00.000Z",
     threadVersion: 0,
+    totalCount: 1,
     items: [{ ...baseComment, replyPreview: [], replyPreviewHasMore: false }],
     hasMore: false,
     nextCursor: null,
   };
   assert.equal(parseCommunityCommentRootPage(page, 12, "top").releaseState, "read_only");
+  assert.equal(parseCommunityCommentRootPage(page, 12, "top").totalCount, 1);
   assert.equal(parseCommunityCommentRootPage({ ...page, releaseState: "open" }, 12, "top").releaseState, "open");
   for (const releaseState of [undefined, "off", "OPEN", true]) {
     assert.throws(() => parseCommunityCommentRootPage({ ...page, releaseState }, 12, "top"), {
@@ -63,6 +65,9 @@ test("root-page client parser requires the exact server-authoritative release st
     });
   }
   assert.throws(() => parseCommunityCommentRootPage({ ...page, discordUserId: "private" }, 12, "top"));
+  for (const totalCount of [undefined, -1, 1.5, "1"]) {
+    assert.throws(() => parseCommunityCommentRootPage({ ...page, totalCount }, 12, "top"));
+  }
 });
 
 test("reply merges deduplicate public IDs and remain chronological beyond preview windows", () => {
@@ -180,4 +185,9 @@ test("Comment controls retain keyboard targets, live status and accessible confi
   assert.match(thread, /onClick=\{suppressDisclosureScrollAnchoring\}/u);
   assert.match(thread, /onToggle=\{handleDisclosureToggle\}/u);
   assert.match(thread, /restoreTimer = window\.setTimeout/u);
+  assert.match(thread, /fetchCommunityCommentCounts\(submissionIds\)/u);
+  assert.match(thread, /slice\(0, 100\)/u);
+  assert.match(thread, /publishCommunityCommentCount\(submissionId, page\.totalCount\)/u);
+  assert.match(thread, /totalCount: current\.totalCount \+ 1/gu);
+  assert.match(thread, /aria-label=\{`\$\{totalCount\} total/u);
 });
