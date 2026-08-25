@@ -31,7 +31,7 @@ const baseComment = {
   voteCounts: { up: 0, down: 0 },
 };
 
-const [thread, composer, client, feed, detail, history, fame, shame, accountRoute] =
+const [thread, composer, client, feed, detail, history, fame, shame, accountRoute, teamCase] =
   await Promise.all([
     readFile(new URL("../../app/components/comments/CommunityCommentThread.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../app/components/comments/CommunityCommentComposer.tsx", import.meta.url), "utf8"),
@@ -42,6 +42,7 @@ const [thread, composer, client, feed, detail, history, fame, shame, accountRout
     readFile(new URL("../../app/wall/fame/FameGrid.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../app/wall/shame/ShameGrid.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../app/api/auth/account/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../app/components/teamInbox/TeamInboxCaseDetail.tsx", import.meta.url), "utf8"),
   ]);
 
 test("root-page client parser requires the exact server-authoritative release state", () => {
@@ -124,6 +125,23 @@ test("reader supports signed cursors, bounded deep links, automatic reconciliati
   assert.doesNotMatch(thread, /View earlier replies/u);
   assert.match(thread, /mergeCommunityComments/u);
   assert.match(thread, /Replying to @\{replyTargetName\}/u);
+});
+
+test("Comment Report cases expose only the canonical public Comment position link and fail closed", () => {
+  const builderStart = teamCase.indexOf("function getPublicCommentHref");
+  const builderEnd = teamCase.indexOf("export default function", builderStart);
+  const builder = teamCase.slice(builderStart, builderEnd);
+  assert.ok(builderStart >= 0 && builderEnd > builderStart);
+  assert.match(builder, /typeof submissionId !== "number"/u);
+  assert.match(builder, /!Number\.isSafeInteger\(submissionId\)/u);
+  assert.match(builder, /submissionId <= 0/u);
+  assert.match(builder, /typeof publicCommentId !== "string"/u);
+  assert.match(builder, /!PUBLIC_COMMENT_ID_PATTERN\.test\(publicCommentId\)/u);
+  assert.match(builder, /return `\/spread\/\$\{submissionId\}\?comment=\$\{publicCommentId\}`/u);
+  assert.doesNotMatch(builder, /caseId|publicReportId|reportId|discord|moderation|internal/iu);
+  assert.match(teamCase, /const reportCommentHref = getPublicCommentHref\(reportComment\)/u);
+  assert.match(teamCase, /reportCommentHref \? \([\s\S]*href=\{reportCommentHref\}[\s\S]*Open public Comment position/u);
+  assert.match(teamCase, /target="_blank"[\s\S]*rel="noopener noreferrer"/u);
 });
 
 test("composer preserves structured stable Mentions, Unicode limits and challenge retries", () => {

@@ -1,9 +1,28 @@
 "use client";
 
 import CopyReportedWalletButton from "@/app/components/teamInbox/CopyReportedWalletButton";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 type Detail = Record<string, unknown>;
+
+const PUBLIC_COMMENT_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+
+function getPublicCommentHref(comment: Record<string, unknown> | null) {
+  const submissionId = comment?.submissionId;
+  const publicCommentId = comment?.publicCommentId;
+  if (
+    typeof submissionId !== "number" ||
+    !Number.isSafeInteger(submissionId) ||
+    submissionId <= 0 ||
+    typeof publicCommentId !== "string" ||
+    !PUBLIC_COMMENT_ID_PATTERN.test(publicCommentId)
+  ) {
+    return null;
+  }
+  return `/spread/${submissionId}?comment=${publicCommentId}`;
+}
 
 export default function TeamInboxCaseDetail({
   caseId,
@@ -182,6 +201,7 @@ export default function TeamInboxCaseDetail({
   const reportComment = commentDomain?.kind === "comment_report" && commentDomain.comment && typeof commentDomain.comment === "object"
     ? commentDomain.comment as Record<string, unknown>
     : null;
+  const reportCommentHref = getPublicCommentHref(reportComment);
   const reports = Array.isArray(commentDomain?.reports)
     ? commentDomain.reports as Record<string, unknown>[]
     : [];
@@ -261,6 +281,17 @@ export default function TeamInboxCaseDetail({
               <div className="mt-4 rounded-xl border border-white/10 bg-black/35 p-4">
                 <p className="text-xs text-white/50">Comment {String(reportComment.publicCommentId ?? "")}</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm text-white/85">{reportComment.tombstone === "team_removed" ? "Comment removed by the team" : reportComment.tombstone === "author_deleted" ? "Comment deleted by its author" : String(reportComment.body ?? "")}</p>
+                {reportCommentHref ? (
+                  <Link
+                    href={reportCommentHref}
+                    prefetch={false}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex min-h-11 items-center rounded-full border border-orange-300/50 px-4 py-2 text-sm font-semibold text-orange-100 outline-none transition hover:bg-orange-500/15 focus-visible:ring-2 focus-visible:ring-orange-300"
+                  >
+                    Open public Comment position
+                  </Link>
+                ) : null}
               </div>
               <ol className="mt-4 space-y-3">
                 {reports.map((report) => (
