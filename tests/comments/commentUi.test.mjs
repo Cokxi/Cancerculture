@@ -175,4 +175,9 @@ test("Comment controls retain keyboard targets, live status and accessible confi
   assert.match(composer, /aria-label="Mention suggestions"/u);
   assert.match(composer, /role="alert"/u);
   assert.match(thread, /min-w-0/u);
+  assert.match(thread, /findVerticalScrollContainer/u);
+  assert.match(thread, /scrollContainer\.style\.overflowAnchor = "none"/u);
+  assert.match(thread, /onClick=\{suppressDisclosureScrollAnchoring\}/u);
+  assert.match(thread, /onToggle=\{handleDisclosureToggle\}/u);
+  assert.match(thread, /restoreTimer = window\.setTimeout/u);
 });

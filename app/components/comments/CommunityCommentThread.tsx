@@ -267,19 +267,24 @@ type ScrollAnchor = {
   top: number;
 };
 
-function captureScrollAnchor(container: HTMLElement | null): ScrollAnchor | null {
-  if (!container) return null;
-  const comments = [...container.querySelectorAll<HTMLElement>('article[id^="comment-"]')];
-  const anchor = comments.find((element) => element.getBoundingClientRect().bottom > 0) ?? null;
-  let scrollContainer: HTMLElement | null = container.parentElement;
+function findVerticalScrollContainer(container: HTMLElement | null) {
+  let scrollContainer: HTMLElement | null = container?.parentElement ?? null;
   while (scrollContainer) {
     const style = window.getComputedStyle(scrollContainer);
     if (
       scrollContainer.scrollHeight > scrollContainer.clientHeight &&
       (style.overflowY === "auto" || style.overflowY === "scroll")
-    ) break;
+    ) return scrollContainer;
     scrollContainer = scrollContainer.parentElement;
   }
+  return null;
+}
+
+function captureScrollAnchor(container: HTMLElement | null): ScrollAnchor | null {
+  if (!container) return null;
+  const comments = [...container.querySelectorAll<HTMLElement>('article[id^="comment-"]')];
+  const anchor = comments.find((element) => element.getBoundingClientRect().bottom > 0) ?? null;
+  const scrollContainer = findVerticalScrollContainer(container);
   return {
     id: anchor?.id ?? null,
     scrollContainer,
@@ -653,6 +658,11 @@ export default function CommunityCommentThread({
   const initialLoadBusy = useRef(false);
   const reconciliationBusy = useRef(false);
   const reconciliationController = useRef<AbortController | null>(null);
+  const disclosureScrollAnchoring = useRef<{
+    previousOverflowAnchor: string;
+    restoreTimer: number | null;
+    scrollContainer: HTMLElement;
+  } | null>(null);
   const voteBusyIds = useRef(new Set<string>());
   const voteViewerAccountGeneration = useRef(0);
   const voteViewerAccountKey =
@@ -682,6 +692,48 @@ export default function CommunityCommentThread({
     sort,
   };
   const hasPage = page !== null;
+
+  function restoreDisclosureScrollAnchoring() {
+    const current = disclosureScrollAnchoring.current;
+    if (!current) return;
+    if (current.restoreTimer !== null) {
+      window.clearTimeout(current.restoreTimer);
+    }
+    if (current.scrollContainer.style.overflowAnchor === "none") {
+      current.scrollContainer.style.overflowAnchor = current.previousOverflowAnchor;
+    }
+    disclosureScrollAnchoring.current = null;
+  }
+
+  function suppressDisclosureScrollAnchoring() {
+    restoreDisclosureScrollAnchoring();
+    const scrollContainer =
+      findVerticalScrollContainer(sectionRef.current) ??
+      (document.scrollingElement instanceof HTMLElement
+        ? document.scrollingElement
+        : null);
+    if (!scrollContainer) return;
+    const previousOverflowAnchor = scrollContainer.style.overflowAnchor;
+    scrollContainer.style.overflowAnchor = "none";
+    disclosureScrollAnchoring.current = {
+      previousOverflowAnchor,
+      restoreTimer: null,
+      scrollContainer,
+    };
+  }
+
+  function handleDisclosureToggle(event: React.SyntheticEvent<HTMLDetailsElement>) {
+    setOpen(event.currentTarget.open);
+    const current = disclosureScrollAnchoring.current;
+    if (!current) return;
+    current.restoreTimer = window.setTimeout(() => {
+      if (disclosureScrollAnchoring.current === current) {
+        restoreDisclosureScrollAnchoring();
+      }
+    }, 100);
+  }
+
+  useEffect(() => () => restoreDisclosureScrollAnchoring(), []);
 
   useEffect(() => {
     voteViewerAccountGeneration.current += 1;
@@ -1443,8 +1495,8 @@ export default function CommunityCommentThread({
 
   return (
     <section ref={sectionRef} data-comment-thread data-comment-submission-id={submissionId} className="min-w-0 border-t border-orange-500/20 bg-neutral-950/70 [&_a]:cursor-pointer [&_button:not(:disabled)]:cursor-pointer">
-      <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400 sm:px-5">
+      <details open={open} onToggle={handleDisclosureToggle}>
+        <summary onClick={suppressDisclosureScrollAnchoring} className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400 sm:px-5">
           <span>Comments</span>
           <span aria-hidden="true" className="text-orange-200">{open ? "−" : "+"}</span>
         </summary>
