@@ -20,7 +20,7 @@ const categoryLabels = {
 const statusLabels = {
   active: "Active",
   expired: "Expired",
-  overruled: "Overruled",
+  withdrawn: "Withdrawn",
 } as const;
 
 export default async function OwnWarningDetailPage({
@@ -58,11 +58,41 @@ export default async function OwnWarningDetailPage({
           CancerCulture Team
         </p>
         <h1 className="mt-2 font-['Permanent_Marker'] text-4xl tracking-wide text-[var(--orange-main)]">
-          Account Warning
+          {warning.effectiveStatus === "withdrawn"
+            ? "Account Warning withdrawn"
+            : "Account Warning"}
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-white/65">
-          This page shows the current effective status of a Warning issued for your account.
+          {warning.effectiveStatus === "withdrawn"
+            ? "This Warning was withdrawn and is no longer active."
+            : "This page shows the current effective status of a Warning issued for your account."}
         </p>
+
+        <section
+          aria-labelledby="current-account-warning-status"
+          className="mt-6 rounded-xl border border-white/10 bg-white/[0.035] p-4"
+        >
+          <h2
+            id="current-account-warning-status"
+            className="text-xs font-semibold uppercase tracking-wide text-[var(--orange-main)]/75"
+          >
+            Current account Warning status
+          </h2>
+          {warning.accountActiveWarningCount === 0 ? (
+            <p className="mt-2 text-lg font-semibold text-emerald-200">
+              You currently have no active Warnings.
+            </p>
+          ) : (
+            <p className="mt-2 text-white/85">
+              {warning.accountActiveWarningCount === 1
+                ? "1 active Warning"
+                : `${warning.accountActiveWarningCount} active Warnings`}
+              {warning.accountLatestActiveExpiresAt
+                ? ` · latest expiry ${new Date(warning.accountLatestActiveExpiresAt).toLocaleString()}`
+                : ""}
+            </p>
+          )}
+        </section>
 
         <dl className="mt-7 grid gap-5 sm:grid-cols-2">
           <div>
@@ -70,7 +100,7 @@ export default async function OwnWarningDetailPage({
             <dd className="mt-1 text-white">{categoryLabels[warning.category]}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-[var(--orange-main)]/75">Effective status</dt>
+            <dt className="text-xs uppercase tracking-wide text-[var(--orange-main)]/75">Warning status</dt>
             <dd className="mt-1 text-white">{statusLabels[warning.effectiveStatus]}</dd>
           </div>
           <div>
@@ -79,7 +109,11 @@ export default async function OwnWarningDetailPage({
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-[var(--orange-main)]/75">Effective expiry</dt>
-            <dd className="mt-1 text-white">{new Date(warning.expiresAt).toLocaleString()}</dd>
+            <dd className="mt-1 text-white">
+              {warning.expiresAt
+                ? new Date(warning.expiresAt).toLocaleString()
+                : "No longer applies"}
+            </dd>
           </div>
           <div className="sm:col-span-2">
             <dt className="text-xs uppercase tracking-wide text-[var(--orange-main)]/75">Reason</dt>

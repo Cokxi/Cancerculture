@@ -121,6 +121,7 @@ export type PushEventType = keyof typeof PUSH_PAYLOAD_CATALOG;
 const EVENT_TYPES = new Set<string>(Object.keys(PUSH_PAYLOAD_CATALOG));
 const IN_PRODUCT_ONLY_EVENT_TYPES = new Set<string>([
   "user_warning_issued",
+  "user_warning_overruled",
 ]);
 const CATEGORY_PATTERN = /^[a-z][a-z0-9_]{2,63}$/u;
 const NOTIFICATION_ID_PATTERN =

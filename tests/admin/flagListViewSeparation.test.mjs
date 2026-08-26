@@ -14,7 +14,7 @@ test("missing and invalid view parameters safely select Open flags", () => {
   assert.equal(resolveFlagPageView("history"), "history");
 });
 
-test("server loading selects exactly one flag list", async () => {
+test("server loading selects only the two same-section manual and automatic lists", async () => {
   const page = await source("app/admin/flags/page.tsx");
   const loader = page.slice(
     page.indexOf("async function loadFlagPage"),
@@ -22,13 +22,16 @@ test("server loading selects exactly one flag list", async () => {
   );
   const historyBranch = loader.slice(
     loader.indexOf('if (view === "history")'),
-    loader.indexOf("const activePage")
+    loader.indexOf("const [activePage")
   );
-  const openBranch = loader.slice(loader.indexOf("const activePage"));
+  const openBranch = loader.slice(loader.indexOf("const [activePage"));
 
-  assert.doesNotMatch(loader, /Promise\.all/u);
+  assert.match(historyBranch, /listUserFlagCases/u);
+  assert.match(historyBranch, /listUserWarningAutoFlagCases/u);
   assert.match(historyBranch, /section: "history"/u);
   assert.doesNotMatch(historyBranch, /section: "active"/u);
+  assert.match(openBranch, /listUserFlagCases/u);
+  assert.match(openBranch, /listUserWarningAutoFlagCases/u);
   assert.match(openBranch, /section: "active"/u);
   assert.doesNotMatch(openBranch, /section: "history"/u);
 });

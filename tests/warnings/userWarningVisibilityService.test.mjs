@@ -49,6 +49,8 @@ test("owner detail forwards only session and public Warning ID and accepts the e
     issuedAt: "2026-08-26T12:00:00.000Z",
     effectiveStatus: "active",
     expiresAt: "2026-08-27T12:00:00.000Z",
+    accountActiveWarningCount: 1,
+    accountLatestActiveExpiresAt: "2026-08-27T12:00:00.000Z",
   };
   const result = await loadOwnUserWarningDetail({
     sessionId: "session-id",
@@ -63,6 +65,27 @@ test("owner detail forwards only session and public Warning ID and accepts the e
     },
   }]);
   assert.doesNotMatch(JSON.stringify(result), /actor|team|autoFlag|sourceComment|discord/iu);
+});
+
+test("withdrawn owner detail has no effective expiry and exposes the updated neutral account status", async () => {
+  state.data = {
+    outcome: "found",
+    warningId,
+    category: "other",
+    reason: "A bounded owner-visible reason.",
+    issuedAt: "2026-08-26T12:00:00.000Z",
+    effectiveStatus: "withdrawn",
+    expiresAt: null,
+    accountActiveWarningCount: 0,
+    accountLatestActiveExpiresAt: null,
+  };
+  const result = await loadOwnUserWarningDetail({
+    sessionId: "session-id",
+    publicWarningId: warningId,
+  });
+  assert.equal(result.effectiveStatus, "withdrawn");
+  assert.equal(result.expiresAt, null);
+  assert.equal(result.accountActiveWarningCount, 0);
 });
 
 test("owner detail returns null for invalid, absent, or unauthorized identifiers", async () => {
@@ -151,6 +174,8 @@ test("malformed owner, Team, and database responses fail closed", async () => {
     issuedAt: "2026-08-26T12:00:00.000Z",
     effectiveStatus: "active",
     expiresAt: "2026-08-27T12:00:00.000Z",
+    accountActiveWarningCount: 1,
+    accountLatestActiveExpiresAt: "2026-08-27T12:00:00.000Z",
     actorIdentity: "must not pass",
   };
   await assert.rejects(

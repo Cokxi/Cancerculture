@@ -110,6 +110,10 @@ export default async function AdminUsersPage({
     authorization,
     "users.warnings.view"
   );
+  const canOverruleWarnings = hasResolvedTeamCapability(
+    authorization,
+    "users.warnings.overrule"
+  );
   const canViewWebsiteBans = hasResolvedTeamCapability(
     authorization,
     "users.website_bans.view"
@@ -503,6 +507,8 @@ export default async function AdminUsersPage({
                       <UserWarningHistoryDisclosure
                         history={selectedWarningHistory}
                         userLabel={userLabel}
+                        targetDiscordUserId={user.discord_user_id}
+                        canOverrule={canOverruleWarnings}
                       />
                     ) : (
                       <div style={{ minWidth: 190, fontSize: 12 }}>

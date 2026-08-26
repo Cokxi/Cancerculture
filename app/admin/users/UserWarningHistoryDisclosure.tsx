@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { TeamUserWarningHistory } from "@/lib/warnings/userWarningVisibility.server";
+import UserWarningOverruleAction from "./UserWarningOverruleAction";
 
 const categoryLabels = {
   spam: "Spam",
@@ -20,9 +21,13 @@ function formatTimestamp(value: string | null) {
 export default function UserWarningHistoryDisclosure({
   history,
   userLabel,
+  targetDiscordUserId,
+  canOverrule,
 }: {
   history: TeamUserWarningHistory;
   userLabel: string;
+  targetDiscordUserId: string;
+  canOverrule: boolean;
 }) {
   return (
     <div data-user-warning-history style={{ minWidth: 260, fontSize: 12 }}>
@@ -109,6 +114,13 @@ export default function UserWarningHistoryDisclosure({
                     ))}
                   </ol>
                 </details>
+                {canOverrule && warning.effectiveStatus !== "overruled" ? (
+                  <UserWarningOverruleAction
+                    targetDiscordUserId={targetDiscordUserId}
+                    publicWarningId={warning.warningId}
+                    expectedRowVersion={warning.rowVersion}
+                  />
+                ) : null}
               </article>
             ))}
           </div>

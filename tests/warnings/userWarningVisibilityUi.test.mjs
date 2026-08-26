@@ -23,14 +23,15 @@ test("User Logs Warning status and selected history are separately capability ga
   assert.doesNotMatch(usersPage, /issueCommunityCommentWarning|Issue Warning/u);
 });
 
-test("Team history shows immutable evidence and effective recalculation without mutation controls", () => {
+test("Team history shows immutable evidence, effective recalculation and only the bounded correction control", () => {
   assert.match(disclosure, /Source Comment evidence/u);
   assert.match(disclosure, /sourceCommentObjectVersion/u);
   assert.match(disclosure, /sourceCommentTextVersion/u);
   assert.match(disclosure, /Original:/u);
   assert.match(disclosure, /Effective:/u);
   assert.match(disclosure, /Lifecycle/u);
-  assert.doesNotMatch(disclosure, /Overrule Warning|Issue Warning|Add to Overwatch|appeal/iu);
+  assert.match(disclosure, /UserWarningOverruleAction/u);
+  assert.doesNotMatch(disclosure, /Issue Warning|Add to Overwatch|appeal/iu);
 });
 
 test("owner Warning page is authenticated, noindex, neutral, and contains no Team or auto-Flag detail", () => {
@@ -38,8 +39,13 @@ test("owner Warning page is authenticated, noindex, neutral, and contains no Tea
   assert.match(ownerPage, /loadOwnUserWarningDetail/u);
   assert.match(ownerPage, /robots: \{ index: false, follow: false \}/u);
   assert.match(ownerPage, /Category/u);
-  assert.match(ownerPage, /Effective status/u);
+  assert.match(ownerPage, /Warning status/u);
   assert.match(ownerPage, /Effective expiry/u);
+  assert.match(ownerPage, /Account Warning withdrawn/u);
+  assert.match(ownerPage, /This Warning was withdrawn and is no longer active/u);
+  assert.match(ownerPage, /Current account Warning status/u);
+  assert.match(ownerPage, /You currently have no active Warnings/u);
+  assert.match(ownerPage, /No longer applies/u);
   assert.match(ownerPage, /Reason/u);
   assert.match(ownerPage, /font-\['Permanent_Marker'\][^\n]*text-\[var\(--orange-main\)\]/u);
   assert.match(ownerPage, /border-\[var\(--orange-main\)\]\/55/u);

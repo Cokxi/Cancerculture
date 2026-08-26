@@ -94,6 +94,39 @@ export type UserFlagActiveStatus = Readonly<{
   status: "open" | "escalated" | null;
 }>;
 
+export type UserWarningAutoFlagEvent = Readonly<{
+  eventId: string;
+  eventType: "opened" | "recomputed" | "closed";
+  activeWarningCount: number;
+  triggeredByActiveCount: boolean;
+  triggeredByFourteenDay: boolean;
+  caseVersion: number;
+  occurredAt: string;
+  recordedAt: string;
+}>;
+
+export type UserWarningAutoFlagCase = Readonly<{
+  caseId: string;
+  discordUserId: string;
+  userDisplayName: string;
+  generation: number;
+  status: "open" | "closed";
+  activeWarningCount: number;
+  triggeredByActiveCount: boolean;
+  triggeredByFourteenDay: boolean;
+  openedAt: string;
+  closedAt: string | null;
+  rowVersion: number;
+  events: readonly UserWarningAutoFlagEvent[];
+}>;
+
+export type UserWarningAutoFlagCasePage = Readonly<{
+  items: readonly UserWarningAutoFlagCase[];
+  total: number;
+  limit: number;
+  offset: number;
+}>;
+
 type SupabaseRpcError = Readonly<{
   code?: string | null;
   message?: string | null;
@@ -143,6 +176,159 @@ function unwrapRpc<T>(data: unknown, error: SupabaseRpcError | null): T {
   }
 
   return data as T;
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]) {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length &&
+    actual.every((key, index) => key === expected[index]);
+}
+
+function isTimestamp(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) > 0;
+}
+
+function parseUserWarningAutoFlagEvent(
+  value: unknown
+): UserWarningAutoFlagEvent | null {
+  const event = record(value);
+  if (
+    !hasExactKeys(event, [
+      "activeWarningCount",
+      "caseVersion",
+      "eventId",
+      "eventType",
+      "occurredAt",
+      "recordedAt",
+      "triggeredByActiveCount",
+      "triggeredByFourteenDay",
+    ]) ||
+    typeof event.eventId !== "string" || !/^[1-9][0-9]*$/u.test(event.eventId) ||
+    (event.eventType !== "opened" &&
+      event.eventType !== "recomputed" &&
+      event.eventType !== "closed") ||
+    !isNonNegativeInteger(event.activeWarningCount) ||
+    typeof event.triggeredByActiveCount !== "boolean" ||
+    typeof event.triggeredByFourteenDay !== "boolean" ||
+    !isPositiveInteger(event.caseVersion) ||
+    !isTimestamp(event.occurredAt) ||
+    !isTimestamp(event.recordedAt) ||
+    (event.eventType === "closed"
+      ? event.triggeredByActiveCount || event.triggeredByFourteenDay
+      : !event.triggeredByActiveCount && !event.triggeredByFourteenDay)
+  ) return null;
+
+  return Object.freeze(event as UserWarningAutoFlagEvent);
+}
+
+function parseUserWarningAutoFlagCase(
+  value: unknown
+): UserWarningAutoFlagCase | null {
+  const flagCase = record(value);
+  const rawEvents = Array.isArray(flagCase.events) ? flagCase.events : null;
+  const parsedEvents = rawEvents?.map(parseUserWarningAutoFlagEvent) ?? [];
+  const statusIsValid = flagCase.status === "open" || flagCase.status === "closed";
+  if (
+    !hasExactKeys(flagCase, [
+      "activeWarningCount",
+      "caseId",
+      "closedAt",
+      "discordUserId",
+      "events",
+      "generation",
+      "openedAt",
+      "rowVersion",
+      "status",
+      "triggeredByActiveCount",
+      "triggeredByFourteenDay",
+      "userDisplayName",
+    ]) ||
+    typeof flagCase.caseId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(flagCase.caseId) ||
+    typeof flagCase.discordUserId !== "string" ||
+      flagCase.discordUserId.length < 1 || flagCase.discordUserId.length > 100 ||
+    typeof flagCase.userDisplayName !== "string" ||
+      flagCase.userDisplayName.length < 1 || flagCase.userDisplayName.length > 200 ||
+    !isPositiveInteger(flagCase.generation) ||
+    !statusIsValid ||
+    !isNonNegativeInteger(flagCase.activeWarningCount) ||
+    typeof flagCase.triggeredByActiveCount !== "boolean" ||
+    typeof flagCase.triggeredByFourteenDay !== "boolean" ||
+    !isTimestamp(flagCase.openedAt) ||
+    (flagCase.closedAt !== null && !isTimestamp(flagCase.closedAt)) ||
+    !isPositiveInteger(flagCase.rowVersion) ||
+    rawEvents === null || parsedEvents.length === 0 ||
+    parsedEvents.some((event) => event === null)
+  ) return null;
+
+  const events = parsedEvents.filter(
+    (event): event is UserWarningAutoFlagEvent => event !== null
+  );
+  if (
+    events[0]?.eventType !== "opened" ||
+    events.some((event, index) => index > 0 &&
+      event.caseVersion <= events[index - 1].caseVersion) ||
+    events.at(-1)?.caseVersion !== flagCase.rowVersion ||
+    (flagCase.status === "open"
+      ? flagCase.closedAt !== null ||
+        (!flagCase.triggeredByActiveCount && !flagCase.triggeredByFourteenDay) ||
+        events.at(-1)?.eventType === "closed"
+      : flagCase.closedAt === null ||
+        flagCase.triggeredByActiveCount || flagCase.triggeredByFourteenDay ||
+        events.at(-1)?.eventType !== "closed")
+  ) return null;
+
+  return Object.freeze({
+    ...(flagCase as Omit<UserWarningAutoFlagCase, "events">),
+    events: Object.freeze(events),
+  });
+}
+
+function parseUserWarningAutoFlagCasePage(
+  value: unknown,
+  expectedLimit: number,
+  expectedOffset: number
+): UserWarningAutoFlagCasePage {
+  const page = record(value);
+  const rawItems = Array.isArray(page.items) ? page.items : null;
+  const parsedItems = rawItems?.map(parseUserWarningAutoFlagCase) ?? [];
+  if (
+    !hasExactKeys(page, ["items", "limit", "offset", "total"]) ||
+    rawItems === null || parsedItems.some((item) => item === null) ||
+    !isNonNegativeInteger(page.total) ||
+    page.limit !== expectedLimit || page.offset !== expectedOffset ||
+    Number(page.total) < expectedOffset + parsedItems.length
+  ) {
+    throw new AuthError(
+      503,
+      "Automatic flag cases temporarily unavailable",
+      "USER_WARNING_AUTO_FLAG_INVALID_RESPONSE"
+    );
+  }
+
+  return Object.freeze({
+    items: Object.freeze(parsedItems.filter(
+      (item): item is UserWarningAutoFlagCase => item !== null
+    )),
+    total: Number(page.total),
+    limit: expectedLimit,
+    offset: expectedOffset,
+  });
 }
 
 export async function createUserFlagCase(input: {
@@ -231,6 +417,51 @@ export async function listUserFlagCases({
   );
 
   return unwrapRpc<UserFlagCasePage>(data, error);
+}
+
+export async function listUserWarningAutoFlagCases({
+  section,
+  query = "",
+  limit = 50,
+  offset = 0,
+}: {
+  section: "active" | "history";
+  query?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<UserWarningAutoFlagCasePage> {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+    throw new TypeError("Invalid limit");
+  }
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    throw new TypeError("Invalid offset");
+  }
+  if (query.length > 100) throw new TypeError("Invalid query");
+
+  const authorization = await requireDynamicTeamCapability("users.flag.view");
+  const { data, error } = await supabaseAdmin.rpc(
+    "list_user_warning_auto_flag_cases",
+    {
+      p_actor_discord_user_id: authorization.discord_user_id,
+      p_section: section,
+      p_query: query.trim() || null,
+      p_limit: limit,
+      p_offset: offset,
+    }
+  );
+
+  if (error) {
+    if (error.code === "42501") {
+      throw new AuthError(403, "Forbidden", "TEAM_CAPABILITY_DENIED");
+    }
+    throw new AuthError(
+      503,
+      "Automatic flag cases temporarily unavailable",
+      "USER_WARNING_AUTO_FLAG_UNAVAILABLE"
+    );
+  }
+
+  return parseUserWarningAutoFlagCasePage(data, limit, offset);
 }
 
 export async function listUserFlagReviewWorklist(

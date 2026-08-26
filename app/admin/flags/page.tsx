@@ -9,6 +9,7 @@ import {
 import {
   listUserFlagCases,
   listUserFlagReviewWorklist,
+  listUserWarningAutoFlagCases,
   type UserFlagCase,
 } from "@/lib/admin/userFlagCases";
 import { getTeamPageAccessRedirect } from "@/lib/auth/pageAccessDecision";
@@ -16,6 +17,7 @@ import {
   getTeamAuthorizationContext,
   hasResolvedTeamCapability,
 } from "@/lib/auth/teamAuthorization";
+import AutomaticWarningFlagCaseCard from "./AutomaticWarningFlagCaseCard";
 
 const HISTORY_PAGE_SIZE = 25;
 
@@ -80,29 +82,45 @@ async function loadFlagPage(
     }
 
     if (view === "history") {
-      const closedPage = await listUserFlagCases({
-        section: "history",
-        query,
-        limit: HISTORY_PAGE_SIZE,
-        offset: (historyPage - 1) * HISTORY_PAGE_SIZE,
-      });
+      const [closedPage, automaticClosedPage] = await Promise.all([
+        listUserFlagCases({
+          section: "history",
+          query,
+          limit: HISTORY_PAGE_SIZE,
+          offset: (historyPage - 1) * HISTORY_PAGE_SIZE,
+        }),
+        listUserWarningAutoFlagCases({
+          section: "history",
+          query,
+          limit: HISTORY_PAGE_SIZE,
+          offset: (historyPage - 1) * HISTORY_PAGE_SIZE,
+        }),
+      ]);
       return {
         kind: "view" as const,
         view,
         closedPage,
+        automaticClosedPage,
         canReview,
         isAdmin,
       };
     }
 
-    const activePage = await listUserFlagCases({
-      section: "active",
-      limit: 100,
-    });
+    const [activePage, automaticActivePage] = await Promise.all([
+      listUserFlagCases({
+        section: "active",
+        limit: 100,
+      }),
+      listUserWarningAutoFlagCases({
+        section: "active",
+        limit: 100,
+      }),
+    ]);
     return {
       kind: "view" as const,
       view,
       activePage,
+      automaticActivePage,
       canReview,
       isAdmin,
     };
@@ -188,7 +206,8 @@ export default async function AdminFlaggedUsersPage({
   }
 
   if (data.view === "history") {
-    const hasNextPage = historyPage * HISTORY_PAGE_SIZE < data.closedPage.total;
+    const hasNextPage = historyPage * HISTORY_PAGE_SIZE < data.closedPage.total ||
+      historyPage * HISTORY_PAGE_SIZE < data.automaticClosedPage.total;
 
     return (
       <div data-flag-view="history" style={{ padding: 24 }}>
@@ -196,6 +215,7 @@ export default async function AdminFlaggedUsersPage({
         <ViewNavigation view={data.view} />
         <section style={{ marginTop: 28 }}>
           <h2>Flag history</h2>
+          <h3 style={{ marginTop: 18 }}>Manual flags</h3>
           <form method="get" style={{ marginTop: 10 }}>
             <input type="hidden" name="view" value="history" />
             <input
@@ -224,6 +244,24 @@ export default async function AdminFlaggedUsersPage({
               ))
             )}
           </div>
+          <section style={{ marginTop: 28 }} aria-labelledby="automatic-flag-history-heading">
+            <h3 id="automatic-flag-history-heading">Automatic Warning flags</h3>
+            <p style={{ marginTop: 6, opacity: 0.7 }}>
+              {data.automaticClosedPage.total} matching closed automatic case(s)
+            </p>
+            <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+              {data.automaticClosedPage.items.length === 0 ? (
+                <p>No closed automatic Warning flags found.</p>
+              ) : (
+                data.automaticClosedPage.items.map((flagCase) => (
+                  <AutomaticWarningFlagCaseCard
+                    key={flagCase.caseId}
+                    flagCase={flagCase}
+                  />
+                ))
+              )}
+            </div>
+          </section>
           <nav
             aria-label="Closed-case history pages"
             style={{ display: "flex", gap: 12, marginTop: 14 }}
@@ -279,6 +317,7 @@ export default async function AdminFlaggedUsersPage({
             </form>
           ) : null}
         </div>
+        <h3 style={{ marginTop: 18 }}>Manual flags</h3>
         <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
           {activeCases.length === 0 ? (
             <p>No active cases.</p>
@@ -288,6 +327,24 @@ export default async function AdminFlaggedUsersPage({
                 key={flagCase.caseId}
                 flagCase={flagCase}
                 canReview={data.canReview}
+              />
+            ))
+          )}
+        </div>
+      </section>
+      <section style={{ marginTop: 28 }} aria-labelledby="automatic-open-flags-heading">
+        <h2 id="automatic-open-flags-heading">Automatic Warning flags</h2>
+        <p style={{ marginTop: 6, opacity: 0.7 }}>
+          Warning-threshold cases are read-only and close only through canonical Warning expiry or Overrule recalculation.
+        </p>
+        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+          {data.automaticActivePage.items.length === 0 ? (
+            <p>No active automatic Warning flags.</p>
+          ) : (
+            data.automaticActivePage.items.map((flagCase) => (
+              <AutomaticWarningFlagCaseCard
+                key={flagCase.caseId}
+                flagCase={flagCase}
               />
             ))
           )}

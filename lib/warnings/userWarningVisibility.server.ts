@@ -18,14 +18,17 @@ const WARNING_EVENT_TYPES = [
 
 export type UserWarningCategory = (typeof WARNING_CATEGORIES)[number];
 export type UserWarningState = (typeof WARNING_STATES)[number];
+export type OwnUserWarningStatus = "active" | "expired" | "withdrawn";
 
 export type OwnUserWarningDetail = Readonly<{
   warningId: string;
   category: UserWarningCategory;
   reason: string;
   issuedAt: string;
-  effectiveStatus: UserWarningState;
-  expiresAt: string;
+  effectiveStatus: OwnUserWarningStatus;
+  expiresAt: string | null;
+  accountActiveWarningCount: number;
+  accountLatestActiveExpiresAt: string | null;
 }>;
 
 export type TeamUserWarningEvent = Readonly<{
@@ -81,6 +84,27 @@ export type TeamUserWarningSummary = Readonly<{
   historyCount: number;
 }>;
 
+export type UserWarningOverruleResult = Readonly<{
+  warningId: string;
+  state: "overruled";
+  rowVersion: number;
+  replayed: boolean;
+}>;
+
+export class UserWarningCorrectionConflict extends Error {
+  readonly reason:
+    | "already_overruled"
+    | "idempotency_conflict"
+    | "stale_version"
+    | "target_mismatch";
+
+  constructor(reason: UserWarningCorrectionConflict["reason"]) {
+    super("Warning correction state changed");
+    this.name = "UserWarningCorrectionConflict";
+    this.reason = reason;
+  }
+}
+
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -106,6 +130,10 @@ function isPositiveInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) > 0;
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
 function isTier(value: unknown): value is 1 | 3 | 7 | 14 {
   return value === 1 || value === 3 || value === 7 || value === 14;
 }
@@ -122,6 +150,10 @@ function isCategory(value: unknown): value is UserWarningCategory {
 function isState(value: unknown): value is UserWarningState {
   return typeof value === "string" &&
     (WARNING_STATES as readonly string[]).includes(value);
+}
+
+function isOwnStatus(value: unknown): value is OwnUserWarningStatus {
+  return value === "active" || value === "expired" || value === "withdrawn";
 }
 
 function parseEvent(value: unknown): TeamUserWarningEvent | null {
@@ -260,6 +292,8 @@ export async function loadOwnUserWarningDetail({
   }
   if (
     !hasExactKeys(value, [
+      "accountActiveWarningCount",
+      "accountLatestActiveExpiresAt",
       "category",
       "effectiveStatus",
       "expiresAt",
@@ -273,8 +307,14 @@ export async function loadOwnUserWarningDetail({
     !isCategory(value.category) ||
     typeof value.reason !== "string" || value.reason.length < 3 || value.reason.length > 1000 ||
     !isTimestamp(value.issuedAt) ||
-    !isState(value.effectiveStatus) ||
-    !isTimestamp(value.expiresAt)
+    !isOwnStatus(value.effectiveStatus) ||
+    !isNonNegativeInteger(value.accountActiveWarningCount) ||
+    !isNullableTimestamp(value.accountLatestActiveExpiresAt) ||
+    (Number(value.accountActiveWarningCount) === 0) !==
+      (value.accountLatestActiveExpiresAt === null) ||
+    (value.effectiveStatus === "withdrawn"
+      ? value.expiresAt !== null
+      : !isTimestamp(value.expiresAt))
   ) throw unavailable();
 
   return Object.freeze({
@@ -283,7 +323,9 @@ export async function loadOwnUserWarningDetail({
     reason: value.reason,
     issuedAt: value.issuedAt,
     effectiveStatus: value.effectiveStatus,
-    expiresAt: value.expiresAt,
+    expiresAt: typeof value.expiresAt === "string" ? value.expiresAt : null,
+    accountActiveWarningCount: Number(value.accountActiveWarningCount),
+    accountLatestActiveExpiresAt: value.accountLatestActiveExpiresAt,
   });
 }
 
@@ -325,6 +367,157 @@ export async function loadTeamUserWarningHistory(
     latestActiveExpiresAt: value.latestActiveExpiresAt,
     warnings: Object.freeze(warnings),
     historyHasMore: value.historyHasMore,
+  });
+}
+
+export async function overruleTeamUserWarning({
+  targetDiscordUserId,
+  publicWarningId,
+  expectedRowVersion,
+  reason,
+  requestId,
+}: {
+  targetDiscordUserId: string;
+  publicWarningId: string;
+  expectedRowVersion: number;
+  reason: string;
+  requestId: string;
+}): Promise<UserWarningOverruleResult> {
+  const correctionReason = reason.trim();
+  if (
+    !DISCORD_ID_PATTERN.test(targetDiscordUserId) ||
+    !UUID_PATTERN.test(publicWarningId) ||
+    !Number.isSafeInteger(expectedRowVersion) || expectedRowVersion < 1 ||
+    correctionReason.length < 3 || correctionReason.length > 1000 ||
+    !UUID_PATTERN.test(requestId)
+  ) {
+    throw new TypeError("Invalid Warning correction request");
+  }
+
+  const authorization = await requireDynamicTeamCapability(
+    "users.warnings.overrule"
+  );
+  const targetResult = await supabaseAdmin.rpc(
+    "get_user_warning_overrule_target",
+    {
+      p_actor_discord_user_id: authorization.discord_user_id,
+      p_target_discord_user_id: targetDiscordUserId,
+      p_public_warning_id: publicWarningId,
+    }
+  );
+  if (targetResult.error) {
+    console.error("[USER_WARNING_CORRECTION] Target RPC failed", {
+      code: targetResult.error.code,
+    });
+    if (targetResult.error.code === "42501") {
+      throw new AuthError(403, "Forbidden", "TEAM_CAPABILITY_DENIED");
+    }
+    throw unavailable();
+  }
+
+  const target = record(targetResult.data);
+  if (hasExactKeys(target, ["outcome"]) && target.outcome === "not_found") {
+    throw new UserWarningCorrectionConflict("target_mismatch");
+  }
+  if (
+    !hasExactKeys(target, [
+      "outcome",
+      "rowVersion",
+      "state",
+      "targetDiscordUserId",
+      "warningId",
+    ]) ||
+    target.outcome !== "found" ||
+    target.warningId !== publicWarningId ||
+    target.targetDiscordUserId !== targetDiscordUserId ||
+    !isPositiveInteger(target.rowVersion) ||
+    !isState(target.state)
+  ) throw unavailable();
+
+  if (
+    target.state !== "overruled" &&
+    target.rowVersion !== expectedRowVersion
+  ) {
+    throw new UserWarningCorrectionConflict("stale_version");
+  }
+
+  const result = await supabaseAdmin.rpc("overrule_user_warning", {
+    p_actor_discord_user_id: authorization.discord_user_id,
+    p_public_warning_id: publicWarningId,
+    p_expected_row_version: expectedRowVersion,
+    p_reason: correctionReason,
+    p_request_id: requestId,
+  });
+  if (result.error) {
+    console.error("[USER_WARNING_CORRECTION] Overrule RPC failed", {
+      code: result.error.code,
+    });
+    if (result.error.code === "42501") {
+      throw new AuthError(403, "Forbidden", "TEAM_CAPABILITY_DENIED");
+    }
+    if (result.error.code === "PT409") {
+      const databaseMessage = result.error.message ?? "";
+      if (databaseMessage.includes("IDEMPOTENCY_CONFLICT")) {
+        throw new UserWarningCorrectionConflict("idempotency_conflict");
+      }
+      if (databaseMessage.includes("ALREADY_OVERRULED")) {
+        throw new UserWarningCorrectionConflict("already_overruled");
+      }
+      throw new UserWarningCorrectionConflict("stale_version");
+    }
+    if (result.error.code === "P0002") {
+      throw new UserWarningCorrectionConflict("target_mismatch");
+    }
+    throw unavailable();
+  }
+
+  const receipt = record(result.data);
+  const autoFlag = record(receipt.autoFlag);
+  const autoFlagCaseIdIsValid = autoFlag.caseId === null ||
+    (typeof autoFlag.caseId === "string" && UUID_PATTERN.test(autoFlag.caseId));
+  if (
+    !hasExactKeys(receipt, [
+      "activeWarningCount",
+      "autoFlag",
+      "expiredCount",
+      "recalculatedCount",
+      "replayed",
+      "rowVersion",
+      "state",
+      "warningId",
+    ]) ||
+    receipt.warningId !== publicWarningId ||
+    receipt.state !== "overruled" ||
+    !isPositiveInteger(receipt.rowVersion) ||
+    !isNonNegativeInteger(receipt.recalculatedCount) ||
+    !isNonNegativeInteger(receipt.expiredCount) ||
+    !isNonNegativeInteger(receipt.activeWarningCount) ||
+    typeof receipt.replayed !== "boolean" ||
+    !hasExactKeys(autoFlag, [
+      "activeWarningCount",
+      "caseId",
+      "status",
+      "triggeredByActiveCount",
+      "triggeredByFourteenDay",
+    ]) ||
+    !isNonNegativeInteger(autoFlag.activeWarningCount) ||
+    autoFlag.activeWarningCount !== receipt.activeWarningCount ||
+    typeof autoFlag.triggeredByActiveCount !== "boolean" ||
+    typeof autoFlag.triggeredByFourteenDay !== "boolean" ||
+    (autoFlag.status !== "open" && autoFlag.status !== "closed") ||
+    !autoFlagCaseIdIsValid ||
+    (autoFlag.status === "open"
+      ? autoFlag.caseId === null ||
+        (!autoFlag.triggeredByActiveCount && !autoFlag.triggeredByFourteenDay)
+      : autoFlag.caseId !== null ||
+        autoFlag.triggeredByActiveCount || autoFlag.triggeredByFourteenDay)
+  ) throw unavailable();
+
+  return Object.freeze({
+    warningId: publicWarningId,
+    state: "overruled",
+    rowVersion: Number(receipt.rowVersion),
+    replayed: receipt.replayed,
   });
 }
 
