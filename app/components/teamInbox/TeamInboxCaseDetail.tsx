@@ -1,6 +1,8 @@
 "use client";
 
 import CopyReportedWalletButton from "@/app/components/teamInbox/CopyReportedWalletButton";
+import CommunityCommentModerationReviewContextView from "@/app/components/comments/CommunityCommentModerationReviewContext";
+import { parseCommunityCommentModerationReviewContext } from "@/lib/comments/commentClient";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -201,6 +203,9 @@ export default function TeamInboxCaseDetail({
   const reportComment = commentDomain?.kind === "comment_report" && commentDomain.comment && typeof commentDomain.comment === "object"
     ? commentDomain.comment as Record<string, unknown>
     : null;
+  const reportReviewContext = parseCommunityCommentModerationReviewContext(
+    commentDomain?.kind === "comment_report" ? commentDomain.reviewContext : null,
+  );
   const reportCommentHref = getPublicCommentHref(reportComment);
   const reports = Array.isArray(commentDomain?.reports)
     ? commentDomain.reports as Record<string, unknown>[]
@@ -280,7 +285,15 @@ export default function TeamInboxCaseDetail({
               <p className="mt-4 text-sm text-white/55">{String(commentDomain.reportCount ?? reports.length)} immutable report(s), review generation {String(commentDomain.generation ?? "-")}</p>
               <div className="mt-4 rounded-xl border border-white/10 bg-black/35 p-4">
                 <p className="text-xs text-white/50">Comment {String(reportComment.publicCommentId ?? "")}</p>
-                <p className="mt-2 whitespace-pre-wrap text-sm text-white/85">{reportComment.tombstone === "team_removed" ? "Comment removed by the team" : reportComment.tombstone === "author_deleted" ? "Comment deleted by its author" : String(reportComment.body ?? "")}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-white/85">{reportComment.tombstone === "team_removed" ? "Deleted by admin/mod" : reportComment.tombstone === "author_deleted" ? "Comment deleted by its author" : String(reportComment.body ?? "")}</p>
+                {reportReviewContext && (
+                  reportComment.tombstone === "team_removed" || reportReviewContext.lastModeration
+                ) ? (
+                  <CommunityCommentModerationReviewContextView
+                    context={reportReviewContext}
+                    showStoredText={reportComment.tombstone === "team_removed"}
+                  />
+                ) : null}
                 {reportCommentHref ? (
                   <Link
                     href={reportCommentHref}
@@ -296,7 +309,12 @@ export default function TeamInboxCaseDetail({
               <ol className="mt-4 space-y-3">
                 {reports.map((report) => (
                   <li key={String(report.publicReportId)} className="rounded-xl border border-white/10 bg-black/25 p-4">
-                    <p className="font-semibold">{String(report.category ?? "report").replaceAll("_", " ")}</p>
+                    <div className="rounded-lg border border-orange-300/20 bg-orange-500/5 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-orange-200/70">Reported by</p>
+                      <p className="mt-1 break-words font-semibold text-orange-100">{String(report.reporterUsername ?? "Community member")}</p>
+                      <p className="mt-1 text-xs text-white/50">Discord ID <span className="break-all font-mono text-white/70">{String(report.reporterDiscordUserId ?? "Unavailable")}</span></p>
+                    </div>
+                    <p className="mt-3 font-semibold">{String(report.category ?? "report").replaceAll("_", " ")}</p>
                     {typeof report.explanation === "string" ? <p className="mt-2 whitespace-pre-wrap text-sm text-white/70">{report.explanation}</p> : null}
                     <p className="mt-2 text-xs text-white/45">Rules v{String(report.rulesVersion ?? "-")}</p>
                   </li>
@@ -309,10 +327,19 @@ export default function TeamInboxCaseDetail({
               <div className="mt-4 space-y-3">
                 {relatedComments.map((reference) => {
                   const comment = reference.comment && typeof reference.comment === "object" ? reference.comment as Record<string, unknown> : {};
+                  const reviewContext = parseCommunityCommentModerationReviewContext(reference.reviewContext);
                   return (
                     <div key={String(comment.publicCommentId)} className="rounded-xl border border-white/10 bg-black/35 p-4">
                       <p className="text-xs text-white/50">Comment {String(comment.publicCommentId ?? "")}</p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-white/85">{comment.tombstone === "team_removed" ? "Comment removed by the team" : comment.tombstone === "author_deleted" ? "Comment deleted by its author" : String(comment.body ?? "")}</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-white/85">{comment.tombstone === "team_removed" ? "Deleted by admin/mod" : comment.tombstone === "author_deleted" ? "Comment deleted by its author" : String(comment.body ?? "")}</p>
+                      {reviewContext && (
+                        comment.tombstone === "team_removed" || reviewContext.lastModeration
+                      ) ? (
+                        <CommunityCommentModerationReviewContextView
+                          context={reviewContext}
+                          showStoredText={comment.tombstone === "team_removed"}
+                        />
+                      ) : null}
                       {caseStatus === "in_progress" && assignedToMe && canModerate && comment.tombstone === null ? (
                         <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void resolveCommentCase("remove", reference)} className="mt-3 min-h-11 rounded-lg bg-red-500 px-4 py-2 font-semibold text-white disabled:opacity-40">Remove this Comment & solve</button>
                       ) : null}

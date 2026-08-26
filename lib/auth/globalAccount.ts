@@ -15,6 +15,7 @@ export type GlobalAccountViewState =
   | {
       kind: "authenticated";
       avatarUrl: string | null;
+      canModerateComments: boolean;
       displayName: string;
       publicProfileId: string | null;
       unreadNotificationCount: number;

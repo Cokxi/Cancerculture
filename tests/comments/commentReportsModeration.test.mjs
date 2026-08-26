@@ -3,10 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
-const [migration, correction, registry, turnstile, reportService, reviewService, dto, thread, inboxService] =
+const [migration, correction, reporterProjection, registry, turnstile, reportService, reviewService, dto, thread, inboxService, caseDetail] =
   await Promise.all([
     read("supabase/migrations/20260824000300_comment_reports_moderation_spam_review.sql"),
     read("supabase/migrations/20260824000400_comment_team_removal_projection_corrections.sql"),
+    read("supabase/migrations/20260826000400_comment_reporter_identity_team_projection.sql"),
     read("lib/auth/teamCapabilityRegistry.ts"),
     read("lib/turnstile/shared.ts"),
     read("lib/comments/commentReport.server.ts"),
@@ -14,6 +15,7 @@ const [migration, correction, registry, turnstile, reportService, reviewService,
     read("lib/comments/commentDto.ts"),
     read("app/components/comments/CommunityCommentThread.tsx"),
     read("lib/teamInbox/teamInbox.server.ts"),
+    read("app/components/teamInbox/TeamInboxCaseDetail.tsx"),
   ]);
 
 const capabilities = [
@@ -45,6 +47,18 @@ test("Report intake is one-per-user, Turnstile-bound, immutable, and reporter-pr
   assert.doesNotMatch(migration, /'reporterDiscordUserId'/u);
 });
 
+test("reporter identity is projected only inside the protected Team Comment Report Case", () => {
+  assert.match(reporterProjection, /assert_team_inbox_topic_access[\s\S]*'reporterUsername'[\s\S]*'reporterDiscordUserId'/u);
+  assert.match(reporterProjection, /join public[.]user_logs reporter_row/u);
+  assert.match(reporterProjection, /community[.]comment_reports[.]view[\s\S]*implementation_version = 2/u);
+  assert.match(caseDetail, /Reported by/u);
+  assert.match(caseDetail, /Discord ID/u);
+  assert.doesNotMatch(caseDetail, /href=[^\n]*reporterDiscordUserId/u);
+  assert.doesNotMatch(reportService, /reporterUsername/u);
+  assert.doesNotMatch(reportService, /return[\s\S]*reporterDiscordUserId/u);
+  assert.doesNotMatch(dto, /reporterDiscordUserId|reporterUsername/u);
+});
+
 test("Team Inbox review stays conjunctive, assigned, versioned, and atomic", () => {
   assert.match(migration, /'comment_reports'[\s\S]*community[.]comment_reports[.]view[\s\S]*community[.]comment_reports[.]review/u);
   assert.match(migration, /'comment_spam'[\s\S]*community[.]comment_spam[.]view[\s\S]*community[.]comment_spam[.]review/u);
@@ -60,7 +74,7 @@ test("Team Inbox review stays conjunctive, assigned, versioned, and atomic", () 
 
 test("team removal is a public tombstone and closes edit, reply, vote, and replay paths", () => {
   assert.match(dto, /"team_removed"/u);
-  assert.match(thread, /Comment removed by the team/u);
+  assert.match(thread, /Deleted by admin\/mod/u);
   assert.match(migration, /community_comments_reply_target_guard/u);
   assert.match(migration, /community_comment_votes_team_removed_guard/u);
   assert.match(migration, /community_comment_vote_transitions_team_removed_guard/u);

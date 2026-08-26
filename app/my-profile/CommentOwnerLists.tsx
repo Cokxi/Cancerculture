@@ -17,7 +17,7 @@ function formatDate(value: string) {
 
 function statusCopy(status: OwnCommentItem["status"]) {
   if (status === "author_deleted") return "Comment deleted by its author";
-  if (status === "team_removed") return "Comment removed by the Team";
+  if (status === "team_removed") return "Deleted by admin/mod";
   if (status === "unavailable") return "Comment destination no longer available";
   return null;
 }

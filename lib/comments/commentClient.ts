@@ -75,9 +75,41 @@ export type CommunityCommentAccountState =
   | { kind: "restricted" | "dependency_unavailable" }
   | {
       kind: "authenticated";
+      canModerateComments: boolean;
       publicProfileId: string | null;
       displayName: string;
     };
+
+export type CommunityCommentModerationTarget = {
+  comment: CommunityCommentPublicDto;
+  objectVersion: number;
+  moderationVersion: number;
+  removed: boolean;
+  authorDeleted: boolean;
+  submissionEligible: boolean;
+  claimedForReview: boolean;
+  reviewContext: CommunityCommentModerationReviewContext | null;
+};
+
+export type CommunityCommentModerationReviewContext = {
+  text: string;
+  textVersion: number;
+  lastModeration: {
+    action: "remove" | "restore";
+    reason: string;
+    actorDisplayName: string;
+    actorRole: string;
+    createdAt: string;
+    moderationVersion: number;
+  } | null;
+};
+
+export type CommunityCommentModerationReceipt = {
+  outcome: "removed" | "restored";
+  publicCommentId: string;
+  objectVersion: number;
+  moderationVersion: number;
+};
 
 export class CommunityCommentClientError extends Error {
   public readonly status: number;
@@ -365,23 +397,206 @@ export async function fetchCommunityCommentCounts(
   });
 }
 
+export function parseCommunityCommentAccountState(
+  input: unknown,
+): CommunityCommentAccountState {
+  const value = record(input) as GlobalAccountViewState;
+  if (
+    value.kind === "authenticated" &&
+    typeof value.displayName === "string" &&
+    value.displayName.trim().length > 0 &&
+    (value.publicProfileId === null || typeof value.publicProfileId === "string")
+  ) {
+    return {
+      kind: "authenticated",
+      canModerateComments: value.canModerateComments === true,
+      publicProfileId: value.publicProfileId,
+      displayName: value.displayName,
+    };
+  }
+  if (value.kind === "anonymous" || value.kind === "restricted") return value;
+  return { kind: "dependency_unavailable" };
+}
+
 export async function fetchCommunityCommentAccount(): Promise<CommunityCommentAccountState> {
   try {
     const response = await fetch("/api/auth/account", { cache: "no-store" });
-    const value = record(await responseJson(response)) as GlobalAccountViewState;
-    if (value.kind === "authenticated") {
-      return {
-        kind: "authenticated",
-        publicProfileId:
-          typeof value.publicProfileId === "string" ? value.publicProfileId : null,
-        displayName: value.displayName,
-      };
-    }
-    if (value.kind === "anonymous" || value.kind === "restricted") return value;
-    return { kind: "dependency_unavailable" };
+    return parseCommunityCommentAccountState(await responseJson(response));
   } catch {
     return { kind: "dependency_unavailable" };
   }
+}
+
+export async function fetchCommunityCommentModerationTarget(
+  publicCommentId: string,
+): Promise<CommunityCommentModerationTarget> {
+  const response = await fetch(
+    `/api/admin/comments/moderation?comment=${encodeURIComponent(publicCommentId)}`,
+    { cache: "no-store" },
+  );
+  const value = record(await responseJson(response));
+  if (value.outcome === "not_found") {
+    throw new CommunityCommentClientError(404, "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  if (
+    !exactKeys(value, [
+      "authorDeleted",
+      "claimedForReview",
+      "comment",
+      "moderationVersion",
+      "objectVersion",
+      "outcome",
+      "removed",
+      "reviewContext",
+      "submissionEligible",
+    ]) ||
+    value.outcome !== "found" ||
+    !positiveInteger(value.objectVersion) ||
+    !nonNegativeInteger(value.moderationVersion) ||
+    typeof value.removed !== "boolean" ||
+    typeof value.authorDeleted !== "boolean" ||
+    typeof value.claimedForReview !== "boolean" ||
+    typeof value.submissionEligible !== "boolean"
+  ) {
+    throw new CommunityCommentClientError(503, "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  const comment = parseCommunityCommentPublicDto(value.comment);
+  const reviewContext = parseCommunityCommentModerationReviewContext(value.reviewContext);
+  if (comment.publicCommentId !== publicCommentId) {
+    throw new CommunityCommentClientError(503, "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  if (!value.authorDeleted && !reviewContext) {
+    throw new CommunityCommentClientError(503, "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  return {
+    comment,
+    objectVersion: value.objectVersion as number,
+    moderationVersion: value.moderationVersion as number,
+    removed: value.removed,
+    authorDeleted: value.authorDeleted,
+    submissionEligible: value.submissionEligible,
+    claimedForReview: value.claimedForReview,
+    reviewContext,
+  };
+}
+
+export function parseCommunityCommentModerationReviewContext(
+  input: unknown,
+): CommunityCommentModerationReviewContext | null {
+  if (input === null) return null;
+  const value = record(input);
+  if (
+    !exactKeys(value, ["lastModeration", "text", "textVersion"]) ||
+    typeof value.text !== "string" ||
+    value.text.length < 1 ||
+    value.text.length > 10_000 ||
+    !positiveInteger(value.textVersion)
+  ) return null;
+
+  if (value.lastModeration === null) {
+    return {
+      text: value.text,
+      textVersion: value.textVersion as number,
+      lastModeration: null,
+    };
+  }
+
+  const lastModeration = record(value.lastModeration);
+  if (
+    !exactKeys(lastModeration, [
+      "action",
+      "actorDisplayName",
+      "actorRole",
+      "createdAt",
+      "moderationVersion",
+      "reason",
+    ]) ||
+    typeof lastModeration.action !== "string" ||
+    !["remove", "restore"].includes(lastModeration.action) ||
+    typeof lastModeration.reason !== "string" ||
+    lastModeration.reason.length < 3 ||
+    lastModeration.reason.length > 1000 ||
+    typeof lastModeration.actorDisplayName !== "string" ||
+    lastModeration.actorDisplayName.trim().length < 1 ||
+    typeof lastModeration.actorRole !== "string" ||
+    lastModeration.actorRole.trim().length < 1 ||
+    !timestamp(lastModeration.createdAt) ||
+    !positiveInteger(lastModeration.moderationVersion)
+  ) return null;
+
+  return {
+    text: value.text,
+    textVersion: value.textVersion as number,
+    lastModeration: {
+      action: lastModeration.action as "remove" | "restore",
+      reason: lastModeration.reason,
+      actorDisplayName: lastModeration.actorDisplayName,
+      actorRole: lastModeration.actorRole,
+      createdAt: lastModeration.createdAt as string,
+      moderationVersion: lastModeration.moderationVersion as number,
+    },
+  };
+}
+
+export async function sendCommunityCommentModeration(input: {
+  publicCommentId: string;
+  action: "remove" | "restore";
+  expectedObjectVersion: number;
+  expectedModerationVersion: number;
+  reason: string;
+  requestId: string;
+}): Promise<CommunityCommentModerationReceipt> {
+  const response = await fetch("/api/admin/comments/moderation", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      publicCommentId: input.publicCommentId,
+      action: input.action,
+      expectedObjectVersion: input.expectedObjectVersion,
+      expectedModerationVersion: input.expectedModerationVersion,
+      reason: input.reason,
+      requestId: input.requestId,
+    }),
+  });
+  const value = record(await responseJson(response));
+  if (value.outcome === "stale") {
+    throw new CommunityCommentClientError(409, "COMMENT_MODERATION_STALE");
+  }
+  if (value.outcome === "unavailable") {
+    throw new CommunityCommentClientError(409, "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  if (value.outcome === "claimed_for_review") {
+    throw new CommunityCommentClientError(409, "COMMENT_MODERATION_CLAIMED");
+  }
+  if (value.outcome === "comment_unavailable") {
+    throw new CommunityCommentClientError(404, "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  if (
+    !exactKeys(value, [
+      "comment",
+      "moderationVersion",
+      "objectVersion",
+      "outcome",
+      "publicCommentId",
+    ]) ||
+    !["removed", "restored"].includes(String(value.outcome)) ||
+    value.publicCommentId !== input.publicCommentId ||
+    !positiveInteger(value.objectVersion) ||
+    !nonNegativeInteger(value.moderationVersion)
+  ) {
+    throw new CommunityCommentClientError(503, "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  const comment = parseCommunityCommentPublicDto(value.comment);
+  if (comment.publicCommentId !== input.publicCommentId) {
+    throw new CommunityCommentClientError(503, "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  return {
+    outcome: value.outcome as CommunityCommentModerationReceipt["outcome"],
+    publicCommentId: input.publicCommentId,
+    objectVersion: value.objectVersion as number,
+    moderationVersion: value.moderationVersion as number,
+  };
 }
 
 export async function searchCommunityCommentMentions(query: string) {

@@ -70,7 +70,7 @@ export default function CommunityCommentModerationPanel() {
       {comment ? (
         <section className="rounded-2xl border border-white/10 bg-black/35 p-5">
           <p className="text-xs text-white/50">Submission #{String(comment.submissionId ?? "-")} · Object v{String(detail?.objectVersion ?? "-")} · Moderation v{String(detail?.moderationVersion ?? "-")}</p>
-          <p className="mt-3 whitespace-pre-wrap text-white/85">{comment.tombstone === "team_removed" ? "Comment removed by the team" : comment.tombstone === "author_deleted" ? "Comment deleted by its author" : String(comment.body ?? "")}</p>
+          <p className="mt-3 whitespace-pre-wrap text-white/85">{comment.tombstone === "team_removed" ? "Deleted by admin/mod" : comment.tombstone === "author_deleted" ? "Comment deleted by its author" : String(comment.body ?? "")}</p>
           <label className="mt-5 block text-sm text-white/70">
             Internal reason (required)
             <textarea value={reason} onChange={(event) => setReason(event.target.value.slice(0, 1000))} className="mt-2 min-h-24 w-full rounded-lg border border-white/15 bg-black p-3" />

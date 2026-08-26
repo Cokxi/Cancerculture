@@ -194,7 +194,7 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "community.polls.manage":
       "042a289cd77aca920ab6d07abec54cec1b380423c90aa3693b7fbb11537a9a7e",
     "community.comment_reports.view":
-      "70902b326e0b5f2247e1c20443886f28fa16480aca8e05f6d63ad3367b1bffcd",
+      "31e7f8d6bb49d148c717991d39b8cfbb7cde4e7757026839854b0fdad89a4775",
     "community.comment_reports.review":
       "b201f956e4cc586b0a445455935224c3cefd5d5c950260e6899c451191e19da9",
     "community.comments.moderate":
@@ -249,7 +249,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       key === "cycles.manage" ||
       key === "winners.payouts.view" ||
       key === "winners.manage_payouts" ||
-      key === "winners.recipient_corrections.manage";
+      key === "winners.recipient_corrections.manage" ||
+      key === "community.comment_reports.view";
     const versionFour = key === "submissions.reports.review";
     assert.equal(definition.assignableToNonAdmin, !deprecated);
     assert.equal(

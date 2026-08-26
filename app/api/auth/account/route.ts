@@ -44,6 +44,9 @@ export async function GET() {
       }),
       getResolvedTeamAreaNavigation()
         .then((navigation) => ({
+          canModerateComments: navigation.some((category) =>
+            category.items.some((item) => item.id === "comment-moderation")
+          ),
           hasVisibleTeamAreaItems: navigation.length > 0,
           unavailable: false,
         }))
@@ -55,18 +58,21 @@ export async function GET() {
             code === "TEAM_SECURITY_CONTEXT_CHANGED"
           ) {
             return {
+              canModerateComments: false,
               hasVisibleTeamAreaItems: true,
               unavailable: false,
             };
           }
           if (status === 403) {
             return {
+              canModerateComments: false,
               hasVisibleTeamAreaItems: false,
               unavailable: false,
             };
           }
           if (status === 401 || status === 503) {
             return {
+              canModerateComments: false,
               hasVisibleTeamAreaItems: false,
               unavailable: true,
             };
@@ -103,6 +109,7 @@ export async function GET() {
     return accountResponse({
       kind: "authenticated",
       avatarUrl,
+      canModerateComments: teamAccess.canModerateComments,
       displayName: account?.current_discord_username ?? "Account",
       publicProfileId:
         typeof account?.public_profile_id === "string"

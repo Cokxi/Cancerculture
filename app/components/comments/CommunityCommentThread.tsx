@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import CommunityCommentComposer from "@/app/components/comments/CommunityCommentComposer";
+import CommunityCommentInlineModerationMenu from "@/app/components/comments/CommunityCommentInlineModerationMenu";
 import CommunityCommentReportDialog from "@/app/components/comments/CommunityCommentReportDialog";
 import {
   CommunityCommentClientError,
@@ -42,6 +43,7 @@ type CommentVoteLayout = "thumbs" | "expressive";
 let releaseProbe: Promise<CommunityCommentReleaseState | null> | null = null;
 let releaseProbeStartedAt = 0;
 let accountProbe: Promise<CommunityCommentAccountState> | null = null;
+let accountProbeStartedAt = 0;
 type CommentCountListener = (totalCount: number | null) => void;
 const commentCountCache = new Map<number, number>();
 const commentCountListeners = new Map<number, Set<CommentCountListener>>();
@@ -138,8 +140,11 @@ async function probeReleaseState(submissionId: number) {
   return releaseProbe;
 }
 
-function loadAccountOnce() {
-  accountProbe ??= fetchCommunityCommentAccount();
+function loadAccountProjection() {
+  if (!accountProbe || Date.now() - accountProbeStartedAt >= COMMENT_RECONCILIATION_INTERVAL_MS) {
+    accountProbeStartedAt = Date.now();
+    accountProbe = fetchCommunityCommentAccount();
+  }
   return accountProbe;
 }
 
@@ -173,7 +178,7 @@ function CommentBody({ comment }: { comment: CommunityCommentPublicDto }) {
     return <p className="mt-2 italic text-white/55">Comment deleted by its author</p>;
   }
   if (comment.tombstone === "team_removed") {
-    return <p className="mt-2 italic text-white/65">Comment removed by the team</p>;
+    return <p className="mt-2 italic text-white/65">Deleted by admin/mod</p>;
   }
   const characters = Array.from(comment.body ?? "");
   const content: React.ReactNode[] = [];
@@ -485,6 +490,8 @@ function CommentItem({
   onDelete,
   onEdit,
   onReply,
+  onModerationAccessUnavailable,
+  onModerationProjection,
   onVote,
   onVoteLayoutChange,
   sendMutation,
@@ -503,6 +510,8 @@ function CommentItem({
   onDelete: (receipt: CommunityCommentMutationReceipt) => void;
   onEdit: (receipt: CommunityCommentMutationReceipt) => void;
   onReply: () => void;
+  onModerationAccessUnavailable: () => void;
+  onModerationProjection: (comment: CommunityCommentPublicDto) => void;
   onVote: (desiredState: CommunityCommentVoteState) => void;
   onVoteLayoutChange: (layout: CommentVoteLayout) => void;
   sendMutation: typeof sendCommunityCommentMutation;
@@ -530,6 +539,10 @@ function CommentItem({
     !isReply && comment.replyCount > 0 && onToggleReplies !== undefined;
   const canManage = canMutate && own;
   const canReport = canMutate && !own && account.kind === "authenticated";
+  const canModerate =
+    account.kind === "authenticated" &&
+    account.canModerateComments &&
+    comment.tombstone !== "author_deleted";
   const canVote =
     canMutate &&
     (account.kind === "authenticated" || account.kind === "anonymous");
@@ -621,7 +634,7 @@ function CommentItem({
         <CommentBody comment={comment} />
       )}
 
-      {!editing && (voteCounts || canReply || canToggleReplies || canManage || canReport) ? (
+      {!editing && (voteCounts || canReply || canToggleReplies || canManage || canReport || canModerate) ? (
         <div className="mt-2 flex min-h-8 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           {voteCounts ? (
             <div className="flex items-center gap-1" aria-label="Comment votes">
@@ -689,6 +702,13 @@ function CommentItem({
             <button type="button" onClick={() => setReportOpen(true)} className="ml-auto min-h-8 cursor-pointer rounded px-1 py-1.5 font-semibold text-white/55 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400">
               Report
             </button>
+          ) : null}
+          {canModerate ? (
+            <CommunityCommentInlineModerationMenu
+              publicCommentId={comment.publicCommentId}
+              onAccessUnavailable={onModerationAccessUnavailable}
+              onProjection={onModerationProjection}
+            />
           ) : null}
         </div>
       ) : null}
@@ -870,8 +890,8 @@ export default function CommunityCommentThread({
           return;
         }
         setReleaseState(state);
-        if (state === "open" && latestState.current.open) {
-          void loadAccountOnce().then((value) => {
+        if (latestState.current.open) {
+          void loadAccountProjection().then((value) => {
             if (!disposed) setAccount(value);
           });
         } else {
@@ -983,11 +1003,7 @@ export default function CommunityCommentThread({
       setLoadedRootPages(1);
       setOwnNewRoot(null);
       setReplyConflict(null);
-      if (next.releaseState === "open") {
-        void loadAccountOnce().then(setAccount);
-      } else {
-        setAccount({ kind: "anonymous" });
-      }
+      void loadAccountProjection().then(setAccount);
     } catch (reason) {
       if (reason instanceof CommunityCommentClientError && reason.status === 404) {
         setHidden(true);
@@ -1190,6 +1206,7 @@ export default function CommunityCommentThread({
       setReleaseState(nextPage.releaseState);
       setRoots(nextRoots);
       setBranches(nextBranches);
+      void loadAccountProjection().then(setAccount);
       setOwnNewRoot(
         refreshedOwnRoot?.rootPublicCommentId === null
           ? {
@@ -1358,6 +1375,18 @@ export default function CommunityCommentThread({
     if (updated.rootPublicCommentId === null) {
       setRoots((current) => current.map((root) => root.publicCommentId === updated.publicCommentId ? { ...root, ...updated } : root));
       setOwnNewRoot((current) => current?.publicCommentId === updated.publicCommentId ? { ...current, ...updated } : current);
+      setBranches((current) => {
+        const branch = current[updated.publicCommentId];
+        if (!branch) return current;
+        return {
+          ...current,
+          [updated.publicCommentId]: {
+            ...branch,
+            branchOpen: updated.tombstone === null,
+            rootVersion: updated.version,
+          },
+        };
+      });
     } else {
       setBranches((current) => {
         const branch = current[updated.rootPublicCommentId!];
@@ -1365,6 +1394,12 @@ export default function CommunityCommentThread({
         return { ...current, [updated.rootPublicCommentId!]: { ...branch, items: branch.items.map((reply) => reply.publicCommentId === updated.publicCommentId ? updated : reply) } };
       });
     }
+  }
+
+  function removeModerationAccess() {
+    setAccount((current) => current.kind === "authenticated"
+      ? { ...current, canModerateComments: false }
+      : current);
   }
 
   function replaceComment(receipt: CommunityCommentMutationReceipt) {
@@ -1667,7 +1702,7 @@ export default function CommunityCommentThread({
               {ownNewRoot ? (
                 <div className="rounded-2xl border-2 border-orange-400/60 bg-orange-500/10 p-2">
                   <p className="px-2 pb-2 text-sm font-bold text-orange-100">Your new comment</p>
-                  <CommentItem account={account} branchOpen comment={ownNewRoot} isReply={false} releaseState={visibleReleaseState} turnstileSiteKey={turnstileSiteKey} sendMutation={guardedMutation} voteLayout={voteLayout} onVoteLayoutChange={updateVoteLayout} voteViewer={voteViewerFor(ownNewRoot.publicCommentId)} onVote={(desiredState) => void voteOnComment(ownNewRoot, desiredState)} onReply={() => beginReply(ownNewRoot, ownNewRoot)} onEdit={replaceComment} onDelete={replaceComment} />
+                  <CommentItem account={account} branchOpen comment={ownNewRoot} isReply={false} releaseState={visibleReleaseState} turnstileSiteKey={turnstileSiteKey} sendMutation={guardedMutation} voteLayout={voteLayout} onVoteLayoutChange={updateVoteLayout} voteViewer={voteViewerFor(ownNewRoot.publicCommentId)} onVote={(desiredState) => void voteOnComment(ownNewRoot, desiredState)} onReply={() => beginReply(ownNewRoot, ownNewRoot)} onEdit={replaceComment} onDelete={replaceComment} onModerationAccessUnavailable={removeModerationAccess} onModerationProjection={replaceCommentDto} />
                   {replyTarget?.root.publicCommentId === ownNewRoot.publicCommentId &&
                   account.kind === "authenticated" && ownNewBranch ? (
                     <div className="mt-3">
@@ -1716,12 +1751,12 @@ export default function CommunityCommentThread({
                   const names = new Map<string, string>([[root.publicCommentId, root.author.displayName], ...branch.items.map((reply) => [reply.publicCommentId, reply.author.displayName] as [string, string])]);
                   return (
                     <div key={root.publicCommentId} className="space-y-3">
-                      <CommentItem account={account} branchOpen={branch.branchOpen} comment={root} isReply={false} releaseState={visibleReleaseState} repliesExpanded={branch.expanded} onToggleReplies={() => toggleReplies(root)} turnstileSiteKey={turnstileSiteKey} sendMutation={guardedMutation} voteLayout={voteLayout} onVoteLayoutChange={updateVoteLayout} voteViewer={voteViewerFor(root.publicCommentId)} onVote={(desiredState) => void voteOnComment(root, desiredState)} onReply={() => beginReply(root, root)} onEdit={replaceComment} onDelete={replaceComment} />
+                      <CommentItem account={account} branchOpen={branch.branchOpen} comment={root} isReply={false} releaseState={visibleReleaseState} repliesExpanded={branch.expanded} onToggleReplies={() => toggleReplies(root)} turnstileSiteKey={turnstileSiteKey} sendMutation={guardedMutation} voteLayout={voteLayout} onVoteLayoutChange={updateVoteLayout} voteViewer={voteViewerFor(root.publicCommentId)} onVote={(desiredState) => void voteOnComment(root, desiredState)} onReply={() => beginReply(root, root)} onEdit={replaceComment} onDelete={replaceComment} onModerationAccessUnavailable={removeModerationAccess} onModerationProjection={replaceCommentDto} />
                       {branch.expanded && (branch.items.length > 0 || branch.hasMore) ? (
                         <div className="ml-3 space-y-3 border-l border-orange-500/20 pl-3 sm:ml-6 sm:pl-4">
                           {branch.error ? <p className="text-sm text-red-200" role="alert">{branch.error}</p> : null}
                           {branch.items.map((reply) => (
-                            <CommentItem key={reply.publicCommentId} account={account} branchOpen={branch.branchOpen && reply.tombstone === null} comment={reply} isReply releaseState={visibleReleaseState} replyTargetName={reply.replyTargetPublicCommentId && reply.replyTargetPublicCommentId !== root.publicCommentId ? names.get(reply.replyTargetPublicCommentId) ?? null : null} turnstileSiteKey={turnstileSiteKey} sendMutation={guardedMutation} voteLayout={voteLayout} onVoteLayoutChange={updateVoteLayout} voteViewer={voteViewerFor(reply.publicCommentId)} onVote={(desiredState) => void voteOnComment(reply, desiredState)} onReply={() => beginReply(root, reply)} onEdit={replaceComment} onDelete={replaceComment} />
+                            <CommentItem key={reply.publicCommentId} account={account} branchOpen={branch.branchOpen && reply.tombstone === null} comment={reply} isReply releaseState={visibleReleaseState} replyTargetName={reply.replyTargetPublicCommentId && reply.replyTargetPublicCommentId !== root.publicCommentId ? names.get(reply.replyTargetPublicCommentId) ?? null : null} turnstileSiteKey={turnstileSiteKey} sendMutation={guardedMutation} voteLayout={voteLayout} onVoteLayoutChange={updateVoteLayout} voteViewer={voteViewerFor(reply.publicCommentId)} onVote={(desiredState) => void voteOnComment(reply, desiredState)} onReply={() => beginReply(root, reply)} onEdit={replaceComment} onDelete={replaceComment} onModerationAccessUnavailable={removeModerationAccess} onModerationProjection={replaceCommentDto} />
                           ))}
                           {branch.hasMore ? (
                             <button type="button" onClick={() => void loadEarlierReplies(root)} disabled={branch.loading} className="min-h-9 cursor-pointer rounded px-1 py-1.5 text-sm font-semibold text-orange-300 hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:opacity-50">

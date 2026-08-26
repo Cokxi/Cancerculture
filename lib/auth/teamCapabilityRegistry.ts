@@ -961,25 +961,25 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     key: "community.comment_reports.view",
     displayName: "View Comment Reports",
     description:
-      "View redacted Comment Report queues, case details, immutable report facts, and the integrated append-only Case timeline without claiming or changing a Case.",
+      "View protected Comment Report queues, case details, immutable report facts including reporter identity, and the integrated append-only Case timeline without claiming or changing a Case.",
     category: "Community",
     includedActions: [
       "View the redacted Comment Report Team Inbox topic, bounded queues, full Case details, and permanent Case timeline.",
-      "View report categories, allowlisted explanations, Comment context, and report counts without reporter identity.",
+      "View report categories, allowlisted explanations, Comment context, report counts, and each reporter's current username and exact Discord ID.",
       "Use capability-protected bounded username and exact Discord ID Case search.",
     ],
     excludedActions: [
       "Claiming, returning, solving, removing, or restoring a Comment.",
-      "Viewing reporter identity, raw abuse signals, manual User Flags, private security data, or prior Comment bodies.",
+      "Viewing raw abuse signals, manual User Flags, private security data, or prior Comment bodies.",
       "Viewing automated Spam Review Cases or the standalone moderation log.",
       "Managing roles, grants, Team membership, Owner access, or unrelated content and logs.",
     ],
     riskLevel: "high",
     lifecycle: "active",
     assignableToNonAdmin: true,
-    implementationVersion: 1,
+    implementationVersion: 2,
     definitionHash:
-      "70902b326e0b5f2247e1c20443886f28fa16480aca8e05f6d63ad3367b1bffcd",
+      "31e7f8d6bb49d148c717991d39b8cfbb7cde4e7757026839854b0fdad89a4775",
   }),
   "community.comment_reports.review": defineCapability({
     key: "community.comment_reports.review",

@@ -40,7 +40,7 @@ test("Comment cards preserve text safely and provide neutral unavailable states"
   const component = await source("app/my-profile/CommentOwnerLists.tsx");
   assert.match(component, /whitespace-pre-wrap break-words/u);
   assert.match(component, /Comment deleted by its author/u);
-  assert.match(component, /Comment removed by the Team/u);
+  assert.match(component, /Deleted by admin\/mod/u);
   assert.match(component, /Comment destination no longer available/u);
   assert.match(component, /Open conversation/u);
   assert.doesNotMatch(component, /dangerouslySetInnerHTML/u);
