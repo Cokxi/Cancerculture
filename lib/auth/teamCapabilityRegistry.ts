@@ -17,6 +17,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "users.flag.review",
   "users.warnings.issue",
   "users.warnings.overrule",
+  "users.warnings.view",
   "users.directory.basic.view",
   "users.directory.full.view",
   "users.disqualified_submissions.view",
@@ -471,6 +472,30 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "ce5849bc151746eddf520ed960002a6f0c7e4a9c7b0c9eac58721d4c40603ece",
+  }),
+  "users.warnings.view": defineCapability({
+    key: "users.warnings.view",
+    displayName: "View User Warning History",
+    description:
+      "View canonical active Warning status and immutable Warning history for a selected user.",
+    category: "User Moderation",
+    includedActions: [
+      "View canonical active Warning counts, effective states, tiers, and expiries for a selected user.",
+      "View Warning category, reason, source Comment evidence, issuing Team snapshot, and lifecycle events.",
+      "Compare immutable original assignment with the current deterministic recalculation projection.",
+    ],
+    excludedActions: [
+      "Issuing or overruling Warnings.",
+      "Viewing automatic Flag internals, appeals, Reports, Spam signals, or unrelated moderation data.",
+      "Banning, holding participation, removing Comments, or applying any other sanction.",
+      "Managing roles, grants, Team membership, or Owner access.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "c3a987a6878787bcd56e6e1e9ebbe791419c510c47c768a18bf2354bc81a85d8",
   }),
   "users.directory.basic.view": defineCapability({
     key: "users.directory.basic.view",

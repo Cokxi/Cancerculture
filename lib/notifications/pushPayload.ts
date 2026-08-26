@@ -119,12 +119,19 @@ export const PUSH_PAYLOAD_CATALOG = Object.freeze({
 export type PushEventType = keyof typeof PUSH_PAYLOAD_CATALOG;
 
 const EVENT_TYPES = new Set<string>(Object.keys(PUSH_PAYLOAD_CATALOG));
+const IN_PRODUCT_ONLY_EVENT_TYPES = new Set<string>([
+  "user_warning_issued",
+]);
 const CATEGORY_PATTERN = /^[a-z][a-z0-9_]{2,63}$/u;
 const NOTIFICATION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 export function isPushEventType(value: string): value is PushEventType {
   return EVENT_TYPES.has(value);
+}
+
+export function isNotificationEventType(value: string) {
+  return EVENT_TYPES.has(value) || IN_PRODUCT_ONLY_EVENT_TYPES.has(value);
 }
 
 export function getServiceWorkerPushAllowlist() {

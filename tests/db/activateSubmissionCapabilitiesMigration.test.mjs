@@ -161,8 +161,8 @@ test("security, audit, ledger and mutation surfaces remain unchanged", () => {
 });
 
 test("the registry preserves known definitions after later cutovers", () => {
-  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 51);
-  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 47);
+  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 52);
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 48);
   assert.equal(
     Object.values(TEAM_CAPABILITY_REGISTRY).filter(
       (definition) => definition.lifecycle === "staged"

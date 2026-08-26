@@ -19,6 +19,11 @@ import UserSubmissionsDropdown from "./UserSubmissionsDropdown";
 import UserModerationActions from "./UserModerationActions";
 import UserFlagCaseCreateForm from "./UserFlagCaseCreateForm";
 import UserFlagHistoryDisclosure from "./UserFlagHistoryDisclosure";
+import UserWarningHistoryDisclosure from "./UserWarningHistoryDisclosure";
+import {
+  loadTeamUserWarningHistory,
+  loadTeamUserWarningSummaries,
+} from "@/lib/warnings/userWarningVisibility.server";
 
 
 type UserLog = {
@@ -57,7 +62,7 @@ type UserIdentityProjection = {
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ focus?: string; q?: string }>;
+  searchParams: Promise<{ focus?: string; q?: string; warning?: string }>;
 }) {
   const params = await searchParams;
   const focusUserId = params?.focus ?? null;
@@ -100,6 +105,10 @@ export default async function AdminUsersPage({
   const canViewFlags = hasResolvedTeamCapability(
     authorization,
     "users.flag.view"
+  );
+  const canViewWarnings = hasResolvedTeamCapability(
+    authorization,
+    "users.warnings.view"
   );
   const canViewWebsiteBans = hasResolvedTeamCapability(
     authorization,
@@ -193,6 +202,23 @@ export default async function AdminUsersPage({
           )
         );
       });
+
+  const warningSummaries = canViewWarnings && filteredUsers.length > 0
+    ? await loadTeamUserWarningSummaries(
+        filteredUsers.map((user) => user.discord_user_id),
+      )
+    : [];
+  const warningSummaryByUser = new Map(
+    warningSummaries.map((summary) => [summary.targetDiscordUserId, summary]),
+  );
+  const selectedWarningUserId = canViewWarnings &&
+    typeof params.warning === "string" &&
+    filteredUsers.some((user) => user.discord_user_id === params.warning)
+    ? params.warning
+    : null;
+  const selectedWarningHistory = selectedWarningUserId
+    ? await loadTeamUserWarningHistory(selectedWarningUserId)
+    : null;
 
   const activeFlagStatusByUser = new Map<
     string,
@@ -319,6 +345,7 @@ export default async function AdminUsersPage({
               <th align="left">User</th>
               <th align="left">Discord ID</th>
               {canViewFlags ? <th align="left">Flag cases</th> : null}
+              {canViewWarnings ? <th align="left">Warnings</th> : null}
               {isFullView ? <th align="left">Stats</th> : null}
               {isFullView ? <th align="left">Activity</th> : null}
             </tr>
@@ -343,10 +370,16 @@ export default async function AdminUsersPage({
         name?.toLowerCase().includes(query.toLowerCase())
       )
     );
+  const warningSummary = warningSummaryByUser.get(user.discord_user_id);
+  const warningParams = new URLSearchParams();
+  if (query) warningParams.set("q", query);
+  warningParams.set("warning", user.discord_user_id);
+  const isSelectedWarningUser = selectedWarningUserId === user.discord_user_id;
 
   return (
     <tr
       key={user.discord_user_id}
+      id={`user-${user.discord_user_id}`}
       style={{
         borderTop: "1px solid #333",
         verticalAlign: "top",
@@ -461,6 +494,41 @@ export default async function AdminUsersPage({
                       }
                       userLabel={userLabel}
                     />
+                  </td>
+                ) : null}
+
+                {canViewWarnings ? (
+                  <td style={{ padding: "8px 16px 8px 0" }}>
+                    {isSelectedWarningUser && selectedWarningHistory ? (
+                      <UserWarningHistoryDisclosure
+                        history={selectedWarningHistory}
+                        userLabel={userLabel}
+                      />
+                    ) : (
+                      <div style={{ minWidth: 190, fontSize: 12 }}>
+                        <div
+                          style={{
+                            color: warningSummary?.active ? "#fbbf24" : "rgba(255,255,255,.6)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {warningSummary?.active
+                            ? `ACTIVE WARNING (${warningSummary.activeCount})`
+                            : "No active Warning"}
+                        </div>
+                        {warningSummary?.active && warningSummary.latestActiveExpiresAt ? (
+                          <div style={{ marginTop: 3, opacity: 0.7 }}>
+                            Latest expiry {new Date(warningSummary.latestActiveExpiresAt).toLocaleString()}
+                          </div>
+                        ) : null}
+                        <Link
+                          href={`/admin/users?${warningParams.toString()}#user-${encodeURIComponent(user.discord_user_id)}`}
+                          style={{ display: "inline-block", marginTop: 5, color: "#ff9f1c" }}
+                        >
+                          View Warning history ({warningSummary?.historyCount ?? 0})
+                        </Link>
+                      </div>
+                    )}
                   </td>
                 ) : null}
 

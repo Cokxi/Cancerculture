@@ -6,7 +6,7 @@ import {
   encodeNotificationCursor,
   parseNotificationCursor,
 } from "@/lib/notifications/notificationCursor";
-import { isPushEventType } from "@/lib/notifications/pushPayload";
+import { isNotificationEventType } from "@/lib/notifications/pushPayload";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -37,7 +37,7 @@ function parseItem(value: unknown): OwnerNotification | null {
     typeof item.categoryKey !== "string" ||
     !/^[a-z][a-z0-9_]{2,63}$/u.test(item.categoryKey) ||
     typeof item.eventType !== "string" ||
-    !isPushEventType(item.eventType) ||
+    !isNotificationEventType(item.eventType) ||
     typeof item.title !== "string" ||
     item.title.length > 120 ||
     typeof item.body !== "string" ||
