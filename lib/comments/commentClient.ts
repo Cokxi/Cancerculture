@@ -75,6 +75,7 @@ export type CommunityCommentAccountState =
   | { kind: "restricted" | "dependency_unavailable" }
   | {
       kind: "authenticated";
+      canIssueCommentWarnings: boolean;
       canModerateComments: boolean;
       publicProfileId: string | null;
       displayName: string;
@@ -109,6 +110,30 @@ export type CommunityCommentModerationReceipt = {
   publicCommentId: string;
   objectVersion: number;
   moderationVersion: number;
+};
+
+export type CommunityCommentWarningCategory =
+  | "spam"
+  | "hate_speech"
+  | "other";
+
+export type CommunityCommentWarningTarget = {
+  outcome: "found";
+  publicCommentId: string;
+  objectVersion: number;
+  textVersion: number;
+  text: string | null;
+  available: boolean;
+  alreadyWarned: boolean;
+};
+
+export type CommunityCommentWarningReceipt = {
+  outcome: "issued";
+  publicCommentId: string;
+  tierDays: 1 | 3 | 7 | 14;
+  issuedAt: string;
+  expiresAt: string;
+  replayed: boolean;
 };
 
 export class CommunityCommentClientError extends Error {
@@ -409,6 +434,7 @@ export function parseCommunityCommentAccountState(
   ) {
     return {
       kind: "authenticated",
+      canIssueCommentWarnings: false,
       canModerateComments: value.canModerateComments === true,
       publicProfileId: value.publicProfileId,
       displayName: value.displayName,
@@ -421,7 +447,23 @@ export function parseCommunityCommentAccountState(
 export async function fetchCommunityCommentAccount(): Promise<CommunityCommentAccountState> {
   try {
     const response = await fetch("/api/auth/account", { cache: "no-store" });
-    return parseCommunityCommentAccountState(await responseJson(response));
+    const account = parseCommunityCommentAccountState(await responseJson(response));
+    if (account.kind !== "authenticated") return account;
+    try {
+      const accessResponse = await fetch(
+        "/api/admin/comments/warnings?access=1",
+        { cache: "no-store" },
+      );
+      const access = record(await responseJson(accessResponse));
+      return {
+        ...account,
+        canIssueCommentWarnings:
+          exactKeys(access, ["canIssueWarning"]) &&
+          access.canIssueWarning === true,
+      };
+    } catch {
+      return account;
+    }
   } catch {
     return { kind: "dependency_unavailable" };
   }
@@ -596,6 +638,100 @@ export async function sendCommunityCommentModeration(input: {
     publicCommentId: input.publicCommentId,
     objectVersion: value.objectVersion as number,
     moderationVersion: value.moderationVersion as number,
+  };
+}
+
+export async function fetchCommunityCommentWarningTarget(
+  publicCommentId: string,
+): Promise<CommunityCommentWarningTarget> {
+  const response = await fetch(
+    `/api/admin/comments/warnings?comment=${encodeURIComponent(publicCommentId)}`,
+    { cache: "no-store" },
+  );
+  const value = record(await responseJson(response));
+  if (
+    !exactKeys(value, [
+      "alreadyWarned",
+      "available",
+      "objectVersion",
+      "outcome",
+      "publicCommentId",
+      "text",
+      "textVersion",
+    ]) ||
+    value.outcome !== "found" ||
+    value.publicCommentId !== publicCommentId ||
+    !positiveInteger(value.objectVersion) ||
+    !positiveInteger(value.textVersion) ||
+    typeof value.available !== "boolean" ||
+    typeof value.alreadyWarned !== "boolean" ||
+    !(
+      value.available
+        ? typeof value.text === "string" &&
+          value.text.length >= 1 && value.text.length <= 10_000
+        : value.text === null
+    )
+  ) {
+    throw new CommunityCommentClientError(503, "COMMENT_WARNING_UNAVAILABLE");
+  }
+  return {
+    outcome: "found",
+    publicCommentId,
+    objectVersion: value.objectVersion as number,
+    textVersion: value.textVersion as number,
+    text: value.text as string | null,
+    available: value.available,
+    alreadyWarned: value.alreadyWarned,
+  };
+}
+
+export async function sendCommunityCommentWarning(input: {
+  publicCommentId: string;
+  expectedObjectVersion: number;
+  expectedTextVersion: number;
+  category: CommunityCommentWarningCategory;
+  reason: string;
+  requestId: string;
+}): Promise<CommunityCommentWarningReceipt> {
+  const response = await fetch("/api/admin/comments/warnings", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      publicCommentId: input.publicCommentId,
+      expectedObjectVersion: input.expectedObjectVersion,
+      expectedTextVersion: input.expectedTextVersion,
+      category: input.category,
+      reason: input.reason,
+      requestId: input.requestId,
+    }),
+  });
+  const value = record(await responseJson(response));
+  if (
+    !exactKeys(value, [
+      "expiresAt",
+      "issuedAt",
+      "outcome",
+      "publicCommentId",
+      "replayed",
+      "tierDays",
+    ]) ||
+    value.outcome !== "issued" ||
+    value.publicCommentId !== input.publicCommentId ||
+    ![1, 3, 7, 14].includes(Number(value.tierDays)) ||
+    !timestamp(value.issuedAt) ||
+    !timestamp(value.expiresAt) ||
+    typeof value.replayed !== "boolean"
+  ) {
+    throw new CommunityCommentClientError(503, "COMMENT_WARNING_UNAVAILABLE");
+  }
+  return {
+    outcome: "issued",
+    publicCommentId: input.publicCommentId,
+    tierDays: value.tierDays as 1 | 3 | 7 | 14,
+    issuedAt: value.issuedAt as string,
+    expiresAt: value.expiresAt as string,
+    replayed: value.replayed,
   };
 }
 

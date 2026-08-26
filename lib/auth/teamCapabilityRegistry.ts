@@ -15,6 +15,8 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "users.flag.create",
   "users.flag.view",
   "users.flag.review",
+  "users.warnings.issue",
+  "users.warnings.overrule",
   "users.directory.basic.view",
   "users.directory.full.view",
   "users.disqualified_submissions.view",
@@ -421,6 +423,54 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 2,
     definitionHash:
       "8ec44455bd08212cab4cacc64dfcd96b139edd9753862255d68150e702b26869",
+  }),
+  "users.warnings.issue": defineCapability({
+    key: "users.warnings.issue",
+    displayName: "Issue Comment Warnings",
+    description:
+      "Issue one permanent source-Comment-bound Warning with automatic database-time progression and no automatic sanction.",
+    category: "User Moderation",
+    includedActions: [
+      "Issue at most one Warning for a concrete Comment with immutable object and text evidence.",
+      "Choose an allowlisted category and bounded reason while the database assigns the 1, 3, 7, or 14-day tier.",
+      "Trigger only the dedicated automatic Warning Flag projection when canonical thresholds are met.",
+    ],
+    excludedActions: [
+      "Selecting or overriding the Warning duration.",
+      "Overruling Warnings or viewing unrelated Warning history.",
+      "Banning, holding participation, removing Comments, or applying any other sanction.",
+      "Managing roles, grants, Team membership, or Owner access.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "8910867c7eb547473efaf129089bf2e0098d6f471e2057358ddd77f90818811f",
+  }),
+  "users.warnings.overrule": defineCapability({
+    key: "users.warnings.overrule",
+    displayName: "Overrule Comment Warnings",
+    description:
+      "Correct one Warning through expected-version, idempotent Overrule and deterministic replay of every later effective Warning.",
+    category: "User Moderation",
+    includedActions: [
+      "Overrule one exact Warning with a mandatory bounded correction reason.",
+      "Deterministically recompute later non-overruled Warning tiers, recurrence windows, expiries, active count, and automatic Warning Flag state.",
+      "Preserve original issue facts and every recalculation as immutable audit evidence.",
+    ],
+    excludedActions: [
+      "Issuing Warnings or selecting a Warning duration.",
+      "Deleting or rewriting Warning requests, events, source evidence, or original assigned tiers.",
+      "Banning, holding participation, removing Comments, or applying any other sanction.",
+      "Managing roles, grants, Team membership, or Owner access.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "ce5849bc151746eddf520ed960002a6f0c7e4a9c7b0c9eac58721d4c40603ece",
   }),
   "users.directory.basic.view": defineCapability({
     key: "users.directory.basic.view",

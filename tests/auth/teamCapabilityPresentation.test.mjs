@@ -41,6 +41,8 @@ const expectedActionKeys = [
   "submissions.reports.review",
   "users.flag.create",
   "users.flag.review",
+  "users.warnings.issue",
+  "users.warnings.overrule",
   "users.website_bans.create",
   "users.website_bans.revoke",
   "cycles.manage",
@@ -75,7 +77,7 @@ test("every active capability is assigned once to its semantic tab", () => {
   assert.deepEqual(viewKeys, expectedViewKeys);
   assert.deepEqual(actionKeys, expectedActionKeys);
   assert.equal(viewKeys.length, 24);
-  assert.equal(actionKeys.length, 21);
+  assert.equal(actionKeys.length, 23);
   assert.equal(viewKeys.length + actionKeys.length, ACTIVE_TEAM_CAPABILITY_KEYS.length);
   assert.equal(new Set([...viewKeys, ...actionKeys]).size, ACTIVE_TEAM_CAPABILITY_KEYS.length);
   assert.equal(

@@ -27,6 +27,8 @@ const expectedKeys = [
   "users.flag.create",
   "users.flag.view",
   "users.flag.review",
+  "users.warnings.issue",
+  "users.warnings.overrule",
   "users.directory.basic.view",
   "users.directory.full.view",
   "users.disqualified_submissions.view",
@@ -80,7 +82,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains forty-nine known, forty-five active, and no staged capability keys", () => {
+test("the server registry contains fifty-one known, forty-seven active, and no staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -147,6 +149,10 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "20f04bf3dc07ce7b0f77a31633f6a90b4ce003ad8e03618d078228236dd4699e",
     "users.flag.review":
       "8ec44455bd08212cab4cacc64dfcd96b139edd9753862255d68150e702b26869",
+    "users.warnings.issue":
+      "8910867c7eb547473efaf129089bf2e0098d6f471e2057358ddd77f90818811f",
+    "users.warnings.overrule":
+      "ce5849bc151746eddf520ed960002a6f0c7e4a9c7b0c9eac58721d4c40603ece",
     "users.directory.basic.view":
       "5d0d0ab97601631a43f7ba87ba04d0007bf6534449774ac859f838e370cede48",
     "users.directory.full.view":

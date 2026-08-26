@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import CommunityCommentModerationReviewContextView from "@/app/components/comments/CommunityCommentModerationReviewContext";
+import CommunityCommentWarningPanel from "@/app/components/comments/CommunityCommentWarningPanel";
 import {
   CommunityCommentClientError,
   fetchCommunityCommentModerationTarget,
@@ -12,7 +13,7 @@ import {
 import type { CommunityCommentPublicDto } from "@/lib/comments/commentDto";
 
 type ModerationAction = "remove" | "restore";
-type TeamActionView = "menu" | "moderate";
+type TeamActionView = "menu" | "moderate" | "warning";
 
 function ModerationConfirmation({
   action,
@@ -65,10 +66,14 @@ function ModerationConfirmation({
 }
 
 export default function CommunityCommentInlineModerationMenu({
+  canIssueWarning,
+  canModerate,
   publicCommentId,
   onAccessUnavailable,
   onProjection,
 }: {
+  canIssueWarning: boolean;
+  canModerate: boolean;
   publicCommentId: string;
   onAccessUnavailable: () => void;
   onProjection: (comment: CommunityCommentPublicDto) => void;
@@ -86,6 +91,7 @@ export default function CommunityCommentInlineModerationMenu({
   const [pendingAction, setPendingAction] = useState<ModerationAction | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [warningBusy, setWarningBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
 
@@ -97,17 +103,19 @@ export default function CommunityCommentInlineModerationMenu({
     setReason("");
     setPendingAction(null);
     setLoading(false);
+    setWarningBusy(false);
     setStatus(null);
     if (returnFocus) requestAnimationFrame(() => triggerRef.current?.focus());
   }, []);
 
   useEffect(() => {
     if (!open) return;
+    const panelBusy = busy || warningBusy;
     const handlePointerDown = (event: PointerEvent) => {
-      if (!busy && !rootRef.current?.contains(event.target as Node)) closeMenu(false);
+      if (!panelBusy && !rootRef.current?.contains(event.target as Node)) closeMenu(false);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) {
+      if (event.key === "Escape" && !panelBusy) {
         event.preventDefault();
         closeMenu(true);
       }
@@ -118,7 +126,7 @@ export default function CommunityCommentInlineModerationMenu({
       document.removeEventListener("pointerdown", handlePointerDown, true);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [busy, closeMenu, open]);
+  }, [busy, closeMenu, open, warningBusy]);
 
   useEffect(() => () => {
     requestEpochRef.current += 1;
@@ -219,13 +227,18 @@ export default function CommunityCommentInlineModerationMenu({
   }
 
   if (hidden) return null;
+  const panelBusy = busy || warningBusy;
   const unavailable = target?.authorDeleted === true || target?.submissionEligible !== true;
   const action: ModerationAction | null = target && !unavailable && !target.claimedForReview
     ? target.removed ? "restore" : "remove"
     : null;
 
   return (
-    <div ref={rootRef} className="relative ml-auto">
+    <div
+      ref={rootRef}
+      className="relative ml-auto"
+      style={{ overflowAnchor: "none" }}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -234,6 +247,7 @@ export default function CommunityCommentInlineModerationMenu({
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         title="Team actions"
+        disabled={panelBusy}
         onClick={() => {
           if (open) closeMenu(false);
           else {
@@ -241,7 +255,7 @@ export default function CommunityCommentInlineModerationMenu({
             setView("menu");
           }
         }}
-        className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-full text-xl font-bold leading-none text-orange-200/80 hover:bg-orange-500/10 hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+        className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-full text-xl font-bold leading-none text-orange-200/80 hover:bg-orange-500/10 hover:text-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:opacity-50"
       >
         <span aria-hidden="true">⋮</span>
       </button>
@@ -254,12 +268,16 @@ export default function CommunityCommentInlineModerationMenu({
         >
           <div className="flex items-center justify-between gap-3">
             <p id={panelTitleId} className="font-semibold text-orange-100">
-              {view === "menu" ? "Team actions" : "Moderate Comment"}
+              {view === "menu"
+                ? "Team actions"
+                : view === "moderate"
+                  ? "Moderate Comment"
+                  : "Issue Warning"}
             </p>
             <button
               type="button"
               aria-label="Close Team actions"
-              disabled={busy}
+              disabled={panelBusy}
               onClick={() => closeMenu(true)}
               className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-full text-lg text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:opacity-50"
             >
@@ -268,21 +286,34 @@ export default function CommunityCommentInlineModerationMenu({
           </div>
 
           {view === "menu" ? (
-            <button
-              type="button"
-              onClick={() => {
-                setView("moderate");
-                void loadTarget();
-              }}
-              className="mt-3 flex min-h-11 w-full items-center rounded-lg border border-white/10 px-3 py-2 text-left font-semibold text-white/80 hover:border-orange-300/35 hover:bg-orange-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-            >
-              Moderate Comment
-            </button>
+            <div className="mt-3 space-y-2">
+              {canModerate ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setView("moderate");
+                    void loadTarget();
+                  }}
+                  className="flex min-h-11 w-full items-center rounded-lg border border-white/10 px-3 py-2 text-left font-semibold text-white/80 hover:border-orange-300/35 hover:bg-orange-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                >
+                  Moderate Comment
+                </button>
+              ) : null}
+              {canIssueWarning ? (
+                <button
+                  type="button"
+                  onClick={() => setView("warning")}
+                  className="flex min-h-11 w-full items-center rounded-lg border border-white/10 px-3 py-2 text-left font-semibold text-white/80 hover:border-orange-300/35 hover:bg-orange-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                >
+                  Issue Warning
+                </button>
+              ) : null}
+            </div>
           ) : (
             <>
               <button
                 type="button"
-                disabled={busy}
+                disabled={panelBusy}
                 onClick={() => {
                   requestEpochRef.current += 1;
                   setView("menu");
@@ -290,80 +321,94 @@ export default function CommunityCommentInlineModerationMenu({
                   setReason("");
                   setPendingAction(null);
                   setLoading(false);
+                  setWarningBusy(false);
                   setStatus(null);
                 }}
                 className="mt-2 min-h-9 rounded px-1 py-1 text-sm font-semibold text-white/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:opacity-50"
               >
                 ← Team actions
               </button>
-              {loading ? <p role="status" className="mt-3 text-white/60">Loading moderation target…</p> : null}
-              {target?.claimedForReview ? (
-                <div
-                  className="mt-3 rounded-xl border border-orange-300/25 bg-orange-500/10 p-3"
-                  role="status"
-                >
-                  <p className="font-semibold text-orange-100">Already being reviewed</p>
-                  <p className="mt-1 text-xs text-white/65">
-                    This Comment is being handled in a claimed Team Inbox case. Direct moderation is available again after the case is returned or solved.
-                  </p>
-                </div>
-              ) : target && action ? (
+              {view === "warning" ? (
+                <CommunityCommentWarningPanel
+                  publicCommentId={publicCommentId}
+                  onAccessUnavailable={() => {
+                    setHidden(true);
+                    onAccessUnavailable();
+                  }}
+                  onBusyChange={setWarningBusy}
+                />
+              ) : (
                 <>
-                  {target.reviewContext ? (
-                    <CommunityCommentModerationReviewContextView context={target.reviewContext} />
-                  ) : null}
-                  <label htmlFor={reasonId} className="mt-3 block font-semibold text-white/75">
-                    Internal reason (required)
-                  </label>
-                  <textarea
-                    id={reasonId}
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value.slice(0, 1000))}
-                    disabled={busy || pendingAction !== null}
-                    className="mt-2 min-h-20 w-full rounded-lg border border-white/15 bg-black p-2 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:opacity-50"
-                  />
-                  {pendingAction === null ? (
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        type="button"
-                        disabled={busy || reason.trim().length < 3}
-                        onClick={() => setPendingAction(action)}
-                        className={`min-h-10 rounded-full px-3 py-2 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40 ${
-                          action === "remove" ? "bg-red-500 text-white" : "bg-orange-500 text-black"
-                        }`}
-                      >
-                        {action === "remove" ? "Review removal" : "Review restore"}
-                      </button>
+                  {loading ? <p role="status" className="mt-3 text-white/60">Loading moderation target…</p> : null}
+                  {target?.claimedForReview ? (
+                    <div
+                      className="mt-3 rounded-xl border border-orange-300/25 bg-orange-500/10 p-3"
+                      role="status"
+                    >
+                      <p className="font-semibold text-orange-100">Already being reviewed</p>
+                      <p className="mt-1 text-xs text-white/65">
+                        This Comment is being handled in a claimed Team Inbox case. Direct moderation is available again after the case is returned or solved.
+                      </p>
                     </div>
-                  ) : (
-                    <ModerationConfirmation
-                      action={pendingAction}
-                      busy={busy}
-                      onCancel={() => setPendingAction(null)}
-                      onConfirm={() => void moderate(pendingAction)}
-                    />
-                  )}
+                  ) : target && action ? (
+                    <>
+                      {target.reviewContext ? (
+                        <CommunityCommentModerationReviewContextView context={target.reviewContext} />
+                      ) : null}
+                      <label htmlFor={reasonId} className="mt-3 block font-semibold text-white/75">
+                        Internal reason (required)
+                      </label>
+                      <textarea
+                        id={reasonId}
+                        value={reason}
+                        onChange={(event) => setReason(event.target.value.slice(0, 1000))}
+                        disabled={busy || pendingAction !== null}
+                        className="mt-2 min-h-20 w-full rounded-lg border border-white/15 bg-black p-2 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:opacity-50"
+                      />
+                      {pendingAction === null ? (
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={busy || reason.trim().length < 3}
+                            onClick={() => setPendingAction(action)}
+                            className={`min-h-10 rounded-full px-3 py-2 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-40 ${
+                              action === "remove" ? "bg-red-500 text-white" : "bg-orange-500 text-black"
+                            }`}
+                          >
+                            {action === "remove" ? "Review removal" : "Review restore"}
+                          </button>
+                        </div>
+                      ) : (
+                        <ModerationConfirmation
+                          action={pendingAction}
+                          busy={busy}
+                          onCancel={() => setPendingAction(null)}
+                          onConfirm={() => void moderate(pendingAction)}
+                        />
+                      )}
+                    </>
+                  ) : target && unavailable ? (
+                    <p className="mt-3 text-white/60" role="status">This Comment cannot be removed or restored.</p>
+                  ) : null}
+                  {status ? (
+                    <p
+                      className="mt-3 text-white/70"
+                      role={status.includes("changed") || status.includes("unavailable") ? "alert" : "status"}
+                    >
+                      {status}
+                    </p>
+                  ) : null}
+                  {!loading && !target ? (
+                    <button
+                      type="button"
+                      onClick={() => void loadTarget()}
+                      className="mt-3 min-h-10 rounded-full border border-white/15 px-3 py-2 font-semibold text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+                    >
+                      Reload target
+                    </button>
+                  ) : null}
                 </>
-              ) : target && unavailable ? (
-                <p className="mt-3 text-white/60" role="status">This Comment cannot be removed or restored.</p>
-              ) : null}
-              {status ? (
-                <p
-                  className="mt-3 text-white/70"
-                  role={status.includes("changed") || status.includes("unavailable") ? "alert" : "status"}
-                >
-                  {status}
-                </p>
-              ) : null}
-              {!loading && !target ? (
-                <button
-                  type="button"
-                  onClick={() => void loadTarget()}
-                  className="mt-3 min-h-10 rounded-full border border-white/15 px-3 py-2 font-semibold text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-                >
-                  Reload target
-                </button>
-              ) : null}
+              )}
             </>
           )}
         </div>

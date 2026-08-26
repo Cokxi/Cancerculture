@@ -539,9 +539,9 @@ function CommentItem({
     !isReply && comment.replyCount > 0 && onToggleReplies !== undefined;
   const canManage = canMutate && own;
   const canReport = canMutate && !own && account.kind === "authenticated";
-  const canModerate =
+  const canUseTeamActions =
     account.kind === "authenticated" &&
-    account.canModerateComments &&
+    (account.canModerateComments || account.canIssueCommentWarnings) &&
     comment.tombstone !== "author_deleted";
   const canVote =
     canMutate &&
@@ -634,7 +634,7 @@ function CommentItem({
         <CommentBody comment={comment} />
       )}
 
-      {!editing && (voteCounts || canReply || canToggleReplies || canManage || canReport || canModerate) ? (
+      {!editing && (voteCounts || canReply || canToggleReplies || canManage || canReport || canUseTeamActions) ? (
         <div className="mt-2 flex min-h-8 flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           {voteCounts ? (
             <div className="flex items-center gap-1" aria-label="Comment votes">
@@ -703,8 +703,10 @@ function CommentItem({
               Report
             </button>
           ) : null}
-          {canModerate ? (
+          {canUseTeamActions && account.kind === "authenticated" ? (
             <CommunityCommentInlineModerationMenu
+              canIssueWarning={account.canIssueCommentWarnings}
+              canModerate={account.canModerateComments}
               publicCommentId={comment.publicCommentId}
               onAccessUnavailable={onModerationAccessUnavailable}
               onProjection={onModerationProjection}
@@ -1398,7 +1400,11 @@ export default function CommunityCommentThread({
 
   function removeModerationAccess() {
     setAccount((current) => current.kind === "authenticated"
-      ? { ...current, canModerateComments: false }
+      ? {
+          ...current,
+          canIssueCommentWarnings: false,
+          canModerateComments: false,
+        }
       : current);
   }
 

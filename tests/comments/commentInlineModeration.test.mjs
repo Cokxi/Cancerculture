@@ -3,14 +3,17 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   CommunityCommentClientError,
+  fetchCommunityCommentAccount,
   fetchCommunityCommentModerationTarget,
+  fetchCommunityCommentWarningTarget,
   parseCommunityCommentAccountState,
   parseCommunityCommentModerationReviewContext,
   sendCommunityCommentModeration,
+  sendCommunityCommentWarning,
 } from "../../lib/comments/commentClient.ts";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
-const [accountRoute, caseDetail, claimHoldMigration, client, menu, moderationService, moderationRoute, reviewCorrection, reviewMigration, thread] =
+const [accountRoute, caseDetail, claimHoldMigration, client, menu, moderationService, moderationRoute, reviewCorrection, reviewMigration, thread, warningPanel, warningRoute, warningService, warningTargetMigration] =
   await Promise.all([
     read("app/api/auth/account/route.ts"),
     read("app/components/teamInbox/TeamInboxCaseDetail.tsx"),
@@ -22,6 +25,10 @@ const [accountRoute, caseDetail, claimHoldMigration, client, menu, moderationSer
     read("supabase/migrations/20260826000200_comment_moderation_review_context_acl_correction.sql"),
     read("supabase/migrations/20260826000100_comment_moderation_review_context.sql"),
     read("app/components/comments/CommunityCommentThread.tsx"),
+    read("app/components/comments/CommunityCommentWarningPanel.tsx"),
+    read("app/api/admin/comments/warnings/route.ts"),
+    read("lib/comments/commentWarning.server.ts"),
+    read("supabase/migrations/20260826000600_user_warning_issue_target.sql"),
   ]);
 
 const publicCommentId = "018f0ed0-5c89-4c0f-9c38-8cebd4e18422";
@@ -48,9 +55,10 @@ const publicComment = {
   voteCounts: { up: 1, down: 0 },
 };
 
-test("Comment account projection exposes only one fail-closed moderation Boolean", () => {
+test("Comment account projection keeps the global Account free of Warning capability policy", () => {
   const parsed = parseCommunityCommentAccountState({
     kind: "authenticated",
+    canIssueCommentWarnings: false,
     canModerateComments: true,
     displayName: "Ada",
     publicProfileId,
@@ -65,6 +73,7 @@ test("Comment account projection exposes only one fail-closed moderation Boolean
   });
   assert.deepEqual(parsed, {
     kind: "authenticated",
+    canIssueCommentWarnings: false,
     canModerateComments: true,
     publicProfileId,
     displayName: "Ada",
@@ -78,6 +87,11 @@ test("Comment account projection exposes only one fail-closed moderation Boolean
     kind: "authenticated",
     displayName: "Ada",
     publicProfileId,
+  }).canIssueCommentWarnings, false);
+  assert.equal(parseCommunityCommentAccountState({
+    kind: "authenticated",
+    displayName: "Ada",
+    publicProfileId,
   }).canModerateComments, false);
   assert.deepEqual(parseCommunityCommentAccountState({ kind: "anonymous" }), {
     kind: "anonymous",
@@ -87,14 +101,20 @@ test("Comment account projection exposes only one fail-closed moderation Boolean
   });
 });
 
-test("account route derives access from active Team navigation and fails closed", () => {
-  assert.match(accountRoute, /item[.]id === "comment-moderation"/u);
+test("Comment-specific Warning access stays out of global Account policy and fails closed", () => {
+  assert.match(accountRoute, /getResolvedTeamAreaNavigation\(\)/u);
+  assert.doesNotMatch(accountRoute, /hasResolvedTeamCapability/u);
+  assert.doesNotMatch(accountRoute, /users[.]warnings[.]issue/u);
   assert.match(accountRoute, /canModerateComments: false/gmu);
   assert.match(accountRoute, /TEAM_TOTP_REQUIRED/u);
   assert.match(accountRoute, /TEAM_SECURITY_CONTEXT_CHANGED/u);
   assert.match(accountRoute, /status === 403/u);
   assert.match(accountRoute, /status === 401 \|\| status === 503/u);
   assert.match(accountRoute, /Cache-Control": "no-store"/u);
+  assert.match(warningRoute, /searchParams[.]get\("access"\) === "1"/u);
+  assert.match(warningRoute, /loadCommunityCommentWarningAccess\(\)/u);
+  assert.match(warningService, /getTeamAuthorizationContext\(\)/u);
+  assert.match(warningService, /hasResolvedTeamCapability\(/u);
   const commentAccountProjection = client.slice(
     client.indexOf("export function parseCommunityCommentAccountState"),
     client.indexOf("export async function fetchCommunityCommentAccount"),
@@ -105,24 +125,180 @@ test("account route derives access from active Team navigation and fails closed"
   );
 });
 
-test("authorized inline access is capability-only, lazy, and retains Team-removed Restore", () => {
-  assert.match(thread, /account[.]canModerateComments/u);
+test("Comment account lazily merges only the dedicated Warning-access Boolean", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init });
+    if (String(url) === "/api/auth/account") {
+      return new Response(JSON.stringify({
+        kind: "authenticated",
+        canModerateComments: true,
+        displayName: "Ada",
+        publicProfileId,
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ canIssueWarning: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+  try {
+    assert.deepEqual(await fetchCommunityCommentAccount(), {
+      kind: "authenticated",
+      canIssueCommentWarnings: true,
+      canModerateComments: true,
+      publicProfileId,
+      displayName: "Ada",
+    });
+    assert.deepEqual(calls, [
+      { url: "/api/auth/account", init: { cache: "no-store" } },
+      { url: "/api/admin/comments/warnings?access=1", init: { cache: "no-store" } },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("authorized inline access is capability-only, lazy, and exposes independent moderation and Warning actions", () => {
+  assert.match(thread, /account[.]canModerateComments \|\| account[.]canIssueCommentWarnings/u);
   assert.match(thread, /comment[.]tombstone !== "author_deleted"/u);
   assert.doesNotMatch(
-    thread.slice(thread.indexOf("const canModerate"), thread.indexOf("const canVote")),
+    thread.slice(thread.indexOf("const canUseTeamActions"), thread.indexOf("const canVote")),
     /releaseState === "open"|comment[.]tombstone === null/u,
   );
   assert.match(menu, /aria-label="Team actions"/u);
   assert.match(menu, /<span aria-hidden="true">⋮<\/span>/u);
   assert.match(menu, />\s*Moderate Comment\s*<\/button>/u);
-  assert.doesNotMatch(menu, /Issue Warning/u);
+  assert.match(menu, />\s*Issue Warning\s*<\/button>/u);
+  assert.match(menu, /canModerate/u);
+  assert.match(menu, /canIssueWarning/u);
   assert.match(menu, /fetchCommunityCommentModerationTarget\(publicCommentId\)/u);
+  assert.match(warningPanel, /fetchCommunityCommentWarningTarget\(publicCommentId\)/u);
   assert.match(client, /moderation\?comment=\$\{encodeURIComponent\(publicCommentId\)\}/u);
+  assert.match(client, /warnings\?comment=\$\{encodeURIComponent\(publicCommentId\)\}/u);
   assert.match(moderationService, /requireDynamicTeamCapability\("community[.]comments[.]moderate"\)/u);
+  assert.equal(
+    warningService.match(/requireDynamicTeamCapability\("users[.]warnings[.]issue"\)/gu)?.length,
+    2,
+  );
   assert.match(moderationRoute, /Cache-Control": "private, no-store"/u);
+  assert.match(warningRoute, /Cache-Control": "private, no-store"/u);
   assert.match(menu, /error[.]status === 401 \|\| error[.]status === 403/u);
   assert.doesNotMatch(menu, /error[.]status === 401 \|\| error[.]status === 403 \|\| error[.]status === 503/u);
   assert.match(menu, /Comment moderation is temporarily unavailable[.] Try again[.]/u);
+  assert.match(thread, /canIssueCommentWarnings: false/u);
+  assert.match(thread, /canModerateComments: false/u);
+});
+
+test("lazy Warning target load sends only the public Comment ID and accepts only minimal evidence", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestUrl = null;
+  let requestInit = null;
+  globalThis.fetch = async (url, init) => {
+    requestUrl = String(url);
+    requestInit = init;
+    return new Response(JSON.stringify({
+      outcome: "found",
+      publicCommentId,
+      objectVersion: 3,
+      textVersion: 2,
+      text: "Visible public Comment",
+      available: true,
+      alreadyWarned: false,
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const target = await fetchCommunityCommentWarningTarget(publicCommentId);
+    assert.deepEqual(target, {
+      outcome: "found",
+      publicCommentId,
+      objectVersion: 3,
+      textVersion: 2,
+      text: "Visible public Comment",
+      available: true,
+      alreadyWarned: false,
+    });
+    assert.equal(requestUrl, `/api/admin/comments/warnings?comment=${publicCommentId}`);
+    assert.deepEqual(requestInit, { cache: "no-store" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Warning mutation sends exact Comment-bound input and no duration or identity", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestUrl = null;
+  let body = null;
+  globalThis.fetch = async (url, init) => {
+    requestUrl = String(url);
+    body = JSON.parse(init.body);
+    return new Response(JSON.stringify({
+      outcome: "issued",
+      publicCommentId,
+      tierDays: 1,
+      issuedAt: "2026-08-26T15:00:00.000Z",
+      expiresAt: "2026-08-27T15:00:00.000Z",
+      replayed: false,
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const receipt = await sendCommunityCommentWarning({
+      publicCommentId,
+      expectedObjectVersion: 3,
+      expectedTextVersion: 2,
+      category: "other",
+      reason: "This Comment crosses the line.",
+      requestId: "018f0ed0-5c89-4c0f-9c38-8cebd4e18425",
+    });
+    assert.equal(receipt.tierDays, 1);
+    assert.equal(requestUrl, "/api/admin/comments/warnings");
+    assert.deepEqual(Object.keys(body).sort(), [
+      "category",
+      "expectedObjectVersion",
+      "expectedTextVersion",
+      "publicCommentId",
+      "reason",
+      "requestId",
+    ]);
+    assert.doesNotMatch(
+      JSON.stringify(body),
+      /duration|tierDays|targetDiscord|actorDiscord|caseId|reportId/iu,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Warning UI explains permanent source uniqueness, automatic duration, and sanction-free behavior", () => {
+  assert.match(warningPanel, /Exact Comment evidence/u);
+  assert.match(warningPanel, /Category \(required\)/u);
+  assert.match(warningPanel, /Warning message \(required\)/u);
+  assert.match(warningPanel, /permanently bound to this exact Comment/u);
+  assert.match(warningPanel, /assigns its duration automatically/u);
+  assert.match(warningPanel, /does not remove the[\s\S]*automatic ban or participation hold/u);
+  assert.match(warningPanel, /Warning already issued/u);
+  assert.match(warningPanel, /crypto[.]randomUUID\(\)/u);
+  assert.doesNotMatch(warningPanel, /Report ID|Comment ID|duration.*select/iu);
+  assert.match(warningService, /exactKeys\(input/u);
+  assert.match(warningService, /p_expected_comment_object_version/u);
+  assert.match(warningService, /p_expected_comment_text_version/u);
+  assert.doesNotMatch(warningService, /p_duration|p_target_discord_user_id/u);
+  assert.match(warningTargetMigration, /get_user_warning_issue_target/u);
+});
+
+test("Warning target loading is stable across parent renders and cannot become a scroll anchor", () => {
+  assert.match(warningPanel, /const accessUnavailableRef = useRef\(onAccessUnavailable\)/u);
+  assert.match(warningPanel, /const busyChangeRef = useRef\(onBusyChange\)/u);
+  assert.match(warningPanel, /accessUnavailableRef[.]current\(\)/u);
+  assert.match(warningPanel, /busyChangeRef[.]current\(busy\)/u);
+  const targetLoader = warningPanel.slice(
+    warningPanel.indexOf("const loadTarget = useCallback"),
+    warningPanel.indexOf("useEffect(() => {\n    void loadTarget();"),
+  );
+  assert.equal(targetLoader.includes("}, [publicCommentId]);"), true);
+  assert.doesNotMatch(targetLoader, /\[onAccessUnavailable, publicCommentId\]/u);
+  assert.match(menu, /style=\{\{ overflowAnchor: "none" \}\}/u);
 });
 
 test("lazy target load sends only the public Comment ID", async () => {
