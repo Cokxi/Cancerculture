@@ -20,6 +20,7 @@ import UserModerationActions from "./UserModerationActions";
 import UserFlagCaseCreateForm from "./UserFlagCaseCreateForm";
 import UserFlagHistoryDisclosure from "./UserFlagHistoryDisclosure";
 import UserWarningHistoryDisclosure from "./UserWarningHistoryDisclosure";
+import UserOverwatchAddAction from "./UserOverwatchAddAction";
 import {
   loadTeamUserWarningHistory,
   loadTeamUserWarningSummaries,
@@ -113,6 +114,10 @@ export default async function AdminUsersPage({
   const canOverruleWarnings = hasResolvedTeamCapability(
     authorization,
     "users.warnings.overrule"
+  );
+  const canManageOverwatch = hasResolvedTeamCapability(
+    authorization,
+    "users.overwatch.manage"
   );
   const canViewWebsiteBans = hasResolvedTeamCapability(
     authorization,
@@ -452,6 +457,12 @@ export default async function AdminUsersPage({
       activeFlagStatusByUser.get(user.discord_user_id) ?? null
     }
   />
+
+  {canManageOverwatch ? (
+    <UserOverwatchAddAction
+      targetDiscordUserId={user.discord_user_id}
+    />
+  ) : null}
 
   {canViewDisqualificationHistory &&
   publicProfileIdByDiscordUserId.get(user.discord_user_id) ? (

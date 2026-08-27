@@ -182,6 +182,10 @@ const userFlagWork = Object.freeze({
     "users.flag.review",
   ] as const),
 } as const);
+const userOverwatchView = Object.freeze({
+  type: "capability",
+  capability: "users.overwatch.view",
+} as const);
 
 function item(
   definition: Omit<TeamAreaNavigationItem, "parentId">
@@ -286,6 +290,15 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
           categoryId: "moderation",
           description: "Review users flagged for follow-up.",
           requirement: userFlagWork,
+          implemented: true,
+        }),
+        item({
+          id: "overwatch",
+          title: "Overwatch",
+          href: "/admin/overwatch",
+          categoryId: "moderation",
+          description: "Review Team-only second-opinion bookmarks and immutable history.",
+          requirement: userOverwatchView,
           implemented: true,
         }),
         item({

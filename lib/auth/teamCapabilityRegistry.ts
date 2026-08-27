@@ -18,6 +18,8 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "users.warnings.issue",
   "users.warnings.overrule",
   "users.warnings.view",
+  "users.overwatch.view",
+  "users.overwatch.manage",
   "users.directory.basic.view",
   "users.directory.full.view",
   "users.disqualified_submissions.view",
@@ -497,6 +499,52 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "c3a987a6878787bcd56e6e1e9ebbe791419c510c47c768a18bf2354bc81a85d8",
+  }),
+  "users.overwatch.view": defineCapability({
+    key: "users.overwatch.view",
+    displayName: "View Overwatch",
+    description:
+      "View the separate Team-only Overwatch active queue and immutable generation history without changing state.",
+    category: "User Moderation",
+    includedActions: [
+      "View active Overwatch entries for known users.",
+      "View removed Overwatch generations and immutable Add/Remove event history.",
+      "View bounded internal reasons and Team actor snapshots required for second-opinion follow-up.",
+    ],
+    excludedActions: [
+      "Adding or removing Overwatch entries.",
+      "Warnings, manual or automatic Flag Cases, Bans, Participation Holds, Reports, Comments, rankings, visibility, or participation changes.",
+      "Member, public, generic Notification, Push, behavior telemetry, or role administration access.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "7e1209f7100bbd5e88b809e0b884752274b98757a439f93830cc65eadba09fa1",
+  }),
+  "users.overwatch.manage": defineCapability({
+    key: "users.overwatch.manage",
+    displayName: "Manage Overwatch",
+    description:
+      "Add or remove one exact Team-only Overwatch generation through confirmed, expected-state, idempotent atomic mutations.",
+    category: "User Moderation",
+    includedActions: [
+      "Load only the minimal selected-user target and current-version projection needed for Add or Remove.",
+      "Add one active generation for a known user with a bounded internal reason and fresh request UUID.",
+      "Remove only the exact active generation with a bounded internal reason while preserving immutable history.",
+    ],
+    excludedActions: [
+      "Browsing active Overwatch entries or history without the independent View capability.",
+      "Creating or changing Warnings, manual or automatic Flag Cases, Bans, Participation Holds, Reports, Comments, rankings, visibility, or participation.",
+      "Member notifications, Push, behavior telemetry, role grants, Team membership, or Owner access.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "c43286028bd86157fd3d316227dcdea429eb889939f7e3e05395ee18529de92b",
   }),
   "users.directory.basic.view": defineCapability({
     key: "users.directory.basic.view",
