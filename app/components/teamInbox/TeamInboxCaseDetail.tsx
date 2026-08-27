@@ -31,11 +31,13 @@ export default function TeamInboxCaseDetail({
   topicKey,
   isAdmin,
   canModerate,
+  canOverrule,
 }: {
   caseId: string;
   topicKey: string;
   isAdmin: boolean;
   canModerate: boolean;
+  canOverrule: boolean;
 }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [status, setStatus] = useState("Loading case…");
@@ -65,6 +67,11 @@ export default function TeamInboxCaseDetail({
   const mutate = async (action: "claim" | "return" | "force_release") => {
     const caseData = detail?.case as Record<string, unknown> | undefined;
     if (!caseData) return;
+    if (topicKey === "warning_appeals" && action !== "claim" && !window.confirm(
+      action === "return"
+        ? "Return this Warning Appeal to the open queue with the entered reason?"
+        : "Force release this Warning Appeal with the entered reason?"
+    )) return;
     setBusy(true);
     setStatus("");
     try {
@@ -178,6 +185,50 @@ export default function TeamInboxCaseDetail({
     }
   };
 
+  const reviewWarningAppeal = async (outcome: "uphold" | "overrule") => {
+    const caseData = detail?.case as Record<string, unknown> | undefined;
+    const domain = detail?.domain as Record<string, unknown> | undefined;
+    const warning = domain?.warning && typeof domain.warning === "object"
+      ? domain.warning as Record<string, unknown>
+      : null;
+    if (!caseData || !domain || !warning || note.trim().length < 3) return;
+    if (!window.confirm(outcome === "uphold"
+      ? "Uphold this Warning and close the Appeal?"
+      : "Overrule this Warning through the canonical correction flow and close the Appeal?"
+    )) return;
+    setBusy(true);
+    setStatus("");
+    try {
+      const response = await fetch(`/api/admin/team-inbox/cases/${caseId}/warning-appeal/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outcome,
+          expectedCaseRowVersion: caseData.rowVersion,
+          expectedCaseWorkVersion: caseData.workVersion,
+          expectedCaseSourceVersion: caseData.sourceVersion,
+          expectedAppealRowVersion: domain.appealRowVersion,
+          expectedWarningRowVersion: warning.rowVersion,
+          reason: note.trim(),
+          requestId: crypto.randomUUID(),
+        }),
+      });
+      const result = await response.json() as Record<string, unknown>;
+      if (!response.ok || (result.outcome !== "upheld" && result.outcome !== "overruled")) {
+        throw new Error("unavailable");
+      }
+      setStatus(outcome === "uphold"
+        ? "Appeal upheld and case solved. The account received a neutral in-app notification."
+        : "Warning overruled through the canonical correction flow and case solved.");
+      setNote("");
+      await load();
+    } catch {
+      setStatus("The Appeal, Case, or Warning changed. Reload and review the current state.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!detail) return <p role="status">{status}</p>;
   const caseData = detail.case as Record<string, unknown>;
   const timeline = Array.isArray(detail.timeline) ? detail.timeline as Record<string, unknown>[] : [];
@@ -197,8 +248,11 @@ export default function TeamInboxCaseDetail({
   const reportedRecipient = typeof walletIntake?.desiredRecipient === "string"
     ? walletIntake.desiredRecipient
     : "";
-  const commentDomain = detail.domain && typeof detail.domain === "object"
+  const domain = detail.domain && typeof detail.domain === "object"
     ? detail.domain as Record<string, unknown>
+    : null;
+  const commentDomain = domain?.kind === "comment_report" || domain?.kind === "comment_spam"
+    ? domain
     : null;
   const reportComment = commentDomain?.kind === "comment_report" && commentDomain.comment && typeof commentDomain.comment === "object"
     ? commentDomain.comment as Record<string, unknown>
@@ -213,6 +267,10 @@ export default function TeamInboxCaseDetail({
   const relatedComments = Array.isArray(commentDomain?.relatedComments)
     ? commentDomain.relatedComments as Record<string, unknown>[]
     : [];
+  const warningAppeal = domain?.kind === "warning_appeal" ? domain : null;
+  const appealedWarning = warningAppeal?.warning && typeof warningAppeal.warning === "object"
+    ? warningAppeal.warning as Record<string, unknown>
+    : null;
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-white/10 bg-black/35 p-6">
@@ -229,7 +287,7 @@ export default function TeamInboxCaseDetail({
             <button disabled={busy} onClick={() => void mutate("claim")} className="min-h-11 cursor-pointer rounded-lg bg-orange-500 px-4 py-2 font-semibold text-black disabled:opacity-50">Claim case</button>
           ) : null}
           {caseStatus === "in_progress" && assignedToMe ? (
-            <button disabled={busy || ((topicKey === "comment_reports" || topicKey === "comment_spam") && note.trim().length < 3)} onClick={() => void mutate("return")} className="min-h-11 cursor-pointer rounded-lg border border-white/20 px-4 py-2 disabled:opacity-50">Return to queue</button>
+            <button disabled={busy || ((topicKey === "comment_reports" || topicKey === "comment_spam" || topicKey === "warning_appeals") && note.trim().length < 3)} onClick={() => void mutate("return")} className="min-h-11 cursor-pointer rounded-lg border border-white/20 px-4 py-2 disabled:opacity-50">Return to queue</button>
           ) : null}
           {caseStatus === "in_progress" && isAdmin ? (
             <button disabled={busy || note.trim().length < 3} onClick={() => void mutate("force_release")} className="min-h-11 cursor-pointer rounded-lg border border-red-400/50 px-4 py-2 text-red-200 disabled:opacity-50">Admin force release</button>
@@ -237,7 +295,7 @@ export default function TeamInboxCaseDetail({
         </div>
         {(caseStatus === "in_progress" && (assignedToMe || isAdmin)) ? (
           <div className="mt-4">
-            <label htmlFor="case-note" className="text-sm text-white/65">{topicKey === "comment_reports" || topicKey === "comment_spam" ? "Internal note (required for Return and resolution)" : "Optional return note; required for Admin force release"}</label>
+            <label htmlFor="case-note" className="text-sm text-white/65">{topicKey === "comment_reports" || topicKey === "comment_spam" || topicKey === "warning_appeals" ? "Internal reason (required for Return and resolution)" : "Optional return note; required for Admin force release"}</label>
             <textarea id="case-note" value={note} onChange={(event) => setNote(event.target.value.slice(0, 1000))} className="mt-2 min-h-24 w-full rounded-lg border border-white/15 bg-black p-3" />
           </div>
         ) : null}
@@ -357,6 +415,31 @@ export default function TeamInboxCaseDetail({
               ) : null}
             </div>
           ) : null}
+        </section>
+      ) : null}
+      {warningAppeal && appealedWarning ? (
+        <section className="rounded-2xl border border-orange-300/25 bg-orange-500/5 p-6" aria-labelledby="warning-appeal-review-title">
+          <h2 id="warning-appeal-review-title" className="font-['Permanent_Marker'] text-2xl text-orange-300">Warning Appeal details</h2>
+          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-white/50">Owner Appeal</p>
+          <p className="mt-2 whitespace-pre-wrap break-words rounded-xl border border-white/10 bg-black/35 p-4 text-sm text-white/85">{String(warningAppeal.appealText ?? "")}</p>
+          <dl className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div><dt className="text-xs uppercase tracking-wide text-white/50">Appeal status</dt><dd className="mt-1 text-white">{String(warningAppeal.appealStatus ?? "-").replaceAll("_", " ")}</dd></div>
+            <div><dt className="text-xs uppercase tracking-wide text-white/50">Warning state</dt><dd className="mt-1 text-white">{String(appealedWarning.state ?? "-")}</dd></div>
+            <div><dt className="text-xs uppercase tracking-wide text-white/50">Category</dt><dd className="mt-1 text-white">{String(appealedWarning.category ?? "-").replaceAll("_", " ")}</dd></div>
+            <div><dt className="text-xs uppercase tracking-wide text-white/50">Effective tier</dt><dd className="mt-1 text-white">{String(appealedWarning.effectiveTierDays ?? "-")} days</dd></div>
+            <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-white/50">Warning reason</dt><dd className="mt-2 whitespace-pre-wrap break-words rounded-xl border border-white/10 bg-black/35 p-4 text-sm text-white/80">{String(appealedWarning.reason ?? "")}</dd></div>
+            <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-wide text-white/50">Source Comment snapshot</dt><dd className="mt-2 whitespace-pre-wrap break-words rounded-xl border border-white/10 bg-black/35 p-4 text-sm text-white/80">{String(appealedWarning.sourceCommentBody ?? "")}</dd></div>
+          </dl>
+          <p className="mt-4 text-xs text-white/45">Issued by {String(appealedWarning.issuedByDisplayName ?? "Team member")} · {String(appealedWarning.issuedByRole ?? "team")}</p>
+          {caseStatus === "in_progress" && assignedToMe && warningAppeal.appealStatus === "submitted" ? (
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void reviewWarningAppeal("uphold")} className="min-h-11 rounded-lg border border-white/20 px-4 py-2 font-semibold disabled:opacity-40">Uphold Warning & solve</button>
+              {canOverrule ? (
+                <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void reviewWarningAppeal("overrule")} className="min-h-11 rounded-lg bg-red-500 px-4 py-2 font-semibold text-white disabled:opacity-40">Overrule Warning & solve</button>
+              ) : null}
+            </div>
+          ) : null}
+          {typeof warningAppeal.reviewReason === "string" ? <p className="mt-4 whitespace-pre-wrap text-sm text-white/65">Review reason: {warningAppeal.reviewReason}</p> : null}
         </section>
       ) : null}
       <section aria-labelledby="timeline-title">

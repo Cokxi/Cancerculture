@@ -10,6 +10,7 @@ import {
 } from "@/lib/teamInbox/teamInboxCursor";
 import { loadWalletIssueCaseDetail } from "@/lib/walletIssues/service.server";
 import { loadCommunityCommentReviewCaseDetail } from "@/lib/comments/commentModeration.server";
+import { loadTeamUserWarningAppealCaseDetail } from "@/lib/warnings/userWarningAppeal.server";
 
 const TOPIC_PATTERN = /^[a-z][a-z0-9_]{2,63}$/u;
 const UUID_PATTERN =
@@ -130,13 +131,16 @@ export async function loadTeamInboxCases({
 export async function loadTeamInboxCaseDetail(caseId: string, expectedTopicKey: string) {
   if (!UUID_PATTERN.test(caseId)) throw new AuthError(400, "Invalid case", "TEAM_INBOX_CASE_INVALID");
   const context = await getTeamAuthorizationContext();
-  if (!["wallet_issues", "comment_reports", "comment_spam"].includes(expectedTopicKey)) {
+  if (!["wallet_issues", "comment_reports", "comment_spam", "warning_appeals"].includes(expectedTopicKey)) {
     throw new AuthError(400, "Invalid topic", "TEAM_INBOX_TOPIC_INVALID");
   }
   if (expectedTopicKey === "comment_reports" || expectedTopicKey === "comment_spam") {
     return loadCommunityCommentReviewCaseDetail(
       context.discord_user_id, caseId, expectedTopicKey,
     );
+  }
+  if (expectedTopicKey === "warning_appeals") {
+    return loadTeamUserWarningAppealCaseDetail(context.discord_user_id, caseId);
   }
   const detail = await rpc("get_team_inbox_case_detail", {
     p_actor_discord_user_id: context.discord_user_id,
@@ -212,7 +216,9 @@ export async function mutateTeamInboxCase(input: {
   ) throw new AuthError(400, "Invalid mutation", "TEAM_INBOX_MUTATION_INVALID");
   await loadTeamInboxCaseDetail(input.caseId, input.topicKey);
   const context = await getTeamAuthorizationContext();
-  return rpc("mutate_team_inbox_case", {
+  return rpc(input.topicKey === "warning_appeals"
+    ? "mutate_user_warning_appeal_case"
+    : "mutate_team_inbox_case", {
     p_actor_discord_user_id: context.discord_user_id,
     p_case_id: input.caseId,
     p_idempotency_key: input.idempotencyKey,

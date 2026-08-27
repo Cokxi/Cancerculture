@@ -30,6 +30,8 @@ const expectedKeys = [
   "users.warnings.issue",
   "users.warnings.overrule",
   "users.warnings.view",
+  "users.warning_appeals.view",
+  "users.warning_appeals.review",
   "users.overwatch.view",
   "users.overwatch.manage",
   "users.directory.basic.view",
@@ -85,7 +87,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains fifty-four known, fifty active, and no staged capability keys", () => {
+test("the server registry contains fifty-six known, fifty-two active, and no staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -158,6 +160,10 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       "ce5849bc151746eddf520ed960002a6f0c7e4a9c7b0c9eac58721d4c40603ece",
     "users.warnings.view":
       "c3a987a6878787bcd56e6e1e9ebbe791419c510c47c768a18bf2354bc81a85d8",
+    "users.warning_appeals.view":
+      "12e5c12bc11d28225154a338dcdd1c498b55817600b58c72aac90ee3fda53806",
+    "users.warning_appeals.review":
+      "d1f3593313990dbd9bd3d0dee379246cd5b4e6349b405e34033738aaa920cad3",
     "users.overwatch.view":
       "7e1209f7100bbd5e88b809e0b884752274b98757a439f93830cc65eadba09fa1",
     "users.overwatch.manage":

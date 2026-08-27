@@ -18,6 +18,8 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "users.warnings.issue",
   "users.warnings.overrule",
   "users.warnings.view",
+  "users.warning_appeals.view",
+  "users.warning_appeals.review",
   "users.overwatch.view",
   "users.overwatch.manage",
   "users.directory.basic.view",
@@ -499,6 +501,56 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
     implementationVersion: 1,
     definitionHash:
       "c3a987a6878787bcd56e6e1e9ebbe791419c510c47c768a18bf2354bc81a85d8",
+  }),
+  "users.warning_appeals.view": defineCapability({
+    key: "users.warning_appeals.view",
+    displayName: "View Warning Appeals",
+    description:
+      "View exact Warning Appeal queues, Case detail, bounded owner text, required Warning evidence, and immutable history without changing state.",
+    category: "User Moderation",
+    includedActions: [
+      "View the dedicated Warning Appeals Team Inbox topic, bounded queues, exact Case detail, and immutable timeline.",
+      "View one Appeal's bounded owner text, exact Warning reason, current status, source Comment evidence, and required Team actor snapshots.",
+      "Use capability-protected bounded username and exact Discord ID Case search.",
+    ],
+    excludedActions: [
+      "Claiming, returning, upholding, or overruling an Appeal.",
+      "Viewing unrelated Warning history, automatic Flags, Overwatch, Reports, or other moderation data.",
+      "Exposing Appeal text, Warning evidence, or Team identity to Member, public, generic Notification, Push, log, or unrelated navigation surfaces.",
+      "Managing roles, grants, Team membership, Owner access, or unrelated logs.",
+    ],
+    riskLevel: "high",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "12e5c12bc11d28225154a338dcdd1c498b55817600b58c72aac90ee3fda53806",
+  }),
+  "users.warning_appeals.review": defineCapability({
+    key: "users.warning_appeals.review",
+    displayName: "Review Warning Appeals",
+    description:
+      "Claim, return, uphold, or resolve Warning Appeal Cases through expected-version, idempotent atomic review, always together with the exact Appeal View capability.",
+    category: "User Moderation",
+    includedActions: [
+      "Exclusively claim an open Warning Appeal Case and return unresolved work with a bounded internal note.",
+      "Uphold one exact assigned Appeal with a mandatory bounded review reason and neutral owner notification.",
+      "Resolve one exact assigned Appeal as Overrule only while the separate users.warnings.overrule capability is also held and the canonical Warning correction contract succeeds.",
+      "Use idempotent, concurrency-safe Case and Appeal transitions while preserving append-only evidence.",
+    ],
+    excludedActions: [
+      "Viewing a Warning Appeal Case without users.warning_appeals.view.",
+      "Overruling a Warning without users.warnings.overrule, issuing Warnings, or selecting Warning duration.",
+      "Pausing, deleting, shortening, or rewriting a Warning, Appeal, Case, event, request, or source evidence.",
+      "Creating Flags, Overwatch entries, Bans, Holds, participation changes, or any other sanction.",
+      "Managing roles, grants, Team membership, Owner access, or unrelated logs.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
+    implementationVersion: 1,
+    definitionHash:
+      "d1f3593313990dbd9bd3d0dee379246cd5b4e6349b405e34033738aaa920cad3",
   }),
   "users.overwatch.view": defineCapability({
     key: "users.overwatch.view",

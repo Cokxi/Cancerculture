@@ -22,6 +22,7 @@ export default async function TeamInboxCasePage({ params }: {
         topicKey={topicKey}
         isAdmin={authorization.isAdmin}
         canModerate={authorization.isAdmin || authorization.resolvedCapabilities.includes("community.comments.moderate")}
+        canOverrule={authorization.isAdmin || authorization.resolvedCapabilities.includes("users.warnings.overrule")}
       />
     </section>
   );

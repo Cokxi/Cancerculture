@@ -31,8 +31,8 @@ function canonicalDefinition(definition) {
 }
 
 test("Overwatch capabilities are exact, active, independently delegable, and zero-grant", () => {
-  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 54);
-  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 50);
+  assert.equal(REGISTERED_TEAM_CAPABILITY_KEYS.length, 56);
+  assert.equal(ACTIVE_TEAM_CAPABILITY_KEYS.length, 52);
   for (const key of ["users.overwatch.view", "users.overwatch.manage"]) {
     const definition = TEAM_CAPABILITY_REGISTRY[key];
     const hash = createHash("sha256")

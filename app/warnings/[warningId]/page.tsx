@@ -5,6 +5,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSessionState } from "@/lib/auth/sessionState";
 import { loadOwnUserWarningDetail } from "@/lib/warnings/userWarningVisibility.server";
+import { loadOwnUserWarningAppealStatus } from "@/lib/warnings/userWarningAppeal.server";
+import WarningAppealPanel from "./WarningAppealPanel";
 
 export const metadata: Metadata = {
   title: "Account Warning | CancerCulture",
@@ -39,11 +41,17 @@ export default async function OwnWarningDetailPage({
   }
   if (sessionState.status === "dependency_unavailable") notFound();
 
-  const warning = await loadOwnUserWarningDetail({
-    sessionId: sessionState.session.session_id,
-    publicWarningId: warningId,
-  });
-  if (!warning) notFound();
+  const [warning, appealStatus] = await Promise.all([
+    loadOwnUserWarningDetail({
+      sessionId: sessionState.session.session_id,
+      publicWarningId: warningId,
+    }),
+    loadOwnUserWarningAppealStatus({
+      sessionId: sessionState.session.session_id,
+      publicWarningId: warningId,
+    }),
+  ]);
+  if (!warning || !appealStatus) notFound();
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
@@ -122,6 +130,8 @@ export default async function OwnWarningDetailPage({
             </dd>
           </div>
         </dl>
+
+        <WarningAppealPanel warningId={warning.warningId} initialStatus={appealStatus} />
 
         <p className="mt-7 text-xs leading-relaxed text-white/50">
           Team member identities and internal moderation or automatic-review details are not part of this view.
