@@ -51,6 +51,7 @@ export const REGISTERED_TEAM_CAPABILITY_KEYS = Object.freeze([
   "community.comment_spam.view",
   "community.comment_spam.review",
   "logs.community_comment_moderation.view",
+  "logs.community_comment_moderation.details.view",
   "donation_organizations.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
@@ -1255,26 +1256,49 @@ export const TEAM_CAPABILITY_REGISTRY: Readonly<
   }),
   "logs.community_comment_moderation.view": defineCapability({
     key: "logs.community_comment_moderation.view",
-    displayName: "View Comment Moderation Logs",
+    displayName: "View Comment Moderation History",
     description:
-      "View the redacted append-only Comment moderation log without gaining Comment, Report, Spam Case, or workflow mutation authority.",
+      "View bounded, searchable, grouped, redacted append-only Comment moderation history without gaining sensitive detail or mutation authority.",
     category: "Logs",
     includedActions: [
-      "View bounded newest-first Remove and Restore events with safe public Comment references, action, database time, and redacted actor snapshot.",
-      "Review immutable moderation version transitions and allowlisted outcome codes without opening Case payloads.",
+      "Search by exact public Comment ID or positive public Submission ID and review Comment-grouped chronological Remove and Restore timelines.",
+      "View current Comment status, immutable moderation and object-version transitions, database time, redacted actor snapshots, and capability-checked source Case links.",
     ],
     excludedActions: [
-      "Removing or restoring Comments, claiming or solving Cases, or viewing Report and Spam Case details.",
-      "Viewing reporter identities, raw Spam signals, private heuristics, prior Comment bodies, or unrelated moderation data.",
+      "Removing or restoring Comments, claiming or solving Cases, or viewing Report and Spam Case details without their exact rights.",
+      "Viewing protected prior Comment text, internal reasons, reporter identities, raw Spam signals, private heuristics, or unrelated moderation data.",
       "Exporting unbounded logs or exposing internal IDs, Discord IDs, secrets, IP, device, or security data.",
-      "Managing roles, grants, Team membership, Owner access, or unrelated logs.",
+      "Managing retention, roles, grants, Team membership, Owner access, or unrelated logs.",
     ],
     riskLevel: "high",
     lifecycle: "active",
     assignableToNonAdmin: true,
+    implementationVersion: 2,
+    definitionHash:
+      "3c8b544642d1c583134b5cbe30b9ea31bbff3af7a7105568c42de79b052a7210",
+  }),
+  "logs.community_comment_moderation.details.view": defineCapability({
+    key: "logs.community_comment_moderation.details.view",
+    displayName: "View Sensitive Comment Moderation Evidence",
+    description:
+      "View the exact immutable Comment text version and internal reason bound to an authorized moderation event, always together with the base Comment moderation history right.",
+    category: "Logs",
+    includedActions: [
+      "View the exact immutable Comment text version reviewed for newly bound Remove and Restore events.",
+      "View the bounded internal moderation reason and explicit legacy-unproven evidence state inside the protected Comment-centred timeline.",
+    ],
+    excludedActions: [
+      "Viewing Comment moderation history without logs.community_comment_moderation.view.",
+      "Viewing reporter identities, raw Spam signals, private heuristics, actor Discord IDs, or unrelated Comment and Case data.",
+      "Removing or restoring Comments, claiming or solving Cases, changing retention, or deleting or rewriting append-only history.",
+      "Exporting unbounded evidence or managing roles, grants, Team membership, or Owner access.",
+    ],
+    riskLevel: "critical",
+    lifecycle: "active",
+    assignableToNonAdmin: true,
     implementationVersion: 1,
     definitionHash:
-      "6db2fa540e00d5146aebbfe021eec0a26dea7bf1078f59a5dda74ad8a5813ea3",
+      "7f6857f2a246e4cc55029277441f25382630158b71758237d40366f0cc8b7452",
   }),
   "donation_organizations.manage": defineCapability({
     key: "donation_organizations.manage",

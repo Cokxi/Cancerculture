@@ -63,6 +63,7 @@ const expectedKeys = [
   "community.comment_spam.view",
   "community.comment_spam.review",
   "logs.community_comment_moderation.view",
+  "logs.community_comment_moderation.details.view",
   "donation_organizations.manage",
   "sponsorships.reports.view",
   "winners.payouts.view",
@@ -87,7 +88,7 @@ function canonicalDefinition(definition) {
   };
 }
 
-test("the server registry contains fifty-six known, fifty-two active, and no staged capability keys", () => {
+test("the server registry contains fifty-seven known, fifty-three active, and no staged capability keys", () => {
   assert.deepEqual(
     [...REGISTERED_TEAM_CAPABILITY_KEYS],
     expectedKeys
@@ -225,7 +226,9 @@ test("registry metadata is complete and hashes match canonical definitions", () 
     "community.comment_spam.review":
       "eb211f298b166f8896c55f669cb721c790f3b27c3eb87d60799b7af741c14b76",
     "logs.community_comment_moderation.view":
-      "6db2fa540e00d5146aebbfe021eec0a26dea7bf1078f59a5dda74ad8a5813ea3",
+      "3c8b544642d1c583134b5cbe30b9ea31bbff3af7a7105568c42de79b052a7210",
+    "logs.community_comment_moderation.details.view":
+      "7f6857f2a246e4cc55029277441f25382630158b71758237d40366f0cc8b7452",
     "donation_organizations.manage":
       "18240d25d2183ebb17f7b1a56345ab2acc3906455d253b90cfee79cd5d6aa58d",
     "sponsorships.reports.view":
@@ -271,7 +274,8 @@ test("registry metadata is complete and hashes match canonical definitions", () 
       key === "winners.payouts.view" ||
       key === "winners.manage_payouts" ||
       key === "winners.recipient_corrections.manage" ||
-      key === "community.comment_reports.view";
+      key === "community.comment_reports.view" ||
+      key === "logs.community_comment_moderation.view";
     const versionFour = key === "submissions.reports.review";
     const versionThree = key === "users.flag.view";
     assert.equal(definition.assignableToNonAdmin, !deprecated);

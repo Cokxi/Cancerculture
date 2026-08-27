@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { AuthError } from "@/lib/auth/AuthError";
 import {
   getTeamAuthorizationContext,
+  hasResolvedTeamCapability,
   requireDynamicTeamCapability,
 } from "@/lib/auth/teamAuthorization";
 import { supabaseAdmin } from "@/lib/db/admin";
@@ -15,6 +16,149 @@ function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
+}
+
+export type CommunityCommentModerationExplorerItem = Readonly<{
+  id: number;
+  publicCommentId: string;
+  submissionId: number;
+  action: "remove" | "restore";
+  fromObjectVersion: number;
+  toObjectVersion: number;
+  moderationVersion: number;
+  actorDisplayName: string;
+  actorRole: string;
+  sourceTopic: "comment_reports" | "comment_spam" | null;
+  sourceCaseId: string | null;
+  sourceCaseLinkAvailable: boolean;
+  createdAt: string;
+  currentStatus: "visible" | "team_removed" | "author_deleted";
+  currentObjectVersion: number;
+  currentModerationVersion: number;
+  currentTextVersion: number;
+  reviewedTextVersionState: "bound" | "legacy_unproven";
+  reviewedTextVersion: number | null;
+  reviewedText: string | null;
+  internalReason: string | null;
+}>;
+
+export type CommunityCommentModerationExplorerResult = Readonly<{
+  items: readonly CommunityCommentModerationExplorerItem[];
+  sensitiveDetailsIncluded: boolean;
+  canViewSensitiveDetails: boolean;
+}>;
+
+const EXPLORER_ITEM_KEYS = new Set([
+  "id",
+  "publicCommentId",
+  "submissionId",
+  "action",
+  "fromObjectVersion",
+  "toObjectVersion",
+  "moderationVersion",
+  "actorDisplayName",
+  "actorRole",
+  "sourceTopic",
+  "sourceCaseId",
+  "sourceCaseLinkAvailable",
+  "createdAt",
+  "currentStatus",
+  "currentObjectVersion",
+  "currentModerationVersion",
+  "currentTextVersion",
+  "reviewedTextVersionState",
+  "reviewedTextVersion",
+  "reviewedText",
+  "internalReason",
+]);
+
+function positiveInteger(value: unknown): number | null {
+  return Number.isSafeInteger(value) && Number(value) > 0 ? Number(value) : null;
+}
+
+function nonNegativeInteger(value: unknown): number | null {
+  return Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : null;
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function parseExplorerItem(value: unknown): CommunityCommentModerationExplorerItem | null {
+  const item = record(value);
+  const itemKeys = Object.keys(item);
+  if (
+    itemKeys.length !== EXPLORER_ITEM_KEYS.size
+    || itemKeys.some((key) => !EXPLORER_ITEM_KEYS.has(key))
+  ) return null;
+  const id = positiveInteger(item.id);
+  const submissionId = positiveInteger(item.submissionId);
+  const fromObjectVersion = positiveInteger(item.fromObjectVersion);
+  const toObjectVersion = positiveInteger(item.toObjectVersion);
+  const moderationVersion = positiveInteger(item.moderationVersion);
+  const currentObjectVersion = positiveInteger(item.currentObjectVersion);
+  const currentModerationVersion = nonNegativeInteger(item.currentModerationVersion);
+  const currentTextVersion = positiveInteger(item.currentTextVersion);
+  const reviewedTextVersion = item.reviewedTextVersion === null
+    ? null
+    : positiveInteger(item.reviewedTextVersion);
+  if (
+    id === null || submissionId === null || fromObjectVersion === null
+    || toObjectVersion === null || moderationVersion === null
+    || currentObjectVersion === null || currentModerationVersion === null
+    || currentTextVersion === null
+    || typeof item.publicCommentId !== "string" || !UUID_PATTERN.test(item.publicCommentId)
+    || !["remove", "restore"].includes(String(item.action))
+    || typeof item.actorDisplayName !== "string"
+    || typeof item.actorRole !== "string"
+    || typeof item.createdAt !== "string" || Number.isNaN(Date.parse(item.createdAt))
+    || !["visible", "team_removed", "author_deleted"].includes(String(item.currentStatus))
+    || !["bound", "legacy_unproven"].includes(String(item.reviewedTextVersionState))
+    || typeof item.sourceCaseLinkAvailable !== "boolean"
+    || (item.reviewedTextVersion !== null && reviewedTextVersion === null)
+  ) return null;
+
+  if (
+    item.sourceTopic !== null
+    && !["comment_reports", "comment_spam"].includes(String(item.sourceTopic))
+  ) return null;
+  const sourceTopic = ["comment_reports", "comment_spam"].includes(String(item.sourceTopic))
+    ? item.sourceTopic as "comment_reports" | "comment_spam"
+    : null;
+  if (item.sourceCaseId !== null && (
+    typeof item.sourceCaseId !== "string" || !UUID_PATTERN.test(item.sourceCaseId)
+  )) return null;
+  const sourceCaseId = typeof item.sourceCaseId === "string" && UUID_PATTERN.test(item.sourceCaseId)
+    ? item.sourceCaseId
+    : null;
+  if (
+    (item.reviewedTextVersionState === "bound") !== (reviewedTextVersion !== null)
+    || (item.sourceCaseLinkAvailable && (!sourceTopic || !sourceCaseId))
+  ) return null;
+
+  return Object.freeze({
+    id,
+    publicCommentId: item.publicCommentId,
+    submissionId,
+    action: item.action as "remove" | "restore",
+    fromObjectVersion,
+    toObjectVersion,
+    moderationVersion,
+    actorDisplayName: item.actorDisplayName,
+    actorRole: item.actorRole,
+    sourceTopic,
+    sourceCaseId,
+    sourceCaseLinkAvailable: item.sourceCaseLinkAvailable,
+    createdAt: item.createdAt,
+    currentStatus: item.currentStatus as "visible" | "team_removed" | "author_deleted",
+    currentObjectVersion,
+    currentModerationVersion,
+    currentTextVersion,
+    reviewedTextVersionState: item.reviewedTextVersionState as "bound" | "legacy_unproven",
+    reviewedTextVersion,
+    reviewedText: nullableString(item.reviewedText),
+    internalReason: nullableString(item.internalReason),
+  });
 }
 
 async function rpc(functionName: string, parameters: object) {
@@ -157,6 +301,72 @@ export async function loadCommunityCommentModerationLog() {
     p_before_created_at: null,
     p_before_id: null,
     p_limit: 50,
+  });
+}
+
+export async function loadCommunityCommentModerationExplorer(input: Readonly<{
+  publicCommentId?: string | null;
+  submissionId?: number | null;
+  beforeCreatedAt?: string | null;
+  beforeId?: number | null;
+  includeSensitive?: boolean;
+}> = {}): Promise<CommunityCommentModerationExplorerResult> {
+  const publicCommentId = input.publicCommentId?.trim() || null;
+  const submissionId = input.submissionId ?? null;
+  const beforeCreatedAt = input.beforeCreatedAt ?? null;
+  const beforeId = input.beforeId ?? null;
+  const includeSensitive = input.includeSensitive === true;
+  if (
+    (publicCommentId !== null && !UUID_PATTERN.test(publicCommentId))
+    || (submissionId !== null && (!Number.isSafeInteger(submissionId) || submissionId < 1))
+    || ((beforeCreatedAt === null) !== (beforeId === null))
+    || (beforeCreatedAt !== null && Number.isNaN(Date.parse(beforeCreatedAt)))
+    || (beforeId !== null && (!Number.isSafeInteger(beforeId) || beforeId < 1))
+  ) throw new AuthError(400, "Invalid explorer filters", "COMMENT_MODERATION_EXPLORER_INVALID");
+
+  const context = await requireDynamicTeamCapability("logs.community_comment_moderation.view");
+  const canViewSensitiveDetails = hasResolvedTeamCapability(
+    context,
+    "logs.community_comment_moderation.details.view",
+  );
+  if (includeSensitive && !canViewSensitiveDetails) {
+    throw new AuthError(403, "Forbidden", "TEAM_CAPABILITY_DENIED");
+  }
+
+  const data = await rpc("get_community_comment_moderation_explorer", {
+    p_actor_discord_user_id: context.discord_user_id,
+    p_public_comment_id: publicCommentId,
+    p_submission_id: submissionId,
+    p_before_created_at: beforeCreatedAt,
+    p_before_id: beforeId,
+    p_limit: 50,
+    p_include_sensitive: includeSensitive,
+  });
+  if (
+    Object.keys(data).length !== 2
+    || !("items" in data)
+    || !("sensitiveDetailsIncluded" in data)
+    || !Array.isArray(data.items)
+    || typeof data.sensitiveDetailsIncluded !== "boolean"
+    || data.sensitiveDetailsIncluded !== includeSensitive
+  ) {
+    throw new AuthError(503, "Comment moderation history unavailable", "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  const items = data.items.map(parseExplorerItem).filter(
+    (item): item is CommunityCommentModerationExplorerItem => item !== null,
+  );
+  if (
+    items.length !== data.items.length
+    || (!includeSensitive && items.some(
+      (item) => item.reviewedText !== null || item.internalReason !== null,
+    ))
+  ) {
+    throw new AuthError(503, "Comment moderation history unavailable", "COMMENT_MODERATION_UNAVAILABLE");
+  }
+  return Object.freeze({
+    items: Object.freeze(items),
+    sensitiveDetailsIncluded: data.sensitiveDetailsIncluded === true && includeSensitive,
+    canViewSensitiveDetails,
   });
 }
 

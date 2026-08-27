@@ -449,10 +449,10 @@ export const TEAM_AREA_NAVIGATION: readonly TeamAreaNavigationCategory[] =
         }),
         item({
           id: "comment-moderation-logs",
-          title: "Comment Moderation Log",
+          title: "Comment Moderation Explorer",
           href: "/admin/logs/comment-moderation",
           categoryId: "logs",
-          description: "Review redacted append-only Comment moderation events.",
+          description: "Search grouped append-only Comment moderation history.",
           requirement: communityCommentModerationLogsView,
           implemented: true,
         }),
