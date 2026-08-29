@@ -151,19 +151,34 @@ export function CommunityFeedCard({
         submissionId={item.submissionId}
         cycleNumber={selectedCycleNumber}
       />
-      <CommunityFeedCardActions
-        submissionId={item.submissionId}
-        saved={saved}
-        savedStateKnown={savedStateKnown}
-        accountState={savedAccountState}
-        onSavedChange={onSavedChange}
-      />
       {feed !== "live" ? (
         <CommunityCommentThread
           submissionId={item.submissionId}
           turnstileSiteKey={turnstileSiteKey}
+          renderActionBar={(commentAction) => (
+            <CommunityFeedCardActions
+              submissionId={item.submissionId}
+              saved={saved}
+              savedStateKnown={savedStateKnown}
+              accountState={savedAccountState}
+              onSavedChange={onSavedChange}
+              feed={feed}
+              turnstileSiteKey={turnstileSiteKey}
+              commentAction={commentAction}
+            />
+          )}
         />
-      ) : null}
+      ) : (
+        <CommunityFeedCardActions
+          submissionId={item.submissionId}
+          saved={saved}
+          savedStateKnown={savedStateKnown}
+          accountState={savedAccountState}
+          onSavedChange={onSavedChange}
+          feed={feed}
+          turnstileSiteKey={turnstileSiteKey}
+        />
+      )}
     </article>
   );
 }

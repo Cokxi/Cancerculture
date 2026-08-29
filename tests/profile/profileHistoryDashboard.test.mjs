@@ -7,7 +7,8 @@ const source = (path) => readFile(new URL(path, root), "utf8");
 
 test("the Feed exposes native Share and Copy Link without app-specific targets", async () => {
   const actions = await source("app/spread/CommunityFeedCardActions.tsx");
-  assert.match(actions, /onClick=\{shareNative\}/u);
+  assert.match(actions, /void shareNative\(\)/u);
+  assert.match(actions, /Share…[\s\S]*Copy Link/u);
   assert.match(actions, />\s*Copy Link\s*</u);
   assert.doesNotMatch(
     actions,

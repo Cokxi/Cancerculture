@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import TurnstileWidget from "@/app/components/TurnstileWidget";
 import {
   SUBMISSION_REPORT_COMMENT_MAX_LENGTH,
@@ -66,6 +66,7 @@ export default function SubmissionReportPanel({
   surface,
   reportingOpen,
   turnstileSiteKey,
+  presentation = "default",
 }: {
   isAuthenticated: boolean;
   loginReturnPath: string;
@@ -73,8 +74,10 @@ export default function SubmissionReportPanel({
   surface: SubmissionReportSurface;
   reportingOpen: boolean;
   turnstileSiteKey: string | null;
+  presentation?: "default" | "feed_action";
 }) {
   const reasons = SUBMISSION_REPORT_REASONS_BY_SURFACE[surface];
+  const reportPanelId = useId();
   const [expanded, setExpanded] = useState(false);
   const [eligibility, setEligibility] = useState<Eligibility | null>(null);
   const [eligibilityError, setEligibilityError] = useState<string | null>(null);
@@ -250,16 +253,63 @@ export default function SubmissionReportPanel({
   const reportingClosed =
     !reportingOpen ||
     eligibility?.blockedReason === POST_VOTING_REPORT_BLOCK_REASON;
+  const feedAction = presentation === "feed_action";
+  const reportTrigger = (
+    <button
+      type="button"
+      aria-controls={reportPanelId}
+      aria-expanded={expanded}
+      aria-label={feedAction ? "Report submission" : undefined}
+      onClick={() => {
+        if (expanded) {
+          setExpanded(false);
+          return;
+        }
+        setExpanded(true);
+        if (isAuthenticated && !eligibility) void loadEligibility();
+      }}
+      className={
+        feedAction
+          ? "inline-flex h-11 w-full min-w-0 cursor-pointer items-center justify-center gap-1 rounded-full border border-red-300/30 bg-red-500/10 px-1 text-xs font-semibold text-red-100 transition hover:border-red-300/50 hover:bg-red-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
+          : "cursor-pointer rounded-full border border-red-300/30 bg-red-500/10 px-4 py-2 text-sm text-red-200 transition hover:bg-red-500/20"
+      }
+    >
+      {feedAction ? (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="hidden h-4 w-4 fill-none stroke-current sm:block"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M5 21V4" />
+          <path d="M5 5h11l-2 4 2 4H5" />
+        </svg>
+      ) : null}
+      <span>
+        {feedAction ? "Report" : "Report submission"}
+      </span>
+    </button>
+  );
 
   if (reportingClosed && step !== "success") {
-    return (
+    const closedStatus = (
       <p role="status" className="text-sm text-white/65">
         {POST_VOTING_REPORT_CLOSED_TEXT}
       </p>
     );
+    return feedAction ? (
+      <div className="contents">
+        {reportTrigger}
+        <div id={reportPanelId} className="col-span-full rounded-xl border border-white/10 bg-white/[0.04] p-4">
+          {closedStatus}
+        </div>
+      </div>
+    ) : closedStatus;
   }
 
-  if (!isAuthenticated) {
+  if (!expanded && !isAuthenticated && !feedAction) {
     return (
       <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm">
         <a
@@ -273,24 +323,30 @@ export default function SubmissionReportPanel({
   }
 
   if (!expanded) {
+    return reportTrigger;
+  }
+
+  if (!isAuthenticated) {
     return (
-      <button
-        type="button"
-        onClick={() => {
-          setExpanded(true);
-          if (!eligibility) void loadEligibility();
-        }}
-        className="cursor-pointer rounded-full border border-red-300/30 bg-red-500/10 px-4 py-2 text-sm text-red-200 transition hover:bg-red-500/20"
-      >
-        Report submission
-      </button>
+      <div className="contents">
+        {reportTrigger}
+        <div id={reportPanelId} className="col-span-full rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm">
+          <a
+            href={`/api/auth/discord/login?state=${encodeURIComponent(loginReturnPath)}`}
+            className="cursor-pointer text-orange-300 underline underline-offset-4"
+          >
+            Log in with Discord to report this submission
+          </a>
+        </div>
+      </div>
     );
   }
 
-  return (
+  const expandedPanel = (
     <section
+      id={reportPanelId}
       aria-labelledby={`submission-report-${submissionId}`}
-      className="rounded-xl border border-red-300/20 bg-red-500/[0.07] p-4"
+      className={`${feedAction ? "col-span-full" : ""} rounded-xl border border-red-300/20 bg-red-500/[0.07] p-4`}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -544,4 +600,11 @@ export default function SubmissionReportPanel({
       ) : null}
     </section>
   );
+
+  return feedAction ? (
+    <div className="contents">
+      {reportTrigger}
+      {expandedPanel}
+    </div>
+  ) : expandedPanel;
 }

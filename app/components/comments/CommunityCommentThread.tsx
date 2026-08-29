@@ -726,12 +726,17 @@ export default function CommunityCommentThread({
   submissionId,
   turnstileSiteKey,
   defaultOpen = false,
+  renderActionBar,
 }: {
   submissionId: number;
   turnstileSiteKey: string | null;
   defaultOpen?: boolean;
+  renderActionBar?: (
+    commentAction: React.ReactNode | null,
+  ) => React.ReactNode;
 }) {
   const pathname = usePathname();
+  const disclosurePanelId = useId();
   const [releaseState, setReleaseState] = useState<CommunityCommentReleaseState | null>(null);
   const [hidden, setHidden] = useState(false);
   const [open, setOpen] = useState(defaultOpen);
@@ -1614,7 +1619,55 @@ export default function CommunityCommentThread({
     }
   }
 
-  if (hidden || (!releaseState && !error)) return null;
+  const commentAction = hidden ? null : (
+    <button
+      type="button"
+      aria-controls={disclosurePanelId}
+      aria-expanded={open}
+      aria-label={totalCount === null ? "Comments" : `Comments, ${totalCount} total`}
+      onClick={() => {
+        suppressDisclosureScrollAnchoring();
+        setOpen((current) => !current);
+      }}
+      className="relative inline-flex h-11 w-full min-w-0 cursor-pointer items-center justify-center gap-1 rounded-full border border-orange-500/35 px-1 text-xs font-semibold text-orange-100 transition hover:border-orange-400/70 hover:bg-orange-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 sm:w-auto sm:gap-2 sm:px-4 sm:text-sm"
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="hidden h-4 w-4 fill-none stroke-current sm:block"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+      </svg>
+      <span>Comments</span>
+      {totalCount !== null ? (
+        <span
+          aria-label={`${totalCount} total ${totalCount === 1 ? "comment" : "comments"}`}
+          className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border border-orange-300/30 bg-neutral-950 px-1 py-0.5 text-[0.65rem] font-bold leading-none tabular-nums text-orange-100 sm:static sm:min-w-6 sm:bg-orange-500/10 sm:px-1.5 sm:text-xs"
+        >
+          {totalCount}
+        </span>
+      ) : null}
+      <span aria-hidden="true" className="hidden text-orange-200 sm:inline">
+        {open ? "−" : "+"}
+      </span>
+    </button>
+  );
+  const actionBar = renderActionBar?.(commentAction) ?? null;
+
+  if (hidden || (!releaseState && !error)) {
+    return renderActionBar ? (
+      <section
+        ref={sectionRef}
+        className="min-w-0 bg-neutral-950/70"
+      >
+        {actionBar}
+        {commentAction ? <div id={disclosurePanelId} hidden /> : null}
+      </section>
+    ) : null;
+  }
   const visibleReleaseState = releaseState ?? "read_only";
   const ownNewBranch = ownNewRoot
     ? branches[ownNewRoot.publicCommentId] ?? initialBranch(ownNewRoot)
@@ -1628,23 +1681,28 @@ export default function CommunityCommentThread({
     };
 
   return (
-    <section ref={sectionRef} data-comment-thread data-comment-submission-id={submissionId} className="min-w-0 border-t border-orange-500/20 bg-neutral-950/70 [&_a]:cursor-pointer [&_button:not(:disabled)]:cursor-pointer">
+    <section ref={sectionRef} data-comment-thread data-comment-submission-id={submissionId} className={`min-w-0 bg-neutral-950/70 [&_a]:cursor-pointer [&_button:not(:disabled)]:cursor-pointer ${renderActionBar ? "" : "border-t border-orange-500/20"}`}>
+      {actionBar}
       <details open={open} onToggle={handleDisclosureToggle}>
-        <summary onClick={suppressDisclosureScrollAnchoring} className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400 sm:px-5">
-          <span className="flex items-center gap-2">
-            <span>Comments</span>
-            {totalCount !== null ? (
-              <span
-                aria-label={`${totalCount} total ${totalCount === 1 ? "comment" : "comments"}`}
-                className="inline-flex min-w-6 items-center justify-center rounded-full border border-orange-300/30 bg-orange-500/10 px-1.5 py-0.5 text-xs font-bold tabular-nums text-orange-100"
-              >
-                {totalCount}
-              </span>
-            ) : null}
-          </span>
-          <span aria-hidden="true" className="text-orange-200">{open ? "−" : "+"}</span>
-        </summary>
-        <div className="border-t border-white/10 px-3 py-4 sm:px-5 sm:py-5">
+        {renderActionBar ? (
+          <summary hidden>Comments</summary>
+        ) : (
+          <summary onClick={suppressDisclosureScrollAnchoring} className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400 sm:px-5">
+            <span className="flex items-center gap-2">
+              <span>Comments</span>
+              {totalCount !== null ? (
+                <span
+                  aria-label={`${totalCount} total ${totalCount === 1 ? "comment" : "comments"}`}
+                  className="inline-flex min-w-6 items-center justify-center rounded-full border border-orange-300/30 bg-orange-500/10 px-1.5 py-0.5 text-xs font-bold tabular-nums text-orange-100"
+                >
+                  {totalCount}
+                </span>
+              ) : null}
+            </span>
+            <span aria-hidden="true" className="text-orange-200">{open ? "−" : "+"}</span>
+          </summary>
+        )}
+        <div id={disclosurePanelId} className="border-t border-white/10 px-3 py-4 sm:px-5 sm:py-5">
           {error && !page ? (
             <div className="rounded-xl border border-red-400/25 bg-red-950/20 p-4 text-sm text-red-100" role="alert">
               <p>{error}</p>
