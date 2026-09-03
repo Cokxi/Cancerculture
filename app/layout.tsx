@@ -27,14 +27,24 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "https://cdn.cancerculture.fun/png/CC%20icon%20V2%20transparent.png",
-        sizes: "512x512",
+        url: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-browser-v3-16.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-browser-v3-32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+      {
+        url: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-browser-v3-48.png",
+        sizes: "48x48",
         type: "image/png",
       },
     ],
     apple: [
       {
-        url: "https://cdn.cancerculture.fun/png/CC%20icon%20v2%20black.png",
+        url: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-pwa-maskable-v4-512.png",
         sizes: "512x512",
         type: "image/png",
       },

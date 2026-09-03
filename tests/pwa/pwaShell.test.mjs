@@ -22,11 +22,11 @@ test("PWA manifest and metadata expose a stable standalone install identity", as
   assert.match(manifest, /display: "standalone"/u);
   assert.match(manifest, /background_color: "#0b0b0b"/u);
   assert.match(manifest, /theme_color: "#ff5a1f"/u);
-  assert.doesNotMatch(manifest, /\/icons\/|cc-v5|cc-v1-maskable/u);
+  assert.doesNotMatch(manifest, /\/icons\/|cc-v5|cc-v1-maskable|CC%20icon%20/u);
   assert.doesNotMatch(manifest, /prefer_related_applications|screenshots|shortcuts/u);
 
   assert.match(layout, /manifest: "\/manifest\.webmanifest"/u);
-  assert.doesNotMatch(layout, /\/icons\/|cc-v5/u);
+  assert.doesNotMatch(layout, /\/icons\/|cc-v5|CC%20icon%20/u);
   assert.match(layout, /themeColor: "#ff5a1f"/u);
   assert.equal(layout.match(/<PwaShell \/>/gu)?.length, 1);
 });
@@ -36,13 +36,19 @@ test("manifest uses the exact CDN PNGs with separate any and maskable purposes",
   // asset acceptance and release, not downloaded during every test run.
   assert.deepEqual(getManifest().icons, [
     {
-      src: "https://cdn.cancerculture.fun/png/CC%20icon%20V2%20transparent.png",
+      src: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-browser-v3-192.png",
+      sizes: "192x192",
+      type: "image/png",
+      purpose: "any",
+    },
+    {
+      src: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-browser-v3-512.png",
       sizes: "512x512",
       type: "image/png",
       purpose: "any",
     },
     {
-      src: "https://cdn.cancerculture.fun/png/CC%20icon%20v2%20black.png",
+      src: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-pwa-maskable-v4-512.png",
       sizes: "512x512",
       type: "image/png",
       purpose: "maskable",
@@ -50,10 +56,18 @@ test("manifest uses the exact CDN PNGs with separate any and maskable purposes",
   ]);
 });
 
-test("browser uses transparent CDN artwork and Apple uses opaque CDN artwork", async () => {
+test("browser uses size-specific transparent CDN artwork and Apple uses opaque CDN artwork", async () => {
   const layout = await readRepoFile("app/layout.tsx");
-  assert.match(layout, /icon: \[\s+\{\s+url: "https:\/\/cdn\.cancerculture\.fun\/png\/CC%20icon%20V2%20transparent\.png",\s+sizes: "512x512",\s+type: "image\/png"/u);
-  assert.match(layout, /apple: \[\s+\{\s+url: "https:\/\/cdn\.cancerculture\.fun\/png\/CC%20icon%20v2%20black\.png",\s+sizes: "512x512",\s+type: "image\/png"/u);
+  const browserIcons = layout.match(/icon: \[([\s\S]*?)\]/u)?.[1];
+  assert.ok(browserIcons);
+  assert.equal(browserIcons.match(/url:/gu)?.length, 3);
+  for (const size of [16, 32, 48]) {
+    assert.match(browserIcons, new RegExp(
+      `url: "https://cdn\\.cancerculture\\.fun/png/cc-icons-frameless-v4/cc-browser-v3-${size}\\.png",\\s+sizes: "${size}x${size}",\\s+type: "image/png"`,
+      "u"
+    ));
+  }
+  assert.match(layout, /apple: \[\s+\{\s+url: "https:\/\/cdn\.cancerculture\.fun\/png\/cc-icons-frameless-v4\/cc-pwa-maskable-v4-512\.png",\s+sizes: "512x512",\s+type: "image\/png"/u);
   await assert.rejects(readFile(new URL("app/favicon.ico", root)), { code: "ENOENT" });
 });
 
