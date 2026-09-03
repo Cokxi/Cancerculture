@@ -25,7 +25,9 @@ test("PWA manifest and metadata expose a stable standalone install identity", as
   assert.match(manifest, /theme_color: "#ff5a1f"/u);
   assert.match(manifest, /pwa-icon-192\.png/u);
   assert.match(manifest, /pwa-icon-512\.png/u);
-  assert.doesNotMatch(manifest, /maskable/u);
+  assert.match(manifest, /src: "\/icons\/pwa-icon-maskable-512\.png\?v=cc-v1-maskable-1",\s+sizes: "512x512",\s+type: "image\/png",\s+purpose: "maskable"/u);
+  assert.equal(manifest.match(/purpose: "any"/gu)?.length, 2);
+  assert.equal(manifest.match(/purpose: "maskable"/gu)?.length, 1);
   assert.equal(manifest.match(/\?v=cc-v5/gu)?.length, 2);
   assert.doesNotMatch(manifest, /prefer_related_applications|screenshots|shortcuts/u);
 
@@ -57,8 +59,28 @@ test("PNG icons preserve real transparency and provide the required install size
     assert.equal(stats.channels[3].max, 255, `${path} must retain opaque artwork`);
   }
 
-  for (const obsolete of ["app/favicon.ico", "public/icons/pwa-icon-maskable-512.png", "public/icons/pwa-icon.svg"]) {
+  for (const obsolete of ["app/favicon.ico", "public/icons/pwa-icon.svg"]) {
     await assert.rejects(readFile(new URL(obsolete, root)), { code: "ENOENT" });
+  }
+});
+
+test("dedicated maskable PNG fills the Android mask with an opaque dark background", async () => {
+  const icon = fileURLToPath(new URL("public/icons/pwa-icon-maskable-512.png", root));
+  const metadata = await sharp(icon).metadata();
+  assert.equal(metadata.format, "png");
+  assert.equal(metadata.width, 512);
+  assert.equal(metadata.height, 512);
+  assert.equal((await sharp(icon).stats()).isOpaque, true);
+
+  // Padding is artwork-specific. Keep it dark instead of leaving transparent
+  // margins that the launcher could composite against a white background.
+  for (const [left, top, width, height] of [
+    [0, 0, 512, 32], [0, 480, 512, 32],
+    [0, 32, 32, 448], [480, 32, 32, 448],
+  ]) {
+    const region = await sharp(icon).extract({ left, top, width, height }).toBuffer();
+    const stats = await sharp(region).stats();
+    for (const channel of stats.channels.slice(0, 3)) assert.equal(channel.max, 0);
   }
 });
 
