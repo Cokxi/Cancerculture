@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 import { Script } from "node:vm";
-import sharp from "sharp";
+import getManifest from "../../app/manifest.ts";
 import { GET as getServiceWorker } from "../../app/sw.js/route.ts";
 
 const root = new URL("../../", import.meta.url);
@@ -23,65 +22,39 @@ test("PWA manifest and metadata expose a stable standalone install identity", as
   assert.match(manifest, /display: "standalone"/u);
   assert.match(manifest, /background_color: "#0b0b0b"/u);
   assert.match(manifest, /theme_color: "#ff5a1f"/u);
-  assert.match(manifest, /pwa-icon-192\.png/u);
-  assert.match(manifest, /pwa-icon-512\.png/u);
-  assert.match(manifest, /src: "\/icons\/pwa-icon-maskable-512\.png\?v=cc-v1-maskable-1",\s+sizes: "512x512",\s+type: "image\/png",\s+purpose: "maskable"/u);
-  assert.equal(manifest.match(/purpose: "any"/gu)?.length, 2);
-  assert.equal(manifest.match(/purpose: "maskable"/gu)?.length, 1);
-  assert.equal(manifest.match(/\?v=cc-v5/gu)?.length, 2);
+  assert.doesNotMatch(manifest, /\/icons\/|cc-v5|cc-v1-maskable/u);
   assert.doesNotMatch(manifest, /prefer_related_applications|screenshots|shortcuts/u);
 
   assert.match(layout, /manifest: "\/manifest\.webmanifest"/u);
-  assert.match(layout, /pwa-icon-192\.png/u);
-  assert.match(layout, /apple-touch-icon\.png/u);
-  assert.doesNotMatch(layout, /pwa-icon\.svg/u);
-  assert.equal(layout.match(/\?v=cc-v5/gu)?.length, 2);
+  assert.doesNotMatch(layout, /\/icons\/|cc-v5/u);
   assert.match(layout, /themeColor: "#ff5a1f"/u);
   assert.equal(layout.match(/<PwaShell \/>/gu)?.length, 1);
 });
 
-test("PNG icons preserve real transparency and provide the required install sizes", async () => {
-  const icons = [
-    ["public/icons/pwa-icon-192.png", 192],
-    ["public/icons/pwa-icon-512.png", 512],
-    ["public/icons/apple-touch-icon.png", 180],
-  ];
-
-  for (const [path, size] of icons) {
-    const metadata = await sharp(fileURLToPath(new URL(path, root))).metadata();
-    assert.equal(metadata.format, "png", path);
-    assert.equal(metadata.width, size, path);
-    assert.equal(metadata.height, size, path);
-    assert.equal(metadata.hasAlpha, true, `${path} must retain alpha`);
-    const stats = await sharp(fileURLToPath(new URL(path, root))).stats();
-    assert.equal(stats.isOpaque, false, `${path} must contain transparent pixels`);
-    assert.equal(stats.channels[3].min, 0, `${path} must retain fully transparent pixels`);
-    assert.equal(stats.channels[3].max, 255, `${path} must retain opaque artwork`);
-  }
-
-  for (const obsolete of ["app/favicon.ico", "public/icons/pwa-icon.svg"]) {
-    await assert.rejects(readFile(new URL(obsolete, root)), { code: "ENOENT" });
-  }
+test("manifest uses the exact CDN PNGs with separate any and maskable purposes", () => {
+  // Keep ordinary tests offline. Actual CDN dimensions/alpha are checked at
+  // asset acceptance and release, not downloaded during every test run.
+  assert.deepEqual(getManifest().icons, [
+    {
+      src: "https://cdn.cancerculture.fun/png/CC%20icon%20V2%20transparent.png",
+      sizes: "512x512",
+      type: "image/png",
+      purpose: "any",
+    },
+    {
+      src: "https://cdn.cancerculture.fun/png/CC%20icon%20v2%20black.png",
+      sizes: "512x512",
+      type: "image/png",
+      purpose: "maskable",
+    },
+  ]);
 });
 
-test("dedicated maskable PNG fills the Android mask with an opaque dark background", async () => {
-  const icon = fileURLToPath(new URL("public/icons/pwa-icon-maskable-512.png", root));
-  const metadata = await sharp(icon).metadata();
-  assert.equal(metadata.format, "png");
-  assert.equal(metadata.width, 512);
-  assert.equal(metadata.height, 512);
-  assert.equal((await sharp(icon).stats()).isOpaque, true);
-
-  // Padding is artwork-specific. Keep it dark instead of leaving transparent
-  // margins that the launcher could composite against a white background.
-  for (const [left, top, width, height] of [
-    [0, 0, 512, 32], [0, 480, 512, 32],
-    [0, 32, 32, 448], [480, 32, 32, 448],
-  ]) {
-    const region = await sharp(icon).extract({ left, top, width, height }).toBuffer();
-    const stats = await sharp(region).stats();
-    for (const channel of stats.channels.slice(0, 3)) assert.equal(channel.max, 0);
-  }
+test("browser uses transparent CDN artwork and Apple uses opaque CDN artwork", async () => {
+  const layout = await readRepoFile("app/layout.tsx");
+  assert.match(layout, /icon: \[\s+\{\s+url: "https:\/\/cdn\.cancerculture\.fun\/png\/CC%20icon%20V2%20transparent\.png",\s+sizes: "512x512",\s+type: "image\/png"/u);
+  assert.match(layout, /apple: \[\s+\{\s+url: "https:\/\/cdn\.cancerculture\.fun\/png\/CC%20icon%20v2%20black\.png",\s+sizes: "512x512",\s+type: "image\/png"/u);
+  await assert.rejects(readFile(new URL("app/favicon.ico", root)), { code: "ENOENT" });
 });
 
 test("install presentation is mobile-only, truthful, and disappears in standalone mode", async () => {

@@ -14,19 +14,13 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["entertainment", "social"],
     icons: [
       {
-        src: "/icons/pwa-icon-192.png?v=cc-v5",
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: "/icons/pwa-icon-512.png?v=cc-v5",
+        src: "https://cdn.cancerculture.fun/png/CC%20icon%20V2%20transparent.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/pwa-icon-maskable-512.png?v=cc-v1-maskable-1",
+        src: "https://cdn.cancerculture.fun/png/CC%20icon%20v2%20black.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
