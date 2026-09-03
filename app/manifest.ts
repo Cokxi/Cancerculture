@@ -14,22 +14,16 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["entertainment", "social"],
     icons: [
       {
-        src: "/icons/pwa-icon-192.png",
+        src: "/icons/pwa-icon-192.png?v=cc-v5",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/pwa-icon-512.png",
+        src: "/icons/pwa-icon-512.png?v=cc-v5",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
-      },
-      {
-        src: "/icons/pwa-icon-maskable-512.png",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "maskable",
       },
     ],
   };

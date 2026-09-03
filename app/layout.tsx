@@ -25,8 +25,14 @@ export const metadata: Metadata = {
   applicationName: "CancerCulture",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/icons/pwa-icon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+    icon: [
+      {
+        url: "/icons/pwa-icon-192.png?v=cc-v5",
+        sizes: "192x192",
+        type: "image/png",
+      },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png?v=cc-v5", sizes: "180x180" }],
   },
 };
 

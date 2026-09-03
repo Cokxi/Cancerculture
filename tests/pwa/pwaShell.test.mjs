@@ -25,21 +25,23 @@ test("PWA manifest and metadata expose a stable standalone install identity", as
   assert.match(manifest, /theme_color: "#ff5a1f"/u);
   assert.match(manifest, /pwa-icon-192\.png/u);
   assert.match(manifest, /pwa-icon-512\.png/u);
-  assert.match(manifest, /pwa-icon-maskable-512\.png/u);
-  assert.match(manifest, /purpose: "maskable"/u);
+  assert.doesNotMatch(manifest, /maskable/u);
+  assert.equal(manifest.match(/\?v=cc-v5/gu)?.length, 2);
   assert.doesNotMatch(manifest, /prefer_related_applications|screenshots|shortcuts/u);
 
   assert.match(layout, /manifest: "\/manifest\.webmanifest"/u);
+  assert.match(layout, /pwa-icon-192\.png/u);
   assert.match(layout, /apple-touch-icon\.png/u);
+  assert.doesNotMatch(layout, /pwa-icon\.svg/u);
+  assert.equal(layout.match(/\?v=cc-v5/gu)?.length, 2);
   assert.match(layout, /themeColor: "#ff5a1f"/u);
   assert.equal(layout.match(/<PwaShell \/>/gu)?.length, 1);
 });
 
-test("PWA icons are opaque and provide the required install sizes", async () => {
+test("PNG icons preserve real transparency and provide the required install sizes", async () => {
   const icons = [
     ["public/icons/pwa-icon-192.png", 192],
     ["public/icons/pwa-icon-512.png", 512],
-    ["public/icons/pwa-icon-maskable-512.png", 512],
     ["public/icons/apple-touch-icon.png", 180],
   ];
 
@@ -48,7 +50,15 @@ test("PWA icons are opaque and provide the required install sizes", async () => 
     assert.equal(metadata.format, "png", path);
     assert.equal(metadata.width, size, path);
     assert.equal(metadata.height, size, path);
-    assert.equal(metadata.hasAlpha, false, `${path} must be opaque`);
+    assert.equal(metadata.hasAlpha, true, `${path} must retain alpha`);
+    const stats = await sharp(fileURLToPath(new URL(path, root))).stats();
+    assert.equal(stats.isOpaque, false, `${path} must contain transparent pixels`);
+    assert.equal(stats.channels[3].min, 0, `${path} must retain fully transparent pixels`);
+    assert.equal(stats.channels[3].max, 255, `${path} must retain opaque artwork`);
+  }
+
+  for (const obsolete of ["app/favicon.ico", "public/icons/pwa-icon-maskable-512.png", "public/icons/pwa-icon.svg"]) {
+    await assert.rejects(readFile(new URL(obsolete, root)), { code: "ENOENT" });
   }
 });
 
