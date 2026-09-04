@@ -26,7 +26,7 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-pwa-maskable-v4-512.png",
+        src: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/download.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

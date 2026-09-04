@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     ],
     apple: [
       {
-        url: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-pwa-maskable-v4-512.png",
+        url: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/download.png",
         sizes: "512x512",
         type: "image/png",
       },

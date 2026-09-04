@@ -48,7 +48,7 @@ test("manifest uses the exact CDN PNGs with separate any and maskable purposes",
       purpose: "any",
     },
     {
-      src: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/cc-pwa-maskable-v4-512.png",
+      src: "https://cdn.cancerculture.fun/png/cc-icons-frameless-v4/download.png",
       sizes: "512x512",
       type: "image/png",
       purpose: "maskable",
@@ -67,7 +67,7 @@ test("browser uses size-specific transparent CDN artwork and Apple uses opaque C
       "u"
     ));
   }
-  assert.match(layout, /apple: \[\s+\{\s+url: "https:\/\/cdn\.cancerculture\.fun\/png\/cc-icons-frameless-v4\/cc-pwa-maskable-v4-512\.png",\s+sizes: "512x512",\s+type: "image\/png"/u);
+  assert.match(layout, /apple: \[\s+\{\s+url: "https:\/\/cdn\.cancerculture\.fun\/png\/cc-icons-frameless-v4\/download\.png",\s+sizes: "512x512",\s+type: "image\/png"/u);
   await assert.rejects(readFile(new URL("app/favicon.ico", root)), { code: "ENOENT" });
 });
 
